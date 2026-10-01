@@ -1,0 +1,19 @@
+{
+  "name": "HisabKitab 360 - হিসাবকিতাব ৩৬০",
+  "short_name": "HisabKitab 360",
+  "description": "স্মার্ট বিজনেস ইআরপি, পিওএস বিলিং ও হিসাব খাতা সফটওয়্যার",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"]
+}

@@ -1,0 +1,187 @@
+================================================================================
+     গুগল ড্রাইভ (GOOGLE DRIVE) অটো-ব্যাকআপ মাস্টার গাইড (A to Z)
+     ভবিষ্যতের যেকোনো ওয়েব ও সফটওয়্যার অ্যাপের জন্য ১০০% ফ্রি ও স্থায়ী গাইড
+================================================================================
+
+এই ফাইলে গুগল ড্রাইভে ডাটা ব্যাকআপ নেওয়ার ২টি সেরা এবং ১০০% ফ্রি পদ্ধতি
+খুবই সহজ ভাষায় ধাপে ধাপে বুঝিয়ে দেওয়া হলো।
+
+--------------------------------------------------------------------------------
+সূচিপত্র:
+১. পদ্ধতি ১: Google Cloud Console (OAuth 2.0 Client ID) - ১-ক্লিক পারমিশন পদ্ধতি
+২. পদ্ধতি ২: Google Apps Script (Webhook) - কোনো কনসোল ছাড়া স্ক্রিপ্ট পদ্ধতি
+৩. সাধারণ সমস্যা ও তার তাৎক্ষণিক সমাধান (Troubleshooting)
+৪. যেকোনো প্রজেক্টে ব্যবহারের জন্য তৈরি করা রেডি কোড
+--------------------------------------------------------------------------------
+
+
+================================================================================
+পদ্ধতি ১: GOOGLE CLOUD CONSOLE (OAUTH 2.0 CLIENT ID)
+[ব্যবহারকারী শুধু "Connect" বাটনে চাপবে, গুগল পপআপ আসবে এবং ১-ক্লিকে ড্রাইভে সেভ হবে]
+================================================================================
+
+ধাপ ১: গুগল ক্লাউড কনসোলে যাওয়া ও প্রজেক্ট তৈরি
+১. যেকোনো ব্রাউজারে যান: https://console.cloud.google.com
+২. আপনার সাধারণ জিমেইল দিয়ে লগইন করুন (কোনো ক্রেডিট কার্ড লাগবে না)।
+৩. উপরে বাম পাশে প্রজেক্ট ড্রপডাউনে ক্লিক করে "NEW PROJECT" বাটনে ক্লিক করুন।
+৪. "Project Name" ঘরে যেকোনো নাম লিখুন (যেমন: My-Drive-Backup-App)।
+৫. "CREATE" বাটনে ক্লিক করুন এবং কয়েক সেকেন্ড অপেক্ষা করুন।
+
+ধাপ ২: Google Drive API চালু (Enable) করা
+১. বাম পাশের ৩টি দাগ মেনু (Navigation Menu) থেকে "APIs & Services" ➔ "Enabled APIs & Services"-এ যান।
+২. পেজের উপরে থাকা "+ ENABLE APIS AND SERVICES" বাটনে ক্লিক করুন।
+৩. সার্চ বক্সে টাইপ করুন: Google Drive API
+৪. সার্চ রেজাল্ট থেকে "Google Drive API"-তে ক্লিক করে নীল রঙের "ENABLE" বাটনে চাপুন।
+
+ধাপ ৩: OAuth Consent Screen (অনুমতি স্ক্রিন) তৈরি
+১. বাম মেনু থেকে "APIs & Services" ➔ "OAuth consent screen" (অথবা Audience)-এ ক্লিক করুন।
+২. "User Type" হিসেবে সিলেক্ট করুন: "External" (কারণ এটি সাধারণ জিমেইলের জন্য ফ্রি)।
+৩. "CREATE" বাটনে চাপুন।
+৪. এবার ফর্মে ৩টি তথ্য দিন:
+   - App name: আপনার অ্যাপের নাম (যেমন: HisabKitab 360)
+   - User support email: আপনার জিমেইল সিলেক্ট করুন।
+   - Developer contact information (ইমেইল): আপনার জিমেইল লিখে দিন।
+৫. নিচে "SAVE AND CONTINUE" বাটনে চাপুন।
+৬. "Scopes" ধাপে সরাসরি নিচে স্ক্রোল করে "SAVE AND CONTINUE" চাপুন।
+   (অথবা Add Scope থেকে ../auth/drive.file সিলেক্ট করতে পারেন)
+৭. *** অতীব গুরুত্বপূর্ণ ধাপ: "Test users" ***
+   - "+ ADD USERS" বাটনে ক্লিক করুন।
+   - যে জিমেইল অ্যাকাউন্টটি দিয়ে আপনি লগইন বা ব্যাকআপ টেস্ট করবেন, সেই জিমেইলটি লিখে "ADD / SAVE" করুন।
+   - (টিপস: আপনি চাইলে পরে "Publish App" বাটন চেপে সবার জন্য উন্মুক্ত করতে পারেন)।
+৮. "SAVE AND CONTINUE" চেপে এই ধাপ সম্পন্ন করুন।
+
+ধাপ ৪: OAuth Client ID তৈরি ও সংগ্রহ করা
+১. বাম পাশের মেনু থেকে "Credentials" (চাবির আইকন 🔑)-এ যান।
+২. উপরে থাকা "+ CREATE CREDENTIALS" বাটনে ক্লিক করুন।
+৩. ড্রপডাউন থেকে সিলেক্ট করুন: "OAuth client ID"
+৪. "Application type" ড্রপডাউন থেকে সিলেক্ট করুন: "Web application"
+৫. "Name" ঘরে লিখুন: Web Client (বা যেকোনো নাম)
+৬. নিচে স্ক্রোল করে "Authorized JavaScript origins" সেকশনে যান:
+   - "+ ADD URI" বাটনে ক্লিক করুন।
+   - লোকাল কম্পিউটারের জন্য লিখুন: http://localhost:5173
+   - (ভবিষ্যতে Vercel বা লাইভ সাইটে বসালে সেখানে আরেকটা + ADD URI দিয়ে আপনার সাইটের লিঙ্ক যেমন: https://yourapp.vercel.app লিখে দিতে হবে)।
+৭. নিচে নীল রঙের "CREATE" বাটনে ক্লিক করুন।
+৮. স্ক্রিনে একটি পপআপ আসবে: "OAuth client created"।
+   সেখানে আপনি পাবেন আপনার "Client ID" (যেমন: 123456789-abcdef.apps.googleusercontent.com)।
+   - পাশে থাকা কপি বাটনে ক্লিক করে Client ID সংরক্ষণ করুন।
+
+
+================================================================================
+পদ্ধতি ১ অ্যাপের কোডে যেভাবে ব্যবহার করবেন:
+================================================================================
+
+(ক) আপনার HTML ফাইলের <head> ট্যাগে এই স্ক্রিপ্টটি যুক্ত করুন:
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+(খ) জাভাস্ক্রিপ্টে লগইন ও পারমিশন নেওয়ার কোড:
+--------------------------------------------------------------------------------
+const client = window.google.accounts.oauth2.initTokenClient({
+  client_id: "আপনার_CLIENT_ID_এখানে_দিন",
+  scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+  prompt: "select_account", // যাতে প্রতিবার জিমেইল পছন্দ করা যায়
+  callback: (response) => {
+    if (response.access_token) {
+      console.log("কানেক্ট সফল! টোকেন:", response.access_token);
+      // এই টোকেন দিয়ে সরাসরি গুগলে ফাইল আপলোড করবেন
+    }
+  }
+});
+
+// বাটন ক্লিকে কল করবেন:
+client.requestAccessToken({ prompt: 'select_account' });
+--------------------------------------------------------------------------------
+
+(গ) ড্রাইভ REST API দিয়ে ব্যাকআপ ফাইল আপলোড করার নিয়ম:
+- URL: POST https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart
+- Headers:
+    Authorization: Bearer <access_token>
+    Content-Type: multipart/related; boundary=foo_bar_baz
+- এতে স্বয়ংক্রিয়ভাবে ব্যবহারকারীর ড্রাইভে "HisabKitab-360-Backups" ফোল্ডারে .json ফাইল সেভ হবে।
+
+
+
+================================================================================
+পদ্ধতি ২: GOOGLE APPS SCRIPT (WEBHOOK)
+[সম্পূর্ণ কনসোল ছাড়া, কোনো ক্রেডিট কার্ড ছাড়া, মাত্র ১ মিনিটের সহজ পদ্ধতি]
+================================================================================
+
+ধাপ ১: Google Apps Script তৈরি করা
+১. ব্রাউজারে যান: https://script.google.com
+২. আপনার সাধারণ জিমেইল লগইন থাকা অবস্থায় বাম পাশের "+ New project" এ ক্লিক করুন।
+৩. এডিটরের ডিফল্ট কোড সম্পূর্ণ মুছে দিয়ে নিচের কোডটুকু পেস্ট করুন:
+
+--------------------------------------------------------------------------------
+function doPost(e) {
+  try {
+    var payload = JSON.parse(e.postData.contents);
+    var folderName = "HisabKitab-360-Backups";
+    var folders = DriveApp.getFoldersByName(folderName);
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+    var dateStr = Utilities.formatDate(new Date(), "GMT+6", "yyyy-MM-dd_HH-mm");
+    var filename = "backup_" + dateStr + ".json";
+    var file = folder.createFile(filename, JSON.stringify(payload, null, 2), "application/json");
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", fileId: file.getId() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+--------------------------------------------------------------------------------
+
+ধাপ ২: ডিপ্লয় (Deploy) ও Web App লিঙ্ক তৈরি
+১. উপরে ডানপাশে নীল রঙের "Deploy" বাটনে ক্লিক করে "New deployment" সিলেক্ট করুন।
+২. বাঁপাশের গিয়ার আইকনে (⚙️) ক্লিক করে "Web app" সিলেক্ট করুন।
+৩. নিচের অপশন দুটি ঠিক এভাবে দিন:
+   - Execute as: "Me" (আপনার ইমেইল)
+   - Who has access: "Anyone" (যাতে আপনার অ্যাপ ড্রাইভ এপিআই-তে ডাটা পাঠাতে পারে)
+৪. "Deploy" বাটনে চাপুন।
+৫. প্রথমবার "Authorize access" চাইলে:
+   - আপনার জিমেইল সিলেক্ট করুন
+   - "Advanced" লিংকে ক্লিক করুন
+   - নিচে "Go to Untitled project (unsafe)" এ ক্লিক করুন
+   - "Allow" দিন।
+৬. এবার একটি "Web app URL" পাবেন (যেমন: https://script.google.com/macros/s/.../exec)।
+   এই লিঙ্কটি কপি করে নিন!
+
+ধাপ ৩: অ্যাপ থেকে ডাটা পাঠানোর কোড:
+--------------------------------------------------------------------------------
+fetch("আপনার_WEB_APP_URL_এখানে_দিন", {
+  method: "POST",
+  headers: { "Content-Type": "text/plain;charset=utf-8" },
+  body: JSON.stringify(আপনার_ব্যাকআপ_ডাটা),
+  mode: "no-cors"
+}).then(() => {
+  alert("ড্রাইভে ব্যাকআপ সফলভাবে সংরক্ষিত হয়েছে!");
+});
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+সাধারণ সমস্যা ও তাৎক্ষণিক সমাধান (TROUBLESHOOTING)
+================================================================================
+
+সমস্যা ১: "Error 403: access_denied / HisabKitab 360 has not completed the Google verification process"
+কারণ: অ্যাপটি Testing মোডে আছে এবং আপনার জিমেইলটি Test Users তালিকায় নেই।
+সমাধান:
+১. console.cloud.google.com এ গিয়ে "OAuth consent screen" এ যান।
+২. "Test users" সেকশনে "+ ADD USERS" দিয়ে আপনার জিমেইলটি যুক্ত করে Save করুন।
+অথবা:
+OAuth consent screen পেজের উপরে থাকা "PUBLISH APP" বাটনে ক্লিক করে Confirm করুন (তাহলে যেকোনো জিমেইল কাজ করবে)।
+
+সমস্যা ২: "Google hasn't verified this app" (লাল সতর্কবার্তা)
+সমাধান:
+এটি খুবই স্বাভাবিক, কারণ এটি আপনার নিজের ব্যক্তিগত তৈরি করা অ্যাপ। 
+পপআপের নিচে ছোট করে লেখা "Advanced" এ ক্লিক করুন ➔ তারপর "Go to HisabKitab 360 (unsafe)" এ ক্লিক করুন ➔ "Continue / Allow" দিন।
+
+সমস্যা ৩: লোকালহোস্ট ছাড়া Vercel বা লাইভ সাইটে কাজ করছে না?
+সমাধান:
+console.cloud.google.com ➔ Credentials ➔ আপনার তৈরি করা Web Client-এ ক্লিক করুন।
+"Authorized JavaScript origins" এ আপনার লাইভ সাইটের ডোমেইন (যেমন: https://my-app.vercel.app) যোগ করে Save দিন।
+
+================================================================================
+সংরক্ষিত ফাইল: GOOGLE_DRIVE_BACKUP_GUIDE_BN.txt
+প্রজেক্ট: HisabKitab 360 (হিসাবকিতাব ৩৬০)
+তারিখ: সেপ্টেম্বর ২০২৬
+================================================================================

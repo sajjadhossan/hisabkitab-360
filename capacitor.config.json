@@ -1,0 +1,12 @@
+{
+  "appId": "com.hisabkitab360.app",
+  "appName": "HisabKitab 360",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
