@@ -1,0 +1,129 @@
+name: Build Android APK & Windows PC Release
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: 📱 Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build Web Production Assets
+        run: npm run build
+
+      - name: Sync Capacitor Android Project
+        run: npx cap sync android
+
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build Android APK (Debug / Standalone Installable)
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Prepare APK Asset
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/HisabKitab-360.apk
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HisabKitab-360-Android-APK
+          path: artifacts/HisabKitab-360.apk
+
+  build-windows:
+    name: 💻 Build Windows PC EXE
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build Web Assets
+        run: npm run build
+
+      - name: Package Dist & Compile Windows Native Launcher
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts
+          Compress-Archive -Path dist\* -DestinationPath src-desktop\app.zip -Force
+          & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:winexe /resource:src-desktop\app.zip,app.zip /out:artifacts\HisabKitab-360-PC.exe src-desktop\Program.cs /reference:System.IO.Compression.dll,System.IO.Compression.FileSystem.dll,System.Windows.Forms.dll,System.Drawing.dll
+
+      - name: Upload Windows EXE Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HisabKitab-360-Windows-EXE
+          path: artifacts/HisabKitab-360-PC.exe
+
+  publish-release:
+    name: 🚀 Publish GitHub Release
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: HisabKitab-360-Android-APK
+          path: release-files
+
+      - name: Download Windows EXE
+        uses: actions/download-artifact@v4
+        with:
+          name: HisabKitab-360-Windows-EXE
+          path: release-files
+
+      - name: Generate Automatic Release Tag
+        id: vars
+        run: echo "TAG_NAME=v1.0.$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release with Direct Downloads
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.TAG_NAME }}
+          name: "HisabKitab 360 Release ${{ steps.vars.outputs.TAG_NAME }}"
+          body: |
+            ### হিসাবকিতাব ৩৬০ (HisabKitab 360) রিলিজ ফাইলসমূহ
+
+            - 📱 **Android Mobile APK:** `HisabKitab-360.apk` (মোবাইলে সরাসরি ইনস্টল করুন)
+            - 💻 **Windows PC App:** `HisabKitab-360-PC.exe` (পিসিতে ডাবল-ক্লিক করে সরাসরি ব্যবহার করুন)
+            
+            যেকোনো ডিভাইস থেকে নিচের অ্যাসেট লিংক থেকে সরাসরি ডাউনলোড করুন!
+          files: |
+            release-files/HisabKitab-360.apk
+            release-files/HisabKitab-360-PC.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

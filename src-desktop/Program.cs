@@ -71,7 +71,7 @@ namespace HisabKitab360
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
                         FileName = browserPath,
-                        Arguments = string.Format("--app=\"{0}\" --user-data-dir=\"{1}\" --window-size=1366,850", url, userDataDir),
+                        Arguments = string.Format("--app={0} --user-data-dir=\"{1}\" --new-window --no-first-run --no-default-browser-check --disable-extensions --disable-background-mode --window-size=1366,850", url, userDataDir),
                         UseShellExecute = false
                     };
                     browserProc = Process.Start(psi);
