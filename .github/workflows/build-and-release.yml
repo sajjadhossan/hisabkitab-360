@@ -46,7 +46,7 @@ jobs:
       - name: Build Android APK (Debug / Standalone Installable)
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace > gradle_build.log 2>&1 || (tail -n 60 gradle_build.log && exit 1)
 
       - name: Prepare APK Asset
         run: |
