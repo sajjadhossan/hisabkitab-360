@@ -733,6 +733,33 @@ input:checked + .slider:before {
   gap: 8px;
 }
 
+.navbar-lang-compact {
+  display: none;
+}
+
+.navbar-lang-full {
+  display: inline;
+}
+
+.navbar-more-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-height: calc(100vh - 90px);
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  padding: 8px 8px 36px 8px;
+  z-index: 1000;
+  backdrop-filter: blur(16px);
+}
+
 /* POS Terminal Grid System */
 .pos-terminal-grid {
   display: grid;
@@ -1249,6 +1276,60 @@ input:checked + .slider:before {
 
   .hide-mobile {
     display: none !important;
+  }
+
+  .hide-mobile-sm {
+    display: none !important;
+  }
+
+  /* Compact Navbar for Portrait Mobile */
+  .navbar-right-controls {
+    gap: 4px !important;
+    flex-shrink: 0;
+  }
+
+  .navbar-right-controls .btn-icon {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+    border-radius: 9px !important;
+  }
+
+  .navbar-user-pill-text {
+    display: none !important;
+  }
+
+  .navbar-user-pill {
+    padding: 7px !important;
+    border-radius: 50% !important;
+    box-shadow: none !important;
+  }
+
+  .navbar-lang-full {
+    display: none !important;
+  }
+
+  .navbar-lang-compact {
+    display: inline !important;
+  }
+
+  .navbar-lang-btn {
+    padding: 4px 7px !important;
+    min-height: 34px !important;
+    gap: 3px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    border-radius: 9px !important;
+  }
+
+  .navbar-more-dropdown {
+    width: min(320px, calc(100vw - 16px)) !important;
+    right: 0 !important;
+    max-height: calc(100dvh - 130px) !important;
+    max-height: calc(100vh - 130px) !important;
+    padding-bottom: 48px !important;
   }
 
   /* Stats Grid: Tidy 2x2 cards on phone */

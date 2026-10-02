@@ -40,6 +40,18 @@ export const GlobalVoiceWidget = () => {
   const [currentAnswer, setCurrentAnswer] = useState(null);
   const [voiceSpeechEnabled, setVoiceSpeechEnabled] = useState(true);
 
+  // Movable / Draggable Voice Button State
+  const [btnPos, setBtnPos] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hisabkitab_voice_pos');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragInfo = useRef({ startX: 0, startY: 0, origX: 0, origY: 0, hasMoved: false });
+  const buttonRef = useRef(null);
+
   const recognitionRef = useRef(null);
 
   // Shortcut key Alt + H to toggle Voice Assistant
@@ -230,42 +242,145 @@ export const GlobalVoiceWidget = () => {
     'ইনভেন্টরি দেখাও'
   ];
 
+  // Dragging event handlers for both Touch (Mobile) and Mouse (Desktop)
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragInfo.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      origX: rect.left,
+      origY: rect.top,
+      hasMoved: false
+    };
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - dragInfo.current.startX;
+    const deltaY = touch.clientY - dragInfo.current.startY;
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      dragInfo.current.hasMoved = true;
+    }
+    const newX = Math.max(10, Math.min(window.innerWidth - 66, dragInfo.current.origX + deltaX));
+    const newY = Math.max(60, Math.min(window.innerHeight - 70, dragInfo.current.origY + deltaY));
+    setBtnPos({ x: newX, y: newY });
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (btnPos) {
+      try {
+        localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(btnPos));
+      } catch {}
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragInfo.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: rect.left,
+      origY: rect.top,
+      hasMoved: false
+    };
+    setIsDragging(true);
+
+    const onMouseMove = (moveEvt) => {
+      const deltaX = moveEvt.clientX - dragInfo.current.startX;
+      const deltaY = moveEvt.clientY - dragInfo.current.startY;
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        dragInfo.current.hasMoved = true;
+      }
+      const newX = Math.max(10, Math.min(window.innerWidth - 66, dragInfo.current.origX + deltaX));
+      const newY = Math.max(60, Math.min(window.innerHeight - 70, dragInfo.current.origY + deltaY));
+      setBtnPos({ x: newX, y: newY });
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      if (dragInfo.current.hasMoved) {
+        setBtnPos(current => {
+          if (current) {
+            try { localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(current)); } catch {}
+          }
+          return current;
+        });
+      }
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleButtonClick = () => {
+    if (dragInfo.current.hasMoved) {
+      dragInfo.current.hasMoved = false;
+      return;
+    }
+    setIsOpen(true);
+  };
+
   return (
     <>
-      {/* Floating Action Trigger Button */}
+      {/* Floating Action Trigger Button (Movable / Draggable anywhere on screen) */}
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={handleButtonClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          left: btnPos ? `${btnPos.x}px` : undefined,
+          top: btnPos ? `${btnPos.y}px` : undefined,
+          right: btnPos ? undefined : '20px',
+          bottom: btnPos ? undefined : '80px',
           width: '56px',
           height: '56px',
           borderRadius: '50%',
           background: 'linear-gradient(135deg, #6366f1, #ec4899)',
           color: '#ffffff',
-          border: '2px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: '0 8px 25px rgba(99, 102, 241, 0.45)',
+          border: '2px solid rgba(255, 255, 255, 0.4)',
+          boxShadow: isDragging 
+            ? '0 14px 35px rgba(236, 72, 153, 0.65)' 
+            : '0 8px 25px rgba(99, 102, 241, 0.45)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          touchAction: 'none',
+          userSelect: 'none',
           zIndex: 9990,
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+          transform: isDragging ? 'scale(1.1)' : 'scale(1)',
+          transition: isDragging ? 'none' : 'box-shadow 0.2s, transform 0.2s'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 12px 30px rgba(99, 102, 241, 0.6)';
+          if (!isDragging) {
+            e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 12px 30px rgba(99, 102, 241, 0.6)';
+          }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1) translateY(0)';
-          e.currentTarget.style.boxShadow = '0 8px 25px rgba(99, 102, 241, 0.45)';
+          if (!isDragging) {
+            e.currentTarget.style.transform = 'scale(1) translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(99, 102, 241, 0.45)';
+          }
         }}
-        title="🎙️ হিসাব সহকারী এআই (Alt + H)"
+        title="🎙️ হিসাব সহকারী এআই (টেনে সুবিধাজনক জায়গায় রাখুন)"
       >
-        <Sparkles size={16} style={{ position: 'absolute', top: '9px', right: '9px', color: '#fef08a' }} />
-        <Mic size={24} />
+        <Sparkles size={16} style={{ position: 'absolute', top: '9px', right: '9px', color: '#fef08a', pointerEvents: 'none' }} />
+        <Mic size={24} style={{ pointerEvents: 'none' }} />
       </button>
 
       {/* Full Interactive Voice Assistant Modal */}

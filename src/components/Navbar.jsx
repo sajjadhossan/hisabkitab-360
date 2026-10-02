@@ -593,6 +593,7 @@ export const Navbar = () => {
             {/* Prominent Login Status Indicator (সবুজ বাতি = লগইন সক্রিয়, লাল বাতি = লগইন নেই) */}
             {user ? (
               <div
+                className="navbar-user-pill"
                 onClick={() => openAuthModal('login')}
                 style={{
                   display: 'flex',
@@ -621,7 +622,7 @@ export const Navbar = () => {
                     animation: 'pulse 1.8s infinite'
                   }}
                 />
-                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
+                <div className="navbar-user-pill-text" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {user.name?.split(' ')[0] || user.email?.split('@')[0]}
                   </span>
@@ -640,6 +641,7 @@ export const Navbar = () => {
               </div>
             ) : (
               <div
+                className="navbar-user-pill"
                 onClick={() => openAuthModal('login')}
                 style={{
                   display: 'flex',
@@ -668,7 +670,7 @@ export const Navbar = () => {
                     animation: 'pulse 1.2s infinite'
                   }}
                 />
-                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
+                <div className="navbar-user-pill-text" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
                   <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#ef4444' }}>
                     {lang === 'bn' ? 'লাল: লগইন নেই' : 'Sign In Required'}
                   </span>
@@ -681,6 +683,7 @@ export const Navbar = () => {
 
             {/* Real-time Google Drive 1-Min Auto-Backup & 30-File Status Pill */}
             <button
+              className="hide-mobile"
               onClick={handleQuickDriveSync}
               disabled={isDriveSyncing}
               title={
@@ -739,6 +742,7 @@ export const Navbar = () => {
             {profile === 'business' && isOwner && (
               <button
                 type="button"
+                className="hide-mobile"
                 onClick={() => setActiveTab('branch_control')}
                 style={{
                   display: 'inline-flex',
@@ -764,13 +768,13 @@ export const Navbar = () => {
 
             {/* Language Switch */}
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary navbar-lang-btn"
               onClick={toggleLanguage}
               title={lang === 'bn' ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
-              style={{ padding: '6px 12px', fontSize: '0.8rem' }}
             >
               <Globe size={15} />
-              <span>{lang === 'bn' ? 'English' : 'বাংলা'}</span>
+              <span className="navbar-lang-full">{lang === 'bn' ? 'English' : 'বাংলা'}</span>
+              <span className="navbar-lang-compact">{lang === 'bn' ? 'EN' : 'বাং'}</span>
             </button>
 
             {/* Theme Switch */}
@@ -785,7 +789,7 @@ export const Navbar = () => {
 
             {/* Sound Feedback Toggle */}
             <button
-              className="btn-icon press-scale"
+              className="btn-icon press-scale hide-mobile-sm"
               onClick={handleToggleSound}
               title={soundMuted ? (lang === 'bn' ? 'সাউন্ড আনমিউট করুন' : 'Unmute Sound') : (lang === 'bn' ? 'সাউন্ড মিউট করুন' : 'Mute Sound')}
               style={{
@@ -843,20 +847,21 @@ export const Navbar = () => {
               {/* DROPDOWN MENU */}
               {showMoreMenu && (
                 <div
-                  className="animate-fade-in"
+                  className="navbar-more-dropdown animate-fade-in"
                   style={{
                     position: 'absolute',
                     top: 'calc(100% + 8px)',
                     right: 0,
                     width: '320px',
-                    maxHeight: 'calc(100vh - 85px)',
+                    maxHeight: 'calc(100dvh - 140px)',
                     overflowY: 'auto',
+                    WebkitOverflowScrolling: 'touch',
                     overscrollBehavior: 'contain',
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '14px',
                     boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
-                    padding: '8px',
+                    padding: '8px 8px 40px 8px',
                     zIndex: 1000,
                     backdropFilter: 'blur(16px)'
                   }}
