@@ -35,16 +35,16 @@ jobs:
       - name: Build Web Production Assets
         run: npm run build
 
+      - name: Grant Execute Permission to Gradlew Early
+        run: chmod -R +x android/
+
       - name: Sync Capacitor Android Project
         run: npx cap sync android
-
-      - name: Grant Execute Permission to Gradlew
-        run: chmod +x android/gradlew
 
       - name: Build Android APK (Debug / Standalone Installable)
         run: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
       - name: Prepare APK Asset
         run: |
@@ -58,7 +58,7 @@ jobs:
           path: artifacts/HisabKitab-360.apk
 
   build-windows:
-    name: 💻 Build Windows PC EXE
+    name: 💻 Build Windows PC Desktop App
     runs-on: windows-latest
     steps:
       - name: Checkout Source Code
@@ -76,32 +76,39 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      - name: Package Dist & Compile Windows Native Launcher
+      - name: Package Native Windows Electron App & Launcher
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path artifacts
+          npx electron-builder --win --publish never
+          if (Test-Path "dist-electron\*.exe") {
+            Copy-Item "dist-electron\*.exe" "artifacts\HisabKitab-360-Setup.exe" -Force
+          }
           Compress-Archive -Path dist\* -DestinationPath src-desktop\app.zip -Force
           & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:winexe /resource:src-desktop\app.zip,app.zip /out:artifacts\HisabKitab-360-PC.exe src-desktop\Program.cs /reference:System.IO.Compression.dll,System.IO.Compression.FileSystem.dll,System.Windows.Forms.dll,System.Drawing.dll
 
-      - name: Upload Windows EXE Artifact
+      - name: Upload Windows Desktop Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: HisabKitab-360-Windows-EXE
-          path: artifacts/HisabKitab-360-PC.exe
+          path: artifacts/*.exe
 
   publish-release:
     name: 🚀 Publish GitHub Release
     needs: [build-android, build-windows]
+    if: always() && !cancelled() && (needs.build-android.result == 'success' || needs.build-windows.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Download Android APK
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: HisabKitab-360-Android-APK
           path: release-files
 
       - name: Download Windows EXE
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: HisabKitab-360-Windows-EXE
           path: release-files
@@ -116,14 +123,13 @@ jobs:
           tag_name: ${{ steps.vars.outputs.TAG_NAME }}
           name: "HisabKitab 360 Release ${{ steps.vars.outputs.TAG_NAME }}"
           body: |
-            ### হিসাবকিতাব ৩৬০ (HisabKitab 360) রিলিজ ফাইলসমূহ
+            ### হিসাবকিতাব ৩৬০ (HisabKitab 360) অফিসিয়াল রিলিজ
 
             - 📱 **Android Mobile APK:** `HisabKitab-360.apk` (মোবাইলে সরাসরি ইনস্টল করুন)
-            - 💻 **Windows PC App:** `HisabKitab-360-PC.exe` (পিসিতে ডাবল-ক্লিক করে সরাসরি ব্যবহার করুন)
+            - 💻 **Windows Desktop Setup (Electron):** `HisabKitab-360-Setup.exe` (আসল উইন্ডোজ ডেস্কটপ সফটওয়্যার, কোনো ব্রাউজার নয়)
+            - ⚡ **Windows Portable App:** `HisabKitab-360-PC.exe` (সরাসরি পোর্টেবল এক্সিকিউটেবল)
             
             যেকোনো ডিভাইস থেকে নিচের অ্যাসেট লিংক থেকে সরাসরি ডাউনলোড করুন!
-          files: |
-            release-files/HisabKitab-360.apk
-            release-files/HisabKitab-360-PC.exe
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
