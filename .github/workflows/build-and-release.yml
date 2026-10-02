@@ -35,11 +35,13 @@ jobs:
       - name: Build Web Production Assets
         run: npm run build
 
-      - name: Grant Execute Permission to Gradlew Early
-        run: chmod -R +x android/
-
-      - name: Sync Capacitor Android Project
-        run: npx cap sync android
+      - name: Copy Web Assets into Android Project
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          rm -rf android/app/src/main/assets/public/*
+          cp -r dist/* android/app/src/main/assets/public/
+          cp capacitor.config.json android/app/src/main/assets/
+          chmod +x android/gradlew
 
       - name: Build Android APK (Debug / Standalone Installable)
         run: |
