@@ -12,7 +12,8 @@ import {
   Users,
   Compass,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  RotateCcw
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { startUniversalSpeechListener } from '../../services/voiceAssistantService';
@@ -40,19 +41,50 @@ export const GlobalVoiceWidget = () => {
   const [currentAnswer, setCurrentAnswer] = useState(null);
   const [voiceSpeechEnabled, setVoiceSpeechEnabled] = useState(true);
 
-  // Movable / Draggable Voice Button State
+  // Movable / Draggable Voice Button State with Safe Boundary Clamping
   const [btnPos, setBtnPos] = useState(() => {
     try {
       const saved = localStorage.getItem('hisabkitab_voice_pos');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+          const safeMaxX = typeof window !== 'undefined' ? Math.max(10, window.innerWidth - 68) : 500;
+          const safeMaxY = typeof window !== 'undefined' ? Math.max(60, window.innerHeight - 74) : 500;
+          return {
+            x: Math.max(10, Math.min(safeMaxX, parsed.x)),
+            y: Math.max(60, Math.min(safeMaxY, parsed.y))
+          };
+        }
+      }
     } catch {}
     return null;
   });
   const [isDragging, setIsDragging] = useState(false);
-  const dragInfo = useRef({ startX: 0, startY: 0, origX: 0, origY: 0, hasMoved: false });
+  const dragInfo = useRef({ pointerId: null, startX: 0, startY: 0, origX: 0, origY: 0, hasMoved: false });
   const buttonRef = useRef(null);
 
   const recognitionRef = useRef(null);
+
+  // Auto-clamp button position when window resizes or phone rotates
+  useEffect(() => {
+    const handleResize = () => {
+      setBtnPos(current => {
+        if (!current) return null;
+        const safeMaxX = Math.max(10, window.innerWidth - 68);
+        const safeMaxY = Math.max(60, window.innerHeight - 74);
+        const clampedX = Math.max(10, Math.min(safeMaxX, current.x));
+        const clampedY = Math.max(60, Math.min(safeMaxY, current.y));
+        if (clampedX !== current.x || clampedY !== current.y) {
+          const updated = { x: clampedX, y: clampedY };
+          try { localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(updated)); } catch {}
+          return updated;
+        }
+        return current;
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Shortcut key Alt + H to toggle Voice Assistant
   useEffect(() => {
@@ -242,48 +274,16 @@ export const GlobalVoiceWidget = () => {
     'ইনভেন্টরি দেখাও'
   ];
 
-  // Dragging event handlers for both Touch (Mobile) and Mouse (Desktop)
-  const handleTouchStart = (e) => {
-    const touch = e.touches[0];
+  // Unified Pointer Dragging (Mobile Touch + Desktop Mouse + Stylus)
+  const handlePointerDown = (e) => {
+    if (e.button && e.button !== 0) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
     dragInfo.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      origX: rect.left,
-      origY: rect.top,
-      hasMoved: false
-    };
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - dragInfo.current.startX;
-    const deltaY = touch.clientY - dragInfo.current.startY;
-    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-      dragInfo.current.hasMoved = true;
-    }
-    const newX = Math.max(10, Math.min(window.innerWidth - 66, dragInfo.current.origX + deltaX));
-    const newY = Math.max(60, Math.min(window.innerHeight - 70, dragInfo.current.origY + deltaY));
-    setBtnPos({ x: newX, y: newY });
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (btnPos) {
-      try {
-        localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(btnPos));
-      } catch {}
-    }
-  };
-
-  const handleMouseDown = (e) => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    dragInfo.current = {
+      pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
       origX: rect.left,
@@ -291,42 +291,49 @@ export const GlobalVoiceWidget = () => {
       hasMoved: false
     };
     setIsDragging(true);
-
-    const onMouseMove = (moveEvt) => {
-      const deltaX = moveEvt.clientX - dragInfo.current.startX;
-      const deltaY = moveEvt.clientY - dragInfo.current.startY;
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-        dragInfo.current.hasMoved = true;
-      }
-      const newX = Math.max(10, Math.min(window.innerWidth - 66, dragInfo.current.origX + deltaX));
-      const newY = Math.max(60, Math.min(window.innerHeight - 70, dragInfo.current.origY + deltaY));
-      setBtnPos({ x: newX, y: newY });
-    };
-
-    const onMouseUp = () => {
-      setIsDragging(false);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      if (dragInfo.current.hasMoved) {
-        setBtnPos(current => {
-          if (current) {
-            try { localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(current)); } catch {}
-          }
-          return current;
-        });
-      }
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
   };
 
-  const handleButtonClick = () => {
-    if (dragInfo.current.hasMoved) {
-      dragInfo.current.hasMoved = false;
-      return;
+  const handlePointerMove = (e) => {
+    if (!isDragging || dragInfo.current.pointerId !== e.pointerId) return;
+    const deltaX = e.clientX - dragInfo.current.startX;
+    const deltaY = e.clientY - dragInfo.current.startY;
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      dragInfo.current.hasMoved = true;
     }
-    setIsOpen(true);
+    const safeMaxX = Math.max(10, window.innerWidth - 68);
+    const safeMaxY = Math.max(60, window.innerHeight - 74);
+    const newX = Math.max(10, Math.min(safeMaxX, dragInfo.current.origX + deltaX));
+    const newY = Math.max(60, Math.min(safeMaxY, dragInfo.current.origY + deltaY));
+    setBtnPos({ x: newX, y: newY });
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isDragging || dragInfo.current.pointerId !== e.pointerId) return;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (dragInfo.current.hasMoved) {
+      setBtnPos(current => {
+        if (current) {
+          try { localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(current)); } catch {}
+        }
+        return current;
+      });
+    } else {
+      // Tap / click without move
+      setIsOpen(true);
+    }
+  };
+
+  const handlePointerCancel = (e) => {
+    if (isDragging && dragInfo.current.pointerId === e.pointerId) {
+      setIsDragging(false);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
   };
 
   return (
@@ -335,11 +342,10 @@ export const GlobalVoiceWidget = () => {
       <button
         ref={buttonRef}
         type="button"
-        onClick={handleButtonClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         style={{
           position: 'fixed',
           left: btnPos ? `${btnPos.x}px` : undefined,
@@ -351,19 +357,20 @@ export const GlobalVoiceWidget = () => {
           borderRadius: '50%',
           background: 'linear-gradient(135deg, #6366f1, #ec4899)',
           color: '#ffffff',
-          border: '2px solid rgba(255, 255, 255, 0.4)',
+          border: '2px solid rgba(255, 255, 255, 0.45)',
           boxShadow: isDragging 
-            ? '0 14px 35px rgba(236, 72, 153, 0.65)' 
-            : '0 8px 25px rgba(99, 102, 241, 0.45)',
+            ? '0 16px 36px rgba(236, 72, 153, 0.7)' 
+            : '0 8px 25px rgba(99, 102, 241, 0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: isDragging ? 'grabbing' : 'grab',
           touchAction: 'none',
           userSelect: 'none',
+          WebkitUserSelect: 'none',
           zIndex: 9990,
-          transform: isDragging ? 'scale(1.1)' : 'scale(1)',
-          transition: isDragging ? 'none' : 'box-shadow 0.2s, transform 0.2s'
+          transform: isDragging ? 'scale(1.12)' : 'scale(1)',
+          transition: isDragging ? 'none' : 'box-shadow 0.25s, transform 0.2s'
         }}
         onMouseEnter={(e) => {
           if (!isDragging) {
@@ -414,6 +421,34 @@ export const GlobalVoiceWidget = () => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {btnPos && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('hisabkitab_voice_pos');
+                      setBtnPos(null);
+                      showToast(lang === 'bn' ? 'বাটন পজিশন ডিফল্ট করা হয়েছে' : 'Button position reset', 'info');
+                    }}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-muted)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600'
+                    }}
+                    title={lang === 'bn' ? 'বাটন অবস্থান রিসেট করুন' : 'Reset button position'}
+                  >
+                    <RotateCcw size={13} />
+                    <span>{lang === 'bn' ? 'রিসেট' : 'Reset'}</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setVoiceSpeechEnabled(!voiceSpeechEnabled)}
