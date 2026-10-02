@@ -848,18 +848,33 @@ export const Navbar = () => {
                     position: 'absolute',
                     top: 'calc(100% + 8px)',
                     right: 0,
-                    width: '300px',
+                    width: '320px',
+                    maxHeight: 'calc(100vh - 85px)',
+                    overflowY: 'auto',
+                    overscrollBehavior: 'contain',
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '14px',
-                    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.4)',
+                    boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
                     padding: '8px',
                     zIndex: 1000,
                     backdropFilter: 'blur(16px)'
                   }}
                 >
                   {/* HEADER */}
-                  <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{
+                    position: 'sticky',
+                    top: '-8px',
+                    background: 'var(--bg-secondary)',
+                    zIndex: 10,
+                    padding: '8px 10px 6px',
+                    borderBottom: '1px solid var(--border-color)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    borderTopLeftRadius: '12px',
+                    borderTopRightRadius: '12px'
+                  }}>
                     <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                       {lang === 'bn' ? 'টুলস ও ব্যাকআপ হাব' : 'TOOLS & BACKUP HUB'}
                     </span>
