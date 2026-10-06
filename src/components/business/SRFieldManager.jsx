@@ -15,7 +15,10 @@ import {
   Clock,
   Sparkles,
   TrendingUp,
-  FileText
+  FileText,
+  Truck,
+  Package,
+  AlertTriangle
 } from 'lucide-react';
 
 export const SRFieldManager = () => {
@@ -26,14 +29,19 @@ export const SRFieldManager = () => {
     completeSale,
     salesHistory,
     activeBranch,
-    lang
+    lang,
+    fieldOrders = [],
+    createFieldOrder,
+    updateFieldOrderDelivery,
+    markOrderFullyDelivered,
+    deleteFieldOrder
   } = useApp();
 
   const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [activeTab, setActiveTab] = useState('customers'); // 'customers' | 'order' | 'collection' | 'history'
+  const [activeTab, setActiveTab] = useState('customers'); // 'customers' | 'order' | 'collection' | 'delivery_status'
 
   // Collection form state
   const [collectionAmount, setCollectionAmount] = useState('');
@@ -43,6 +51,9 @@ export const SRFieldManager = () => {
 
   // Field order form state
   const [orderItems, setOrderItems] = useState([]); // [{ productId, name, price, qty, subtotal }]
+  const [activeUpdatingOrder, setActiveUpdatingOrder] = useState(null);
+  const [updatingItems, setUpdatingItems] = useState([]);
+  const [updatingNote, setUpdatingNote] = useState('');
   const [orderProductSearch, setOrderProductSearch] = useState('');
 
   const filteredCustomers = customers.filter(c =>
@@ -102,19 +113,26 @@ export const SRFieldManager = () => {
   const handleSubmitFieldOrder = () => {
     if (!selectedCustomer || orderItems.length === 0) return;
 
-    const total = orderItems.reduce((acc, i) => acc + i.subtotal, 0);
-
-    completeSale({
+    createFieldOrder({
+      employeeId: user?.id || 'sr-1',
+      employeeName: user?.name || 'এসআর (ফিল্ড অফিসার)',
+      employeeRole: 'এসআর / ফিল্ড অফিসার',
       customerId: selectedCustomer.id,
       customerName: selectedCustomer.name,
       customerPhone: selectedCustomer.phone,
-      paymentMethod: 'due', // Field orders default to credit/delivery
-      discount: 0,
-      paidAmount: 0
+      items: orderItems.map(i => ({
+        productId: i.productId,
+        name: i.name,
+        price: i.price,
+        orderedQty: i.qty,
+        deliveredQty: 0,
+        subtotal: i.subtotal
+      })),
+      deliveryNote: 'ফিল্ডে অর্ডার কাটা হয়েছে'
     });
 
     setOrderItems([]);
-    setActiveTab('customers');
+    setActiveTab('delivery_status');
   };
 
   // Print Collection Receipt
@@ -226,6 +244,17 @@ export const SRFieldManager = () => {
         >
           <ShoppingCart size={16} />
           <span>{lang === 'bn' ? 'ফিল্ড অর্ডার বুকিং' : 'Book Field Order'}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('delivery_status')}
+          className={`btn ${activeTab === 'delivery_status' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+        >
+          <Truck size={16} />
+          <span>{lang === 'bn' ? 'অর্ডার ও ডেলিভারি ট্র্যাকিং' : 'Delivery Tracking'}</span>
+          <span className="badge" style={{ marginLeft: '4px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', fontSize: '0.72rem' }}>
+            {fieldOrders.length}
+          </span>
         </button>
       </div>
 
@@ -574,6 +603,217 @@ export const SRFieldManager = () => {
               <CheckCircle2 size={18} />
               <span>ফিল্ড অর্ডার বুক করুন</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: DELIVERY STATUS & TRACKING */}
+      {activeTab === 'delivery_status' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Truck size={20} style={{ color: 'var(--business-primary)' }} />
+              <span>{lang === 'bn' ? 'ফিল্ডে কাটা পণ্যের ডেলিভারি অবস্থা' : 'Field Orders Delivery Status'}</span>
+            </h3>
+
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <span className="badge badge-success">
+                🟢 সম্পন্ন: {fieldOrders.filter(o => o.deliveryStatus === 'delivered').length}
+              </span>
+              <span className="badge badge-warning">
+                🟡 আংশিক: {fieldOrders.filter(o => o.deliveryStatus === 'partial').length}
+              </span>
+              <span className="badge badge-danger">
+                🔴 বাকি: {fieldOrders.filter(o => o.deliveryStatus === 'pending').length}
+              </span>
+            </div>
+          </div>
+
+          {fieldOrders.length === 0 ? (
+            <div className="glass-card" style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <Package size={36} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+              <p>{lang === 'bn' ? 'এখনও কোনো ফিল্ড অর্ডার কাটা হয়নি' : 'No field orders recorded yet'}</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {fieldOrders.map(order => {
+                const isDelivered = order.deliveryStatus === 'delivered';
+                const isPartial = order.deliveryStatus === 'partial';
+                const isPending = order.deliveryStatus === 'pending';
+
+                let badgeColor = isDelivered ? '#10b981' : (isPartial ? '#f59e0b' : '#ef4444');
+                let badgeBg = isDelivered ? 'rgba(16, 185, 129, 0.12)' : (isPartial ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)');
+                let badgeText = isDelivered ? '🟢 ডেলিভারি সম্পন্ন' : (isPartial ? '🟡 আংশিক ডেলিভারি' : '🔴 ডেলিভারি হয়নি');
+
+                return (
+                  <div
+                    key={order.id}
+                    className="glass-card"
+                    style={{
+                      padding: '14px',
+                      borderLeft: `4px solid ${badgeColor}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '6px' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                          {order.customerName}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          অর্ডার নং: {order.id} • স্টাফ: {order.employeeName}
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: badgeBg, color: badgeColor, fontWeight: '800', fontSize: '0.8rem', border: `1px solid ${badgeColor}` }}>
+                          {badgeText}
+                        </span>
+                        <div style={{ fontSize: '0.74rem', color: badgeColor, fontWeight: '700', marginTop: '2px' }}>
+                          {order.deliverySummary}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Products details list */}
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '6px', padding: '8px 10px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                      {order.items.map((it, idx) => {
+                        const remaining = Math.max(0, it.orderedQty - (it.deliveredQty || 0));
+                        return (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                            <span>{it.name}</span>
+                            <span>
+                              অর্ডার: <strong>{it.orderedQty}</strong> • ডেলিভারি: <strong style={{ color: (it.deliveredQty || 0) === it.orderedQty ? '#10b981' : '#f59e0b' }}>{it.deliveredQty || 0}</strong>
+                              {remaining > 0 && <span style={{ color: '#ef4444', marginLeft: '6px', fontWeight: '800' }}>({remaining} বাকি)</span>}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--business-primary)' }}>
+                        মোট: ৳{order.totalAmount.toLocaleString()}
+                      </span>
+
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {!isDelivered && (
+                          <button
+                            type="button"
+                            onClick={() => markOrderFullyDelivered(order.id)}
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#10b981', borderColor: '#10b981', fontWeight: '700' }}
+                          >
+                            ✓ সব ডেলিভারি
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveUpdatingOrder(order);
+                            setUpdatingItems(order.items.map(i => ({ ...i })));
+                            setUpdatingNote(order.deliveryNote || '');
+                          }}
+                          className="btn btn-primary"
+                          style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700' }}
+                        >
+                          <Truck size={13} />
+                          <span>আপডেট</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL: UPDATE DELIVERY STATUS */}
+      {activeUpdatingOrder && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '520px', width: '95%' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '8px' }}>
+              ডেলিভারি আপডেট ({activeUpdatingOrder.customerName})
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto', marginBottom: '12px' }}>
+              {updatingItems.map((item, idx) => {
+                const rem = Math.max(0, item.orderedQty - (Number(item.deliveredQty) || 0));
+                return (
+                  <div key={idx} style={{ padding: '8px', background: 'var(--bg-secondary)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{item.name}</div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        অর্ডার: {item.orderedQty} | বাকি: <span style={{ color: rem > 0 ? '#ef4444' : '#10b981', fontWeight: '800' }}>{rem}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.orderedQty}
+                        value={item.deliveredQty}
+                        onChange={(e) => {
+                          const val = Math.max(0, Math.min(item.orderedQty, Number(e.target.value) || 0));
+                          setUpdatingItems(updatingItems.map((it, i) => i === idx ? { ...it, deliveredQty: val } : it));
+                        }}
+                        className="input-field"
+                        style={{ width: '60px', textAlign: 'center', fontWeight: '800', height: '32px' }}
+                      />
+                      <span style={{ fontSize: '0.78rem' }}>/ {item.orderedQty}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setUpdatingItems(updatingItems.map(it => ({ ...it, deliveredQty: it.orderedQty })))}
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '6px', fontSize: '0.78rem', color: '#10b981', borderColor: '#10b981' }}
+              >
+                সবগুলো ১০০% ডেলিভারি সেট করুন
+              </button>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>মন্তব্য</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="যেমন: আংশিক ডেলিভারি দেওয়া হয়েছে..."
+                value={updatingNote}
+                onChange={(e) => setUpdatingNote(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  updateFieldOrderDelivery(activeUpdatingOrder.id, updatingItems, updatingNote);
+                  setActiveUpdatingOrder(null);
+                }}
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '8px', fontWeight: '700' }}
+              >
+                সংরক্ষণ করুন
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveUpdatingOrder(null)}
+                className="btn btn-secondary"
+              >
+                বাতিল
+              </button>
+            </div>
           </div>
         </div>
       )}

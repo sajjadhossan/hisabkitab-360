@@ -505,6 +505,122 @@ export const initialData = {
     }
   ],
 
+  businessFieldOrders: [
+    {
+      id: "HRO-2026-101",
+      employeeId: "emp-1",
+      employeeName: "মোঃ রফিকুল ইসলাম",
+      employeeRole: "ফিল্ড অফিসার / ম্যানেজার",
+      customerId: "cust-4",
+      customerName: "হাসান জেনারেল স্টোর",
+      customerPhone: "01655-778899",
+      date: "2026-10-06 10:30 AM",
+      totalAmount: 11100,
+      deliveryStatus: "delivered",
+      deliveredItemsCount: 23,
+      totalItemsCount: 23,
+      deliverySummary: "সবগুলো পণ্য (২৩/২৩) ডেলিভারি সম্পন্ন",
+      deliveryDate: "2026-10-06 02:15 PM",
+      deliveryNote: "দোকানদার সকল পণ্য বুঝে পেয়ে রসিদ নিশ্চিত করেছেন।",
+      items: [
+        {
+          productId: "prod-4",
+          name: "ডিপ্লোমা ফুল ক্রিম গুঁড়ো দুধ (১ কেজি)",
+          price: 980,
+          orderedQty: 5,
+          deliveredQty: 5,
+          subtotal: 4900
+        },
+        {
+          productId: "prod-5",
+          name: "তাজা প্রিমিয়াম ব্ল্যাক টি (৪০০ গ্রাম)",
+          price: 260,
+          orderedQty: 10,
+          deliveredQty: 10,
+          subtotal: 2600
+        },
+        {
+          productId: "prod-7",
+          name: "সানসিল্ক ব্ল্যাক শাইন শ্যাম্পু (৩৫০ মিলি)",
+          price: 450,
+          orderedQty: 8,
+          deliveredQty: 8,
+          subtotal: 3600
+        }
+      ]
+    },
+    {
+      id: "HRO-2026-102",
+      employeeId: "emp-3",
+      employeeName: "আল-আমিন হোসেন",
+      employeeRole: "ইনভেন্টরি ও ডেলিভারি সহকারী",
+      customerId: "cust-1",
+      customerName: "আহমেদ ডিপার্টমেন্টাল স্টোর",
+      customerPhone: "01712-345678",
+      date: "2026-10-06 11:45 AM",
+      totalAmount: 16170,
+      deliveryStatus: "partial",
+      deliveredItemsCount: 12,
+      totalItemsCount: 17,
+      deliverySummary: "আংশিক ডেলিভারি: ১৭টির মধ্যে ১২টি ডেলিভারি হয়েছে, ৫টি কম/বাকি রয়েছে",
+      deliveryDate: "2026-10-06 04:30 PM",
+      deliveryNote: "তেলের স্টকে ঘাটতি থাকায় ২টি তেল ও ৩টি দুধ পরে ডেলিভারি দেওয়া হবে।",
+      items: [
+        {
+          productId: "prod-1",
+          name: "তীর প্রিমিয়াম সয়াবিন তেল (৫ লিটার পেট)",
+          price: 910,
+          orderedQty: 7,
+          deliveredQty: 5,
+          subtotal: 6370
+        },
+        {
+          productId: "prod-4",
+          name: "ডিপ্লোমা ফুল ক্রিম গুঁড়ো দুধ (১ কেজি)",
+          price: 980,
+          orderedQty: 10,
+          deliveredQty: 7,
+          subtotal: 9800
+        }
+      ]
+    },
+    {
+      id: "HRO-2026-103",
+      employeeId: "emp-3",
+      employeeName: "আল-আমিন হোসেন",
+      employeeRole: "ইনভেন্টরি ও ডেলিভারি সহকারী",
+      customerId: "cust-2",
+      customerName: "তানভীর কনস্ট্রাকশন অ্যান্ড ইন্টেরিয়র",
+      customerPhone: "01822-998877",
+      date: "2026-10-06 01:15 PM",
+      totalAmount: 8200,
+      deliveryStatus: "pending",
+      deliveredItemsCount: 0,
+      totalItemsCount: 12,
+      deliverySummary: "ডেলিভারি হয়নি (পেন্ডিং) - কোনো পণ্য এখনও ডেলিভারি হয়নি",
+      deliveryDate: null,
+      deliveryNote: "প্যাকেজিং ও ভ্যান লোডিং প্রক্রিয়াধীন রয়েছে।",
+      items: [
+        {
+          productId: "prod-3",
+          name: "নেসক্যাফে ক্লাসিক কফি জার (২০০ গ্রাম)",
+          price: 1150,
+          orderedQty: 4,
+          deliveredQty: 0,
+          subtotal: 4600
+        },
+        {
+          productId: "prod-7",
+          name: "সানসিল্ক ব্ল্যাক শাইন শ্যাম্পু (৩৫০ মিলি)",
+          price: 450,
+          orderedQty: 8,
+          deliveredQty: 0,
+          subtotal: 3600
+        }
+      ]
+    }
+  ],
+
   businessSuppliers: [
     {
       id: "sup-1",

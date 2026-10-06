@@ -34,6 +34,7 @@ const STORAGE_KEYS = {
   BIZ_SALES: 'hk360_biz_sales',
   BIZ_CUSTOMERS: 'hk360_biz_customers',
   BIZ_EMPLOYEES: 'hk360_biz_employees',
+  BIZ_FIELD_ORDERS: 'hk360_biz_field_orders',
   BIZ_SUPPLIERS: 'hk360_biz_suppliers',
   BIZ_EXPENSES: 'hk360_biz_expenses',
   BIZ_SETTINGS: 'hk360_biz_settings',
@@ -548,6 +549,16 @@ export const AppProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : (initialData.businessDebts || []);
   });
 
+  // HR & SR Field Product Orders & Delivery Status Tracking
+  const [fieldOrders, setFieldOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BIZ_FIELD_ORDERS);
+      return saved ? JSON.parse(saved) : (initialData.businessFieldOrders || []);
+    } catch {
+      return initialData.businessFieldOrders || [];
+    }
+  });
+
   // Dynamic Custom Categories Management
   const [categories, setCategories] = useState(() => {
     try {
@@ -775,6 +786,10 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, businessDebts);
   }, [businessDebts]);
+
+  useEffect(() => {
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_FIELD_ORDERS, fieldOrders);
+  }, [fieldOrders]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BAZAAR_SHOPPING_LIST, bazaarShoppingList);
@@ -1653,6 +1668,141 @@ export const AppProvider = ({ children }) => {
     setBusinessExpenses([salaryExpense, ...businessExpenses]);
 
     showToast(lang === 'bn' ? `${emp.name}-এর বেতন প্রদান সম্পন্ন হয়েছে` : `Salary disbursed for ${emp.name}`);
+  };
+
+  // HR & SR Field Product Orders & Delivery Status Tracking
+  const createFieldOrder = ({
+    employeeId,
+    employeeName,
+    employeeRole = 'ফিল্ড অফিসার',
+    customerId,
+    customerName,
+    customerPhone = '',
+    items = [],
+    deliveryNote = ''
+  }) => {
+    const totalAmount = items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.orderedQty || 0)), 0);
+    const totalOrderedCount = items.reduce((sum, item) => sum + Number(item.orderedQty || 0), 0);
+    const totalDeliveredCount = items.reduce((sum, item) => sum + Number(item.deliveredQty || 0), 0);
+
+    let deliveryStatus = 'pending';
+    let deliverySummary = '';
+
+    if (totalDeliveredCount === totalOrderedCount && totalOrderedCount > 0) {
+      deliveryStatus = 'delivered';
+      deliverySummary = `সবগুলো পণ্য (${totalDeliveredCount}/${totalOrderedCount}) ডেলিভারি সম্পন্ন`;
+    } else if (totalDeliveredCount > 0) {
+      deliveryStatus = 'partial';
+      const remaining = totalOrderedCount - totalDeliveredCount;
+      deliverySummary = `আংশিক ডেলিভারি: ${totalDeliveredCount}টি ডেলিভারি হয়েছে, ${remaining}টি বাকি/কম রয়েছে`;
+    } else {
+      deliveryStatus = 'pending';
+      deliverySummary = `ডেলিভারি হয়নি (পেন্ডিং) - কোনো পণ্য এখনও ডেলিভারি হয়নি`;
+    }
+
+    const now = new Date();
+    const newOrder = {
+      id: `HRO-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      employeeId: employeeId || '',
+      employeeName: employeeName || (lang === 'bn' ? 'অফিসার' : 'Staff'),
+      employeeRole: employeeRole || 'ফিল্ড অফিসার',
+      customerId: customerId || '',
+      customerName: customerName || (lang === 'bn' ? 'সাধারণ ক্রেতা' : 'Customer'),
+      customerPhone: customerPhone || '',
+      date: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      totalAmount,
+      deliveryStatus,
+      deliveredItemsCount: totalDeliveredCount,
+      totalItemsCount: totalOrderedCount,
+      deliverySummary,
+      deliveryDate: deliveryStatus === 'delivered' ? `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : null,
+      deliveryNote,
+      items: items.map(item => ({
+        productId: item.productId || item.id,
+        name: item.name,
+        price: Number(item.price || item.sellPrice || 0),
+        orderedQty: Number(item.orderedQty || item.qty || 1),
+        deliveredQty: Number(item.deliveredQty || 0),
+        subtotal: Number(item.subtotal || ((item.price || item.sellPrice || 0) * (item.orderedQty || item.qty || 1)))
+      }))
+    };
+
+    setFieldOrders(prev => [newOrder, ...prev]);
+    showToast(lang === 'bn' ? 'নতুন ফিল্ড প্রোডাক্ট অর্ডার সফলভাবে কাটা হয়েছে' : 'Field order created');
+    return newOrder;
+  };
+
+  const updateFieldOrderDelivery = (orderId, updatedItems, deliveryNote = '') => {
+    setFieldOrders(prev => prev.map(order => {
+      if (order.id !== orderId) return order;
+
+      const items = updatedItems || order.items;
+      const totalOrdered = items.reduce((sum, item) => sum + Number(item.orderedQty || 0), 0);
+      const totalDelivered = items.reduce((sum, item) => sum + Math.max(0, Math.min(Number(item.orderedQty || 0), Number(item.deliveredQty || 0))), 0);
+
+      let deliveryStatus = 'pending';
+      let deliverySummary = '';
+
+      if (totalDelivered === totalOrdered && totalOrdered > 0) {
+        deliveryStatus = 'delivered';
+        deliverySummary = `সবগুলো পণ্য (${totalDelivered}/${totalOrdered}) ডেলিভারি সম্পন্ন`;
+      } else if (totalDelivered > 0) {
+        deliveryStatus = 'partial';
+        const remaining = totalOrdered - totalDelivered;
+        deliverySummary = `আংশিক ডেলিভারি: ${totalDelivered}টি ডেলিভারি হয়েছে, ${remaining}টি বাকি/কম রয়েছে`;
+      } else {
+        deliveryStatus = 'pending';
+        deliverySummary = `ডেলিভারি হয়নি (পেন্ডিং) - কোনো পণ্য এখনও ডেলিভারি হয়নি`;
+      }
+
+      const now = new Date();
+      return {
+        ...order,
+        items: items.map(item => ({
+          ...item,
+          deliveredQty: Math.max(0, Math.min(Number(item.orderedQty || 0), Number(item.deliveredQty || 0)))
+        })),
+        deliveredItemsCount: totalDelivered,
+        totalItemsCount: totalOrdered,
+        deliveryStatus,
+        deliverySummary,
+        deliveryDate: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        deliveryNote: deliveryNote !== undefined ? deliveryNote : order.deliveryNote
+      };
+    }));
+
+    showToast(lang === 'bn' ? 'ডেলিভারি স্ট্যাটাস সফলভাবে আপডেট করা হয়েছে' : 'Delivery status updated');
+  };
+
+  const markOrderFullyDelivered = (orderId, note = '') => {
+    setFieldOrders(prev => prev.map(order => {
+      if (order.id !== orderId) return order;
+
+      const totalOrdered = order.items.reduce((sum, item) => sum + Number(item.orderedQty || 0), 0);
+      const updatedItems = order.items.map(item => ({
+        ...item,
+        deliveredQty: Number(item.orderedQty || 0)
+      }));
+
+      const now = new Date();
+      return {
+        ...order,
+        items: updatedItems,
+        deliveredItemsCount: totalOrdered,
+        totalItemsCount: totalOrdered,
+        deliveryStatus: 'delivered',
+        deliverySummary: `সবগুলো পণ্য (${totalOrdered}/${totalOrdered}) ডেলিভারি সম্পন্ন`,
+        deliveryDate: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        deliveryNote: note || order.deliveryNote || (lang === 'bn' ? 'সবগুলো পণ্য সফলভাবে ডেলিভারি সম্পন্ন' : 'Fully delivered')
+      };
+    }));
+
+    showToast(lang === 'bn' ? 'অর্ডারটির সবগুলো পণ্য ডেলিভারি সম্পন্ন হিসেবে চিহ্নিত হয়েছে' : 'Order marked fully delivered');
+  };
+
+  const deleteFieldOrder = (orderId) => {
+    setFieldOrders(prev => prev.filter(o => o.id !== orderId));
+    showToast(lang === 'bn' ? 'ফিল্ড অর্ডার মুছে ফেলা হয়েছে' : 'Field order deleted');
   };
 
   // ERP
@@ -2763,7 +2913,7 @@ export const AppProvider = ({ children }) => {
       version: '2.0.0',
       exportDate: new Date().toISOString(),
       personal: { personalExpenses, personalIncomes, personalSavings, personalDebts, personalEvents },
-      business: { products, salesHistory, customers, employees, suppliers, businessExpenses, businessSettings, invoices, quotations, damagedGoods, businessDebts },
+      business: { products, salesHistory, customers, employees, fieldOrders, suppliers, businessExpenses, businessSettings, invoices, quotations, damagedGoods, businessDebts },
       categories
     };
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -2791,6 +2941,7 @@ export const AppProvider = ({ children }) => {
         if (data.business.salesHistory) setSalesHistory(data.business.salesHistory);
         if (data.business.customers) setCustomers(data.business.customers);
         if (data.business.employees) setEmployees(data.business.employees);
+        if (data.business.fieldOrders) setFieldOrders(data.business.fieldOrders);
         if (data.business.suppliers) setSuppliers(data.business.suppliers);
         if (data.business.businessExpenses) setBusinessExpenses(data.business.businessExpenses);
         if (data.business.businessSettings) setBusinessSettings(data.business.businessSettings);
@@ -2818,6 +2969,7 @@ export const AppProvider = ({ children }) => {
       setSalesHistory(initialData.businessSalesHistory);
       setCustomers(initialData.businessCustomers);
       setEmployees(initialData.businessEmployees);
+      setFieldOrders(initialData.businessFieldOrders || []);
       setSuppliers(initialData.businessSuppliers);
       setBusinessExpenses(initialData.businessExpenses);
       setBusinessSettings(initialData.businessSettings);
@@ -3165,6 +3317,11 @@ export const AppProvider = ({ children }) => {
         collectDue,
         addEmployee,
         disburseSalary,
+        fieldOrders,
+        createFieldOrder,
+        updateFieldOrderDelivery,
+        markOrderFullyDelivered,
+        deleteFieldOrder,
         addBusinessExpense,
         paySupplier,
         updateBusinessSettings,
