@@ -44,21 +44,17 @@ export const GlobalVoiceWidget = () => {
   // Movable / Draggable Voice Button State with Safe Boundary Clamping
   const [btnPos, setBtnPos] = useState(() => {
     try {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
+      if (isMobile) return null; // Safe fixed dock on mobile bottom-right
       const saved = localStorage.getItem('hisabkitab_voice_pos');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
-          const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
-          const safeMinY = isMobile ? 180 : 60;
           const safeMaxX = typeof window !== 'undefined' ? Math.max(10, window.innerWidth - 68) : 500;
-          const safeMaxY = typeof window !== 'undefined' ? Math.max(safeMinY, window.innerHeight - 84) : 500;
-          // If previously saved position was blocking the top header on phone, reset to null (safe bottom-right)
-          if (isMobile && parsed.y < 160) {
-            return null;
-          }
+          const safeMaxY = typeof window !== 'undefined' ? Math.max(60, window.innerHeight - 74) : 500;
           return {
             x: Math.max(10, Math.min(safeMaxX, parsed.x)),
-            y: Math.max(safeMinY, Math.min(safeMaxY, parsed.y))
+            y: Math.max(60, Math.min(safeMaxY, parsed.y))
           };
         }
       }
@@ -284,6 +280,10 @@ export const GlobalVoiceWidget = () => {
 
   // Unified Pointer Dragging (Mobile Touch + Desktop Mouse + Stylus)
   const handlePointerDown = (e) => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 640) {
+      // Pinned firmly at bottom-right on mobile to never block top titles or forms
+      return;
+    }
     if (e.button && e.button !== 0) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;

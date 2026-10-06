@@ -367,7 +367,18 @@ export const Navbar = () => {
     setShowMobileDrawer(false);
   };
 
-  const currentDrawerGroups = profile === 'business' ? businessDrawerGroups : personalDrawerGroups;
+  const enabledBusinessDrawerGroups = useMemo(() => {
+    return businessDrawerGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        if (item.isAction || item.isTool) return true;
+        if (item.id === 'healthcare') return isModEnabled('healthcare');
+        return isModEnabled(item.id);
+      })
+    })).filter(group => group.items && group.items.length > 0);
+  }, [businessDrawerGroups, licenseInfo]);
+
+  const currentDrawerGroups = profile === 'business' ? enabledBusinessDrawerGroups : personalDrawerGroups;
 
   const filteredDrawerGroups = useMemo(() => {
     if (!drawerSearch.trim()) return currentDrawerGroups;
@@ -535,7 +546,7 @@ export const Navbar = () => {
             </div>
           ) : (
             <div
-              className="navbar-profile-switcher-wrap hide-mobile"
+              className="navbar-profile-switcher-wrap"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

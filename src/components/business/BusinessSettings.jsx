@@ -38,7 +38,17 @@ import {
   ScanLine,
   FolderOpen,
   Zap,
-  Radio
+  Radio,
+  ToggleLeft,
+  ToggleRight,
+  BadgeDollarSign,
+  Calculator,
+  Boxes,
+  HandCoins,
+  FileText,
+  FileCheck,
+  Users,
+  Layers
 } from 'lucide-react';
 
 export const BusinessSettings = () => {
@@ -61,6 +71,10 @@ export const BusinessSettings = () => {
     startFreshStore,
     activateSoftwareWithKey,
     deactivateLicense,
+    toggleLicenseModule,
+    applyPackagePreset,
+    isModuleActive,
+    MODULE_PRESETS,
     openCashDrawer,
     playScannerBeep,
     products,
@@ -163,9 +177,10 @@ export const BusinessSettings = () => {
           </p>
         </div>
 
-        {/* Sub-tab Navigation Pills */}
-        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)', gap: '4px' }}>
+        {/* Sub-tab Navigation Pills (Swipeable on Mobile) */}
+        <div className="horizontal-touch-strip" style={{ background: 'var(--bg-secondary)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)', gap: '4px' }}>
           <button
+            type="button"
             onClick={() => setActiveSubTab('profile')}
             style={{
               padding: '6px 14px',
@@ -182,10 +197,34 @@ export const BusinessSettings = () => {
             }}
           >
             <Building size={14} />
-            <span>{lang === 'bn' ? 'কোম্পানি প্রোফাইল ও ডকুমেন্ট' : 'Company Profile & Docs'}</span>
+            <span>{lang === 'bn' ? 'কোম্পানি প্রোফাইল ও তথ্য' : 'Company Profile & Docs'}</span>
+          </button>
+
+          {/* Dedicated Module Approval & Navigation Control Tab */}
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('modules')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeSubTab === 'modules' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'transparent',
+              color: activeSubTab === 'modules' ? '#fff' : 'var(--text-muted)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: activeSubTab === 'modules' ? '0 2px 10px rgba(99, 102, 241, 0.35)' : 'none'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>{lang === 'bn' ? '🛡️ মডিউল নিয়ন্ত্রণ ও অনুমোদন' : '🛡️ Module Activation'}</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveSubTab('receipt')}
             style={{
               padding: '6px 14px',
@@ -277,139 +316,6 @@ export const BusinessSettings = () => {
         {/* ========================================================= */}
         {activeSubTab === 'profile' && (
           <div className="settings-two-col-grid">
-            {/* OPERATING MODE SELECTOR CARD */}
-            <div
-              className="glass-card"
-              style={{
-                gridColumn: '1 / -1',
-                padding: '1.25rem',
-                borderRadius: '16px',
-                border: '1.5px solid var(--border-color)',
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)',
-                marginBottom: '0.25rem'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: '800', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-                    <span>⚡ সিস্টেম অপারেটিং মোড ও লাইটনেস কন্ট্রোল (Operating Mode)</span>
-                    <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', fontSize: '0.7rem', fontWeight: '800' }}>
-                      LIGHT & FAST
-                    </span>
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    {lang === 'bn'
-                      ? 'প্রয়োজন অনুযায়ী মোড নির্বাচন করুন। অপ্রয়োজনীয় মডিউল নিষ্ক্রিয় থাকবে যাতে সিস্টেম সর্বোচ্চ হালকা ও দ্রুতগতিতে কাজ করে।'
-                      : 'Choose your desired operating mode. Inactive modules will be disabled to optimize speed and responsiveness.'}
-                  </p>
-                </div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--mode-color)', background: 'var(--bg-primary)', padding: '5px 12px', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
-                  {operatingMode === 'business_only' && '🏢 অ্যাক্টিভ: শুধুমাত্র ব্যবসা মোড'}
-                  {operatingMode === 'personal_only' && '👤 অ্যাক্টিভ: শুধুমাত্র পার্সোনাল মোড'}
-                  {operatingMode === 'dual' && '🔄 অ্যাক্টিভ: ডুয়েল মোড (উভয়ই সচল)'}
-                </div>
-              </div>
-
-              {/* 3 Selectable Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                {/* 1. Business Only */}
-                <div
-                  type="button"
-                  onClick={() => setOperatingMode('business_only')}
-                  style={{
-                    padding: '1rem',
-                    borderRadius: '12px',
-                    border: operatingMode === 'business_only' ? '2px solid #6366f1' : '1px solid var(--border-color)',
-                    background: operatingMode === 'business_only' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-primary)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: operatingMode === 'business_only' ? '0 4px 18px rgba(99, 102, 241, 0.25)' : 'none'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.4rem' }}>🏢</span>
-                      <strong style={{ fontSize: '0.95rem', color: operatingMode === 'business_only' ? '#6366f1' : 'var(--text-main)' }}>
-                        {lang === 'bn' ? 'শুধু ব্যবসা (Business Only)' : 'Business Only'}
-                      </strong>
-                    </div>
-                    {operatingMode === 'business_only' && (
-                      <CheckCircle2 size={18} style={{ color: '#6366f1' }} />
-                    )}
-                  </div>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-                    {lang === 'bn'
-                      ? 'দোকান বা ব্যবসা প্রতিষ্ঠানের জন্য। পার্সোনাল ও পারিবারিক খরচের হিসাব সম্পূর্ণ বন্ধ থাকবে। মেমরি খরচ সর্বনিম্ন ও সুপারফাস্ট পিওএস।'
-                      : 'Optimized for stores & businesses. Disables all personal expense trackers for peak speed.'}
-                  </p>
-                </div>
-
-                {/* 2. Personal Only */}
-                <div
-                  type="button"
-                  onClick={() => setOperatingMode('personal_only')}
-                  style={{
-                    padding: '1rem',
-                    borderRadius: '12px',
-                    border: operatingMode === 'personal_only' ? '2px solid #10b981' : '1px solid var(--border-color)',
-                    background: operatingMode === 'personal_only' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-primary)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: operatingMode === 'personal_only' ? '0 4px 18px rgba(16, 185, 129, 0.25)' : 'none'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.4rem' }}>👤</span>
-                      <strong style={{ fontSize: '0.95rem', color: operatingMode === 'personal_only' ? '#10b981' : 'var(--text-main)' }}>
-                        {lang === 'bn' ? 'শুধু পার্সোনাল (Personal Only)' : 'Personal Only'}
-                      </strong>
-                    </div>
-                    {operatingMode === 'personal_only' && (
-                      <CheckCircle2 size={18} style={{ color: '#10b981' }} />
-                    )}
-                  </div>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-                    {lang === 'bn'
-                      ? 'ব্যক্তিগত ও পারিবারিক খরচের জন্য। ভারী ইনভেন্টরি, বারকোড স্ক্যানার ও পিওএস লোড হবে না। অতি হালকা ও সহজ।'
-                      : 'Tailored for personal & family finance. Strips out commercial ERP & POS modules.'}
-                  </p>
-                </div>
-
-                {/* 3. Dual Mode */}
-                <div
-                  type="button"
-                  onClick={() => setOperatingMode('dual')}
-                  style={{
-                    padding: '1rem',
-                    borderRadius: '12px',
-                    border: operatingMode === 'dual' ? '2px solid #a855f7' : '1px solid var(--border-color)',
-                    background: operatingMode === 'dual' ? 'rgba(168, 85, 247, 0.1)' : 'var(--bg-primary)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: operatingMode === 'dual' ? '0 4px 18px rgba(168, 85, 247, 0.25)' : 'none'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.4rem' }}>🔄</span>
-                      <strong style={{ fontSize: '0.95rem', color: operatingMode === 'dual' ? '#a855f7' : 'var(--text-main)' }}>
-                        {lang === 'bn' ? 'উভয় মোড (Dual Mode)' : 'Dual Suite (All-In-One)'}
-                      </strong>
-                    </div>
-                    {operatingMode === 'dual' && (
-                      <CheckCircle2 size={18} style={{ color: '#a855f7' }} />
-                    )}
-                  </div>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-                    {lang === 'bn'
-                      ? 'ব্যক্তিগত ও ব্যবসায়িক—উভয় হিসাব পরিচালনা করতে চাইলে এই মোডটি ব্যবহার করুন। যেকোনো সময় মোড পরিবর্তন করতে পারবেন।'
-                      : 'Run both your personal life and business from one unified system with easy top switching.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Left: Company Details Form */}
             <div className="glass-card">
               <h3 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -739,6 +645,433 @@ export const BusinessSettings = () => {
                     <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={(e) => handleFileUpload('tradeLicenseDoc', e.target.files[0])} />
                   </label>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB: MODULE ACTIVATION & APPROVAL HUB (ADMIN FEATURE CONTROL) */}
+        {/* ========================================================= */}
+        {activeSubTab === 'modules' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* 1. Operating Mode Selection */}
+            <div
+              className="glass-card"
+              style={{
+                padding: '1.25rem',
+                borderRadius: '16px',
+                border: '1.5px solid var(--border-color)',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: '800', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                    <span>⚡ সিস্টেম অপারেটিং মোড (Operating Mode)</span>
+                    <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', fontSize: '0.7rem', fontWeight: '800' }}>
+                      LIGHT & FAST
+                    </span>
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn'
+                      ? 'প্রয়োজন অনুযায়ী মোড নির্বাচন করুন। অপ্রয়োজনীয় মডিউল নিষ্ক্রিয় থাকবে যাতে সিস্টেম হালকা ও দ্রুতগতির থাকে।'
+                      : 'Choose desired mode. Inactive modules will be disabled for peak performance.'}
+                  </p>
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--mode-color)', background: 'var(--bg-primary)', padding: '5px 12px', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
+                  {operatingMode === 'business_only' && '🏢 অ্যাক্টিভ: শুধুমাত্র ব্যবসা মোড'}
+                  {operatingMode === 'personal_only' && '👤 অ্যাক্টিভ: শুধুমাত্র পার্সোনাল মোড'}
+                  {operatingMode === 'dual' && '🔄 অ্যাক্টিভ: ডুয়েল মোড (উভয়ই সচল)'}
+                </div>
+              </div>
+
+              {/* 3 Selectable Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                {/* 1. Business Only */}
+                <div
+                  type="button"
+                  onClick={() => setOperatingMode('business_only')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    border: operatingMode === 'business_only' ? '2px solid #6366f1' : '1px solid var(--border-color)',
+                    background: operatingMode === 'business_only' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: operatingMode === 'business_only' ? '0 4px 18px rgba(99, 102, 241, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🏢</span>
+                      <strong style={{ fontSize: '0.95rem', color: operatingMode === 'business_only' ? '#6366f1' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'শুধু ব্যবসা (Business Only)' : 'Business Only'}
+                      </strong>
+                    </div>
+                    {operatingMode === 'business_only' && (
+                      <CheckCircle2 size={18} style={{ color: '#6366f1' }} />
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'দোকান বা ব্যবসা প্রতিষ্ঠানের জন্য। পার্সোনাল ও পারিবারিক খরচের হিসাব বন্ধ থাকবে। মেমরি খরচ সর্বনিম্ন ও সুপারফাস্ট পিওএস।'
+                      : 'Optimized for stores & businesses. Disables all personal expense trackers for peak speed.'}
+                  </p>
+                </div>
+
+                {/* 2. Personal Only */}
+                <div
+                  type="button"
+                  onClick={() => setOperatingMode('personal_only')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    border: operatingMode === 'personal_only' ? '2px solid #10b981' : '1px solid var(--border-color)',
+                    background: operatingMode === 'personal_only' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: operatingMode === 'personal_only' ? '0 4px 18px rgba(16, 185, 129, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>👤</span>
+                      <strong style={{ fontSize: '0.95rem', color: operatingMode === 'personal_only' ? '#10b981' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'শুধু পার্সোনাল (Personal Only)' : 'Personal Only'}
+                      </strong>
+                    </div>
+                    {operatingMode === 'personal_only' && (
+                      <CheckCircle2 size={18} style={{ color: '#10b981' }} />
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'ব্যক্তিগত ও পারিবারিক খরচের জন্য। ভারী ইনভেন্টরি, বারকোড স্ক্যানার ও পিওএস লোড হবে না। অতি হালকা ও সহজ।'
+                      : 'Tailored for personal & family finance. Strips out commercial ERP & POS modules.'}
+                  </p>
+                </div>
+
+                {/* 3. Dual Mode */}
+                <div
+                  type="button"
+                  onClick={() => setOperatingMode('dual')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    border: operatingMode === 'dual' ? '2px solid #a855f7' : '1px solid var(--border-color)',
+                    background: operatingMode === 'dual' ? 'rgba(168, 85, 247, 0.1)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: operatingMode === 'dual' ? '0 4px 18px rgba(168, 85, 247, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🔄</span>
+                      <strong style={{ fontSize: '0.95rem', color: operatingMode === 'dual' ? '#a855f7' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'উভয় মোড (Dual Mode)' : 'Dual Suite (All-In-One)'}
+                      </strong>
+                    </div>
+                    {operatingMode === 'dual' && (
+                      <CheckCircle2 size={18} style={{ color: '#a855f7' }} />
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'ব্যক্তিগত ও ব্যবসায়িক—উভয় হিসাব পরিচালনা করতে চাইলে এই মোডটি ব্যবহার করুন। যেকোনো সময় মোড পরিবর্তন করতে পারবেন।'
+                      : 'Run both your personal life and business from one unified system with easy top switching.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Admin 1-Click Package Presets */}
+            <div className="glass-card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                    <Sparkles size={18} style={{ color: '#f59e0b' }} />
+                    <span>{lang === 'bn' ? '১-ক্লিকে ব্যবসার সাইজ অনুযায়ী প্রি-সেট প্যাকেজ' : '1-Click Business Scale Presets'}</span>
+                  </h3>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn'
+                      ? 'ছোট দোকানদারের জন্য অপ্রয়োজনীয় মডিউলগুলো ১ ক্লিকেই বন্ধ করে পরিচ্ছন্ন স্ক্রিন তৈরি করুন।'
+                      : 'Quickly set up the right feature complexity for your shop type.'}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+                {/* Preset: Small Business Simple (No HR, No ERP, No SR) */}
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    border: '1.5px solid #10b981',
+                    background: 'rgba(16, 185, 129, 0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.95rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🟢</span> {lang === 'bn' ? 'ছোট দোকান ও রিটেইল (ক্লিন)' : 'Small Retail (Clean)'}
+                      </strong>
+                      <span className="badge" style={{ background: '#10b981', color: '#fff', fontSize: '0.65rem' }}>
+                        {lang === 'bn' ? 'সুপার সিম্পল' : 'Simple'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                      {lang === 'bn'
+                        ? 'মুদি, ফার্মেসি ও সাধারণ দোকানের জন্য। শুধুমাত্র POS, স্টক, বাকি খাতা ও চালান থাকবে। HR, পেরোল, জটিল ERP বন্ধ।'
+                        : 'Essential POS, stock, and customer dues. Removes HR, complex ERP and field modules.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => applyPackagePreset('basic')}
+                    style={{ width: '100%', borderColor: '#10b981', color: '#10b981', fontWeight: '700', fontSize: '0.8rem' }}
+                  >
+                    ✓ {lang === 'bn' ? 'ছোট দোকান মোড সক্রিয় করুন' : 'Apply Small Shop Preset'}
+                  </button>
+                </div>
+
+                {/* Preset: Standard Shop */}
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    border: '1.5px solid #6366f1',
+                    background: 'rgba(99, 102, 241, 0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.95rem', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🟡</span> {lang === 'bn' ? 'স্ট্যান্ডার্ড বাণিজ্যিক ব্যবসা' : 'Standard Commercial'}
+                      </strong>
+                      <span className="badge" style={{ background: '#6366f1', color: '#fff', fontSize: '0.65rem' }}>
+                        {lang === 'bn' ? 'জনপ্রিয়' : 'Popular'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                      {lang === 'bn'
+                        ? 'মাঝারি হোলসেল ও শোরুমের জন্য। POS, স্টক, দেনা-পাওনা, চালান, কোটেশন, লাভ-ক্ষতি ও কাস্টমার CRM সক্রিয়।'
+                        : 'Adds Quotations, CRM, and basic accounting to the core POS and Inventory.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => applyPackagePreset('standard')}
+                    style={{ width: '100%', borderColor: '#6366f1', color: '#6366f1', fontWeight: '700', fontSize: '0.8rem' }}
+                  >
+                    ✓ {lang === 'bn' ? 'স্ট্যান্ডার্ড মোড সক্রিয় করুন' : 'Apply Standard Preset'}
+                  </button>
+                </div>
+
+                {/* Preset: Enterprise Full Suite */}
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    border: '1.5px solid #a855f7',
+                    background: 'rgba(168, 85, 247, 0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.95rem', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🟣</span> {lang === 'bn' ? 'ফুল এন্টারপ্রাইজ স্যুট' : 'Full Enterprise Suite'}
+                      </strong>
+                      <span className="badge" style={{ background: '#a855f7', color: '#fff', fontSize: '0.65rem' }}>
+                        PRO
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                      {lang === 'bn'
+                        ? 'বড় প্রতিষ্ঠান ও মাল্টি-ব্রাঞ্চের জন্য। HR পেরোল, ফিল্ড এসআর, মাল্টি-ব্রাঞ্চ ও ক্লাউড ব্যাকআপ সহ সকল ফিচার উন্মুক্ত।'
+                        : 'Unlocks everything: Staff payroll, field force sales, multi-branch control & cloud sync.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => applyPackagePreset('enterprise')}
+                    style={{ width: '100%', borderColor: '#a855f7', color: '#a855f7', fontWeight: '700', fontSize: '0.8rem' }}
+                  >
+                    ✓ {lang === 'bn' ? 'সকল মডিউল সক্রিয় করুন' : 'Apply Full Enterprise'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Individual Admin Feature Approval Switches */}
+            <div className="glass-card">
+              <div style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                  <ShieldCheck size={18} style={{ color: 'var(--business-primary)' }} />
+                  <span>{lang === 'bn' ? 'মডিউল অনুমোদন ও নেভিগেশন কন্ট্রোল (Admin Approval)' : 'Module Activation & Visibility Control'}</span>
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn'
+                    ? 'অ্যাডমিন যে মডিউলে অনুমোদন দেবেন, শুধুমাত্র সেটিই পিসি ও মোবাইলের নেভিগেশনে দেখা যাবে। বাকিগুলো স্বয়ংক্রিয়ভাবে লুকিয়ে থাকবে।'
+                    : 'Toggle modules on/off. Disabled modules will be hidden from PC top navigation and mobile menus.'}
+                </p>
+              </div>
+
+              {/* Module Toggles Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '1rem' }}>
+                {[
+                  {
+                    key: 'hr',
+                    name: lang === 'bn' ? 'HR ও স্টাফ পেরোল/স্যালারি' : 'HR & Staff Payroll',
+                    desc: lang === 'bn' ? 'কর্মচারীদের হাজিরা, বেতন শীট, কমিশন ও লোন ব্যবস্থাপনা' : 'Staff attendance, salary vouchers & employee loans',
+                    icon: BadgeDollarSign,
+                    color: '#14b8a6'
+                  },
+                  {
+                    key: 'erp',
+                    name: lang === 'bn' ? 'ERP ও প্রফিট/লস অ্যাকাউন্টস' : 'ERP Accounting & P/L',
+                    desc: lang === 'bn' ? 'লেজার খাতা, ব্যালেন্স শিট, ভাউচার ও সম্পূর্ণ লাভ-ক্ষতি' : 'Double-entry bookkeeping, profit & loss analysis',
+                    icon: Calculator,
+                    color: '#ec4899'
+                  },
+                  {
+                    key: 'quotations',
+                    name: lang === 'bn' ? 'দরপত্র ও কোটেশন ম্যানেজার' : 'Quotations & Estimates',
+                    desc: lang === 'bn' ? 'কাস্টমারদের এস্টিমেট দেওয়া ও ১-ক্লিকে ইনভয়েসে রূপান্তর' : 'Price proposals with 1-click invoice conversion',
+                    icon: FileCheck,
+                    color: '#8b5cf6'
+                  },
+                  {
+                    key: 'sr',
+                    name: lang === 'bn' ? 'এসআর ফিল্ড ফোর্স ও মার্কেট রুট' : 'SR Field Force Management',
+                    desc: lang === 'bn' ? 'ফিল্ডে এসআরদের দোকান ভিজিট, রুট অর্ডার ও মার্কেট কালেকশন' : 'Sales representative route & field collection',
+                    icon: Users,
+                    color: '#f97316'
+                  },
+                  {
+                    key: 'branch_control',
+                    name: lang === 'bn' ? 'মাল্টি-ব্রাঞ্চ ও সেন্ট্রাল ক্যাশ' : 'Multi-Branch & Cash Counters',
+                    desc: lang === 'bn' ? 'একাধিক দোকান শাখা এবং প্রতিটি কাউন্টারের শিফট ক্যাশ তদারকি' : 'Manage multiple store branches and shift handovers',
+                    icon: Building,
+                    color: '#e11d48'
+                  },
+                  {
+                    key: 'crm',
+                    name: lang === 'bn' ? 'CRM ও কাস্টমার রিলেশন' : 'CRM & Customer Loyalty',
+                    desc: lang === 'bn' ? 'ক্রেতাদের প্রোফাইল, ক্রেডিট বাকি লিমিট ও ক্রয় ইতিহাস' : 'Customer database, credit limits & purchase records',
+                    icon: Users,
+                    color: '#6366f1'
+                  },
+                  {
+                    key: 'healthcare',
+                    name: lang === 'bn' ? 'হেলথকেয়ার ইআরপি হাব' : 'Healthcare ERP Hub',
+                    desc: lang === 'bn' ? 'রোগী ম্যানেজমেন্ট, প্রেসক্রিপশন, ডায়াগনস্টিক ল্যাব ও টেস্ট রিপোর্ট' : 'Patient registry, Rx, lab diagnosis & pharmacy',
+                    icon: Zap,
+                    color: '#0d9488'
+                  },
+                  {
+                    key: 'google_drive_sync',
+                    name: lang === 'bn' ? 'গুগল ড্রাইভ ক্লাউড অটো-সিঙ্ক' : 'Google Drive Auto-Sync',
+                    desc: lang === 'bn' ? 'প্রতি ১ মিনিটে স্বয়ংক্রিয় ক্লাউড ব্যাকআপ সিঙ্ক' : '1-minute automated snapshot backup to Google Drive',
+                    icon: Cloud,
+                    color: '#0284c7'
+                  }
+                ].map((mod) => {
+                  const IconComp = mod.icon;
+                  const isEnabled = isModuleActive(mod.key);
+                  return (
+                    <div
+                      key={mod.key}
+                      style={{
+                        padding: '1rem',
+                        borderRadius: '12px',
+                        border: isEnabled ? `1.5px solid ${mod.color}` : '1px solid var(--border-color)',
+                        background: isEnabled ? 'rgba(255, 255, 255, 0.02)' : 'var(--bg-primary)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ background: `${mod.color}20`, color: mod.color, padding: '7px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <IconComp size={18} />
+                            </div>
+                            <strong style={{ fontSize: '0.92rem', color: isEnabled ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                              {mod.name}
+                            </strong>
+                          </div>
+                          <span
+                            className="badge"
+                            style={{
+                              background: isEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                              color: isEnabled ? '#10b981' : 'var(--text-muted)',
+                              fontSize: '0.7rem',
+                              fontWeight: '700'
+                            }}
+                          >
+                            {isEnabled ? (lang === 'bn' ? '🟢 সক্রিয়' : 'Active') : (lang === 'bn' ? '⚪ বন্ধ' : 'Hidden')}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45, margin: 0 }}>
+                          {mod.desc}
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                        <span style={{ fontSize: '0.74rem', fontWeight: '600', color: 'var(--text-muted)' }}>
+                          {isEnabled ? (lang === 'bn' ? 'মেনুতে প্রদর্শিত হচ্ছে' : 'Visible in menu') : (lang === 'bn' ? 'মেনু থেকে লুকানো' : 'Hidden from menu')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleLicenseModule(mod.key)}
+                          className={`btn ${isEnabled ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '0.78rem',
+                            fontWeight: '700',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: isEnabled ? mod.color : undefined,
+                            borderColor: isEnabled ? mod.color : undefined
+                          }}
+                        >
+                          {isEnabled ? (
+                            <>
+                              <CheckCircle2 size={14} />
+                              <span>{lang === 'bn' ? 'অনুমোদিত' : 'Approved'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck size={14} />
+                              <span>{lang === 'bn' ? 'অনুমোদন দিন' : 'Enable'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -195,8 +195,8 @@ export const SRFieldManager = () => {
         </div>
       </div>
 
-      {/* Main Tabs */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+      {/* Main Tabs (Swipeable on Mobile) */}
+      <div className="horizontal-touch-strip" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '8px' }}>
         <button
           onClick={() => setActiveTab('customers')}
           className={`btn ${activeTab === 'customers' ? 'btn-primary' : 'btn-secondary'}`}

@@ -755,8 +755,8 @@ export const POSTerminal = () => {
           </div>
         </div>
 
-        {/* Counter Closing / Handover Button */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* Counter Closing / Handover Button (Swipeable on Mobile) */}
+        <div className="horizontal-touch-strip" style={{ alignItems: 'center' }}>
           {isSalesman ? (
             <div style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Sparkles size={14} />
@@ -1495,8 +1495,8 @@ export const POSTerminal = () => {
               </div>
             </div>
 
-            {/* Layer 1 Buttons Scroll Row */}
-            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {/* Layer 1 Buttons Scroll Row (Swipeable on Mobile) */}
+            <div className="horizontal-touch-strip" style={{ paddingBottom: '4px' }}>
               {quickFilters.map((qf) => {
                 const isActive = activeFilterId === qf.id;
                 const count = getFilterItemCount(qf);

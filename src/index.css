@@ -1349,14 +1349,40 @@ input:checked+.slider:before {
   /* Bottom Nav Bar Visible on Touch Mobile with Solid Background */
   .mobile-bottom-nav {
     display: flex !important;
-    background: var(--bg-card) !important;
+    background: #0f172a !important;
+    background-color: var(--bg-card, #0f172a) !important;
     opacity: 1 !important;
+    z-index: 999 !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  /* Universal Horizontal Touch Strip for Mobile (Left-Right Swipeable Buttons) */
+  .horizontal-touch-strip {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 6px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .horizontal-touch-strip::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .horizontal-touch-strip > * {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
   }
 
   /* Business Settings Responsive Single Column Stacking on Phone */
   .settings-two-col-grid {
     grid-template-columns: 1fr !important;
     gap: 1rem !important;
+    max-width: 100% !important;
   }
 
   .settings-field-grid-2,
@@ -1365,10 +1391,19 @@ input:checked+.slider:before {
     gap: 8px !important;
   }
 
+  /* Global Mobile Card & Container Bounds (No horizontal overflow) */
+  .glass-card, .card, .dashboard-card {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   /* Compact Floating Voice Button on Mobile */
   .global-voice-floating-btn {
     width: 48px !important;
     height: 48px !important;
+    right: 16px !important;
+    bottom: 84px !important;
+    z-index: 990 !important;
   }
 
   .global-voice-floating-btn svg {
@@ -1414,12 +1449,14 @@ input:checked+.slider:before {
     font-size: 0.78rem !important;
   }
 
-  /* Navbar Mobile Layout */
+  /* Navbar Mobile Layout - 2 Clean Rows */
   .navbar-top-bar {
-    padding: 0.35rem 0.5rem !important;
-    gap: 0.35rem !important;
-    flex-wrap: nowrap !important;
+    padding: 0.4rem 0.6rem !important;
+    gap: 0.4rem !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
     justify-content: space-between !important;
+    align-items: center !important;
     width: 100% !important;
     max-width: 100vw !important;
     box-sizing: border-box !important;
@@ -1429,7 +1466,8 @@ input:checked+.slider:before {
     gap: 8px !important;
     min-width: 0 !important;
     flex-shrink: 0 !important;
-    overflow: visible !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
   .navbar-brand-group h1 {
@@ -1438,6 +1476,7 @@ input:checked+.slider:before {
     overflow: visible !important;
     text-overflow: clip !important;
     max-width: none !important;
+    margin: 0 !important;
   }
 
   .navbar-brand-group p,
@@ -1445,21 +1484,32 @@ input:checked+.slider:before {
     display: none !important;
   }
 
+  /* Row 2: Full Width Profile Switcher in Mobile Header */
   .navbar-profile-switcher-wrap {
-    order: 3;
-    width: 100%;
-    margin-top: 4px;
-    background: var(--bg-primary);
-    padding: 2px;
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
+    order: 3 !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+    background: var(--bg-primary) !important;
+    padding: 3px !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border-color) !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    gap: 4px !important;
   }
 
   .navbar-profile-switcher-wrap button {
-    flex: 1;
-    padding: 6px 8px !important;
-    font-size: 0.78rem !important;
+    flex: 1 1 50% !important;
+    padding: 6px 10px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
     border-radius: 9px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
   }
 
   .hide-mobile {
@@ -1472,7 +1522,7 @@ input:checked+.slider:before {
 
   /* Compact Navbar for Portrait Mobile */
   .navbar-right-controls {
-    gap: 3px !important;
+    gap: 4px !important;
     flex-shrink: 0 !important;
     display: flex !important;
     align-items: center !important;
