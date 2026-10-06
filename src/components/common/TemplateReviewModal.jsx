@@ -124,19 +124,21 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay animate-fade-in" style={{ zIndex: 1300 }}>
+    <div className="modal-overlay animate-fade-in" style={{ zIndex: 1300, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
       <div
-        className="glass-card modal-container"
+        className="glass-card modal-container android-scroll-view"
         style={{
           maxWidth: '1150px',
           width: '96%',
-          height: '90vh',
+          height: 'calc(100dvh - 24px)',
+          maxHeight: 'calc(100dvh - 24px)',
           display: 'flex',
           flexDirection: 'column',
           padding: 0,
           borderRadius: '20px',
           overflow: 'hidden',
-          background: 'var(--bg-primary)'
+          background: 'var(--bg-primary)',
+          WebkitOverflowScrolling: 'touch'
         }}
       >
         {/* Top Header */}

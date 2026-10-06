@@ -81,13 +81,17 @@ export const CounterShiftOpeningModal = ({ isOpen, onClose, onShiftOpened }) => 
   };
 
   return (
-    <div className="modal-overlay animate-fade-in" style={{ zIndex: 1200, backdropFilter: 'blur(6px)' }}>
+    <div className="modal-overlay animate-fade-in" style={{ zIndex: 1200, backdropFilter: 'blur(6px)', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
       <div
-        className="glass-card modal-container"
+        className="glass-card modal-container android-scroll-view"
         style={{
           maxWidth: '480px',
           width: '92%',
-          padding: '1.75rem',
+          maxHeight: 'calc(100dvh - 24px)',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
+          padding: '1.5rem',
           borderRadius: '18px',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)',
           border: '1.5px solid rgba(16, 185, 129, 0.4)'

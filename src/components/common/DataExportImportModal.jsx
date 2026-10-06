@@ -433,28 +433,32 @@ export const DataExportImportModal = ({
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '20px 14px',
+        padding: 'max(12px, env(safe-area-inset-top, 12px)) 10px max(16px, env(safe-area-inset-bottom, 16px))',
         background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain'
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="modal-content animate-scale-up"
+        className="modal-content animate-scale-up android-scroll-view"
         style={{
           maxWidth: '740px',
           width: '95%',
-          marginTop: '8px',
+          marginTop: '4px',
           background: 'var(--bg-card)',
           borderRadius: '18px',
           border: '1px solid var(--border-color)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
-          padding: '1.5rem',
-          maxHeight: 'calc(100vh - 40px)',
-          overflowY: 'auto'
+          padding: '1.25rem',
+          maxHeight: 'calc(100dvh - 24px)',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain'
         }}
       >
         {/* Modal Top Header */}

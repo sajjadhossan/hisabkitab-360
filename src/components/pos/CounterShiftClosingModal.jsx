@@ -163,11 +163,11 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="glass-card animate-scale-up"
+        className="glass-card animate-scale-up android-scroll-view"
         style={{
           width: '100%',
           maxWidth: '560px',
-          maxHeight: '90vh',
+          maxHeight: 'calc(100dvh - 24px)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -248,7 +248,7 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
           {activeTab === 'closing' ? (
             lastClosedRecord ? (
               <div style={{ textAlign: 'center', padding: '1rem 0' }}>

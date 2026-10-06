@@ -447,14 +447,16 @@ export const BarcodeScannerModal = () => {
   if (!isScannerOpen) return null;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1050 }}>
+    <div className="modal-overlay" style={{ zIndex: 1050, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content animate-fade-in android-scroll-view"
         style={{
           maxWidth: '620px',
           width: '95%',
-          maxHeight: '92vh',
+          maxHeight: 'calc(100dvh - 24px)',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
           padding: '1.25rem',
           borderRadius: '20px',
           border: '1px solid var(--border-color)',
@@ -1293,7 +1295,7 @@ export const BarcodeScannerModal = () => {
                   {lastScannedItem.product ? lastScannedItem.product.name : lastScannedItem.code}
                 </span>
                 <span style={{ color: '#10b981', marginLeft: '6px', fontWeight: '700' }}>
-                  {lastScannedItem.product ? `৳${lastScannedItem.product.sellingPrice}` : 'স্ক্যান সফল'}
+                  {lastScannedItem.product ? `৳${Number(lastScannedItem.product.sellingPrice ?? lastScannedItem.product.price ?? 0).toLocaleString()}` : (lang === 'bn' ? 'স্ক্যান সফল' : 'Scanned')}
                 </span>
               </div>
             </div>

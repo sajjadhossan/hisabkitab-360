@@ -298,6 +298,13 @@ html {
   touch-action: manipulation;
 }
 
+html {
+  touch-action: pan-x pan-y pinch-zoom;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
@@ -310,6 +317,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y pinch-zoom;
+  overscroll-behavior-y: auto;
 }
 
 /* Scrollbars */
@@ -625,35 +634,41 @@ body {
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Modals */
+/* Modals & Android ScrollView Framework */
 .modal-overlay,
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   z-index: 1200;
-  padding: 1.5rem 1rem;
+  padding: max(12px, env(safe-area-inset-top, 12px)) 0.75rem max(16px, env(safe-area-inset-bottom, 16px));
   overflow-y: auto;
+  overflow-x: hidden;
   animation: fadeIn 0.15s ease-out;
   transform: translateZ(0);
   will-change: opacity;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y pinch-zoom;
 }
 
 .modal-top-align,
 .modal-top-align.modal-overlay {
   align-items: flex-start !important;
-  padding: 1.5rem 1rem !important;
+  padding: max(12px, env(safe-area-inset-top, 12px)) 0.75rem max(16px, env(safe-area-inset-bottom, 16px)) !important;
 }
 
 .modal-top-align .modal-content {
   border-radius: 18px !important;
-  margin-top: 0.5rem !important;
+  margin-top: 0.25rem !important;
 }
 
 .modal-content {
@@ -662,8 +677,9 @@ body {
   border-radius: var(--radius-lg);
   max-width: 580px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100dvh - max(24px, calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 16px)));
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: var(--shadow-lg);
   padding: 1.5rem;
   position: relative;
@@ -671,6 +687,23 @@ body {
   transform: translateZ(0);
   will-change: transform, opacity;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y pinch-zoom;
+}
+
+/* Dedicated Android ScrollView & Panning Helpers */
+.android-scroll-view {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y pinch-zoom !important;
+}
+
+.android-horizontal-scroll {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain !important;
+  touch-action: pan-x pinch-zoom !important;
 }
 
 @keyframes fadeIn {
@@ -1629,21 +1662,32 @@ input:checked+.slider:before {
     max-height: calc(100vh - 240px);
   }
 
-  /* Modal on Mobile: Ensure prominent top-aligned appearance */
+  /* Modal on Mobile: Ensure prominent top-aligned appearance and full ScrollView accessibility */
   .modal-overlay,
   .modal-backdrop {
-    padding: 0.75rem 0.5rem !important;
+    padding: max(8px, env(safe-area-inset-top, 8px)) 0.35rem max(14px, env(safe-area-inset-bottom, 14px)) !important;
     align-items: flex-start !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
   }
 
   .modal-content {
     max-width: 100% !important;
     width: 100% !important;
     border-radius: 16px !important;
-    margin-top: 0.25rem !important;
-    max-height: calc(100vh - 20px) !important;
-    padding: 1.25rem 1rem !important;
+    margin-top: 0.15rem !important;
+    max-height: calc(100dvh - 16px) !important;
+    padding: 1.15rem 0.85rem !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y pinch-zoom !important;
+  }
+
+  /* POS Floating Checkout Bar must float above the 64px Mobile Bottom Nav */
+  .pos-floating-checkout-bar {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* Table Horizontal Scrolling */

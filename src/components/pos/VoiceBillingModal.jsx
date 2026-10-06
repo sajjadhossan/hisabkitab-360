@@ -417,9 +417,9 @@ export const VoiceBillingModal = ({ isOpen, onClose, onAddToCart, onPOSAction })
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1100 }}>
+    <div className="modal-overlay" style={{ zIndex: 1100, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content animate-fade-in android-scroll-view"
         style={{
           maxWidth: '650px',
           width: '95%',
@@ -427,9 +427,11 @@ export const VoiceBillingModal = ({ isOpen, onClose, onAddToCart, onPOSAction })
           borderRadius: '22px',
           border: '1.5px solid var(--border-color)',
           boxShadow: '0 25px 65px rgba(0, 0, 0, 0.45)',
-          padding: '1.5rem',
-          maxHeight: '92vh',
-          overflowY: 'auto'
+          padding: '1.25rem',
+          maxHeight: 'calc(100dvh - 24px)',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain'
         }}
       >
         {/* Header */}

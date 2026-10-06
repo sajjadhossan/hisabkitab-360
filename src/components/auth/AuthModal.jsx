@@ -121,17 +121,30 @@ export const AuthModal = () => {
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 9999, backdropFilter: 'blur(8px)', background: 'rgba(15, 23, 42, 0.8)' }}>
+    <div
+      className="modal-overlay"
+      style={{
+        zIndex: 9999,
+        backdropFilter: 'blur(8px)',
+        background: 'rgba(15, 23, 42, 0.8)',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        padding: 'max(10px, env(safe-area-inset-top, 10px)) 8px max(16px, env(safe-area-inset-bottom, 16px))'
+      }}
+    >
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content animate-fade-in android-scroll-view"
         style={{
           maxWidth: '480px',
           width: '95%',
+          maxHeight: 'calc(100dvh - 24px)',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
           background: 'var(--card-bg)',
           borderRadius: '16px',
           border: '1px solid var(--border-color)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          overflow: 'hidden',
           padding: 0
         }}
       >

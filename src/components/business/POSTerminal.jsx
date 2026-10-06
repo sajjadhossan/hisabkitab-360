@@ -673,7 +673,7 @@ export const POSTerminal = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+    <div className="animate-fade-in android-scroll-view" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', width: '100%', WebkitOverflowScrolling: 'touch' }}>
       {/* MULTI-BRANCH & CASH COUNTER HEADER BAR */}
       <div
         className="glass-card"
