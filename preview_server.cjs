@@ -1,8 +1,8 @@
 /**
- * HisabKitab 360 - Host & Mobile Preview Runner
- * Spawns Vite development/production preview on 0.0.0.0 and displays exact network URL for Android devices.
+ * HisabKitab 360 - Host & Mobile Preview Server
+ * Native Vite programmatic integration with zero shell spawn issues.
  */
-const { spawn } = require('child_process');
+const { createServer } = require('vite');
 const os = require('os');
 
 function getLocalIp() {
@@ -17,28 +17,42 @@ function getLocalIp() {
   return 'localhost';
 }
 
-const localIp = getLocalIp();
-const port = process.env.PORT || 5173;
+async function start() {
+  const localIp = getLocalIp();
+  const port = parseInt(process.env.PORT, 10) || 5173;
 
-console.log('====================================================');
-console.log('   🚀 HISABKITAB 360 - HOST & MOBILE PREVIEW SERVER');
-console.log('====================================================');
-console.log(`\n📱 আপনার অ্যান্ড্রয়েড মোবাইল বা অন্য ডিভাইস থেকে ওপেন করুন:`);
-console.log(`   👉 http://${localIp}:${port}`);
-console.log(`\n💻 আপনার লোকাল কম্পিউটার থেকে ওপেন করুন:`);
-console.log(`   👉 http://localhost:${port}\n`);
-console.log('⚠️  নোট: মোবাইল ও কম্পিউটার একই Wi-Fi / Hotspot-এ কানেক্টেড থাকতে হবে।');
-console.log('====================================================\n');
+  console.log('===================================================================');
+  console.log('       HISABKITAB 360 - MOBILE & LOCAL HOST PREVIEW SERVER         ');
+  console.log('===================================================================');
+  console.log('\n[1] সার্ভার লোড হচ্ছে...');
 
-const isWin = process.platform === 'win32';
-const npxCmd = isWin ? 'npx.cmd' : 'npx';
+  try {
+    const server = await createServer({
+      server: {
+        host: '0.0.0.0',
+        port: port,
+        strictPort: false
+      }
+    });
 
-const child = spawn(npxCmd, ['vite', '--host', '0.0.0.0', '--port', String(port)], {
-  stdio: 'inherit',
-  shell: true
-});
+    await server.listen();
 
-child.on('close', (code) => {
-  console.log(`\nServer stopped with code ${code}`);
-  process.exit(code || 0);
-});
+    const actualPort = server.config.server.port || port;
+
+    console.log('\n===================================================================');
+    console.log('📱 আপনার অ্যান্ড্রয়েড মোবাইল থেকে যেভাবে ওপেন করবেন:');
+    console.log('   ১. আপনার মোবাইল এবং এই কম্পিউটার একই Wi-Fi বা হটস্পটে কানেক্ট করুন।');
+    console.log('   ২. মোবাইলের Chrome বা যেকোনো ব্রাউজারে নিচের লিংকে যান:');
+    console.log(`\n      👉 http://${localIp}:${actualPort}\n`);
+    console.log('💻 লোকাল কম্পিউটার ব্রাউজারে দেখতে:');
+    console.log(`      👉 http://localhost:${actualPort}\n`);
+    console.log('🛑 সার্ভার বন্ধ করতে এই উইন্ডোতে Ctrl + C চাপুন।');
+    console.log('===================================================================\n');
+
+  } catch (err) {
+    console.error('সার্ভার চালু করতে সমস্যা হয়েছে:', err);
+    process.exit(1);
+  }
+}
+
+start();
