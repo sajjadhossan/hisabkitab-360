@@ -836,6 +836,26 @@ input:checked+.slider:before {
   white-space: nowrap;
 }
 
+/* Settings Responsive Two-Column Grid */
+.settings-two-col-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.settings-field-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.settings-field-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
 /* POS Terminal Grid System */
 .pos-terminal-grid {
   display: grid;
@@ -1315,9 +1335,10 @@ input:checked+.slider:before {
     min-height: 42px;
   }
 
-  /* Main Content Spacing for Mobile Bottom Nav */
+  /* Main Content Spacing for Mobile Bottom Nav - safe from overlap */
   .main-content {
-    padding: 0.75rem 0.5rem 5.5rem !important;
+    padding: 0.65rem 0.5rem 7rem !important;
+    padding-bottom: max(7rem, calc(64px + env(safe-area-inset-bottom) + 1.75rem)) !important;
   }
 
   /* Subnav Scroll Bar hidden on mobile - replaced by Bottom Nav Bar & Drawer */
@@ -1325,9 +1346,34 @@ input:checked+.slider:before {
     display: none !important;
   }
 
-  /* Bottom Nav Bar Visible on Touch Mobile */
+  /* Bottom Nav Bar Visible on Touch Mobile with Solid Background */
   .mobile-bottom-nav {
     display: flex !important;
+    background: var(--bg-card) !important;
+    opacity: 1 !important;
+  }
+
+  /* Business Settings Responsive Single Column Stacking on Phone */
+  .settings-two-col-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .settings-field-grid-2,
+  .settings-field-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Compact Floating Voice Button on Mobile */
+  .global-voice-floating-btn {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .global-voice-floating-btn svg {
+    width: 20px !important;
+    height: 20px !important;
   }
 
   /* POS Mobile/Tablet Search and Quick Actions */
@@ -1348,7 +1394,7 @@ input:checked+.slider:before {
   .pos-quick-action-strip {
     display: flex !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 5px !important;
     width: 100% !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -1364,8 +1410,8 @@ input:checked+.slider:before {
   .pos-quick-action-strip .btn {
     flex-shrink: 0 !important;
     white-space: nowrap !important;
-    padding: 7px 11px !important;
-    font-size: 0.8rem !important;
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
   }
 
   /* Navbar Mobile Layout */
@@ -1380,18 +1426,18 @@ input:checked+.slider:before {
   }
 
   .navbar-brand-group {
-    gap: 6px !important;
+    gap: 8px !important;
     min-width: 0 !important;
-    flex-shrink: 1 !important;
-    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
   }
 
   .navbar-brand-group h1 {
-    font-size: 0.95rem !important;
+    font-size: 1.05rem !important;
     white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    max-width: 130px !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    max-width: none !important;
   }
 
   .navbar-brand-group p,

@@ -276,7 +276,7 @@ export const BusinessSettings = () => {
         {/* TAB 1: COMPANY PROFILE, BRANDING & DOCUMENTS */}
         {/* ========================================================= */}
         {activeSubTab === 'profile' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '1.25rem', alignItems: 'start' }}>
+          <div className="settings-two-col-grid">
             {/* OPERATING MODE SELECTOR CARD */}
             <div
               className="glass-card"
@@ -439,7 +439,7 @@ export const BusinessSettings = () => {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="settings-field-grid-2">
                 <div className="form-group">
                   <label>{lang === 'bn' ? 'প্রধান ফোন / হটলাইন *' : 'Primary Phone *'}</label>
                   <input
@@ -462,7 +462,7 @@ export const BusinessSettings = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="settings-field-grid-2">
                 <div className="form-group">
                   <label>{lang === 'bn' ? 'ইমেইল অ্যাড্রেস' : 'Email Address'}</label>
                   <input
@@ -496,7 +496,7 @@ export const BusinessSettings = () => {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div className="settings-field-grid-3">
                 <div className="form-group">
                   <label>{lang === 'bn' ? 'ভ্যাট / BIN নম্বর' : 'VAT / BIN No'}</label>
                   <input
@@ -536,7 +536,7 @@ export const BusinessSettings = () => {
                 <span>{lang === 'bn' ? 'ব্যাংক হিসাব ও পেমেন্ট তথ্য (ইনভয়েসে প্রিন্ট হবে)' : 'Bank & Payment Details'}</span>
               </h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="settings-field-grid-2">
                 <div className="form-group">
                   <label>{lang === 'bn' ? 'ব্যাংকের নাম ও শাখা' : 'Bank Name & Branch'}</label>
                   <input
@@ -558,7 +558,7 @@ export const BusinessSettings = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="settings-field-grid-2">
                 <div className="form-group">
                   <label>{lang === 'bn' ? 'বিকাশ মার্চেন্ট / পার্সোনাল নম্বর' : 'bKash Number'}</label>
                   <input
@@ -586,7 +586,7 @@ export const BusinessSettings = () => {
                 <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপ অ্যালার্ট ও নোটিফিকেশন সেটিংস' : 'WhatsApp Alerts & Notification'}</span>
               </h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="settings-field-grid-2">
                 <div className="form-group">
                   <label>{lang === 'bn' ? 'মালিকের হোয়াটসঅ্যাপ নম্বর (শিফট রিপোর্ট পাওয়ার জন্য)' : 'Owner WhatsApp Alert Number'}</label>
                   <input
@@ -748,7 +748,7 @@ export const BusinessSettings = () => {
         {/* TAB 2: RECEIPT & PRINT DESIGNER (WHAT PRINTS ON RECEIPT) */}
         {/* ========================================================= */}
         {activeSubTab === 'receipt' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="settings-two-col-grid">
             {/* Left: Customization Controls */}
             <div className="glass-card">
               <h3 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>

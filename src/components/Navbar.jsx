@@ -535,7 +535,7 @@ export const Navbar = () => {
             </div>
           ) : (
             <div
-              className="navbar-profile-switcher-wrap"
+              className="navbar-profile-switcher-wrap hide-mobile"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

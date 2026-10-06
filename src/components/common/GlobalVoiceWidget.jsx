@@ -48,11 +48,17 @@ export const GlobalVoiceWidget = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+          const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
+          const safeMinY = isMobile ? 180 : 60;
           const safeMaxX = typeof window !== 'undefined' ? Math.max(10, window.innerWidth - 68) : 500;
-          const safeMaxY = typeof window !== 'undefined' ? Math.max(60, window.innerHeight - 74) : 500;
+          const safeMaxY = typeof window !== 'undefined' ? Math.max(safeMinY, window.innerHeight - 84) : 500;
+          // If previously saved position was blocking the top header on phone, reset to null (safe bottom-right)
+          if (isMobile && parsed.y < 160) {
+            return null;
+          }
           return {
             x: Math.max(10, Math.min(safeMaxX, parsed.x)),
-            y: Math.max(60, Math.min(safeMaxY, parsed.y))
+            y: Math.max(safeMinY, Math.min(safeMaxY, parsed.y))
           };
         }
       }
@@ -70,10 +76,12 @@ export const GlobalVoiceWidget = () => {
     const handleResize = () => {
       setBtnPos(current => {
         if (!current) return null;
+        const isMobile = window.innerWidth <= 640;
+        const safeMinY = isMobile ? 180 : 60;
         const safeMaxX = Math.max(10, window.innerWidth - 68);
-        const safeMaxY = Math.max(60, window.innerHeight - 74);
+        const safeMaxY = Math.max(safeMinY, window.innerHeight - 84);
         const clampedX = Math.max(10, Math.min(safeMaxX, current.x));
-        const clampedY = Math.max(60, Math.min(safeMaxY, current.y));
+        const clampedY = Math.max(safeMinY, Math.min(safeMaxY, current.y));
         if (clampedX !== current.x || clampedY !== current.y) {
           const updated = { x: clampedX, y: clampedY };
           try { localStorage.setItem('hisabkitab_voice_pos', JSON.stringify(updated)); } catch {}
@@ -342,6 +350,7 @@ export const GlobalVoiceWidget = () => {
       <button
         ref={buttonRef}
         type="button"
+        className="global-voice-floating-btn"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -350,8 +359,8 @@ export const GlobalVoiceWidget = () => {
           position: 'fixed',
           left: btnPos ? `${btnPos.x}px` : undefined,
           top: btnPos ? `${btnPos.y}px` : undefined,
-          right: btnPos ? undefined : '20px',
-          bottom: btnPos ? undefined : '80px',
+          right: btnPos ? undefined : '16px',
+          bottom: btnPos ? undefined : '84px',
           width: '56px',
           height: '56px',
           borderRadius: '50%',

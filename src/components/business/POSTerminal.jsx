@@ -1119,11 +1119,11 @@ export const POSTerminal = () => {
                 type="button"
                 onClick={() => handleOpenScanner('barcode')}
                 className="btn btn-primary pos-action-btn"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.84rem', fontWeight: '800', flexShrink: 0 }}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 11px', fontSize: '0.82rem', fontWeight: '800', flexShrink: 0 }}
                 title={lang === 'bn' ? 'ক্যামেরা দিয়ে বারকোড স্ক্যান করুন' : 'Scan barcode using camera'}
               >
                 <ScanLine size={16} />
-                <span>{lang === 'bn' ? '📷 ক্যামেরা স্ক্যান' : '📷 Camera'}</span>
+                <span>{lang === 'bn' ? '📷 ক্যামেরা' : '📷 Camera'}</span>
               </button>
 
               <button
@@ -1133,8 +1133,8 @@ export const POSTerminal = () => {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 12px',
+                  gap: '5px',
+                  padding: '7px 11px',
                   fontSize: '0.82rem',
                   fontWeight: '700',
                   background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15))',
@@ -1147,7 +1147,7 @@ export const POSTerminal = () => {
                 title={lang === 'bn' ? 'ক্যামেরায় পণ্য দেখিয়ে বা ছবি দেখে খুঁজুন' : 'Recognize product packaging using Visual AI'}
               >
                 <Eye size={16} />
-                <span>{lang === 'bn' ? '👁️ ছবি দেখে খুঁজুন (AI)' : '👁️ Visual AI'}</span>
+                <span>{lang === 'bn' ? '👁️ AI ভিশন' : '👁️ Visual AI'}</span>
               </button>
 
               <button
@@ -1157,8 +1157,8 @@ export const POSTerminal = () => {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 13px',
+                  gap: '5px',
+                  padding: '7px 11px',
                   fontSize: '0.82rem',
                   fontWeight: '800',
                   background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(249, 115, 22, 0.16))',
@@ -1172,7 +1172,7 @@ export const POSTerminal = () => {
                 title={lang === 'bn' ? 'মুখে বাংলায় বলে কার্টে পণ্য যোগ করুন (কিবোর্ড শর্টকাট: Alt+V)' : 'Voice Billing in Bengali (Alt+V)'}
               >
                 <Mic size={16} style={{ color: '#ef4444' }} />
-                <span>{lang === 'bn' ? '🎙️ মুখে বলুন (ভয়েস)' : '🎙️ Voice POS'}</span>
+                <span>{lang === 'bn' ? '🎙️ ভয়েস বিল' : '🎙️ Voice POS'}</span>
               </button>
 
               <button
