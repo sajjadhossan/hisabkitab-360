@@ -417,7 +417,7 @@ export const Navbar = () => {
                 {profile === 'business' && (
                   licenseInfo?.status === 'active' ? (
                     <span
-                      className="badge"
+                      className="badge hide-mobile"
                       title={licenseInfo?.licenseKey || 'Active License'}
                       onClick={() => setActiveTab('settings')}
                       style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', fontSize: '0.7rem', cursor: 'pointer', fontWeight: '700' }}
@@ -426,7 +426,7 @@ export const Navbar = () => {
                     </span>
                   ) : (
                     <span
-                      className="badge"
+                      className="badge hide-mobile"
                       onClick={() => setActiveTab('settings')}
                       style={{ background: '#f59e0b', color: '#fff', fontSize: '0.7rem', cursor: 'pointer', fontWeight: '700', animation: 'pulse 2s infinite' }}
                     >
@@ -436,7 +436,7 @@ export const Navbar = () => {
                 )}
                 {/* Super Admin Quick Button */}
                 <span
-                  className="badge"
+                  className="badge hide-mobile"
                   onClick={() => {
                     if (isSuperAdmin) {
                       setActiveTab('super_admin');
@@ -462,7 +462,7 @@ export const Navbar = () => {
 
                 {/* Industry Template Review & Customizer Hub Button */}
                 <span
-                  className="badge"
+                  className="badge hide-mobile"
                   onClick={() => setShowTemplateReviewModal(true)}
                   title="সকল ইন্ডাস্ট্রি টেমপ্লেট রিভিউ ও কাস্টমাইজ করুন (100+ Templates Review)"
                   style={{
@@ -802,9 +802,9 @@ export const Navbar = () => {
               {soundMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
             </button>
 
-            {/* Quick Diagnostics Health Button */}
+            {/* Quick Diagnostics Health Button (Hidden on narrow mobile screens, accessible inside 3-Dot menu) */}
             <button
-              className="btn-icon"
+              className="btn-icon hide-mobile-sm"
               onClick={() => setShowDiagnosticsModal(true)}
               title={lang === 'bn' ? 'সিস্টেম ডায়াগনোসিস, হেলথ চেক ও SOS রিপোর্ট' : 'System Diagnostics & Health'}
               style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)' }}
@@ -812,10 +812,10 @@ export const Navbar = () => {
               <Activity size={17} />
             </button>
 
-            {/* THREE-DOT MENU (ব্যাকআপ ও প্রয়োজনীয় প্রোগ্রাম মেনু) */}
-            <div style={{ position: 'relative' }} ref={menuRef}>
+            {/* THREE-DOT MENU (ব্যাকআপ ও প্রয়োজনীয় প্রোগ্রাম মেনু - ALWAYS VISIBLE) */}
+            <div style={{ position: 'relative', flexShrink: 0 }} ref={menuRef}>
               <button
-                className="btn-icon"
+                className="btn-icon navbar-3dot-btn"
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
                 title={lang === 'bn' ? 'আরও অপশন, ব্যাকআপ ও টুলস মেনু' : 'More Options & Backup Menu'}
                 style={{

@@ -29,3 +29,6 @@ dist-ssr
 !releases/
 !releases/*
 
+.kilo/
+latest_run.json
+
