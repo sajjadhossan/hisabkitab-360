@@ -56,6 +56,7 @@ import { DataExportImportModal } from './common/DataExportImportModal';
 import { MasterPinModal } from './admin/MasterPinModal';
 import { SystemDiagnosticsModal } from './common/SystemDiagnosticsModal';
 import { TemplateReviewModal } from './common/TemplateReviewModal';
+import { PermissionManagerModal } from './common/PermissionManagerModal';
 
 export const Navbar = () => {
   const {
@@ -102,6 +103,7 @@ export const Navbar = () => {
   const [activeTool, setActiveTool] = useState(null); // 'calculator' | 'cash' | 'notes' | 'backup_hub' | 'shortcuts'
   const [showExportImportHub, setShowExportImportHub] = useState(false);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showTemplateReviewModal, setShowTemplateReviewModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveSyncing, setIsDriveSyncing] = useState(false);
@@ -1000,6 +1002,41 @@ export const Navbar = () => {
                     </div>
                   </button>
 
+                  {/* SECTION: APP PERMISSIONS & HARDWARE ACCESS MANAGER */}
+                  <div style={{ padding: '6px 0 4px', borderBottom: '1px solid var(--border-color)' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setShowPermissionModal(true); setShowMoreMenu(false); }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                        background: 'rgba(99, 102, 241, 0.12)',
+                        color: 'var(--business-primary)',
+                        fontSize: '0.84rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.22)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)'}
+                    >
+                      <Camera size={18} style={{ color: 'var(--business-primary)' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800' }}>{lang === 'bn' ? '🔐 পারমিশন ও এক্সেস সেন্টার' : 'Device Permissions Center'}</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'ক্যামেরা স্ক্যানার, ভয়েস ও ফাইল অনুমতি' : 'Camera, Mic, Storage Access'}</div>
+                      </div>
+                      <span style={{ fontSize: '0.65rem', background: 'var(--business-primary)', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                        ALLOW
+                      </span>
+                    </button>
+                  </div>
+
                   {/* SECTION 0: SYSTEM HEALTH & DIAGNOSTICS */}
                   <div style={{ padding: '6px 0 4px', borderBottom: '1px solid var(--border-color)' }}>
                     <button
@@ -1685,6 +1722,13 @@ export const Navbar = () => {
       <TemplateReviewModal
         isOpen={showTemplateReviewModal}
         onClose={() => setShowTemplateReviewModal(false)}
+      />
+
+      {/* DEVICE PERMISSIONS & ACCESS CENTER MODAL */}
+      <PermissionManagerModal
+        isOpen={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+        lang={lang}
       />
 
       {/* ========================================================

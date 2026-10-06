@@ -119,13 +119,30 @@ export const BarcodeScannerModal = () => {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: mode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+      let stream = null;
+      // Level 1: Ideal resolution with facingMode
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+      } catch (e1) {
+        console.warn('Camera Level 1 constraints failed, attempting simple facingMode:', e1);
+        // Level 2: Simple facingMode
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: mode }
+          });
+        } catch (e2) {
+          console.warn('Camera Level 2 fallback failed, attempting basic video:', e2);
+          // Level 3: Any available video stream
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
         }
-      });
+      }
+
       streamRef.current = stream;
 
       // Check if torch/flashlight is supported on this track
@@ -146,8 +163,8 @@ export const BarcodeScannerModal = () => {
     } catch (err) {
       console.warn('Camera start issue:', err);
       setCameraError(
-        err.name === 'NotAllowedError'
-          ? (lang === 'bn' ? 'ক্যামেরা পারমিশন দেওয়া হয়নি। ব্রাউজার সেটিংসে ক্যামেরা এলাউ করুন।' : 'Camera permission denied.')
+        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+          ? (lang === 'bn' ? 'ক্যামেরা পারমিশন দেওয়া হয়নি। দয়া করে থ্রি-ডট মেনু > "ডিভাইস পারমিশন সেন্টার" অথবা ফোন সেটিংসে গিয়ে ক্যামেরা এলাউ (Allow) করুন।' : 'Camera permission denied. Please allow camera in settings.')
           : (lang === 'bn' ? 'ক্যামেরা সংযোগ করা যায়নি। নিচে দ্রুত স্ক্যান সিমুলেটর বা ম্যানুয়াল কোড ব্যবহার করুন।' : 'Could not access camera. Use quick scan below.')
       );
       setCameraActive(false);
@@ -846,12 +863,25 @@ export const BarcodeScannerModal = () => {
                   fontSize: '0.82rem',
                   color: '#ef4444',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
                   gap: '8px'
                 }}
               >
-                <AlertCircle size={18} style={{ flexShrink: 0 }} />
-                <span>{cameraError}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                  <span>{cameraError}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                  <button
+                    type="button"
+                    onClick={() => startCamera(facingMode)}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 12px', fontSize: '0.78rem', borderColor: '#ef4444', color: '#ef4444', fontWeight: '700' }}
+                  >
+                    <RefreshCw size={13} style={{ marginRight: '4px' }} />
+                    <span>ক্যামেরা পুনরায় চেষ্টা করুন</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
