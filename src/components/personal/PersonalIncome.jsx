@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Wallet, Plus, Target, Trash2, Calendar, TrendingUp } from 'lucide-react';
+import { Wallet, Plus, Target, Trash2, Calendar, TrendingUp, Edit2 } from 'lucide-react';
 
 export const PersonalIncome = () => {
   const {
     personalIncomes,
     addPersonalIncome,
+    updatePersonalIncome,
     deletePersonalIncome,
     personalSavings,
     updateSavingsGoal,
@@ -14,6 +15,7 @@ export const PersonalIncome = () => {
   } = useApp();
 
   const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [editingIncome, setEditingIncome] = useState(null);
   const [incomeForm, setIncomeForm] = useState({
     source: '',
     amount: '',
@@ -29,12 +31,25 @@ export const PersonalIncome = () => {
   const handleIncomeSubmit = (e) => {
     e.preventDefault();
     if (!incomeForm.source || !incomeForm.amount) return;
-    addPersonalIncome({
-      source: incomeForm.source,
-      amount: Number(incomeForm.amount),
-      date: incomeForm.date,
-      note: incomeForm.note
-    });
+
+    if (editingIncome) {
+      updatePersonalIncome({
+        ...editingIncome,
+        source: incomeForm.source,
+        amount: Number(incomeForm.amount),
+        date: incomeForm.date,
+        note: incomeForm.note
+      });
+    } else {
+      addPersonalIncome({
+        source: incomeForm.source,
+        amount: Number(incomeForm.amount),
+        date: incomeForm.date,
+        note: incomeForm.note
+      });
+    }
+
+    setEditingIncome(null);
     setIncomeForm({
       source: '',
       amount: '',
@@ -42,6 +57,28 @@ export const PersonalIncome = () => {
       note: ''
     });
     setShowIncomeModal(false);
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingIncome(null);
+    setIncomeForm({
+      source: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      note: ''
+    });
+    setShowIncomeModal(true);
+  };
+
+  const handleOpenEditModal = (item) => {
+    setEditingIncome(item);
+    setIncomeForm({
+      source: item.source || '',
+      amount: item.amount || '',
+      date: item.date || new Date().toISOString().split('T')[0],
+      note: item.note || ''
+    });
+    setShowIncomeModal(true);
   };
 
   const handleSavingsUpdate = (e) => {
@@ -72,7 +109,7 @@ export const PersonalIncome = () => {
             <span style={{ fontWeight: '800', fontFamily: 'var(--font-mono)', color: '#10b981' }}>৳{totalIncome.toLocaleString()}</span>
           </div>
 
-          <button className="btn btn-primary" onClick={() => setShowIncomeModal(true)}>
+          <button className="btn btn-primary" onClick={handleOpenAddModal}>
             <Plus size={16} />
             <span>{t.personal.addIncome}</span>
           </button>
@@ -114,9 +151,28 @@ export const PersonalIncome = () => {
                       +৳{item.amount.toLocaleString()}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button className="btn-icon" onClick={() => deletePersonalIncome(item.id)} title={t.delete}>
-                        <Trash2 size={15} style={{ color: '#ef4444' }} />
-                      </button>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          className="btn-icon"
+                          onClick={() => handleOpenEditModal(item)}
+                          title={lang === 'bn' ? 'এডিট বা রিনেইম' : 'Edit / Rename'}
+                          style={{ color: '#06b6d4' }}
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          className="btn-icon"
+                          onClick={() => {
+                            if (window.confirm(lang === 'bn' ? 'এই আয়ের হিসাবটি মুছে ফেলতে চান?' : 'Delete this income entry?')) {
+                              deletePersonalIncome(item.id);
+                            }
+                          }}
+                          title={t.delete}
+                          style={{ color: '#ef4444' }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -170,13 +226,18 @@ export const PersonalIncome = () => {
       {showIncomeModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1rem' }}>
-              {t.personal.addIncome}
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Wallet size={20} style={{ color: 'var(--personal-primary)' }} />
+              <span>
+                {editingIncome
+                  ? (lang === 'bn' ? 'আয়ের তথ্য বা উৎস রিনেইম / এডিট' : 'Edit / Rename Income')
+                  : (lang === 'bn' ? 'নতুন আয় যুক্ত করুন' : t.personal.addIncome)}
+              </span>
             </h3>
 
             <form onSubmit={handleIncomeSubmit}>
               <div className="form-group">
-                <label>{lang === 'bn' ? 'আয়ের উৎস বা খাত' : 'Income Source'} *</label>
+                <label>{lang === 'bn' ? 'আয়ের উৎস বা খাত (নাম রিনেইম বা পরিবর্তন)' : 'Income Source / Category'} *</label>
                 <input
                   type="text"
                   required
@@ -222,10 +283,32 @@ export const PersonalIncome = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                  {t.save}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    fontWeight: '800'
+                  }}
+                >
+                  <span>
+                    {editingIncome
+                      ? (lang === 'bn' ? '✓ পরিবর্তন সংরক্ষণ করুন' : 'Update Income')
+                      : (lang === 'bn' ? '✓ আয় সংরক্ষণ ও যুক্ত করুন' : t.save)}
+                  </span>
                 </button>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowIncomeModal(false)}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowIncomeModal(false);
+                    setEditingIncome(null);
+                  }}
+                >
                   {t.cancel}
                 </button>
               </div>

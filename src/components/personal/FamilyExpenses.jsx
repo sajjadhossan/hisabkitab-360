@@ -1116,16 +1116,40 @@ export const FamilyExpenses = () => {
                 <Home size={20} style={{ color: '#f97316' }} />
                 <span>
                   {editingExpense
-                    ? (lang === 'bn' ? 'পারিবারিক খরচ পরিবর্তন' : 'Edit Household Expense')
+                    ? (lang === 'bn' ? 'পারিবারিক খরচ পরিবর্তন / এডিট' : 'Edit Household Expense')
                     : (lang === 'bn' ? 'নতুন পারিবারিক খরচ এন্ট্রি' : 'Add Household Expense')}
                 </span>
               </h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="submit"
+                  form="family-expense-modal-form"
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    boxShadow: '0 2px 8px rgba(249, 115, 22, 0.35)'
+                  }}
+                >
+                  <Check size={14} />
+                  <span>{editingExpense ? (lang === 'bn' ? 'আপডেট' : 'Update') : (lang === 'bn' ? 'যুক্ত করুন' : 'Add')}</span>
+                </button>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={t.cancel}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Smart Voice Auto-Fill Banner */}
@@ -1143,7 +1167,7 @@ export const FamilyExpenses = () => {
               }}
             />
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form id="family-expense-modal-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {/* Folder Selection with Manage Button */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -1591,11 +1615,23 @@ export const FamilyExpenses = () => {
                         placeholder="যেমন: রোহান..."
                         value={newMemberInput}
                         onChange={(e) => setNewMemberInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const clean = newMemberInput.trim();
+                            if (clean) {
+                              addCategory('familyMembers', clean);
+                              setFormData({ ...formData, familyMember: clean });
+                              setNewMemberInput('');
+                              setIsAddingNewMember(false);
+                            }
+                          }
+                        }}
                         autoFocus
                         style={{
                           flex: 1,
-                          height: '34px',
-                          fontSize: '0.82rem',
+                          height: '36px',
+                          fontSize: '0.84rem',
                           borderRadius: '6px',
                           border: '1px solid var(--border-color)',
                           background: 'var(--bg-card)',
@@ -1614,14 +1650,14 @@ export const FamilyExpenses = () => {
                             setIsAddingNewMember(false);
                           }
                         }}
-                        style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 8px', height: '34px', fontWeight: '800', cursor: 'pointer' }}
+                        style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 10px', height: '36px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
-                        ✓
+                        ✓ {lang === 'bn' ? 'যুক্ত করুন' : 'Add'}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setIsAddingNewMember(false); setNewMemberInput(''); }}
-                        style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 8px', height: '34px', cursor: 'pointer' }}
+                        style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 8px', height: '36px', cursor: 'pointer' }}
                       >
                         ✕
                       </button>
@@ -1690,11 +1726,23 @@ export const FamilyExpenses = () => {
                         placeholder="যেমন: পড়াশোনা..."
                         value={newPurposeInput}
                         onChange={(e) => setNewPurposeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const clean = newPurposeInput.trim();
+                            if (clean) {
+                              addCategory('expensePurposes', clean);
+                              setFormData({ ...formData, purpose: clean });
+                              setNewPurposeInput('');
+                              setIsAddingNewPurpose(false);
+                            }
+                          }
+                        }}
                         autoFocus
                         style={{
                           flex: 1,
-                          height: '34px',
-                          fontSize: '0.82rem',
+                          height: '36px',
+                          fontSize: '0.84rem',
                           borderRadius: '6px',
                           border: '1px solid var(--border-color)',
                           background: 'var(--bg-card)',
@@ -1713,14 +1761,14 @@ export const FamilyExpenses = () => {
                             setIsAddingNewPurpose(false);
                           }
                         }}
-                        style={{ background: '#d97706', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 8px', height: '34px', fontWeight: '800', cursor: 'pointer' }}
+                        style={{ background: '#d97706', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 10px', height: '36px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
-                        ✓
+                        ✓ {lang === 'bn' ? 'যুক্ত করুন' : 'Add'}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setIsAddingNewPurpose(false); setNewPurposeInput(''); }}
-                        style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 8px', height: '34px', cursor: 'pointer' }}
+                        style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 8px', height: '36px', cursor: 'pointer' }}
                       >
                         ✕
                       </button>
@@ -1829,16 +1877,34 @@ export const FamilyExpenses = () => {
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              {/* Sticky Action Footer (Always Visible) */}
+              <div
+                style={{
+                  position: 'sticky',
+                  bottom: '-1.5rem',
+                  marginLeft: '-1.5rem',
+                  marginRight: '-1.5rem',
+                  marginBottom: '-1.5rem',
+                  padding: '12px 20px',
+                  background: 'var(--bg-card)',
+                  borderTop: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px',
+                  zIndex: 40,
+                  boxShadow: '0 -6px 20px rgba(0,0,0,0.25)',
+                  borderRadius: '0 0 16px 16px',
+                  backdropFilter: 'blur(10px)'
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  className="btn btn-secondary"
                   style={{
-                    padding: '9px 18px',
+                    padding: '10px 18px',
                     borderRadius: '8px',
-                    background: 'transparent',
-                    border: '1px solid var(--border-color)',
                     color: 'var(--text-muted)',
                     fontWeight: '600',
                     cursor: 'pointer'
@@ -1849,19 +1915,26 @@ export const FamilyExpenses = () => {
                 <button
                   type="submit"
                   style={{
-                    padding: '9px 24px',
+                    padding: '11px 24px',
                     borderRadius: '8px',
                     background: 'linear-gradient(135deg, #f97316, #ea580c)',
                     border: 'none',
                     color: '#ffffff',
-                    fontWeight: '700',
+                    fontWeight: '800',
+                    fontSize: '0.95rem',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(249, 115, 22, 0.35)'
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(249, 115, 22, 0.4)'
                   }}
                 >
-                  {editingExpense
-                    ? (lang === 'bn' ? 'আপডেট করুন' : 'Update Expense')
-                    : (lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Expense')}
+                  <Check size={18} />
+                  <span>
+                    {editingExpense
+                      ? (lang === 'bn' ? '✓ পারিবারিক খরচ আপডেট ও পরিবর্তন সম্পন্ন করুন' : 'Update Household Expense')
+                      : (lang === 'bn' ? '✓ ট্রাঞ্জেকশন যুক্ত ও সেভ করুন (আপলোড)' : 'Save & Upload Household Expense')}
+                  </span>
                 </button>
               </div>
             </form>

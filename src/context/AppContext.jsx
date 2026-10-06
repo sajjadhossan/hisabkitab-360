@@ -1114,6 +1114,11 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? 'আয়ের হিসাব সফলভাবে যোগ করা হয়েছে' : 'Income added');
   };
 
+  const updatePersonalIncome = (updatedIncome) => {
+    setPersonalIncomes(prev => prev.map(i => i.id === updatedIncome.id ? { ...i, ...updatedIncome } : i));
+    showToast(lang === 'bn' ? 'আয়ের হিসাব সফলভাবে আপডেট করা হয়েছে' : 'Income updated');
+  };
+
   const deletePersonalIncome = (id) => {
     setPersonalIncomes(personalIncomes.filter(i => i.id !== id));
   };
@@ -3256,6 +3261,7 @@ export const AppProvider = ({ children }) => {
         updatePersonalExpense,
         deletePersonalExpense,
         addPersonalIncome,
+        updatePersonalIncome,
         deletePersonalIncome,
         updateSavingsGoal,
 

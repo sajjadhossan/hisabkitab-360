@@ -11,7 +11,8 @@ import {
   Tag,
   Target,
   Home,
-  ShoppingBag
+  ShoppingBag,
+  Edit2
 } from 'lucide-react';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
 
@@ -27,6 +28,7 @@ export const PersonalDashboard = () => {
   } = useApp();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
   const [modalType, setModalType] = useState('daily'); // 'daily' | 'family'
 
   // Calculate totals (Memoized)
@@ -68,7 +70,14 @@ export const PersonalDashboard = () => {
   }, [categories, personalExpenses]);
 
   const handleOpenModal = (type) => {
+    setEditingExpense(null);
     setModalType(type);
+    setShowAddModal(true);
+  };
+
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setModalType(expense.type || 'daily');
     setShowAddModal(true);
   };
 
@@ -277,14 +286,28 @@ export const PersonalDashboard = () => {
                     -৳{exp.amount.toLocaleString()}
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <button
-                      className="btn-icon"
-                      onClick={() => deletePersonalExpense(exp.id)}
-                      title={t.delete}
-                      style={{ color: '#ef4444' }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        className="btn-icon"
+                        onClick={() => handleEditExpense(exp)}
+                        title={lang === 'bn' ? 'এডিট বা পরিবর্তন' : 'Edit Expense'}
+                        style={{ color: '#06b6d4' }}
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        className="btn-icon"
+                        onClick={() => {
+                          if (window.confirm(lang === 'bn' ? 'এই খরচের রেকর্ডটি মুছে ফেলতে চান?' : 'Delete this expense?')) {
+                            deletePersonalExpense(exp.id);
+                          }
+                        }}
+                        title={t.delete}
+                        style={{ color: '#ef4444' }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -297,7 +320,11 @@ export const PersonalDashboard = () => {
       {/* Unified Add Expense Modal (Identical to DailyExpenses.jsx) */}
       <DailyExpenseAddEditModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          setShowAddModal(false);
+          setEditingExpense(null);
+        }}
+        editingExpense={editingExpense}
         initialType={modalType}
       />
     </div>
