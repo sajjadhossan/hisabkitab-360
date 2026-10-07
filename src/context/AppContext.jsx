@@ -155,9 +155,9 @@ export const MODULE_PRESETS = {
       master_hub: true,
       erp: true,
       crm: true,
-      hr: false,
-      sr: false,
-      branch_control: false,
+      hr: true,
+      sr: true,
+      branch_control: true,
       healthcare: false,
       google_drive_sync: true
     }

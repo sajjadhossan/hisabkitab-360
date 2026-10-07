@@ -244,7 +244,7 @@ export const Navbar = () => {
 
   const businessNavItems = [
     ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav.dashboard, icon: LayoutDashboard }] : []),
-    ...(isOwner && isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '👑 ক্যাশ ও ব্রাঞ্চ কন্ট্রোল' : '👑 Cash & Branches', icon: Building2, highlight: true }] : []),
+    ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল' : '🏢 Branch & Cash Hub', icon: Building2, highlight: true }] : []),
     ...(isModEnabled('pos') ? [{ id: 'pos', label: t.businessNav.pos, icon: ScanLine, highlight: true }] : []),
     ...(isModEnabled('debts') ? [{ id: 'debts', label: t.businessNav.debts || (lang === 'bn' ? 'নগদ দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
     ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t.businessNav.invoices, icon: FileText }] : []),
@@ -278,7 +278,7 @@ export const Navbar = () => {
         { id: 'pos', label: lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Terminal', desc: lang === 'bn' ? 'দ্রুত খুচরা বিক্রয় ও বিল' : 'Retail checkout', icon: ScanLine, color: '#6366f1', badge: 'HOT' },
         { id: 'invoices', label: lang === 'bn' ? 'চালান ও ইনভয়েস' : 'Invoices & Bills', desc: lang === 'bn' ? 'সকল ইনভয়েস ও মেমো' : 'All sales history', icon: FileText, color: '#3b82f6' },
         { id: 'quotations', label: lang === 'bn' ? 'কোটেশন / এস্টিমেট' : 'Quotations', desc: lang === 'bn' ? 'আনুমানিক খরচের অফার' : 'Estimates & quotes', icon: FileCheck, color: '#06b6d4' },
-        ...(isOwner && isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? 'ক্যাশ ও ব্রাঞ্চ কন্ট্রোল' : 'Branch & Cash', desc: lang === 'bn' ? 'শাখা ও কাউন্টার তদারকি' : 'Multi-branch cash', icon: Building2, color: '#ec4899', badge: '👑' }] : [])
+        ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল' : '🏢 Branch & Cash Hub', desc: lang === 'bn' ? 'শাখা, কাউন্টার ও স্টাফ কন্ট্রোল' : 'Multi-branch cash & staff', icon: Building2, color: '#10b981', badge: 'PRO' }] : [])
       ]
     },
     {
@@ -769,31 +769,31 @@ export const Navbar = () => {
               </span>
             </button>
 
-            {/* Direct Owner Central Cash & Multi-Branch Control Hub Button */}
-            {profile === 'business' && isOwner && (
+            {/* Direct Multi-Branch & Cash Control Hub Quick Button (Always Visible in Business Mode) */}
+            {profile === 'business' && (
               <button
                 type="button"
-                className="hide-mobile"
                 onClick={() => setActiveTab('branch_control')}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '5px 12px',
+                  padding: '6px 13px',
                   borderRadius: '8px',
-                  border: activeTab === 'branch_control' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.4)',
-                  background: activeTab === 'branch_control' ? '#10b981' : 'rgba(16, 185, 129, 0.12)',
+                  border: activeTab === 'branch_control' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.45)',
+                  background: activeTab === 'branch_control' ? '#10b981' : 'rgba(16, 185, 129, 0.15)',
                   color: activeTab === 'branch_control' ? '#ffffff' : '#10b981',
-                  fontSize: '0.78rem',
+                  fontSize: '0.8rem',
                   fontWeight: '800',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: activeTab === 'branch_control' ? '0 2px 10px rgba(16, 185, 129, 0.4)' : 'none'
+                  boxShadow: activeTab === 'branch_control' ? '0 2px 10px rgba(16, 185, 129, 0.4)' : 'none',
+                  whiteSpace: 'nowrap'
                 }}
-                title={lang === 'bn' ? 'মালিকের সেন্ট্রাল ক্যাশ ও ব্রাঞ্চ কন্ট্রোল হাব' : 'Central Cash & Branch Control'}
+                title={lang === 'bn' ? 'সেন্ট্রাল ব্রাঞ্চ, কাউন্টার ও ক্যাশ কন্ট্রোল হাব' : 'Central Cash & Branch Control'}
               >
-                <Building2 size={14} />
-                <span>{lang === 'bn' ? '👑 ক্যাশ ও ব্রাঞ্চ কন্ট্রোল' : '👑 Cash & Branches'}</span>
+                <Building2 size={15} />
+                <span>{lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল' : '🏢 Branch & Cash'}</span>
               </button>
             )}
 

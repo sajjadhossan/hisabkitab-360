@@ -21,7 +21,10 @@ import {
   Sparkles,
   BrainCircuit,
   Zap,
-  Award
+  Award,
+  Building2,
+  PlusCircle,
+  UserCheck
 } from 'lucide-react';
 
 export const BusinessDashboard = () => {
@@ -178,32 +181,33 @@ export const BusinessDashboard = () => {
             </div>
           </div>
 
-          {/* Controls: Owner Cash Hub Button & Branch Filter Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {isOwner && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setActiveTab('branch_control')}
-                style={{
-                  padding: '6px 14px',
-                  fontSize: '0.8rem',
-                  fontWeight: '800',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  borderColor: '#10b981',
-                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <span>👑 {lang === 'bn' ? 'সরাসরি ক্যাশ কন্ট্রোল ও নতুন শাখা যোগ' : 'Direct Cash Control & Branches'} →</span>
-              </button>
-            )}
+          {/* Controls: Branch & Cash Hub Button, Quick Add Shortcuts & Branch Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setActiveTab('branch_control')}
+              style={{
+                padding: '7px 16px',
+                fontSize: '0.85rem',
+                fontWeight: '800',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                borderColor: '#10b981',
+                boxShadow: '0 3px 12px rgba(16, 185, 129, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'ব্রাঞ্চ ও ক্যাশ কন্ট্রোল হাব খুলুন' : 'Open Branch & Cash Hub'}
+            >
+              <Building2 size={16} />
+              <span>{lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল (শাখা/কাউন্টার/স্টাফ)' : '🏢 Branch & Cash Hub'} →</span>
+            </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                {lang === 'bn' ? 'শাখা:' : 'Branch:'}
+                {lang === 'bn' ? 'ফিল্টার:' : 'Filter:'}
               </span>
               <select
                 className="input-field"
@@ -218,6 +222,75 @@ export const BusinessDashboard = () => {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Quick Management Short-Bar for Branches, Counters, Staff, HR & SR */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            padding: '10px 14px',
+            marginBottom: '1rem',
+            borderRadius: '10px',
+            background: 'rgba(99, 102, 241, 0.06)',
+            border: '1px dashed rgba(99, 102, 241, 0.25)'
+          }}
+        >
+          <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            ⚡ {lang === 'bn' ? 'দ্রুত পরিচালনা:' : 'Quick Actions:'}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('branch_control')}
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <PlusCircle size={13} color="#10b981" />
+            <span>{lang === 'bn' ? '+ নতুন ব্রাঞ্চ' : '+ New Branch'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('branch_control')}
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <PlusCircle size={13} color="#3b82f6" />
+            <span>{lang === 'bn' ? '+ নতুন কাউন্টার' : '+ New Counter'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('branch_control')}
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <UserCheck size={13} color="#8b5cf6" />
+            <span>{lang === 'bn' ? '+ নতুন স্টাফ আইডি' : '+ New Staff ID'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('hr')}
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Users size={13} color="#ec4899" />
+            <span>{lang === 'bn' ? '+ নতুন HR কর্মী' : '+ New HR Employee'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('sr')}
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Store size={13} color="#f59e0b" />
+            <span>{lang === 'bn' ? '+ নতুন SR ফিল্ড' : '+ New SR Agent'}</span>
+          </button>
         </div>
 
         {/* Branches & Counters Grid */}
