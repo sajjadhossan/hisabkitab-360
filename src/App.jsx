@@ -80,6 +80,16 @@ const AppContent = () => {
     }
   }, [profile, activeTab, isModuleActive, setActiveTab]);
 
+  // Auto-redirect to Super Admin when opened from email password recovery link
+  React.useEffect(() => {
+    try {
+      const hash = window.location.hash || '';
+      if (hash.includes('type=recovery') || sessionStorage.getItem('hk360_password_recovery_active')) {
+        setActiveTab('super_admin');
+      }
+    } catch {}
+  }, [setActiveTab]);
+
   const [verifyParam, setVerifyParam] = useState(() => {
     return new URLSearchParams(window.location.search).get('verify');
   });

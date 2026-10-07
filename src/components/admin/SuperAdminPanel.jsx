@@ -778,10 +778,30 @@ export const SuperAdminPanel = () => {
               ) : (
                 /* Step 2: Verify OTP & Set New Password */
                 <form onSubmit={handleRecoverySubmit} style={{ textAlign: 'left' }}>
+                  <div style={{
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    marginBottom: '14px',
+                    fontSize: '0.82rem',
+                    lineHeight: 1.6
+                  }}>
+                    <div style={{ fontWeight: '800', color: '#6366f1', marginBottom: '4px' }}>
+                      💡 পাসওয়ার্ড রিসেট করার ২টি সহজ উপায়:
+                    </div>
+                    <div style={{ color: 'var(--text-main)' }}>
+                      <strong>১. ১-ক্লিক রিকভারি:</strong> আপনার জিমেইল ইনবক্সে পাওয়া <em>"Reset Password"</em> লিঙ্কে ক্লিক করলেই এই সফটওয়্যার সরাসরি আনলক হয়ে যাবে!
+                    </div>
+                    <div style={{ marginTop: '4px', color: 'var(--text-main)' }}>
+                      <strong>২. অথবা কোড দিন:</strong> ইমেইলে প্রাপ্ত ৬ সংখ্যার কোড বা রিকভারি পিন নিচের ঘরে লিখুন:
+                    </div>
+                  </div>
+
                   <div style={{ marginBottom: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)' }}>
-                        ইমেইলে প্রাপ্ত ৬ সংখ্যার ওটিপি কোড *
+                        ইমেইলে প্রাপ্ত কোড বা ওটিপি *
                       </label>
                       {countdown > 0 ? (
                         <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: '700' }}>

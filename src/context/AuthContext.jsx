@@ -212,8 +212,24 @@ export const AuthProvider = ({ children }) => {
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+        } else if (event === 'PASSWORD_RECOVERY') {
+          // Supabase recovery link clicked from Gmail
+          setIsSuperAdminUnlocked(true);
+          try {
+            sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
+            sessionStorage.setItem('hk360_password_recovery_active', 'true');
+          } catch {}
         }
       });
+
+      // Also check if current URL hash has Supabase recovery token
+      try {
+        if (window.location.hash && window.location.hash.includes('type=recovery')) {
+          setIsSuperAdminUnlocked(true);
+          sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
+          sessionStorage.setItem('hk360_password_recovery_active', 'true');
+        }
+      } catch {}
 
       return () => {
         subscription?.unsubscribe();
