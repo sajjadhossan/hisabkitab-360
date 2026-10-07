@@ -194,7 +194,8 @@ export const initialData = {
       sellPrice: 155,
       stock: 40,
       minAlert: 8,
-      unit: "প্যাকেট"
+      unit: "প্যাকেট",
+      image: "/products/pran-dal.svg"
     },
     {
       id: "prod-2",
@@ -206,7 +207,73 @@ export const initialData = {
       sellPrice: 290,
       stock: 15,
       minAlert: 12,
-      unit: "বোতল"
+      unit: "বোতল",
+      image: "/products/mustard-oil.svg"
+    },
+    {
+      id: "prod-soap-lb",
+      name: "লাইফবয় সাবান (১০০ গ্রাম)",
+      sku: "SOAP-LB-100",
+      barcode: "8901001017",
+      category: "কসমেটিকস ও কেয়ার",
+      costPrice: 44,
+      sellPrice: 380,
+      stock: 70,
+      minAlert: 15,
+      unit: "পিস",
+      image: "/products/lifebuoy-soap.svg"
+    },
+    {
+      id: "prod-dal-pran-prem",
+      name: "প্রাণ প্রিমিয়াম মসুর ডাল",
+      sku: "DAL-PRAN-65",
+      barcode: "8901001099",
+      category: "চাল ও শস্য",
+      costPrice: 50,
+      sellPrice: 65,
+      stock: 60,
+      minAlert: 10,
+      unit: "প্যাকেট",
+      image: "/products/pran-dal.svg"
+    },
+    {
+      id: "prod-dal-mos",
+      name: "প্রাণ মসুর ডাল",
+      sku: "DAL-MOS-01",
+      barcode: "8901001018",
+      category: "চাল ও শস্য",
+      costPrice: 300,
+      sellPrice: 380,
+      stock: 55,
+      minAlert: 10,
+      unit: "কেজি",
+      image: "/products/masoor-dal-bowl.svg"
+    },
+    {
+      id: "prod-soap-bishe",
+      name: "প্রাণ বিষের সাবান",
+      sku: "SIIN-MOS-01",
+      barcode: "8901001098",
+      category: "কসমেটিকস ও কেয়ার",
+      costPrice: 95,
+      sellPrice: 120,
+      stock: 40,
+      minAlert: 8,
+      unit: "পিস",
+      image: "/products/soap-yellow.svg"
+    },
+    {
+      id: "prod-dal-ahimir",
+      name: "প্রাণ অহিমির ডাল",
+      sku: "DAL-MOS-01",
+      barcode: "8901001097",
+      category: "চাল ও শস্য",
+      costPrice: 90,
+      sellPrice: 120,
+      stock: 50,
+      minAlert: 10,
+      unit: "প্যাকেট",
+      image: "/products/green-dal-pack.svg"
     },
     {
       id: "prod-oil-rup",
@@ -218,7 +285,8 @@ export const initialData = {
       sellPrice: 950,
       stock: 45,
       minAlert: 8,
-      unit: "বোতল"
+      unit: "বোতল",
+      image: "/products/mustard-oil.svg"
     },
     {
       id: "prod-oil-teer",
@@ -230,7 +298,8 @@ export const initialData = {
       sellPrice: 380,
       stock: 38,
       minAlert: 10,
-      unit: "বোতল"
+      unit: "বোতল",
+      image: "/products/mustard-oil.svg"
     },
     {
       id: "prod-soap-lux",
@@ -242,31 +311,8 @@ export const initialData = {
       sellPrice: 65,
       stock: 85,
       minAlert: 15,
-      unit: "পিস"
-    },
-    {
-      id: "prod-soap-lb",
-      name: "লাইফবয় টোটাল জার্ম প্রটেকশন সাবান (১০০ গ্রাম)",
-      sku: "SOAP-LB-100",
-      barcode: "8901001017",
-      category: "হাইজিন",
-      costPrice: 44,
-      sellPrice: 55,
-      stock: 70,
-      minAlert: 15,
-      unit: "পিস"
-    },
-    {
-      id: "prod-dal-mos",
-      name: "প্রাণ প্রিমিয়াম মসুর ডাল (১ কেজি)",
-      sku: "DAL-MOS-01",
-      barcode: "8901001018",
-      category: "খাদ্যপণ্য",
-      costPrice: 120,
-      sellPrice: 140,
-      stock: 55,
-      minAlert: 10,
-      unit: "কেজি"
+      unit: "পিস",
+      image: "/products/soap-yellow.svg"
     },
     {
       id: "prod-flour-teer",

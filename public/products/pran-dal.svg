@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 150" width="130" height="150">
+  <defs>
+    <linearGradient id="dalPouchGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="50%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#9a3412"/>
+    </linearGradient>
+  </defs>
+  <!-- Pouch body -->
+  <path d="M22 18 C30 14 100 14 108 18 L114 135 C114 142 108 146 100 146 L30 146 C22 146 16 142 16 135 Z" fill="url(#dalPouchGrad)" stroke="#7c2d12" stroke-width="2"/>
+  <!-- Top Seal -->
+  <rect x="20" y="10" width="90" height="10" rx="3" fill="#fbbf24" stroke="#d97706" stroke-width="1.5"/>
+  <!-- Pran Oval Logo Badge -->
+  <ellipse cx="65" cy="40" rx="22" ry="12" fill="#dc2626" stroke="#fbbf24" stroke-width="2"/>
+  <text x="65" y="44" fill="#ffffff" font-size="11" font-weight="900" font-family="sans-serif" text-anchor="middle">PRAN</text>
+  <!-- Window showing lentils -->
+  <circle cx="65" cy="85" r="28" fill="#ffedd5" stroke="#fbbf24" stroke-width="3"/>
+  <!-- Lentils pattern inside window -->
+  <g fill="#f97316">
+    <ellipse cx="55" cy="75" rx="4" ry="2.5"/>
+    <ellipse cx="68" cy="74" rx="4" ry="2.5"/>
+    <ellipse cx="78" cy="79" rx="4" ry="2.5"/>
+    <ellipse cx="52" cy="85" rx="4" ry="2.5"/>
+    <ellipse cx="64" cy="86" rx="4" ry="2.5"/>
+    <ellipse cx="75" cy="88" rx="4" ry="2.5"/>
+    <ellipse cx="58" cy="95" rx="4" ry="2.5"/>
+    <ellipse cx="70" cy="96" rx="4" ry="2.5"/>
+  </g>
+  <!-- Label Banner -->
+  <rect x="25" y="118" width="80" height="20" rx="4" fill="#ffffff"/>
+  <text x="65" y="131" fill="#9a3412" font-size="9" font-weight="bold" font-family="sans-serif" text-anchor="middle">প্রিমিয়াম মসুর ডাল</text>
+</svg>

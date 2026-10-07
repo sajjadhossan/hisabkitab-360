@@ -332,6 +332,18 @@ export const POSTerminal = () => {
     });
   };
 
+  const handleDecrement = (product, e) => {
+    e?.stopPropagation();
+    const inCart = cart.find(ci => ci.id === product.id);
+    if (!inCart) return;
+    playButtonClick();
+    if (inCart.qty > 1) {
+      updateCartQty(product.id, inCart.qty - 1);
+    } else {
+      removeFromCart(product.id);
+    }
+  };
+
   const handleRemoveWithUndo = (item) => {
     playButtonClick();
     removeFromCart(item.id);
@@ -1082,204 +1094,159 @@ export const POSTerminal = () => {
           </div>
         )}
 
-        {/* Search & Header */}
-        <div className="glass-card" style={{ padding: '0.85rem', marginBottom: '1rem' }}>
-          <div className="pos-search-actions-bar">
-            <div className="pos-search-input-wrapper" style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+        {/* Search & Action Bar */}
+        <div className="glass-card" style={{ padding: '0.85rem', marginBottom: '0.75rem' }}>
+          {/* Row 1: Search Input + 3 Colorful Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
               <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
               <input
                 ref={searchInputRef}
                 type="text"
                 autoFocus={typeof window !== 'undefined' && window.innerWidth > 768}
                 className="input-field"
-                style={{ paddingLeft: '38px', paddingRight: '76px', fontSize: '0.95rem' }}
-                placeholder={lang === 'bn' ? 'পণ্য, বারকোড বা SKU দিয়ে খুঁজুন [F2]...' : 'Search by name, barcode or SKU [F2]...'}
+                style={{
+                  paddingLeft: '38px',
+                  paddingRight: '12px',
+                  fontSize: '0.92rem',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+                placeholder="Search by name, barcode..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
               />
-              <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleOpenScanner('barcode')}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--mode-color)',
-                    cursor: 'pointer',
-                    padding: '4px 6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '6px'
-                  }}
-                  title={lang === 'bn' ? 'ক্যামেরা স্ক্যানার' : 'Camera Scanner'}
-                >
-                  <ScanLine size={17} />
-                </button>
-                <VoiceInputButton
-                  onTranscript={(text) => setSearchTerm(text)}
-                  title={lang === 'bn' ? 'মুখে পণ্যের নাম বলুন' : 'Voice search product'}
-                  size={15}
-                  style={{ padding: '4px 6px', background: 'transparent', border: 'none' }}
-                />
-              </div>
             </div>
 
-            {/* Quick Actions Strip (Always visible and scrollable on mobile) */}
-            <div className="pos-quick-action-strip">
-              <button
-                type="button"
-                onClick={() => handleOpenScanner('barcode')}
-                className="btn btn-primary pos-action-btn"
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 11px', fontSize: '0.82rem', fontWeight: '800', flexShrink: 0 }}
-                title={lang === 'bn' ? 'ক্যামেরা দিয়ে বারকোড স্ক্যান করুন' : 'Scan barcode using camera'}
-              >
-                <ScanLine size={16} />
-                <span>{lang === 'bn' ? '📷 ক্যামেরা' : '📷 Camera'}</span>
-              </button>
+            {/* 1. Barcode Scanner Button (Purple) */}
+            <button
+              type="button"
+              onClick={() => handleOpenScanner('barcode')}
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(99, 102, 241, 0.22)',
+                border: '1.5px solid #6366f1',
+                color: '#818cf8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0,
+                boxShadow: '0 0 10px rgba(99, 102, 241, 0.25)'
+              }}
+              title={lang === 'bn' ? 'ক্যামেরা বারকোড স্ক্যানার' : 'Barcode Scanner'}
+            >
+              <ScanLine size={19} />
+            </button>
 
+            {/* 2. Visual AI Preview Button (Blue) */}
+            <button
+              type="button"
+              onClick={() => handleOpenScanner('visual_ai')}
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(59, 130, 246, 0.18)',
+                border: '1.5px solid rgba(59, 130, 246, 0.5)',
+                color: '#60a5fa',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? 'ভিজ্যুয়াল AI পণ্য রিকগনিশন' : 'Visual AI Recognition'}
+            >
+              <Eye size={19} />
+            </button>
+
+            {/* 3. Voice POS Button (Red/Coral) */}
+            <button
+              type="button"
+              onClick={() => setShowVoiceBillingModal(true)}
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.18)',
+                border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                color: '#f87171',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? 'ভয়েস বিলিং (মুখে বাংলায় বলে কার্টে পণ্য যোগ)' : 'Voice POS'}
+            >
+              <Mic size={19} />
+            </button>
+          </div>
+
+          {/* Row 2: Order Mode Bar (Matching Screenshot) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
+            marginBottom: '0.5rem',
+            gap: '10px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f59e0b', fontSize: '0.8rem', fontWeight: '800' }}>
+              <Utensils size={15} />
+              <span>Order Mode:</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <button
                 type="button"
-                onClick={() => handleOpenScanner('visual_ai')}
-                className="btn pos-action-btn"
+                onClick={() => setOrderType('dine_in')}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '7px 11px',
-                  fontSize: '0.82rem',
-                  fontWeight: '700',
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15))',
-                  color: 'var(--mode-color)',
-                  border: '1.5px solid var(--mode-color)',
-                  cursor: 'pointer',
+                  padding: '4px 14px',
                   borderRadius: '8px',
-                  flexShrink: 0
-                }}
-                title={lang === 'bn' ? 'ক্যামেরায় পণ্য দেখিয়ে বা ছবি দেখে খুঁজুন' : 'Recognize product packaging using Visual AI'}
-              >
-                <Eye size={16} />
-                <span>{lang === 'bn' ? '👁️ AI ভিশন' : '👁️ Visual AI'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowVoiceBillingModal(true)}
-                className="btn pos-action-btn"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '7px 11px',
-                  fontSize: '0.82rem',
+                  fontSize: '0.78rem',
                   fontWeight: '800',
-                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(249, 115, 22, 0.16))',
-                  color: '#ef4444',
-                  border: '1.5px solid #ef4444',
+                  border: 'none',
+                  background: orderType === 'dine_in' ? '#f59e0b' : 'rgba(255, 255, 255, 0.06)',
+                  color: orderType === 'dine_in' ? '#18181b' : 'var(--text-muted)',
                   cursor: 'pointer',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 10px rgba(239, 68, 68, 0.15)',
-                  flexShrink: 0
-                }}
-                title={lang === 'bn' ? 'মুখে বাংলায় বলে কার্টে পণ্য যোগ করুন (কিবোর্ড শর্টকাট: Alt+V)' : 'Voice Billing in Bengali (Alt+V)'}
-              >
-                <Mic size={16} style={{ color: '#ef4444' }} />
-                <span>{lang === 'bn' ? '🎙️ ভয়েস বিল' : '🎙️ Voice POS'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openCashDrawer('manual')}
-                className="btn pos-action-btn hide-mobile-sm"
-                style={{
+                  boxShadow: orderType === 'dine_in' ? '0 0 12px rgba(245, 158, 11, 0.4)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  fontSize: '0.82rem',
-                  fontWeight: '700',
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  color: '#10b981',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                  cursor: 'pointer',
-                  flexShrink: 0
+                  gap: '5px'
                 }}
-                title={lang === 'bn' ? 'ক্যাশ ড্রয়ার খুলুন (কিবোর্ড শর্টকাট: F9)' : 'Open Cash Drawer (Shortcut: F9)'}
               >
-                <FolderOpen size={16} />
-                <span>{lang === 'bn' ? '🗄️ ড্রয়ার (F9)' : '🗄️ Drawer (F9)'}</span>
+                <span>●</span>
+                <span>{lang === 'bn' ? 'ডাইন-ইন' : 'ডাইন-ইন'}</span>
               </button>
-
-              {/* POS View Mode Switcher (Photos / Hybrid / Compact) */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--bg-secondary)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={() => updatePosDisplayMode && updatePosDisplayMode('image_grid')}
-                  className="btn"
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: '7px',
-                    fontSize: '0.74rem',
-                    fontWeight: '700',
-                    background: posDisplayMode === 'image_grid' ? 'var(--business-primary)' : 'transparent',
-                    color: posDisplayMode === 'image_grid' ? '#fff' : 'var(--text-muted)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title={lang === 'bn' ? 'ছবি কার্ড মোড (রেস্টুরেন্ট, বেকারি ও ফ্যাশন)' : 'Photo Cards'}
-                >
-                  <ImageIcon size={14} />
-                  <span>{lang === 'bn' ? 'ছবি' : 'Photos'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updatePosDisplayMode && updatePosDisplayMode('hybrid')}
-                  className="btn"
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: '7px',
-                    fontSize: '0.74rem',
-                    fontWeight: '700',
-                    background: posDisplayMode === 'hybrid' ? 'var(--business-primary)' : 'transparent',
-                    color: posDisplayMode === 'hybrid' ? '#fff' : 'var(--text-muted)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title={lang === 'bn' ? 'হাইব্রিড মোড (ছবি + তথ্য)' : 'Hybrid'}
-                >
-                  <Grid size={14} />
-                  <span>{lang === 'bn' ? 'হাইব্রিড' : 'Hybrid'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updatePosDisplayMode && updatePosDisplayMode('compact')}
-                  className="btn"
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: '7px',
-                    fontSize: '0.74rem',
-                    fontWeight: '700',
-                    background: posDisplayMode === 'compact' ? 'var(--business-primary)' : 'transparent',
-                    color: posDisplayMode === 'compact' ? '#fff' : 'var(--text-muted)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title={lang === 'bn' ? 'কম্প্যাক্ট তালিকা মোড (বারকোড দ্রুত বিক্রয়)' : 'Compact'}
-                >
-                  <List size={14} />
-                  <span>{lang === 'bn' ? 'তালিকা' : 'List'}</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOrderType('parcel')}
+                style={{
+                  padding: '4px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: '700',
+                  border: 'none',
+                  background: orderType === 'parcel' ? '#10b981' : 'rgba(255, 255, 255, 0.06)',
+                  color: orderType === 'parcel' ? '#ffffff' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <span>🛍️</span>
+                <span>{lang === 'bn' ? 'পার্সেল / Takeaway' : 'পার্সেল / Takeaway'}</span>
+              </button>
             </div>
           </div>
 
@@ -1687,6 +1654,96 @@ export const POSTerminal = () => {
           )}
         </div>
 
+        {/* Product Catalog Header Strip & View Switcher (Matching Reference Screenshot) */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 4px 10px',
+          marginTop: '4px',
+          marginBottom: '6px'
+        }}>
+          <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>{lang === 'bn' ? 'পণ্য তালিকা' : 'পণ্য তালিকা'}</span>
+          </div>
+
+          {/* Segmented View Switcher: Photos | Hybrid | List */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '3px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.08)'
+          }}>
+            <button
+              type="button"
+              onClick={() => updatePosDisplayMode && updatePosDisplayMode('image_grid')}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '7px',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                background: posDisplayMode === 'image_grid' ? 'var(--business-primary)' : 'transparent',
+                color: posDisplayMode === 'image_grid' ? '#fff' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title={lang === 'bn' ? 'ছবি কার্ড মোড' : 'Photo Cards'}
+            >
+              <ImageIcon size={13} />
+              <span>Photos</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => updatePosDisplayMode && updatePosDisplayMode('hybrid')}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '7px',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                background: posDisplayMode === 'hybrid' ? 'var(--business-primary)' : 'transparent',
+                color: posDisplayMode === 'hybrid' ? '#fff' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: posDisplayMode === 'hybrid' ? '0 2px 8px rgba(99, 102, 241, 0.35)' : 'none'
+              }}
+              title={lang === 'bn' ? 'হাইব্রিড মোড (ছবি + তথ্য)' : 'Hybrid Mode'}
+            >
+              <RotateCcw size={13} style={{ transform: 'rotate(90deg)' }} />
+              <span>Hybrid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => updatePosDisplayMode && updatePosDisplayMode('compact')}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '7px',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                background: posDisplayMode === 'compact' ? 'var(--business-primary)' : 'transparent',
+                color: posDisplayMode === 'compact' ? '#fff' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title={lang === 'bn' ? 'তালিকা মোড' : 'List Mode'}
+            >
+              <List size={13} />
+              <span>List</span>
+            </button>
+          </div>
+        </div>
+
         {/* Product Cards Grid with Switchable View Modes */}
         <div
           className={`product-card-grid mode-${posDisplayMode}`}
@@ -1816,14 +1873,14 @@ export const POSTerminal = () => {
             }
 
             // ==========================================
-            // MODE 2: HYBRID (Thumbnail + Compact Info)
+            // MODE 2: HYBRID (Matching Reference UI)
             // ==========================================
             if (posDisplayMode === 'hybrid') {
               return (
                 <div
                   key={p.id}
                   onClick={() => handleProductSelect(p)}
-                  className="glass-card card-interactive press-scale"
+                  className="glass-card card-interactive press-scale pos-hybrid-card"
                   style={{
                     padding: '8px 10px',
                     cursor: p.stock > 0 ? 'pointer' : 'not-allowed',
@@ -1831,55 +1888,147 @@ export const POSTerminal = () => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    border: inCart ? '1.5px solid var(--business-primary)' : '1px solid var(--border-color)',
+                    border: inCart ? '1.5px solid var(--business-primary)' : '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: '12px',
-                    position: 'relative'
+                    background: 'var(--bg-secondary)',
+                    position: 'relative',
+                    minHeight: '80px',
+                    boxShadow: inCart ? '0 4px 16px rgba(99, 102, 241, 0.2)' : 'none',
+                    transition: 'all 0.15s ease'
                   }}
                 >
+                  {/* Left: White rounded container for clean product packshot */}
                   <div style={{
-                    width: '54px',
-                    height: '54px',
+                    width: '56px',
+                    height: '56px',
                     borderRadius: '8px',
-                    overflow: 'hidden',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    flexShrink: 0,
+                    background: '#ffffff',
+                    padding: '3px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.4rem'
+                    flexShrink: 0,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                    overflow: 'hidden'
                   }}>
                     {p.image ? (
-                      <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
                     ) : (
-                      '📦'
+                      <span style={{ fontSize: '1.4rem' }}>📦</span>
                     )}
                   </div>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ fontSize: '0.85rem', fontWeight: '700', margin: 0, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {/* Right: SKU + Name + Price & Stepper */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {/* SKU Code */}
+                    <div style={{
+                      fontSize: '0.62rem',
+                      fontWeight: '700',
+                      color: '#94a3b8',
+                      fontFamily: 'var(--font-mono)',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase'
+                    }}>
+                      {p.sku || p.barcode || 'ITEM-01'}
+                    </div>
+
+                    {/* Product Name */}
+                    <div style={{
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      color: 'var(--text-main)',
+                      lineHeight: '1.25',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }} title={p.name}>
                       {p.name}
-                    </h4>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-                      <span style={{ fontSize: '0.95rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--business-primary)' }}>
+                    </div>
+
+                    {/* Price and Stepper Row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '3px' }}>
+                      <span style={{
+                        fontSize: '0.92rem',
+                        fontWeight: '800',
+                        fontFamily: 'var(--font-mono)',
+                        color: 'var(--business-primary)'
+                      }}>
                         ৳{p.sellPrice.toLocaleString()}
                       </span>
-                      <span style={{ fontSize: '0.7rem', color: isLowStock ? '#ef4444' : 'var(--text-muted)' }}>
-                        ({p.stock} {p.unit || 'টি'})
-                      </span>
+
+                      {/* Stepper (+ and - buttons) */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDecrement(p, e)}
+                          disabled={!inCart}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '5px',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            background: inCart ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.05)',
+                            color: inCart ? '#ef4444' : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: inCart ? 'pointer' : 'default',
+                            padding: 0
+                          }}
+                          title={lang === 'bn' ? 'কার্ট থেকে কমান' : 'Decrease'}
+                        >
+                          <Minus size={11} />
+                        </button>
+
+                        {inCart && (
+                          <span style={{
+                            fontSize: '0.72rem',
+                            fontWeight: '800',
+                            color: '#ffffff',
+                            minWidth: '14px',
+                            textAlign: 'center'
+                          }}>
+                            {inCart.qty}
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProductSelect(p);
+                          }}
+                          disabled={p.stock <= 0}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '5px',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            background: 'rgba(99, 102, 241, 0.2)',
+                            color: '#818cf8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                          title={lang === 'bn' ? 'কার্টে যোগ করুন' : 'Add to cart'}
+                        >
+                          <Plus size={11} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <button
-                    className="btn btn-primary"
-                    disabled={p.stock <= 0}
-                    style={{ padding: '6px 10px', borderRadius: '8px', fontSize: '0.75rem' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleProductSelect(p);
-                    }}
-                  >
-                    <Plus size={14} />
-                  </button>
                 </div>
               );
             }
@@ -2390,10 +2539,10 @@ export const POSTerminal = () => {
             <span style={{ fontSize: '1.25rem' }}>🛒</span>
             <div>
               <div style={{ fontSize: '0.88rem', fontWeight: '800', lineHeight: 1.1 }}>
-                {cart.reduce((sum, item) => sum + item.qty, 0)} {lang === 'bn' ? 'টি পণ্য কার্টে আছে' : 'items in cart'}
+                {cart.reduce((sum, item) => sum + item.qty, 0)} items in cart
               </div>
               <div style={{ fontSize: '0.72rem', opacity: 0.9 }}>
-                {lang === 'bn' ? 'ক্লিক করে বিল পরিশোধ করুন' : 'Tap to checkout'}
+                Tap to checkout
               </div>
             </div>
           </div>
