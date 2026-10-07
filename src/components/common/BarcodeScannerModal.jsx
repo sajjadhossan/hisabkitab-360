@@ -30,6 +30,7 @@ import {
   speakProductAnnounce,
   triggerHaptic
 } from '../../services/imageRecognitionService';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 export const BarcodeScannerModal = () => {
   const {
@@ -67,14 +68,14 @@ export const BarcodeScannerModal = () => {
   const [capturedSnapshot, setCapturedSnapshot] = useState(null);
   const [uploadedPreview, setUploadedPreview] = useState(null);
 
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const animationFrameRef = useRef(null);
+  const html5QrCodeRef = useRef(null);
+  const isStartingScannerRef = useRef(false);
   const lastScanTimestampRef = useRef(0);
   const lastScannedCodeRef = useRef('');
 
   // Sync mode when opened
   useEffect(() => {
+    let timer = null;
     if (isScannerOpen) {
       if (scannerInitialMode) {
         setActiveMode(scannerInitialMode);
@@ -84,169 +85,148 @@ export const BarcodeScannerModal = () => {
       setVisualMatches([]);
       setCapturedSnapshot(null);
       setUploadedPreview(null);
-      startCamera(facingMode);
+      timer = setTimeout(() => {
+        startCamera(facingMode);
+      }, 150);
     } else {
       stopCamera();
       setManualCode('');
       setCameraError(null);
       setTorchOn(false);
     }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      stopCamera();
+    };
   }, [isScannerOpen, scannerInitialMode]);
 
   // Restart camera when switching facingMode
-  const handleToggleFacingMode = () => {
+  const handleToggleFacingMode = async () => {
     const nextMode = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(nextMode);
-    stopCamera();
+    await stopCamera();
     setTimeout(() => {
       startCamera(nextMode);
     }, 150);
   };
 
   const startCamera = async (mode = facingMode) => {
+    if (isStartingScannerRef.current) return;
+    isStartingScannerRef.current = true;
     setCameraError(null);
+
+    const elementId = 'hisabkitab-scanner-viewfinder';
+    const container = document.getElementById(elementId);
+    if (!container) {
+      isStartingScannerRef.current = false;
+      setTimeout(() => startCamera(mode), 150);
+      return;
+    }
+
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error(
-          lang === 'bn'
-            ? 'আপনার ব্রাউজার ক্যামেরা সাপোর্ট করে না। নিচে দ্রুত স্ক্যান টেস্ট অপশন ব্যবহার করুন।'
-            : 'Camera API not supported in this browser. Use quick simulator below.'
-        );
-      }
-
-      // Stop any existing stream
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
-
-      let stream = null;
-      // Level 1: Ideal resolution with facingMode
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+      if (!html5QrCodeRef.current) {
+        html5QrCodeRef.current = new Html5Qrcode(elementId, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.QR_CODE
+          ],
+          verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true // Google Native BarcodeDetector API Integration!
           }
         });
-      } catch (e1) {
-        console.warn('Camera Level 1 constraints failed, attempting simple facingMode:', e1);
-        // Level 2: Simple facingMode
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: mode }
-          });
-        } catch (e2) {
-          console.warn('Camera Level 2 fallback failed, attempting basic video:', e2);
-          // Level 3: Any available video stream
-          stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        }
       }
 
-      streamRef.current = stream;
+      const qrCode = html5QrCodeRef.current;
+      if (qrCode.isScanning) {
+        await qrCode.stop();
+      }
 
-      // Check if torch/flashlight is supported on this track
-      const track = stream.getVideoTracks()[0];
-      if (track && track.getCapabilities) {
-        const capabilities = track.getCapabilities();
-        setHasTorch(Boolean(capabilities.torch));
-      } else {
+      await qrCode.start(
+        { facingMode: mode },
+        {
+          fps: 15,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            return {
+              width: Math.floor(viewfinderWidth * 0.88),
+              height: Math.floor(minEdge * 0.72)
+            };
+          },
+          aspectRatio: 1.333333
+        },
+        (decodedText) => {
+          if (!decodedText) return;
+          const clean = String(decodedText).trim();
+          const now = Date.now();
+          if (
+            clean !== lastScannedCodeRef.current ||
+            now - lastScanTimestampRef.current > 1200
+          ) {
+            lastScannedCodeRef.current = clean;
+            lastScanTimestampRef.current = now;
+            triggerBarcodeScan(clean);
+
+            if (!isBatchScan) {
+              stopCamera();
+            }
+          }
+        },
+        () => {
+          // Standard frame without barcode, silent pass
+        }
+      );
+
+      setCameraActive(true);
+
+      // Check flashlight/torch capability
+      try {
+        const capabilities = qrCode.getRunningTrackCapabilities();
+        setHasTorch(Boolean(capabilities && capabilities.torch));
+      } catch {
         setHasTorch(false);
       }
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setCameraActive(true);
-        startBarcodeDetection();
-      }
     } catch (err) {
-      console.warn('Camera start issue:', err);
-      setCameraError(
-        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? (lang === 'bn' ? 'ক্যামেরা পারমিশন দেওয়া হয়নি। দয়া করে থ্রি-ডট মেনু > "ডিভাইস পারমিশন সেন্টার" অথবা ফোন সেটিংসে গিয়ে ক্যামেরা এলাউ (Allow) করুন।' : 'Camera permission denied. Please allow camera in settings.')
-          : (lang === 'bn' ? 'ক্যামেরা সংযোগ করা যায়নি। নিচে দ্রুত স্ক্যান সিমুলেটর বা ম্যানুয়াল কোড ব্যবহার করুন।' : 'Could not access camera. Use quick scan below.')
-      );
+      console.warn('Scanner start issue:', err);
       setCameraActive(false);
+      setCameraError(
+        lang === 'bn'
+          ? 'ক্যামেরা চালু করা যায়নি বা পারমিশন নেই। দয়া করে ডিভাইসের ক্যামেরা পারমিশন এলাউ (Allow) করুন।'
+          : 'Could not access camera. Please allow camera permissions.'
+      );
+    } finally {
+      isStartingScannerRef.current = false;
     }
   };
 
-  const stopCamera = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+  const stopCamera = async () => {
+    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+      try {
+        await html5QrCodeRef.current.stop();
+      } catch (e) {
+        console.warn('Scanner stop error:', e);
+      }
     }
     setCameraActive(false);
     setTorchOn(false);
   };
 
   const toggleTorch = async () => {
-    if (!streamRef.current || !hasTorch) return;
+    if (!html5QrCodeRef.current || !hasTorch) return;
     try {
-      const track = streamRef.current.getVideoTracks()[0];
-      if (track) {
-        const newTorchState = !torchOn;
-        await track.applyConstraints({
-          advanced: [{ torch: newTorchState }]
-        });
-        setTorchOn(newTorchState);
-      }
-    } catch (err) {
-      console.warn('Failed to toggle torch:', err);
-    }
-  };
-
-  // Barcode Detection Loop (BarcodeDetector API + fallback)
-  const startBarcodeDetection = () => {
-    if (!('BarcodeDetector' in window)) {
-      return;
-    }
-
-    try {
-      const barcodeDetector = new window.BarcodeDetector({
-        formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'upc_a', 'upc_e']
+      const nextTorch = !torchOn;
+      await html5QrCodeRef.current.applyVideoConstraints({
+        advanced: [{ torch: nextTorch }]
       });
-
-      const detect = async () => {
-        if (videoRef.current && videoRef.current.readyState >= 2 && activeMode === 'barcode') {
-          try {
-            const barcodes = await barcodeDetector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const detected = barcodes[0].rawValue;
-              const now = Date.now();
-
-              // Debounce 1.2s to prevent multiple triggers of the same barcode in batch mode
-              if (
-                detected !== lastScannedCodeRef.current ||
-                now - lastScanTimestampRef.current > 1200
-              ) {
-                lastScannedCodeRef.current = detected;
-                lastScanTimestampRef.current = now;
-                triggerBarcodeScan(detected);
-
-                if (!isBatchScan) {
-                  stopCamera();
-                  return;
-                }
-              }
-            }
-          } catch {
-            // frame detect error
-          }
-        }
-        animationFrameRef.current = requestAnimationFrame(detect);
-      };
-
-      animationFrameRef.current = requestAnimationFrame(detect);
-    } catch {
-      // fallback
+      setTorchOn(nextTorch);
+    } catch (err) {
+      console.warn('Torch toggle failed:', err);
     }
   };
 
@@ -292,7 +272,8 @@ export const BarcodeScannerModal = () => {
   // AI VISUAL PRODUCT RECOGNITION (PHOTO SNAP & MATCH)
   // =========================================================
   const handleCaptureVisualMatch = async () => {
-    if (!videoRef.current || !cameraActive) {
+    const videoEl = document.querySelector('#hisabkitab-scanner-viewfinder video');
+    if (!videoEl || !cameraActive) {
       showToast(lang === 'bn' ? 'ক্যামেরা চালু নেই!' : 'Camera not active!', 'warning');
       return;
     }
@@ -302,10 +283,10 @@ export const BarcodeScannerModal = () => {
 
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth || 640;
-      canvas.height = videoRef.current.videoHeight || 480;
+      canvas.width = videoEl.videoWidth || 640;
+      canvas.height = videoEl.videoHeight || 480;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
       const snapshotUrl = canvas.toDataURL('image/jpeg', 0.85);
       setCapturedSnapshot(snapshotUrl);
@@ -359,26 +340,27 @@ export const BarcodeScannerModal = () => {
       setUploadedPreview(dataUrl);
       setIsAnalyzingVisual(true);
 
+      // 1. Dual-Engine Barcode detection on uploaded photo
+      try {
+        if (!html5QrCodeRef.current) {
+          html5QrCodeRef.current = new Html5Qrcode('hisabkitab-scanner-viewfinder', {
+            verbose: false,
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+          });
+        }
+        const decoded = await html5QrCodeRef.current.scanFile(file, true);
+        if (decoded) {
+          triggerBarcodeScan(decoded);
+          setIsAnalyzingVisual(false);
+          return;
+        }
+      } catch (barcodeErr) {
+        // No barcode in photo, seamlessly continue to Visual AI Match
+      }
+
+      // 2. Fallback to Visual Matching
       const img = new Image();
       img.onload = async () => {
-        // 1. Try barcode detection first
-        if ('BarcodeDetector' in window) {
-          try {
-            const detector = new window.BarcodeDetector({
-              formats: ['ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a']
-            });
-            const barcodes = await detector.detect(img);
-            if (barcodes.length > 0) {
-              triggerBarcodeScan(barcodes[0].rawValue);
-              setIsAnalyzingVisual(false);
-              return;
-            }
-          } catch {
-            // fallback to visual
-          }
-        }
-
-        // 2. Fallback to Visual Matching
         const matches = await findVisualMatches(img, products, {
           minConfidence: 0.40,
           limit: 4
@@ -761,20 +743,20 @@ export const BarcodeScannerModal = () => {
         )}
 
         {/* ========================================================
-            TAB 1: LIVE BARCODE & QR CAMERA
+            TABS 1 & 2: LIVE CAMERA VIEWFINDER (DUAL-ENGINE BARCODE & VISUAL AI)
             ======================================================== */}
-        {activeMode === 'barcode' && (
+        {(activeMode === 'barcode' || activeMode === 'visual_ai') && (
           <div>
-            {/* Viewfinder Box */}
+            {/* Unified Viewfinder Box */}
             <div
               style={{
                 position: 'relative',
                 width: '100%',
-                height: '240px',
+                minHeight: '240px',
                 background: '#090d16',
                 borderRadius: '16px',
                 overflow: 'hidden',
-                border: scanFlash ? '3px solid #10b981' : '2px dashed var(--business-primary)',
+                border: scanFlash ? '3px solid #10b981' : (activeMode === 'visual_ai' ? '2px solid #10b981' : '2px dashed var(--business-primary)'),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -783,45 +765,20 @@ export const BarcodeScannerModal = () => {
                 boxShadow: scanFlash ? '0 0 25px rgba(16, 185, 129, 0.5)' : 'none'
               }}
             >
-              {cameraActive ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    playsInline
-                    muted
-                  />
-                  {/* Laser animation */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '20%',
-                      left: '8%',
-                      right: '8%',
-                      height: '2.5px',
-                      background: 'linear-gradient(90deg, transparent, #ef4444, #10b981, #ef4444, transparent)',
-                      boxShadow: '0 0 14px #ef4444',
-                      animation: 'laserScan 2s ease-in-out infinite alternate'
-                    }}
-                  />
-                  {/* Scanning Targets */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: '28px',
-                      border: '2px solid rgba(255, 255, 255, 0.45)',
-                      borderRadius: '14px',
-                      pointerEvents: 'none'
-                    }}
-                  />
-                  {/* Corner Accent marks */}
-                  <div style={{ position: 'absolute', top: '16px', left: '16px', width: '20px', height: '20px', borderTop: '3px solid #10b981', borderLeft: '3px solid #10b981', borderRadius: '4px 0 0 0' }} />
-                  <div style={{ position: 'absolute', top: '16px', right: '16px', width: '20px', height: '20px', borderTop: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 4px 0 0' }} />
-                  <div style={{ position: 'absolute', bottom: '16px', left: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderLeft: '3px solid #10b981', borderRadius: '0 0 0 4px' }} />
-                  <div style={{ position: 'absolute', bottom: '16px', right: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 0 4px 0' }} />
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '1rem' }}>
+              {/* Dual-Engine Html5Qrcode & Google Barcode Scanner Container */}
+              <div
+                id="hisabkitab-scanner-viewfinder"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: '240px',
+                  display: cameraActive ? 'block' : 'none'
+                }}
+              />
+
+              {/* Start Camera Placeholder */}
+              {!cameraActive && (
+                <div style={{ textAlign: 'center', padding: '1.25rem' }}>
                   <div
                     style={{
                       width: '54px',
@@ -838,20 +795,95 @@ export const BarcodeScannerModal = () => {
                     <Camera size={26} />
                   </div>
                   <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {lang === 'bn' ? 'ডিভাইসের ওয়েবক্যাম বা ব্যাক ক্যামেরা দিয়ে স্ক্যান করুন' : 'Scan items using device webcam or camera'}
+                    {lang === 'bn' ? 'গুগল এপিআই ও ইউনিভার্সাল বারকোড স্ক্যানার চালু করুন' : 'Start Google API & Dual-Engine Scanner'}
                   </p>
                   <button
                     type="button"
                     className="btn btn-primary"
                     onClick={() => startCamera(facingMode)}
-                    style={{ padding: '8px 18px', fontSize: '0.82rem', fontWeight: '700' }}
+                    style={{ padding: '8px 20px', fontSize: '0.84rem', fontWeight: '700' }}
                   >
                     <Camera size={15} style={{ marginRight: '6px' }} />
                     <span>{lang === 'bn' ? 'ক্যামেরা চালু করুন' : 'Start Camera'}</span>
                   </button>
                 </div>
               )}
+
+              {/* Barcode Mode: Laser Animation & Corner Accents */}
+              {cameraActive && activeMode === 'barcode' && (
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '25%',
+                      left: '8%',
+                      right: '8%',
+                      height: '2.5px',
+                      background: 'linear-gradient(90deg, transparent, #ef4444, #10b981, #ef4444, transparent)',
+                      boxShadow: '0 0 14px #ef4444',
+                      animation: 'laserScan 2s ease-in-out infinite alternate'
+                    }}
+                  />
+                  <div style={{ position: 'absolute', top: '16px', left: '16px', width: '20px', height: '20px', borderTop: '3px solid #10b981', borderLeft: '3px solid #10b981', borderRadius: '4px 0 0 0' }} />
+                  <div style={{ position: 'absolute', top: '16px', right: '16px', width: '20px', height: '20px', borderTop: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 4px 0 0' }} />
+                  <div style={{ position: 'absolute', bottom: '16px', left: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderLeft: '3px solid #10b981', borderRadius: '0 0 0 4px' }} />
+                  <div style={{ position: 'absolute', bottom: '16px', right: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 0 4px 0' }} />
+                </div>
+              )}
+
+              {/* Visual AI Mode: Crosshair Guides */}
+              {cameraActive && activeMode === 'visual_ai' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: '20px',
+                    border: '2px dashed rgba(16, 185, 129, 0.5)',
+                    borderRadius: '12px',
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10
+                  }}
+                >
+                  <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 12px', borderRadius: '12px', fontSize: '0.74rem' }}>
+                    📸 পণ্যটি ফ্রেমের মাঝখানে রাখুন
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* Visual AI Action Button */}
+            {activeMode === 'visual_ai' && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                <button
+                  type="button"
+                  onClick={handleCaptureVisualMatch}
+                  disabled={!cameraActive || isAnalyzingVisual}
+                  className="btn btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    fontSize: '0.95rem',
+                    fontWeight: '800',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 18px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  <Sparkles size={18} />
+                  <span>
+                    {isAnalyzingVisual
+                      ? (lang === 'bn' ? 'ছবি বিশ্লেষণ করা হচ্ছে...' : 'Analyzing Image...')
+                      : (lang === 'bn' ? '📸 ছবি তুলুন ও পণ্য চিনুন' : 'Snap & Identify Product')}
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* Error banner */}
             {cameraError && (
@@ -886,99 +918,6 @@ export const BarcodeScannerModal = () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ========================================================
-            TAB 2: AI VISUAL PRODUCT RECOGNITION (IMAGE SNAP)
-            ======================================================== */}
-        {activeMode === 'visual_ai' && (
-          <div>
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                height: '240px',
-                background: '#090d16',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                border: '2px solid #10b981',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '10px'
-              }}
-            >
-              {cameraActive ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    playsInline
-                    muted
-                  />
-                  {/* Visual Crosshair Guides */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: '20px',
-                      border: '2px dashed rgba(16, 185, 129, 0.5)',
-                      borderRadius: '12px',
-                      pointerEvents: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '3px 10px', borderRadius: '12px', fontSize: '0.72rem' }}>
-                      📸 পণ্যটি ফ্রেমের মাঝখানে রাখুন
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => startCamera(facingMode)}
-                    style={{ padding: '8px 18px', fontSize: '0.85rem', fontWeight: '700' }}
-                  >
-                    <Camera size={16} style={{ marginRight: '6px' }} />
-                    <span>{lang === 'bn' ? 'ক্যামেরা চালু করুন' : 'Start Camera'}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* AI Snap Action Button */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-              <button
-                type="button"
-                onClick={handleCaptureVisualMatch}
-                disabled={!cameraActive || isAnalyzingVisual}
-                className="btn btn-primary"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  fontSize: '0.95rem',
-                  fontWeight: '800',
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 18px rgba(16, 185, 129, 0.4)'
-                }}
-              >
-                <Sparkles size={18} />
-                <span>
-                  {isAnalyzingVisual
-                    ? (lang === 'bn' ? 'ছবি বিশ্লেষণ করা হচ্ছে...' : 'Analyzing Image...')
-                    : (lang === 'bn' ? '📸 ছবি তুলুন ও পণ্য চিনুন' : 'Snap & Identify Product')}
-                </span>
-              </button>
-            </div>
 
             {/* Visual Match Results Card */}
             {visualMatches.length > 0 && (

@@ -19,6 +19,7 @@
     "@capacitor/core": "^8.5.2",
     "@supabase/supabase-js": "^2.117.2",
     "canvas-confetti": "^1.9.4",
+    "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.48.0",
     "pdfjs-dist": "^6.3.289",
     "qrcode": "^1.5.4",

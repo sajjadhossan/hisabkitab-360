@@ -843,6 +843,33 @@ input:checked+.slider:before {
   backdrop-filter: blur(16px);
 }
 
+/* Dual-Engine Html5Qrcode & Google Barcode Viewfinder */
+#hisabkitab-scanner-viewfinder {
+  position: relative !important;
+  width: 100% !important;
+  height: 240px !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  background: #090d16 !important;
+  border: none !important;
+}
+
+#hisabkitab-scanner-viewfinder video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 14px !important;
+  display: block !important;
+}
+
+#hisabkitab-scanner-viewfinder canvas {
+  display: none !important;
+}
+
+#hisabkitab-scanner-viewfinder #qr-shaded-region {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
 /* POS Search and Action Bar */
 .pos-search-actions-bar {
   display: flex;

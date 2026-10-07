@@ -90,7 +90,7 @@ export const QuickFilterManagerModal = ({
   return (
     <div className="modal-overlay" style={{ zIndex: 1200, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
       <div className="modal-content animate-fade-in android-scroll-view" style={{ maxWidth: '620px', width: '95%', maxHeight: 'calc(100dvh - 24px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '1.25rem' }}>
-        
+
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
