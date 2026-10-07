@@ -297,6 +297,14 @@ export const POSTerminal = () => {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState(null);
 
+  // Mobile Progressive Loading (renders initial chunk to guarantee smooth 60fps and zero WebView freezing)
+  const [visibleCount, setVisibleCount] = useState(24);
+
+  // Reset visibleCount whenever search term or filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [searchTerm, selectedCategory, activeFilterId, activeSubFilterKeyword, selectedBrand]);
+
   // Active UX: Search ref, Undo state & Sound Feedback
   const searchInputRef = useRef(null);
   const [undoState, setUndoState] = useState(null);
@@ -458,6 +466,11 @@ export const POSTerminal = () => {
       return true;
     });
   }, [products, deferredSearchTerm, selectedCategory, activeFilterId, activeGroup, activeSubFilterKeyword, selectedBrand]);
+
+  // Progressive slice of products for optimal touch device performance
+  const visibleProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
 
   // Handle enter key in search (e.g. from USB barcode scanner gun)
   const handleSearchKeyDown = (e) => {
@@ -888,7 +901,7 @@ export const POSTerminal = () => {
 
       {/* LIVE COUNTER SUMMARY BAR (TODAY'S BILLS, SALES, AND DRAWER CASH) */}
       <div
-        className="glass-card"
+        className="glass-card pos-counter-summary-bar"
         style={{
           padding: '0.65rem 1rem',
           display: 'flex',
@@ -1270,8 +1283,9 @@ export const POSTerminal = () => {
             </div>
           </div>
 
-          {/* POS Hardware & Power-User Hotkeys Micro-bar */}
+          {/* POS Hardware & Power-User Hotkeys Micro-bar (Hidden on mobile) */}
           <div
+            className="hide-mobile"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1675,14 +1689,9 @@ export const POSTerminal = () => {
 
         {/* Product Cards Grid with Switchable View Modes */}
         <div
-          className="product-card-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: posDisplayMode === 'image_grid' ? 'repeat(auto-fill, minmax(180px, 1fr))' : (posDisplayMode === 'hybrid' ? 'repeat(auto-fill, minmax(260px, 1fr))' : 'repeat(auto-fill, minmax(160px, 1fr))'),
-            gap: '10px'
-          }}
+          className={`product-card-grid mode-${posDisplayMode}`}
         >
-          {filteredProducts.map((p) => {
+          {visibleProducts.map((p) => {
             const isLowStock = p.stock <= p.minAlert;
             const inCart = cart.find(ci => ci.id === p.id);
 
@@ -1711,13 +1720,16 @@ export const POSTerminal = () => {
                   }}
                 >
                   {/* Picture Banner */}
-                  <div style={{
-                    width: '100%',
-                    height: '115px',
-                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.7))',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
+                  <div
+                    className="pos-card-image-wrap"
+                    style={{
+                      width: '100%',
+                      height: '115px',
+                      background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.7))',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
                     {p.image ? (
                       <img
                         src={p.image}
@@ -1949,55 +1961,30 @@ export const POSTerminal = () => {
           })}
         </div>
 
-        {/* Mobile Sticky Live Cart Peek Floating Bar */}
-        {cart.length > 0 && mobileTab === 'catalog' && (
-          <div
-            style={{
-              position: 'sticky',
-              bottom: '10px',
-              zIndex: 90,
-              padding: '10px 14px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
-              border: '2px solid var(--business-primary)',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
-              backdropFilter: 'blur(12px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              marginTop: '12px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
-                <ShoppingCart size={18} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {cart.length} ধরণের পণ্য ({cart.reduce((s, it) => s + it.qty, 0)} টি)
-                </div>
-                <div style={{ fontSize: '0.74rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  সর্বশেষ: <strong style={{ color: '#10b981' }}>{cart[cart.length - 1]?.name}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '1.05rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-                  ৳{grandTotal.toLocaleString()}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileTab('cart')}
-                className="btn btn-primary press-scale"
-                style={{ padding: '6px 14px', fontSize: '0.82rem', fontWeight: '800', borderRadius: '8px', boxShadow: '0 2px 10px rgba(16, 185, 129, 0.4)' }}
-              >
-                কার্ট দেখুন →
-              </button>
-            </div>
+        {/* Load More Button for Progressive Chunking */}
+        {filteredProducts.length > visibleCount && (
+          <div style={{ textAlign: 'center', margin: '14px 0 18px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => setVisibleCount(prev => prev + 24)}
+              className="btn btn-secondary press-scale"
+              style={{
+                padding: '9px 22px',
+                borderRadius: '12px',
+                fontWeight: '800',
+                fontSize: '0.84rem',
+                border: '1.5px solid var(--business-primary)',
+                color: 'var(--business-primary)',
+                background: 'var(--bg-secondary)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <span>⬇️ {lang === 'bn' ? `আরও পণ্য লোড করুন (${visibleCount} / ${filteredProducts.length} দেখানো হয়েছে)` : `Load More (${visibleCount} of ${filteredProducts.length})`}</span>
+            </button>
           </div>
         )}
       </div>

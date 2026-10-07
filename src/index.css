@@ -984,11 +984,23 @@ input:checked+.slider:before {
 
 .product-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
   gap: 0.85rem;
   max-height: calc(100vh - 280px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-right: 4px;
+}
+
+.product-card-grid.mode-image_grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.product-card-grid.mode-hybrid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.product-card-grid.mode-compact {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 }
 
 /* Sub-Navigation Smooth Container: Auto-wraps neatly within PC/Laptop display */
@@ -1682,11 +1694,52 @@ input:checked+.slider:before {
     font-size: 0.65rem !important;
   }
 
-  /* Product Catalog in POS: 2 items per row */
+  /* Product Catalog in POS on Mobile */
   .product-card-grid {
+    gap: 8px !important;
+    max-height: calc(100dvh - 220px) !important;
+    padding-right: 0 !important;
+  }
+
+  .product-card-grid.mode-image_grid {
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.5rem !important;
-    max-height: calc(100vh - 240px);
+  }
+
+  .product-card-grid.mode-hybrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .product-card-grid.mode-compact {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .product-card-grid .pos-card-image-wrap {
+    height: 95px !important;
+  }
+
+  /* POS Counter Live Summary Bar Compact On Mobile */
+  .pos-counter-summary-bar {
+    padding: 0.5rem 0.65rem !important;
+    gap: 6px !important;
+  }
+
+  .pos-counter-summary-bar > div:first-child {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    gap: 12px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .pos-counter-summary-bar > div:first-child > div {
+    flex-shrink: 0 !important;
+  }
+
+  .pos-counter-summary-bar .btn {
+    width: 100% !important;
+    justify-content: center !important;
   }
 
   /* Modal on Mobile: Ensure prominent top-aligned appearance and full ScrollView accessibility */
@@ -1729,9 +1782,14 @@ input:checked+.slider:before {
    TINY PHONES (<= 375px: iPhone SE, older Androids)
    ---------------------------------------------------- */
 @media (max-width: 375px) {
-  .product-card-grid {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.4rem !important;
+  .product-card-grid.mode-image_grid,
+  .product-card-grid.mode-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .product-card-grid .pos-card-image-wrap {
+    height: 80px !important;
   }
 
   .hide-on-tiny {
