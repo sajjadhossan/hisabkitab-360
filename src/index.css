@@ -870,6 +870,35 @@ input:checked+.slider:before {
   border-color: rgba(16, 185, 129, 0.45) !important;
 }
 
+/* Responsive Display Utilities (PC vs Mobile Separation) */
+.hide-mobile {
+  display: block;
+}
+.hide-mobile-flex {
+  display: flex !important;
+}
+.show-mobile-only {
+  display: none !important;
+}
+.show-mobile-flex {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+  .hide-mobile-flex {
+    display: none !important;
+  }
+  .show-mobile-only {
+    display: block !important;
+  }
+  .show-mobile-flex {
+    display: flex !important;
+  }
+}
+
 /* POS Search and Action Bar */
 .pos-search-actions-bar {
   display: flex;
