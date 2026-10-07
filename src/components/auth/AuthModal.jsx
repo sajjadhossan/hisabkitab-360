@@ -529,6 +529,37 @@ export const AuthModal = () => {
                   </div>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>সাকিব (01722222222)</span>
                 </button>
+
+                <div style={{ gridColumn: '1 / -1', marginTop: '6px', paddingTop: '8px', borderTop: '1px dashed rgba(239, 68, 68, 0.3)' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMethod('email');
+                      setLoginEmail('hossansajjad1994@gmail.com');
+                      setLoginPassword('889900');
+                      login({ email: 'hossansajjad1994@gmail.com', password: '889900' });
+                    }}
+                    className="btn"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                      color: '#ef4444',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Shield size={14} />
+                    <span>👑 সাজ্জাদ হোসাইন (মাস্টার সুপার অ্যাডমিন ১-ক্লিক লগইন)</span>
+                  </button>
+                </div>
               </div>
             </div>
           </form>
