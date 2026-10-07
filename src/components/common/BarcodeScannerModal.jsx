@@ -125,6 +125,44 @@ export const BarcodeScannerModal = () => {
     }
 
     try {
+      // 1. Preflight permission check to prompt mobile Android WebView permission if needed
+      if (typeof navigator !== 'undefined' && navigator?.mediaDevices?.getUserMedia) {
+        try {
+          const preStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: mode === 'environment' ? { ideal: 'environment' } : 'user' }
+          });
+          preStream.getTracks().forEach((track) => track.stop());
+        } catch (permErr) {
+          console.warn('Preflight media permission notice:', permErr);
+        }
+      }
+
+      // 2. Discover available camera hardware
+      let cameraConfig = { facingMode: mode };
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          if (mode === 'environment') {
+            const backCam = devices.find((d) =>
+              /back|rear|environment|wide|main/i.test(d.label || '')
+            ) || devices[devices.length - 1];
+            if (backCam && backCam.id) {
+              cameraConfig = backCam.id;
+            }
+          } else {
+            const frontCam = devices.find((d) =>
+              /front|user|selfie/i.test(d.label || '')
+            ) || devices[0];
+            if (frontCam && frontCam.id) {
+              cameraConfig = frontCam.id;
+            }
+          }
+        }
+      } catch (deviceQueryErr) {
+        console.warn('Could not query camera device list:', deviceQueryErr);
+      }
+
+      // 3. Initialize Html5Qrcode instance
       if (!html5QrCodeRef.current) {
         html5QrCodeRef.current = new Html5Qrcode(elementId, {
           formatsToSupport: [
@@ -136,54 +174,58 @@ export const BarcodeScannerModal = () => {
             Html5QrcodeSupportedFormats.UPC_E,
             Html5QrcodeSupportedFormats.QR_CODE
           ],
-          verbose: false,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true // Google Native BarcodeDetector API Integration!
-          }
+          verbose: false
         });
       }
 
       const qrCode = html5QrCodeRef.current;
       if (qrCode.isScanning) {
-        await qrCode.stop();
+        try {
+          await qrCode.stop();
+        } catch (e) {
+          console.warn('Previous scan stop error:', e);
+        }
       }
 
-      await qrCode.start(
-        { facingMode: mode },
-        {
-          fps: 15,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            return {
-              width: Math.floor(viewfinderWidth * 0.88),
-              height: Math.floor(minEdge * 0.72)
-            };
-          },
-          aspectRatio: 1.333333
-        },
-        (decodedText) => {
-          if (!decodedText) return;
-          const clean = String(decodedText).trim();
-          const now = Date.now();
-          if (
-            clean !== lastScannedCodeRef.current ||
-            now - lastScanTimestampRef.current > 1200
-          ) {
-            lastScannedCodeRef.current = clean;
-            lastScanTimestampRef.current = now;
-            triggerBarcodeScan(clean);
+      const onScanSuccess = (decodedText) => {
+        if (!decodedText) return;
+        const clean = String(decodedText).trim();
+        const now = Date.now();
+        if (
+          clean !== lastScannedCodeRef.current ||
+          now - lastScanTimestampRef.current > 1200
+        ) {
+          lastScannedCodeRef.current = clean;
+          lastScanTimestampRef.current = now;
+          triggerBarcodeScan(clean);
 
-            if (!isBatchScan) {
-              stopCamera();
-            }
+          if (!isBatchScan) {
+            stopCamera();
           }
-        },
-        () => {
-          // Standard frame without barcode, silent pass
         }
-      );
+      };
+
+      const scanConfig = {
+        fps: 15,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          return {
+            width: Math.floor(viewfinderWidth * 0.88),
+            height: Math.floor(minEdge * 0.72)
+          };
+        },
+        aspectRatio: 1.333333
+      };
+
+      try {
+        await qrCode.start(cameraConfig, scanConfig, onScanSuccess, () => {});
+      } catch (firstStartErr) {
+        console.warn('Initial camera start failed, retrying with fallback constraint...', firstStartErr);
+        await qrCode.start({ facingMode: mode }, scanConfig, onScanSuccess, () => {});
+      }
 
       setCameraActive(true);
+      setCameraError(null);
 
       // Check flashlight/torch capability
       try {
@@ -197,8 +239,8 @@ export const BarcodeScannerModal = () => {
       setCameraActive(false);
       setCameraError(
         lang === 'bn'
-          ? 'ক্যামেরা চালু করা যায়নি বা পারমিশন নেই। দয়া করে ডিভাইসের ক্যামেরা পারমিশন এলাউ (Allow) করুন।'
-          : 'Could not access camera. Please allow camera permissions.'
+          ? 'ক্যামেরা চালু করা যায়নি বা অনুমতি নেই। ডিভাইসের সেটিংস থেকে ক্যামেরা পারমিশন এলাউ (Allow) করুন অথবা নিচে সরাসরি বারকোড টাইপ করুন।'
+          : 'Could not access camera. Please allow camera permission in device settings or enter barcode below.'
       );
     } finally {
       isStartingScannerRef.current = false;
@@ -771,14 +813,29 @@ export const BarcodeScannerModal = () => {
                 style={{
                   width: '100%',
                   height: '100%',
-                  minHeight: '240px',
-                  display: cameraActive ? 'block' : 'none'
+                  minHeight: '260px',
+                  display: 'block',
+                  opacity: cameraActive ? 1 : 0,
+                  transition: 'opacity 0.2s ease'
                 }}
               />
 
-              {/* Start Camera Placeholder */}
+              {/* Start Camera Placeholder / Loading Overlay */}
               {!cameraActive && (
-                <div style={{ textAlign: 'center', padding: '1.25rem' }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(9, 13, 22, 0.95)',
+                    zIndex: 5
+                  }}
+                >
                   <div
                     style={{
                       width: '54px',
@@ -795,7 +852,7 @@ export const BarcodeScannerModal = () => {
                     <Camera size={26} />
                   </div>
                   <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {lang === 'bn' ? 'গুগল এপিআই ও ইউনিভার্সাল বারকোড স্ক্যানার চালু করুন' : 'Start Google API & Dual-Engine Scanner'}
+                    {lang === 'bn' ? 'ক্যামেরা চালু হচ্ছে বা পারমিশন অপেক্ষা করছে...' : 'Starting camera or awaiting permissions...'}
                   </p>
                   <button
                     type="button"
@@ -905,15 +962,24 @@ export const BarcodeScannerModal = () => {
                   <AlertCircle size={18} style={{ flexShrink: 0 }} />
                   <span>{cameraError}</span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '2px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => startCamera(facingMode)}
                     className="btn btn-secondary"
-                    style={{ padding: '4px 12px', fontSize: '0.78rem', borderColor: '#ef4444', color: '#ef4444', fontWeight: '700' }}
+                    style={{ padding: '6px 14px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444', fontWeight: '700' }}
                   >
-                    <RefreshCw size={13} style={{ marginRight: '4px' }} />
-                    <span>ক্যামেরা পুনরায় চেষ্টা করুন</span>
+                    <RefreshCw size={14} style={{ marginRight: '5px' }} />
+                    <span>{lang === 'bn' ? 'ক্যামেরা পুনরায় চেষ্টা করুন' : 'Retry Camera'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMode('manual')}
+                    className="btn btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: '700', background: '#8b5cf6' }}
+                  >
+                    <Keyboard size={14} style={{ marginRight: '5px' }} />
+                    <span>{lang === 'bn' ? 'ম্যানুয়াল কোড লিখুন' : 'Enter Code Manually'}</span>
                   </button>
                 </div>
               </div>

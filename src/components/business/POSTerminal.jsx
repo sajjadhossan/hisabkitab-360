@@ -281,6 +281,7 @@ export const POSTerminal = () => {
   const [isMobileScreen, setIsMobileScreen] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
   });
+  const [isMobileHeaderExpanded, setIsMobileHeaderExpanded] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -727,20 +728,77 @@ export const POSTerminal = () => {
 
   return (
     <div className="animate-fade-in pos-terminal-view" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', width: '100%' }}>
-      {/* MULTI-BRANCH & CASH COUNTER HEADER BAR */}
-      <div
-        className="glass-card"
-        style={{
-          padding: '0.75rem 1rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '10px',
-          background: 'var(--bg-secondary)',
-          borderLeft: '4px solid var(--business-primary)'
-        }}
-      >
+      {/* MOBILE COMPACT HEADER BAR */}
+      {isMobileScreen && (
+        <div
+          className="glass-card"
+          style={{
+            padding: '0.55rem 0.85rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'var(--bg-secondary)',
+            borderLeft: '4px solid var(--business-primary)',
+            borderRadius: '12px',
+            gap: '8px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Store size={15} style={{ color: 'var(--business-primary)' }} />
+              {activeBranch?.name || (lang === 'bn' ? 'প্রধান শাখা' : 'Main Branch')} • {activeCounter?.name || (lang === 'bn' ? 'কাউন্টার ১' : 'Counter 1')}
+            </span>
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.65rem',
+                background: isShiftActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                color: isShiftActive ? '#10b981' : '#f59e0b',
+                border: isShiftActive ? '1px solid #10b981' : '1px solid #f59e0b',
+                flexShrink: 0
+              }}
+            >
+              {isShiftActive ? (lang === 'bn' ? '🟢 শিফট চালু' : 'Shift Active') : (lang === 'bn' ? '🌅 শিফট বন্ধ' : 'Closed')}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileHeaderExpanded(!isMobileHeaderExpanded)}
+            className="btn btn-secondary"
+            style={{
+              padding: '5px 9px',
+              fontSize: '0.72rem',
+              fontWeight: '700',
+              borderRadius: '7px',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <SlidersHorizontal size={12} />
+            <span>{isMobileHeaderExpanded ? (lang === 'bn' ? '▲ কম দেখান' : 'Hide') : (lang === 'bn' ? '⚙️ টুলস ও শিফট ▼' : 'Tools ▼')}</span>
+          </button>
+        </div>
+      )}
+
+      {/* MULTI-BRANCH & CASH COUNTER HEADER BAR (Collapsible on Mobile) */}
+      {(!isMobileScreen || isMobileHeaderExpanded) && (
+        <>
+        <div
+          className="glass-card"
+          style={{
+            padding: '0.75rem 1rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+            background: 'var(--bg-secondary)',
+            borderLeft: '4px solid var(--business-primary)'
+          }}
+        >
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
           {/* Branch Selector or Badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1024,8 +1082,9 @@ export const POSTerminal = () => {
           <span>{lang === 'bn' ? `সাম্প্রতিক বিক্রির তালিকা (${todayCounterSales.length})` : `Recent Sales (${todayCounterSales.length})`}</span>
         </button>
       </div>
+      </>
+      )}
 
-      <div className="pos-terminal-grid">
       {/* Mobile & Tablet Segmented Tab Bar (Hidden on Desktop/Laptop) */}
       <div className="pos-mobile-tab-bar">
         <button
@@ -1051,6 +1110,8 @@ export const POSTerminal = () => {
           )}
         </button>
       </div>
+
+      <div className="pos-terminal-grid">
 
       {/* Left Column: Product Catalog & Search */}
       <div className={`pos-catalog-col ${mobileTab === 'catalog' ? 'active' : ''}`}>
@@ -2459,7 +2520,7 @@ export const POSTerminal = () => {
       <div className={`glass-card pos-cart-col ${mobileTab === 'cart' ? 'active' : ''}`}>
         
         {/* Cart Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingCart size={18} style={{ color: 'var(--business-primary)' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: '700', margin: 0 }}>
@@ -2467,17 +2528,30 @@ export const POSTerminal = () => {
             </h3>
           </div>
 
-          {cart.length > 0 && (
-            <button
-              onClick={handleClearCartWithUndo}
-              className="btn btn-icon press-scale"
-              title={lang === 'bn' ? 'কার্ট খালি করুন (Alt+C)' : 'Clear Cart (Alt+C)'}
-              style={{ color: '#ef4444', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              <Trash2 size={14} />
-              <span className="kbd-badge" style={{ fontSize: '0.62rem' }}>Alt+C</span>
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isMobileScreen && (
+              <button
+                type="button"
+                onClick={() => setMobileTab('catalog')}
+                className="btn btn-secondary"
+                style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '700', borderRadius: '8px' }}
+              >
+                ← {lang === 'bn' ? 'পণ্য যোগ করুন' : 'Add Items'}
+              </button>
+            )}
+
+            {cart.length > 0 && (
+              <button
+                onClick={handleClearCartWithUndo}
+                className="btn btn-icon press-scale"
+                title={lang === 'bn' ? 'কার্ট খালি করুন (Alt+C)' : 'Clear Cart (Alt+C)'}
+                style={{ color: '#ef4444', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <Trash2 size={14} />
+                <span className="kbd-badge" style={{ fontSize: '0.62rem' }}>Alt+C</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Customer Selector */}

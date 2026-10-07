@@ -50,18 +50,6 @@ public class MainActivity extends BridgeActivity {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 WebView webView = getBridge().getWebView();
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
-
-                // Set WebChromeClient that automatically grants WebRTC media permissions to webview
-                webView.setWebChromeClient(new WebChromeClient() {
-                    @Override
-                    public void onPermissionRequest(final PermissionRequest request) {
-                        runOnUiThread(() -> {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                request.grant(request.getResources());
-                            }
-                        });
-                    }
-                });
             }
         } catch (Exception e) {
             e.printStackTrace();

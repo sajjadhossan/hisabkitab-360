@@ -80,7 +80,8 @@ export const Navbar = () => {
     licenseInfo,
     showToast,
     isDriveConnected,
-    openHelpSupport
+    openHelpSupport,
+    openScanner
   } = useApp();
 
   const {
@@ -272,6 +273,36 @@ export const Navbar = () => {
 
   // Mobile Categorized Drawer Groups
   const businessDrawerGroups = [
+    {
+      title: lang === 'bn' ? '📱 মোবাইল স্পেশাল ও কুইক অ্যাকশন' : '📱 Mobile Quick POS & Scanner',
+      items: [
+        {
+          id: 'drawer_quick_scanner',
+          label: lang === 'bn' ? '📷 ক্যামেরা বারকোড স্ক্যানার' : 'Camera Barcode Scanner',
+          desc: lang === 'bn' ? 'ক্যামেরা দিয়ে সরাসরি পণ্য স্ক্যান' : 'Fast camera barcode reader',
+          icon: ScanLine,
+          color: '#6366f1',
+          badge: 'QUICK',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            openScanner(null, 'pos', 'barcode');
+          }
+        },
+        {
+          id: 'drawer_mobile_pos',
+          label: lang === 'bn' ? '⚡ মোবাইল POS মোড' : 'Mobile POS Mode',
+          desc: lang === 'bn' ? 'মোবাইলে হালকা ও দ্রুত বিক্রয় কাউন্টার' : 'Lightweight mobile checkout',
+          icon: ShoppingCart,
+          color: '#10b981',
+          badge: 'LITE',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            setProfile('business');
+            setActiveTab('pos');
+          }
+        }
+      ]
+    },
     {
       title: lang === 'bn' ? '🛒 বিক্রয়, মেমো ও বিলিং' : '🛒 Sales & Billing',
       items: [
