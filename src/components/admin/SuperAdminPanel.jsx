@@ -61,6 +61,10 @@ export const SuperAdminPanel = () => {
     licenseInfo,
     updateLicenseInfo,
     generateNewLicenseKey,
+    clientLicensesRegistry = [],
+    registerNewClientLicense,
+    updateClientLicense,
+    deleteClientLicense,
     toggleLicenseModule,
     applyPackagePreset,
     startFreshStore,
@@ -126,10 +130,14 @@ export const SuperAdminPanel = () => {
   // Client licensing form state
   const [licenseForm, setLicenseForm] = useState({
     clientShopName: licenseInfo?.clientShopName || '',
-    planName: licenseInfo?.planName || 'Enterprise Lifetime License',
+    clientEmail: licenseInfo?.clientEmail || '',
+    clientPhone: '',
+    planName: licenseInfo?.planName || 'Standard Annual Store',
     status: licenseInfo?.status || 'active',
-    expiryDate: licenseInfo?.expiryDate || '2099-12-31'
+    expiryDate: licenseInfo?.expiryDate || '2027-12-31'
   });
+  const [licenseSearchQuery, setLicenseSearchQuery] = useState('');
+  const [latestCreatedLic, setLatestCreatedLic] = useState(null);
 
   // Master PIN change state
   const [currentMasterPin, setCurrentMasterPin] = useState('');
@@ -272,26 +280,62 @@ export const SuperAdminPanel = () => {
     setTimeout(() => setCopiedKey(false), 2500);
   };
 
-  // Generate key based on current parameters
-  const handleGenerateKey = () => {
-    const shop = licenseForm.clientShopName || 'STORE';
-    const cleanPrefix = shop.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'HK36';
-    const randA = Math.floor(1000 + Math.random() * 9000);
-    const randB = Math.floor(1000 + Math.random() * 9000);
-    const currentYear = new Date().getFullYear();
-    const newKey = `HK360-${cleanPrefix}-${currentYear}-${randA}-${randB}`;
-    setGeneratedKey(newKey);
+  // Generate & register new cryptographic client license
+  const handleGenerateAndRegisterLicense = (applyDirectly = false) => {
+    if (!licenseForm.clientShopName.trim()) {
+      showToast(lang === 'bn' ? 'দয়া করে ক্লায়েন্টের প্রতিষ্ঠানের নাম লিখুন!' : 'Please enter Client Shop Name!', 'warning');
+      return;
+    }
+    if (!licenseForm.clientEmail.trim() || !licenseForm.clientEmail.includes('@')) {
+      showToast(lang === 'bn' ? '⚠️ ক্লায়েন্টের বৈধ লগইন ইমেইল প্রয়োজন! লাইসেন্সটি এই ইমেইলে লক থাকবে।' : 'Valid Client Login Email required for strict locking!', 'warning');
+      return;
+    }
+
+    const year = new Date(licenseForm.expiryDate).getFullYear() || 2027;
+    const newLic = registerNewClientLicense({
+      clientShopName: licenseForm.clientShopName.trim(),
+      clientEmail: licenseForm.clientEmail.trim(),
+      clientPhone: licenseForm.clientPhone.trim(),
+      planName: licenseForm.planName,
+      expiryDate: licenseForm.expiryDate,
+      expiryYear: year,
+      applyImmediately: applyDirectly
+    });
+
+    setGeneratedKey(newLic.licenseKey);
+    setLatestCreatedLic(newLic);
+  };
+
+  const handleCopyClientDeliveryMessage = (lic) => {
+    const targetLic = lic || latestCreatedLic || {
+      clientShopName: licenseForm.clientShopName || 'সম্মানিত গ্রাহক',
+      clientEmail: licenseForm.clientEmail || 'আপনার ইমেইল',
+      licenseKey: generatedKey || licenseInfo?.licenseKey,
+      expiryDate: licenseForm.expiryDate || '2027-12-31'
+    };
+
+    const text = `🎉 অভিনন্দন! HisabKitab 360-এ স্বাগতম।\n\n` +
+      `🏪 প্রতিষ্ঠান: ${targetLic.clientShopName}\n` +
+      `📧 নিবন্ধিত ইমেইল: ${targetLic.clientEmail}\n` +
+      `🔑 আপনার অফিসিয়াল লাইসেন্স কী: ${targetLic.licenseKey}\n` +
+      `📅 লাইসেন্স মেয়াদ: ${targetLic.expiryDate} পর্যন্ত\n\n` +
+      `🔒 সিকিউরিটি সতর্কতা: এই লাইসেন্সটি শুধুমাত্র আপনার (${targetLic.clientEmail}) অ্যাকাউন্টের জন্য বৈধ। অন্য কোনো ইমেইলে এটি কাজ করবে না।\n\n` +
+      `📞 ভেন্ডর সাপোর্ট: ${vendorForm.resellerPhone || '+880 1700-000000'}`;
+
+    navigator.clipboard.writeText(text);
+    showToast(lang === 'bn' ? '📋 ক্লায়েন্ট হোয়াটসঅ্যাপ/এসএমএস মেসেজ কপি করা হয়েছে!' : 'Client delivery message copied to clipboard!');
   };
 
   const handleApplyLicenseForm = () => {
     updateLicenseInfo({
       clientShopName: licenseForm.clientShopName,
+      clientEmail: licenseForm.clientEmail,
       planName: licenseForm.planName,
       status: licenseForm.status,
       expiryDate: licenseForm.expiryDate,
       ...(generatedKey ? { licenseKey: generatedKey } : {})
     });
-    showToast(lang === 'bn' ? '✓ ক্লায়েন্ট লাইসেন্স সফলভাবে আপডেট করা হয়েছে!' : 'Client license successfully updated!');
+    showToast(lang === 'bn' ? '✓ ক্লায়েন্ট লাইসেন্স সফলভাবে সফটওয়্যারে প্রয়োগ করা হয়েছে!' : 'Client license successfully applied!');
   };
 
   const handleSaveVendorForm = () => {
@@ -2253,307 +2297,628 @@ export const SuperAdminPanel = () => {
       {/* SUBTAB 2: CLIENT LICENSING & SUBSCRIPTION LOCK           */}
       {/* ======================================================== */}
       {activeSubTab === 'license' && (
-        <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem' }}>
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {/* License Configuration Form */}
+          {/* Header Banner */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 95, 70, 0.08))',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '16px',
+            padding: '1.25rem 1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.2)',
+                color: '#10b981',
+                padding: '12px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <ShieldCheck size={28} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? '🔑 ক্লায়েন্ট লাইসেন্সিং ও সিঙ্গেল-টেন্যান্ট অ্যান্টি-পাইরেসি সিস্টেম' : 'Client Licensing & Anti-Piracy Registry'}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn'
+                    ? 'ক্লায়েন্ট প্রোফাইল তৈরি করে নির্দিষ্ট ইমেইল ও দোকানের নামে লাইসেন্স ইস্যু করুন। সিগনেচার লকিংয়ের কারণে অন্য কোনো ইমেইলে এই সফটওয়্যার চলবে না।'
+                    : 'Issue cryptographically signed licenses locked strictly to client email and shop name to prevent unauthorized software copying.'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#10b981',
+                fontWeight: '800',
+                fontSize: '0.85rem',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                border: '1px solid rgba(16, 185, 129, 0.3)'
+              }}>
+                মোট ক্লায়েন্ট রেজিস্ট্রি: {clientLicensesRegistry.length}টি
+              </span>
+            </div>
+          </div>
+
+          {/* Top 2 Columns: Client Form & Live Key Delivery Card */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '1.5rem' }}>
+            
+            {/* Left Column: Client Profile & License Setup Form */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '18px',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem'
+            }}>
+              <div>
+                <h4 style={{ margin: '0 0 4px', fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Store size={20} color="#10b981" />
+                  {lang === 'bn' ? '১. ক্লায়েন্ট প্রোফাইল ও লাইসেন্স সেটআপ' : '1. Client Profile & License Setup'}
+                </h4>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                  {lang === 'bn' ? 'ক্লায়েন্টের দোকানের নাম ও লগইন ইমেইল ইনপুট দিন:' : 'Enter client business details & registered login email:'}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
+                    নিবন্ধিত প্রতিষ্ঠানের নাম (Client Shop Name) <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={licenseForm.clientShopName}
+                    onChange={(e) => setLicenseForm(prev => ({ ...prev, clientShopName: e.target.value }))}
+                    placeholder="যেমন: আল-মদিনা সুপার শপ বা নিরাময় ফার্মেসি"
+                    className="input-field"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                      ক্লায়েন্টের লগইন ইমেইল (Client Login Email) <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '800', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                      🔒 অ্যান্টি-পাইরেসি লক
+                    </span>
+                  </div>
+                  <input
+                    type="email"
+                    value={licenseForm.clientEmail}
+                    onChange={(e) => setLicenseForm(prev => ({ ...prev, clientEmail: e.target.value }))}
+                    placeholder="যেমন: client@almadina.com (ক্লায়েন্ট যে ইমেইল দিয়ে অ্যাপে লগইন করবেন)"
+                    className="input-field"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                  />
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    * সতর্কবার্তা: লাইসেন্সটি এই ইমেইলের সাথে ক্রিপ্টোগ্রাফিক্যালি লক থাকবে। অন্য কোনো ইমেইলে এটি কাজ করবে না।
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
+                      মোবাইল / হোয়াটসঅ্যাপ (Phone)
+                    </label>
+                    <input
+                      type="text"
+                      value={licenseForm.clientPhone}
+                      onChange={(e) => setLicenseForm(prev => ({ ...prev, clientPhone: e.target.value }))}
+                      placeholder="+880 1700-000000"
+                      className="input-field"
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
+                      প্ল্যানের ধরন (Subscription Plan)
+                    </label>
+                    <select
+                      value={licenseForm.planName}
+                      onChange={(e) => setLicenseForm(prev => ({ ...prev, planName: e.target.value }))}
+                      className="input-field"
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                    >
+                      <option value="14-Day Evaluation Trial">১৪ দিনের ট্রায়াল (Evaluation Trial)</option>
+                      <option value="Basic Monthly Retail">বেসিক মাসিক প্যাকেজ (Monthly)</option>
+                      <option value="Standard Annual Store">স্ট্যান্ডার্ড বার্ষিক প্যাকেজ (Annual)</option>
+                      <option value="Enterprise Lifetime License">এন্টারপ্রাইজ আজীবন লাইসেন্স (Lifetime)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                      মেয়াদ শেষ হওয়ার তারিখ (Expiry Date)
+                    </label>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 30);
+                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active' }));
+                        }}
+                        className="btn"
+                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none' }}
+                      >
+                        +৩০ দিন
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setFullYear(d.getFullYear() + 1);
+                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active' }));
+                        }}
+                        className="btn"
+                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: 'none' }}
+                      >
+                        +১ বছর
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLicenseForm(prev => ({ ...prev, expiryDate: '2027-12-31', status: 'active' }));
+                        }}
+                        className="btn"
+                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: 'none' }}
+                      >
+                        ২০২৭ সাল
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLicenseForm(prev => ({ ...prev, expiryDate: '2099-12-31', status: 'active' }));
+                        }}
+                        className="btn"
+                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', border: 'none' }}
+                      >
+                        লাইফটাইম
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    value={licenseForm.expiryDate}
+                    onChange={(e) => setLicenseForm(prev => ({ ...prev, expiryDate: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                  <button
+                    onClick={() => handleGenerateAndRegisterLicense(false)}
+                    className="btn btn-primary"
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      borderRadius: '10px',
+                      fontWeight: '800',
+                      fontSize: '0.95rem',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <Key size={18} />
+                    🔑 ক্রিপ্টোগ্রাফিক কি তৈরি ও সেভ করুন
+                  </button>
+
+                  <button
+                    onClick={() => handleGenerateAndRegisterLicense(true)}
+                    className="btn btn-secondary"
+                    title="এই অ্যাপে সরাসরি এই লাইসেন্স সক্রিয় করুন"
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      fontWeight: '700',
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Save size={16} />
+                    অ্যাপে প্রয়োগ
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Live Cryptographic Key Card & Delivery Kit */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '18px',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '1.5rem'
+            }}>
+              <div>
+                <h4 style={{ margin: '0 0 4px', fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Award size={20} color="#f59e0b" />
+                  {lang === 'bn' ? '২. ক্লায়েন্ট ডেলিভারি কিট ও বর্তমান অবস্থা' : '2. Client Delivery Kit & Live Status'}
+                </h4>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                  {lang === 'bn' ? 'ক্লায়েন্টকে দেওয়ার জন্য লাইসেন্স ও রেডি-মেড মেসেজ:' : 'Generated cryptographic key & ready delivery message:'}
+                </p>
+
+                {/* Freshly Generated License Display */}
+                {generatedKey ? (
+                  <div style={{
+                    marginTop: '1.25rem',
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
+                    border: '1.5px solid #10b981',
+                    borderRadius: '14px',
+                    padding: '1.25rem',
+                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.15)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '900', letterSpacing: '0.5px' }}>
+                        🎉 নতুন ক্রিপ্টোগ্রাফিক লাইসেন্স প্রস্তুত!
+                      </span>
+                      <span style={{ fontSize: '0.72rem', background: '#10b981', color: '#ffffff', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                        লকড ও ভ্যালিড
+                      </span>
+                    </div>
+
+                    <div style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '1.18rem',
+                      fontWeight: '900',
+                      color: '#ffffff',
+                      wordBreak: 'break-all',
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      marginBottom: '10px'
+                    }}>
+                      {generatedKey}
+                    </div>
+
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                      <div>🏪 প্রতিষ্ঠান: <strong style={{ color: 'var(--text-main)' }}>{latestCreatedLic?.clientShopName || licenseForm.clientShopName}</strong></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🔒 নিবন্ধিত ইমেইল:</span>
+                        <code style={{ color: '#10b981', fontWeight: '700' }}>{latestCreatedLic?.clientEmail || licenseForm.clientEmail}</code>
+                      </div>
+                      <div>📅 মেয়াদ: <strong>{latestCreatedLic?.expiryDate || licenseForm.expiryDate} পর্যন্ত</strong></div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => handleCopyKey(generatedKey)}
+                        className="btn"
+                        style={{
+                          background: '#10b981',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: '800',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {copiedKey ? <Check size={16} /> : <Copy size={16} />}
+                        {copiedKey ? 'কপি হয়েছে!' : 'কি কপি করুন'}
+                      </button>
+
+                      <button
+                        onClick={() => handleCopyClientDeliveryMessage(latestCreatedLic)}
+                        className="btn"
+                        style={{
+                          background: 'rgba(37, 211, 102, 0.2)',
+                          color: '#25d366',
+                          border: '1px solid #25d366',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: '800',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <MessageCircle size={16} />
+                        হোয়াটসঅ্যাপ মেসেজ কপি
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          updateLicenseInfo({
+                            clientShopName: latestCreatedLic?.clientShopName || licenseForm.clientShopName,
+                            clientEmail: latestCreatedLic?.clientEmail || licenseForm.clientEmail,
+                            planName: latestCreatedLic?.planName || licenseForm.planName,
+                            expiryDate: latestCreatedLic?.expiryDate || licenseForm.expiryDate,
+                            licenseKey: generatedKey,
+                            status: 'active'
+                          });
+                          showToast(lang === 'bn' ? 'সফটওয়্যারে এই লাইসেন্স সক্রিয় হয়েছে!' : 'License applied to software!');
+                        }}
+                        className="btn"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          color: '#ffffff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        বর্তমান সফটওয়্যারে সক্রিয়
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    marginTop: '1.25rem',
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px dashed rgba(245, 158, 11, 0.35)',
+                    borderRadius: '14px',
+                    padding: '1.5rem',
+                    textAlign: 'center'
+                  }}>
+                    <Key size={36} color="#f59e0b" style={{ margin: '0 auto 8px', opacity: 0.8 }} />
+                    <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      বামপাশের ফর্ম পূরণ করে "লাইসেন্স কি তৈরি করুন" বাটনে চাপুন
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      সিস্টেম তাৎক্ষণিকভাবে ক্লায়েন্টের নাম ও ইমেইল সিগনেচার দিয়ে আনকপিযোগ্য কি বানিয়ে দিবে।
+                    </div>
+                  </div>
+                )}
+
+                {/* Currently Active Local Software Info */}
+                <div style={{
+                  marginTop: '1.25rem',
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '6px' }}>
+                    বর্তমান সফটওয়্যারের লাইভ লাইসেন্স:
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92rem', fontWeight: '800', color: '#10b981' }}>
+                        {licenseInfo?.licenseKey || 'HK360-ENT-2026-8842-PRO'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        প্রতিষ্ঠান: <strong style={{ color: 'var(--text-main)' }}>{licenseInfo?.clientShopName || 'মাস্টার অ্যাকাউন্ট'}</strong> | ইমেইল: <code>{licenseInfo?.clientEmail || 'উন্মুক্ত'}</code>
+                      </div>
+                    </div>
+                    <span style={{
+                      background: licenseInfo?.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: licenseInfo?.status === 'active' ? '#10b981' : '#ef4444',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: '800',
+                      textTransform: 'uppercase'
+                    }}>
+                      {licenseInfo?.status || 'active'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Section: Master Client Licenses Registry Table */}
           <div style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
             borderRadius: '18px',
             padding: '1.75rem'
           }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Award size={22} color="#10b981" />
-              {lang === 'bn' ? 'ক্লায়েন্ট লাইসেন্স ও মেয়াদ নিয়ন্ত্রণ' : 'Client Subscription & Expiry Control'}
-            </h3>
-            <p style={{ margin: '0 0 1.25rem', color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5 }}>
-              {lang === 'bn' 
-                ? 'ক্লায়েন্টের প্রতিষ্ঠানের নাম, সাবস্ক্রিপশন মেয়াদ ও লাইসেন্স স্ট্যাটাস নির্ধারণ করুন। মেয়াদ শেষ হলে সফটওয়্যার স্বয়ংক্রিয়ভাবে লক হয়ে যাবে।' 
-                : 'Set client shop details and subscription validity. Software automatically freezes when expired.'}
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
-                  নিবন্ধিত প্রতিষ্ঠানের নাম (Client Shop Name)
-                </label>
+                <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={22} color="#10b981" />
+                  {lang === 'bn' ? '📋 ইস্যুকৃত ক্লায়েন্ট লাইসেন্স মাস্টার রেজিস্ট্রি' : 'Issued Client Licenses Registry'}
+                </h4>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                  {lang === 'bn'
+                    ? 'আপনার তৈরি করা সমস্ত ক্লায়েন্টদের লাইসেন্স তালিকা, অ্যাক্টিভেশন স্টেটাস এবং লক কন্ট্রোল।'
+                    : 'Manage all issued client licenses, status toggles, and single-tenant email locks.'}
+                </p>
+              </div>
+
+              {/* Search Bar */}
+              <div style={{ minWidth: '260px' }}>
                 <input
                   type="text"
-                  value={licenseForm.clientShopName}
-                  onChange={(e) => setLicenseForm(prev => ({ ...prev, clientShopName: e.target.value }))}
-                  placeholder="যেমন: আল-মদিনা সুপার শপ"
+                  value={licenseSearchQuery}
+                  onChange={(e) => setLicenseSearchQuery(e.target.value)}
+                  placeholder="দোকানের নাম বা ইমেইল দিয়ে খুঁজুন..."
                   className="input-field"
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
                 />
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
-                  প্ল্যানের ধরন (Subscription Plan)
-                </label>
-                <select
-                  value={licenseForm.planName}
-                  onChange={(e) => setLicenseForm(prev => ({ ...prev, planName: e.target.value }))}
-                  className="input-field"
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
-                >
-                  <option value="14-Day Evaluation Trial">১৪ দিনের ট্রায়াল (Evaluation Trial)</option>
-                  <option value="Basic Monthly Retail">বেসিক মাসিক প্যাকেজ (Monthly)</option>
-                  <option value="Standard Annual Store">স্ট্যান্ডার্ড বার্ষিক প্যাকেজ (Annual)</option>
-                  <option value="Enterprise Lifetime License">এন্টারপ্রাইজ আজীবন লাইসেন্স (Lifetime)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
-                  লাইসেন্স স্ট্যাটাস (Access Status)
-                </label>
-                <select
-                  value={licenseForm.status}
-                  onChange={(e) => setLicenseForm(prev => ({ ...prev, status: e.target.value }))}
-                  className="input-field"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    fontWeight: '700',
-                    color: licenseForm.status === 'active' ? '#10b981' : licenseForm.status === 'trial' ? '#f59e0b' : '#ef4444'
-                  }}
-                >
-                  <option value="active">🟢 Active - সফটওয়্যার সম্পূর্ণ সক্রিয় ও আনলকড</option>
-                  <option value="trial">🟡 Trial - মূল্যায়ন ট্রায়াল মোড</option>
-                  <option value="expired">🔴 Expired - মেয়াদোত্তীর্ণ (সফটওয়্যার লক স্ক্রিন)</option>
-                  <option value="suspended">⛔ Suspended - স্থগিত / ইমার্জেন্সি ফ্রিজ</option>
-                </select>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                    মেয়াদ শেষ হওয়ার তারিখ (Expiry Date)
-                  </label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 30);
-                        setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active' }));
-                      }}
-                      className="btn"
-                      style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none' }}
-                    >
-                      +৩০ দিন
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setFullYear(d.getFullYear() + 1);
-                        setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active' }));
-                      }}
-                      className="btn"
-                      style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: 'none' }}
-                    >
-                      +১ বছর
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLicenseForm(prev => ({ ...prev, expiryDate: '2099-12-31', status: 'active' }));
-                      }}
-                      className="btn"
-                      style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', border: 'none' }}
-                    >
-                      লাইফটাইম
-                    </button>
-                  </div>
-                </div>
-                <input
-                  type="date"
-                  value={licenseForm.expiryDate}
-                  onChange={(e) => setLicenseForm(prev => ({ ...prev, expiryDate: e.target.value }))}
-                  className="input-field"
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
-                />
-              </div>
-
-              <button
-                onClick={handleApplyLicenseForm}
-                className="btn btn-primary"
-                style={{
-                  marginTop: '0.5rem',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  fontWeight: '800',
-                  fontSize: '0.95rem',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Save size={18} />
-                লাইসেন্স ও মেয়াদ সংরক্ষণ করুন
-              </button>
-            </div>
-          </div>
-
-          {/* License Key Generator & Status Card */}
-          <div style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '18px',
-            padding: '1.75rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between'
-          }}>
-            <div>
-              <h3 style={{ margin: '0 0 1rem', fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Key size={22} color="#f59e0b" />
-                {lang === 'bn' ? 'লাইসেন্স কি জেনারেটর' : 'License Key Generator'}
-              </h3>
-              <p style={{ margin: '0 0 1.25rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                {lang === 'bn' 
-                  ? 'ক্লায়েন্টের দোকানে দেওয়ার জন্য একটি বৈধ অ্যাক্টিভেশন কি জেনারেট করুন:' 
-                  : 'Generate a cryptographic activation key to hand over to clients:'}
-              </p>
-
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.25)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                padding: '1.25rem',
-                marginBottom: '1.25rem'
-              }}>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '6px' }}>
-                  বর্তমান সক্রিয় লাইসেন্স কি:
-                </div>
-                <div style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '1.1rem',
-                  fontWeight: '800',
-                  color: '#10b981',
-                  wordBreak: 'break-all',
-                  marginBottom: '10px'
-                }}>
-                  {licenseInfo?.licenseKey || 'HK360-ENT-2026-8842-PRO'}
-                </div>
-                <button
-                  onClick={() => handleCopyKey(licenseInfo?.licenseKey || 'HK360-ENT-2026-8842-PRO')}
-                  className="btn"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#ffffff',
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {copiedKey ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-                  {copiedKey ? 'কপি হয়েছে!' : 'কি কপি করুন'}
-                </button>
-              </div>
-
-              {/* Generated New Key Display */}
-              {generatedKey && (
-                <div style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1px solid #10b981',
-                  borderRadius: '12px',
-                  padding: '1.25rem',
-                  marginBottom: '1.25rem'
-                }}>
-                  <div style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '800', marginBottom: '6px' }}>
-                    🎉 নতুন জেনারেট করা কি (Generated Key):
-                  </div>
-                  <div style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.15rem',
-                    fontWeight: '900',
-                    color: '#ffffff',
-                    wordBreak: 'break-all',
-                    marginBottom: '10px'
-                  }}>
-                    {generatedKey}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={() => handleCopyKey(generatedKey)}
-                      className="btn"
-                      style={{
-                        background: '#10b981',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '6px 12px',
-                        borderRadius: '8px',
-                        fontSize: '0.8rem',
-                        fontWeight: '800',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <Copy size={14} />
-                      কপি করুন
-                    </button>
-                    <button
-                      onClick={() => {
-                        updateLicenseInfo({ licenseKey: generatedKey, status: 'active' });
-                        showToast(lang === 'bn' ? 'নতুন কি অ্যাপে সেট করা হয়েছে!' : 'New key applied!');
-                      }}
-                      className="btn"
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        color: '#ffffff',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        padding: '6px 12px',
-                        borderRadius: '8px',
-                        fontSize: '0.8rem',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      অ্যাপে প্রয়োগ করুন
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
-            <button
-              onClick={handleGenerateKey}
-              className="btn"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                fontWeight: '800',
-                fontSize: '0.92rem',
-                background: 'rgba(245, 158, 11, 0.15)',
-                color: '#f59e0b',
-                border: '1px solid #f59e0b',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              <Sparkles size={18} />
-              নতুন অ্যাক্টিভেশন কি তৈরি করুন (Generate Key)
-            </button>
+            {/* Registry Table */}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255, 255, 255, 0.04)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}># ক্লায়েন্ট প্রতিষ্ঠান</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}>নিবন্ধিত ইমেইল (লক)</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}>ফোন</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}>প্যাকেজ ও মেয়াদ</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}>লাইসেন্স কি (License Key)</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}>স্ট্যাটাস</th>
+                    <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)', textAlign: 'center' }}>অ্যাকশন</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientLicensesRegistry
+                    .filter(lic => {
+                      if (!licenseSearchQuery) return true;
+                      const q = licenseSearchQuery.toLowerCase();
+                      return (lic.clientShopName || '').toLowerCase().includes(q) ||
+                        (lic.clientEmail || '').toLowerCase().includes(q) ||
+                        (lic.licenseKey || '').toLowerCase().includes(q);
+                    })
+                    .map((lic, idx) => (
+                      <tr key={lic.id || idx} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: '800', color: 'var(--text-main)' }}>{lic.clientShopName}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ইস্যু: {lic.issuedDate || 'পূর্বনির্ধারিত'}</div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '3px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.78rem' }}>
+                            <Lock size={12} />
+                            <code>{lic.clientEmail}</code>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                          {lic.clientPhone || '—'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{lic.planName}</div>
+                          <div style={{ fontSize: '0.74rem', color: '#f59e0b' }}>মেয়াদ: {lic.expiryDate}</div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <code style={{
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.82rem',
+                              fontWeight: '800',
+                              color: '#10b981',
+                              background: 'rgba(0, 0, 0, 0.25)',
+                              padding: '3px 8px',
+                              borderRadius: '4px'
+                            }}>
+                              {lic.licenseKey}
+                            </code>
+                            <button
+                              onClick={() => handleCopyKey(lic.licenseKey)}
+                              className="btn"
+                              title="কি কপি করুন"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                padding: '3px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Copy size={14} />
+                            </button>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <button
+                            onClick={() => {
+                              const newStatus = lic.status === 'active' ? 'suspended' : 'active';
+                              updateClientLicense(lic.id, { status: newStatus });
+                            }}
+                            className="btn"
+                            title="স্ট্যাটাস পরিবর্তন করুন"
+                            style={{
+                              background: lic.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: lic.status === 'active' ? '#10b981' : '#ef4444',
+                              border: `1px solid ${lic.status === 'active' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            {lic.status === 'active' ? '🟢 Active' : '⛔ Suspended'}
+                          </button>
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <button
+                              onClick={() => handleCopyClientDeliveryMessage(lic)}
+                              className="btn"
+                              title="হোয়াটসঅ্যাপ ডেলিভারি মেসেজ কপি করুন"
+                              style={{
+                                background: 'rgba(37, 211, 102, 0.15)',
+                                color: '#25d366',
+                                border: 'none',
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <MessageCircle size={14} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`আপনি কি সত্যিই "${lic.clientShopName}"-এর লাইসেন্স রেজিস্ট্রি থেকে মুছে ফেলতে চান?`)) {
+                                  deleteClientLicense(lic.id);
+                                }
+                              }}
+                              className="btn"
+                              title="রেজিস্ট্রি থেকে মুছুন"
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#ef4444',
+                                border: 'none',
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {clientLicensesRegistry.length === 0 && (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        এখনো কোনো ক্লায়েন্ট লাইসেন্স তৈরি করা হয়নি। উপরের ফর্ম থেকে প্রথম লাইসেন্স তৈরি করুন।
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

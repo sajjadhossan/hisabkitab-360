@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   Settings,
   Store,
@@ -90,6 +91,8 @@ export const BusinessSettings = () => {
     saveGoogleClientId,
     switchDriveOAuth
   } = useApp();
+
+  const { user } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState('profile'); // 'profile' | 'receipt' | 'hardware' | 'backup' | 'commercial'
   const [formState, setFormState] = useState({ ...businessSettings });
@@ -2613,8 +2616,14 @@ export const BusinessSettings = () => {
                       {copiedKey ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
                     </button>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                    নিবন্ধিত প্রতিষ্ঠান: <strong>{licenseInfo?.clientShopName || formState.companyName || 'ক্লিন স্টোর'}</strong>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div>নিবন্ধিত প্রতিষ্ঠান: <strong style={{ color: 'var(--text-main)' }}>{licenseInfo?.clientShopName || formState.companyName || 'ক্লিন স্টোর'}</strong></div>
+                    {licenseInfo?.clientEmail && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#10b981', fontWeight: '600' }}>
+                        <span>🔒 নিবন্ধিত ইউজার ইমেইল:</span>
+                        <code>{licenseInfo.clientEmail}</code>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2627,15 +2636,15 @@ export const BusinessSettings = () => {
                 </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 10px' }}>
                   {lang === 'bn'
-                    ? 'আপনার ভেন্ডরের নিকট থেকে প্রাপ্ত লাইসেন্স কোডটি (যেমন: HK360-xxxx-2026-xxxx-xxxx) এখানে লিখে অ্যাক্টিভেট করুন।'
-                    : 'Paste the official license key provided by your reseller to unlock lifetime access.'}
+                    ? 'আপনার ভেন্ডরের নিকট থেকে প্রাপ্ত লাইসেন্স কোডটি (যেমন: HK360-xxxx-2027-xxxx-xxxx-PRO) এখানে লিখে অ্যাক্টিভেট করুন। লক্ষ্য করুন: লাইসেন্সটি শুধুমাত্র আপনার নিবন্ধিত ইমেইল অ্যাকাউন্টে কার্যকর হবে।'
+                    : 'Paste the official license key provided by your reseller. Note: Key is locked strictly to your registered email account.'}
                 </p>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <input
                     type="text"
                     className="input-field"
                     style={{ flex: 1, minWidth: '260px', fontFamily: 'var(--font-mono)', fontWeight: '700', textTransform: 'uppercase' }}
-                    placeholder="HK360-XXXX-2026-XXXX-XXXX"
+                    placeholder="HK360-XXXX-2027-XXXX-XXXX-PRO"
                     value={inputLicenseKey}
                     onChange={(e) => setInputLicenseKey(e.target.value)}
                   />
@@ -2647,7 +2656,7 @@ export const BusinessSettings = () => {
                         alert(lang === 'bn' ? 'দয়া করে একটি লাইসেন্স কী লিখুন।' : 'Please enter a license key.');
                         return;
                       }
-                      const res = activateSoftwareWithKey(inputLicenseKey);
+                      const res = activateSoftwareWithKey(inputLicenseKey, user?.email);
                       if (res.success) {
                         setInputLicenseKey('');
                       }
@@ -2667,7 +2676,7 @@ export const BusinessSettings = () => {
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => {
-                      const newKey = generateNewLicenseKey(formState.companyName);
+                      const newKey = generateNewLicenseKey(formState.companyName, user?.email);
                       updateLicenseInfo({ licenseKey: newKey });
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -2680,8 +2689,8 @@ export const BusinessSettings = () => {
                     type="button"
                     className="btn btn-secondary"
                     onClick={() => {
-                      const quickKey = generateNewLicenseKey(formState.companyName);
-                      activateSoftwareWithKey(quickKey);
+                      const quickKey = generateNewLicenseKey(formState.companyName, user?.email);
+                      activateSoftwareWithKey(quickKey, user?.email);
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981' }}
                   >

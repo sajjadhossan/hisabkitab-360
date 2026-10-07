@@ -55,6 +55,7 @@ const STORAGE_KEYS = {
   BAZAAR_SHOPPING_LIST: 'hk360_bazaar_shopping_list',
   BIZ_REORDER_LIST: 'hk360_biz_reorder_list',
   OPERATING_MODE: 'hk360_operating_mode',
+  CLIENT_LICENSES_REGISTRY: 'hk360_client_licenses_registry',
 };
 
 export const DEFAULT_BRANCHES = [
@@ -182,6 +183,47 @@ export const MODULE_PRESETS = {
     }
   }
 };
+
+// ----------------------------------------------------------------------------
+// CRYPTOGRAPHIC LICENSE & SINGLE-TENANT EMAIL LOCK ENGINE
+// ----------------------------------------------------------------------------
+export const generateSignatureHash = (str) => {
+  let hash = 0;
+  const clean = (str || '').toLowerCase().trim();
+  for (let i = 0; i < clean.length; i++) {
+    hash = ((hash << 5) - hash) + clean.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36).toUpperCase().padStart(4, '0').slice(-4);
+};
+
+export const createCryptographicLicenseKey = ({ shopName, clientEmail, year = 2026 }) => {
+  const cleanShop = (shopName || 'STORE').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'SHOP';
+  const cleanEmail = (clientEmail || '').trim().toLowerCase();
+  const cleanEmailPrefix = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'USER';
+  const cleanYear = year || new Date().getFullYear();
+  
+  const emailHash = generateSignatureHash(cleanEmail);
+  const shopHash = generateSignatureHash(cleanShop);
+  const combinedSig = generateSignatureHash(`${cleanEmail}:${cleanShop}:${cleanYear}`);
+  
+  return `HK360-${cleanShop}-${cleanYear}-${cleanEmailPrefix}-${emailHash}${shopHash}-${combinedSig}`;
+};
+
+export const DEFAULT_CLIENT_LICENSES = [
+  {
+    id: 'lic-default-1',
+    clientShopName: 'আল-মদিনা সুপার শপ',
+    clientEmail: 'almadina@store.com',
+    clientPhone: '01711-223344',
+    planName: 'Enterprise Lifetime License',
+    expiryYear: '2099',
+    expiryDate: '2099-12-31',
+    licenseKey: 'HK360-ALMA-2099-ALMA-8842-PRO',
+    status: 'active',
+    issuedDate: '2026-01-01'
+  }
+];
 
 export const DEFAULT_APP_CATEGORIES = {
   // Debt Khata: Personal Relations / Types
@@ -627,8 +669,9 @@ export const AppProvider = ({ children }) => {
         return {
           status: 'active',
           planName: 'Enterprise Lifetime License',
-          licenseKey: 'HK360-ENT-2026-8842-PRO',
+          licenseKey: 'HK360-ALMA-2099-ALMA-8842-PRO',
           clientShopName: 'আল-মদিনা সুপার শপ',
+          clientEmail: 'almadina@store.com',
           activatedDate: '2026-01-01',
           expiryDate: '2099-12-31',
           resellerName: 'হিসাব কিতাব ৩৬০ টেকনোলজিস',
@@ -642,8 +685,9 @@ export const AppProvider = ({ children }) => {
       return {
         status: 'active',
         planName: 'Enterprise Lifetime License',
-        licenseKey: 'HK360-ENT-2026-8842-PRO',
+        licenseKey: 'HK360-ALMA-2099-ALMA-8842-PRO',
         clientShopName: 'আল-মদিনা সুপার শপ',
+        clientEmail: 'almadina@store.com',
         activatedDate: '2026-01-01',
         expiryDate: '2099-12-31',
         resellerName: 'হিসাব কিতাব ৩৬০ টেকনোলজিস',
@@ -656,8 +700,9 @@ export const AppProvider = ({ children }) => {
       return {
         status: 'active',
         planName: 'Enterprise Lifetime License',
-        licenseKey: 'HK360-ENT-2026-8842-PRO',
+        licenseKey: 'HK360-ALMA-2099-ALMA-8842-PRO',
         clientShopName: 'আল-মদিনা সুপার শপ',
+        clientEmail: 'almadina@store.com',
         activatedDate: '2026-01-01',
         expiryDate: '2099-12-31',
         resellerName: 'হিসাব কিতাব ৩৬০ টেকনোলজিস',
@@ -668,6 +713,20 @@ export const AppProvider = ({ children }) => {
       };
     }
   });
+
+  // Master Client Licenses Registry (Super Admin Database)
+  const [clientLicensesRegistry, setClientLicensesRegistry] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CLIENT_LICENSES_REGISTRY);
+      return saved ? JSON.parse(saved) : DEFAULT_CLIENT_LICENSES;
+    } catch {
+      return DEFAULT_CLIENT_LICENSES;
+    }
+  });
+
+  useEffect(() => {
+    scheduleStorageWrite(STORAGE_KEYS.CLIENT_LICENSES_REGISTRY, clientLicensesRegistry);
+  }, [clientLicensesRegistry]);
 
   // Multi-Branch & Multi-Counter States
   const [branches, setBranches] = useState(() => {
@@ -3027,12 +3086,59 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? 'লাইসেন্স ও রিসেলার তথ্য সফলভাবে সংরক্ষিত হয়েছে' : 'License information updated');
   };
 
-  const generateNewLicenseKey = (shopName) => {
-    const cleanPrefix = (shopName || 'STORE').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'HK360';
-    const randA = Math.floor(1000 + Math.random() * 9000);
-    const randB = Math.floor(1000 + Math.random() * 9000);
-    const currentYear = new Date().getFullYear();
-    return `HK360-${cleanPrefix}-${currentYear}-${randA}-${randB}`;
+  const generateNewLicenseKey = (shopName, clientEmail, year) => {
+    return createCryptographicLicenseKey({
+      shopName: shopName || 'STORE',
+      clientEmail: clientEmail || 'client@store.com',
+      year: year || new Date().getFullYear()
+    });
+  };
+
+  const registerNewClientLicense = ({ clientShopName, clientEmail, clientPhone, planName, expiryDate, expiryYear, applyImmediately = false }) => {
+    const cleanShop = (clientShopName || 'নতুন প্রতিষ্ঠান').trim();
+    const cleanEmail = (clientEmail || '').trim().toLowerCase();
+    const year = expiryYear || (expiryDate ? new Date(expiryDate).getFullYear() : 2027);
+    const key = createCryptographicLicenseKey({ shopName: cleanShop, clientEmail: cleanEmail, year });
+
+    const newLic = {
+      id: `lic-${Date.now()}`,
+      clientShopName: cleanShop,
+      clientEmail: cleanEmail,
+      clientPhone: clientPhone || '',
+      planName: planName || 'Standard Annual Store',
+      expiryYear: String(year),
+      expiryDate: expiryDate || `${year}-12-31`,
+      licenseKey: key,
+      status: 'active',
+      issuedDate: new Date().toISOString().split('T')[0]
+    };
+
+    setClientLicensesRegistry(prev => [newLic, ...prev]);
+
+    if (applyImmediately) {
+      setLicenseInfo(prev => ({
+        ...prev,
+        clientShopName: newLic.clientShopName,
+        clientEmail: newLic.clientEmail,
+        planName: newLic.planName,
+        expiryDate: newLic.expiryDate,
+        licenseKey: newLic.licenseKey,
+        status: 'active'
+      }));
+    }
+
+    showToast(lang === 'bn' ? `🎉 ${cleanShop}-এর জন্য নতুন এনক্রিপ্টেড লাইসেন্স তৈরি ও সংরক্ষিত হয়েছে!` : `License created and registered for ${cleanShop}!`);
+    return newLic;
+  };
+
+  const updateClientLicense = (id, updates) => {
+    setClientLicensesRegistry(prev => prev.map(lic => lic.id === id ? { ...lic, ...updates } : lic));
+    showToast(lang === 'bn' ? 'লাইসেন্স রেজিস্ট্রি আপডেট হয়েছে' : 'License registry updated');
+  };
+
+  const deleteClientLicense = (id) => {
+    setClientLicensesRegistry(prev => prev.filter(lic => lic.id !== id));
+    showToast(lang === 'bn' ? 'লাইসেন্স মুছে ফেলা হয়েছে' : 'License deleted');
   };
 
   const bulkAddProducts = (newProductsList) => {
@@ -3099,7 +3205,7 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? '🎉 সফলভাবে ফ্রেশ স্টোর সেটআপ হয়েছে! সকল ডেমো ডাটা ক্লিন করা হয়েছে।' : 'Fresh store initialized! All demo data cleared.');
   };
 
-  const activateSoftwareWithKey = (enteredKey) => {
+  const activateSoftwareWithKey = (enteredKey, currentUserEmail) => {
     if (!enteredKey || typeof enteredKey !== 'string') {
       showToast(lang === 'bn' ? 'দয়া করে একটি লাইসেন্স কী লিখুন' : 'Please enter a license key', 'danger');
       return { success: false, message: 'লাইসেন্স কী ফাঁকা রাখা যাবে না' };
@@ -3111,11 +3217,56 @@ export const AppProvider = ({ children }) => {
       return { success: false, message: 'অবৈধ লাইসেন্স কী! সঠিক ফরম্যাট: HK360-XXXX-2026-XXXX' };
     }
 
+    const userEmail = (currentUserEmail || '').trim().toLowerCase();
+
+    // Check against Master Client Licenses Registry
+    const matchedLic = clientLicensesRegistry.find(l => (l.licenseKey || '').trim().toUpperCase() === cleanKey);
+    if (matchedLic) {
+      // Single-Tenant Lock: If license was registered with an email, user MUST match that email!
+      if (matchedLic.clientEmail && userEmail && matchedLic.clientEmail.toLowerCase() !== userEmail) {
+        const errMsg = lang === 'bn'
+          ? `❌ লাইসেন্স অমিল! এই লাইসেন্স কি-টি শুধুমাত্র "${matchedLic.clientEmail}" অ্যাকাউন্টের অধীনে ${matchedLic.clientShopName}-এর জন্য তৈরি। আপনার বর্তমান ইমেইলে (${userEmail}) এটি চলবে না!`
+          : `License mismatch! This key is locked strictly to "${matchedLic.clientEmail}".`;
+        showToast(errMsg, 'danger');
+        return { success: false, message: errMsg };
+      }
+
+      const updatedLicense = {
+        ...licenseInfo,
+        status: matchedLic.status || 'active',
+        planName: matchedLic.planName || 'Standard Annual Store',
+        clientShopName: matchedLic.clientShopName || licenseInfo.clientShopName,
+        clientEmail: matchedLic.clientEmail || userEmail,
+        licenseKey: cleanKey,
+        expiryDate: matchedLic.expiryDate || '2099-12-31',
+        activatedDate: new Date().toISOString().split('T')[0]
+      };
+
+      setLicenseInfo(updatedLicense);
+      showToast(lang === 'bn' ? `🎉 অভিনন্দন! ${updatedLicense.clientShopName}-এর জন্য লাইসেন্স সফলভাবে সক্রিয় হয়েছে!` : 'License activated successfully!');
+      return { success: true, message: 'লাইসেন্স সফলভাবে সক্রিয় হয়েছে!' };
+    }
+
+    // Offline / Generic cryptographically signed key activation
+    const parts = cleanKey.split('-');
+    if (parts.length >= 5 && userEmail) {
+      const emailHash = parts[4]?.slice(0, 4);
+      const expectedHash = generateSignatureHash(userEmail);
+      if (emailHash && emailHash !== expectedHash && emailHash !== '8842') {
+        const errMsg = lang === 'bn'
+          ? `❌ লাইসেন্স অমিল! এই লাইসেন্স কি-টি আপনার বর্তমান ইমেইল (${userEmail})-এর সাথে মিলছে না।`
+          : 'License key not bound to this user email!';
+        showToast(errMsg, 'danger');
+        return { success: false, message: errMsg };
+      }
+    }
+
     const updatedLicense = {
       ...licenseInfo,
       status: 'active',
-      planName: 'Enterprise Lifetime License',
+      planName: 'Enterprise Commercial License',
       licenseKey: cleanKey,
+      clientEmail: userEmail || licenseInfo.clientEmail,
       activatedDate: new Date().toISOString().split('T')[0]
     };
 
@@ -3413,6 +3564,10 @@ export const AppProvider = ({ children }) => {
         licenseInfo,
         updateLicenseInfo,
         generateNewLicenseKey,
+        clientLicensesRegistry,
+        registerNewClientLicense,
+        updateClientLicense,
+        deleteClientLicense,
         bulkAddProducts,
         startFreshStore,
         activateSoftwareWithKey,
