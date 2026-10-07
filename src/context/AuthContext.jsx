@@ -696,7 +696,7 @@ export const AuthProvider = ({ children }) => {
   const isCashier = currentRole === 'cashier';
   const isSalesman = currentRole === 'salesman';
   const isSR = currentRole === 'sr';
-  const isSuperAdmin = (Boolean(user) && isOwner) || isSuperAdminUnlocked || user?.role === 'superadmin' || user?.isSuperAdmin === true;
+  const isSuperAdmin = isSuperAdminUnlocked || user?.role === 'superadmin' || user?.isSuperAdmin === true;
 
   return (
     <AuthContext.Provider

@@ -86,6 +86,7 @@ export const SuperAdminPanel = () => {
   const {
     user,
     isSuperAdmin,
+    verifyMasterPin,
     changeMasterPin,
     lockSuperAdmin,
     getMasterPin
@@ -357,7 +358,103 @@ export const SuperAdminPanel = () => {
     return diffDays > 0 ? diffDays : 0;
   };
 
-  const daysLeft = calculateDaysRemaining();
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
+  if (!isSuperAdmin) {
+    const handleUnlock = (e) => {
+      e?.preventDefault();
+      if (verifyMasterPin(pinInput)) {
+        showToast(lang === 'bn' ? '🔓 ভেন্ডর সুপার অ্যাডমিন আনলক হয়েছে!' : 'Super Admin unlocked!');
+      } else {
+        setPinError(lang === 'bn' ? 'ভুল মাস্টার পিন! শুধুমাত্র সফটওয়্যার ভেন্ডর প্রবেশ করতে পারবে।' : 'Invalid Master PIN! Access restricted to vendor.');
+      }
+    };
+
+    return (
+      <div style={{
+        minHeight: '70vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.5rem'
+      }}>
+        <div className="glass-card" style={{
+          maxWidth: '460px',
+          width: '100%',
+          textAlign: 'center',
+          padding: '2.5rem 2rem',
+          border: '1.5px solid rgba(239, 68, 68, 0.4)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 0 25px rgba(239, 68, 68, 0.15)'
+        }}>
+          <div style={{
+            width: '76px',
+            height: '76px',
+            borderRadius: '22px',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '2px solid rgba(239, 68, 68, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.5rem',
+            color: '#ef4444'
+          }}>
+            <ShieldCheck size={42} />
+          </div>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: '900', margin: '0 0 8px', color: '#ef4444' }}>
+            {lang === 'bn' ? '🛡️ ভেন্ডর মাস্টার কন্ট্রোল লকড' : 'Vendor Master Control Locked'}
+          </h2>
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.75rem' }}>
+            {lang === 'bn'
+              ? 'এই প্যানেলটি শুধুমাত্র সফটওয়্যার নির্মাতা / ভেন্ডরের জন্য সংরক্ষিত। দোকানদার বা বিজনেস অ্যাডমিন এই প্যানেল পরিচালনা করতে পারবে না।'
+              : 'This panel is strictly restricted to software authors & master vendors. Business owners and clients cannot access this.'}
+          </p>
+
+          <form onSubmit={handleUnlock}>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <input
+                type="password"
+                className="input-field"
+                placeholder={lang === 'bn' ? 'মাস্টার পিন দিন...' : 'Enter Master PIN...'}
+                value={pinInput}
+                onChange={(e) => { setPinInput(e.target.value); setPinError(''); }}
+                style={{
+                  textAlign: 'center',
+                  fontSize: '1.2rem',
+                  letterSpacing: '6px',
+                  fontWeight: '800',
+                  padding: '12px'
+                }}
+                autoFocus
+              />
+              {pinError && (
+                <div style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', marginTop: '6px' }}>
+                  {pinError}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="btn"
+                style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', fontWeight: '700' }}
+              >
+                {lang === 'bn' ? 'ফিরে যান' : 'Go Back'}
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ flex: 1.5, padding: '10px', background: '#ef4444', borderColor: '#ef4444', color: '#fff', fontWeight: '800' }}
+              >
+                🔓 {lang === 'bn' ? 'আনলক করুন' : 'Unlock'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in" style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>

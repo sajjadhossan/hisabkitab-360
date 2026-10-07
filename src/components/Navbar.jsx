@@ -321,7 +321,7 @@ export const Navbar = () => {
         { id: 'tool_calc', label: lang === 'bn' ? 'ডিজিটাল ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত হিসাব ও যোগ-বিয়োগ' : 'Popup calculator', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটবুক' : 'Quick Scratchpad', desc: lang === 'bn' ? 'জরুরি খসড়া ও মেমো' : 'Autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
         { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp, FB, Telegram সাপোর্ট' : 'WhatsApp, FB & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport(), badge: '24/7' },
-        { id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও লাইসেন্স' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); if (isSuperAdmin) { setActiveTab('super_admin'); } else { setShowMasterPinModal(true); } }, badge: 'ROOT' }
+        ...(isSuperAdmin ? [{ id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও লাইসেন্স' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
       ]
     }
   ];
@@ -353,7 +353,7 @@ export const Navbar = () => {
         { id: 'tool_calc', label: lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত যোগ-বিয়োগ' : 'Fast digital math', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটপ্যাড' : 'Sticky Notes', desc: lang === 'bn' ? 'বাজারের ফর্দ ও জরুরি নোট' : 'Quick autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
         { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp ও জরুরি সাপোর্ট' : 'WhatsApp & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport(), badge: '24/7' },
-        { id: 'super_admin_personal_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম মোড' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); if (isSuperAdmin) { setActiveTab('super_admin'); } else { setShowMasterPinModal(true); } }, badge: 'ROOT' }
+        ...(isSuperAdmin ? [{ id: 'super_admin_personal_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম মোড' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
       ]
     }
   ];
@@ -469,31 +469,27 @@ export const Navbar = () => {
                     </span>
                   )
                 )}
-                {/* Super Admin Quick Button */}
-                <span
-                  className="badge hide-mobile"
-                  onClick={() => {
-                    if (isSuperAdmin) {
-                      setActiveTab('super_admin');
-                    } else {
-                      setShowMasterPinModal(true);
-                    }
-                  }}
-                  title="সুপার অ্যাডমিন ও ভেন্ডর মাস্টার কন্ট্রোল (Ctrl+Shift+S)"
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    color: '#ef4444',
-                    border: '1px solid #ef4444',
-                    fontSize: '0.7rem',
-                    cursor: 'pointer',
-                    fontWeight: '800',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  🛡️ {lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin'}
-                </span>
+                {/* Super Admin Quick Button (Only for Software Owner / Master Vendor) */}
+                {isSuperAdmin && (
+                  <span
+                    className="badge hide-mobile"
+                    onClick={() => setActiveTab('super_admin')}
+                    title="সুপার অ্যাডমিন ও ভেন্ডর মাস্টার কন্ট্রোল (Ctrl+Shift+S)"
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      color: '#ef4444',
+                      border: '1px solid #ef4444',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    🛡️ {lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin'}
+                  </span>
+                )}
 
                 {/* Industry Template Review & Customizer Hub Button */}
                 <span
@@ -983,46 +979,44 @@ export const Navbar = () => {
                     </div>
                   </div>
 
-                  {/* DIRECT SUPER ADMIN BUTTON */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMoreMenu(false);
-                      if (isSuperAdmin) {
+                  {/* DIRECT SUPER ADMIN BUTTON (Only visible to Master Super Admin) */}
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMoreMenu(false);
                         setActiveTab('super_admin');
                         showToast(lang === 'bn' ? '🛡️ সুপার অ্যাডমিন প্যানেল খোলা হয়েছে' : 'Super Admin opened');
-                      } else {
-                        setShowMasterPinModal(true);
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(239, 68, 68, 0.35)',
-                      background: 'rgba(239, 68, 68, 0.1)',
-                      color: '#ef4444',
-                      fontSize: '0.84rem',
-                      fontWeight: '800',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      marginBottom: '6px',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                  >
-                    <ShieldCheck size={16} style={{ color: '#ef4444' }} />
-                    <div style={{ flex: 1 }}>
-                      <div>{lang === 'bn' ? '🛡️ সুপার অ্যাডমিন প্যানেল' : '🛡️ Super Admin Panel'}</div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-                        {lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম লাইসেন্স' : 'Master PIN & License'}
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: '#ef4444',
+                        fontSize: '0.84rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        marginBottom: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                    >
+                      <ShieldCheck size={16} style={{ color: '#ef4444' }} />
+                      <div style={{ flex: 1 }}>
+                        <div>{lang === 'bn' ? '🛡️ সুপার অ্যাডমিন প্যানেল' : '🛡️ Super Admin Panel'}</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                          {lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম লাইসেন্স' : 'Master PIN & License'}
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                  )}
 
                   {/* SECTION: APP PERMISSIONS & HARDWARE ACCESS MANAGER */}
                   <div style={{ padding: '6px 0 4px', borderBottom: '1px solid var(--border-color)' }}>
