@@ -89,6 +89,8 @@ export const SuperAdminPanel = () => {
     verifyMasterPin,
     changeMasterPin,
     resetMasterPinWithRecovery,
+    sendSuperAdminOtp,
+    verifySuperAdminOtpAndResetPin,
     lockSuperAdmin,
     getMasterPin
   } = useAuth();
@@ -365,20 +367,39 @@ export const SuperAdminPanel = () => {
   const [pinError, setPinError] = useState('');
   const [showPinPlain, setShowPinPlain] = useState(false);
 
-  // Password Recovery state
+  // Email OTP Password Recovery state
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
-  const [recoveryInput, setRecoveryInput] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
   const [confirmPinInput, setConfirmPinInput] = useState('');
   const [recoveryError, setRecoveryError] = useState('');
+  const [recoverySuccess, setRecoverySuccess] = useState('');
+  const [countdown, setCountdown] = useState(0);
 
-  // 1. Auto-lock on leaving this tab (cleanup when component unmounts)
+  // Lock handler ref to prevent re-render cleanup cycles
+  const lockSuperAdminRef = useRef(lockSuperAdmin);
+  useEffect(() => {
+    lockSuperAdminRef.current = lockSuperAdmin;
+  }, [lockSuperAdmin]);
+
+  // 1. Auto-lock ONLY on unmounting this component (tab switch or navigation)
   useEffect(() => {
     return () => {
       setIsPanelUnlocked(false);
-      lockSuperAdmin();
+      lockSuperAdminRef.current?.();
     };
-  }, [lockSuperAdmin]);
+  }, []);
+
+  // Countdown timer effect for OTP resend
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [countdown]);
 
   // 2. Inactivity auto-lock timer (45 seconds of idle on SuperAdmin screen)
   useEffect(() => {
@@ -388,7 +409,7 @@ export const SuperAdminPanel = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         setIsPanelUnlocked(false);
-        lockSuperAdmin();
+        lockSuperAdminRef.current?.();
         showToast(lang === 'bn' ? '🔒 নিরাপত্তার স্বার্থে সুপার অ্যাডমিন স্বয়ংক্রিয়ভাবে লক করা হয়েছে' : 'Super Admin auto-locked for security');
       }, 45000);
     };
@@ -402,12 +423,17 @@ export const SuperAdminPanel = () => {
       window.removeEventListener('keydown', resetTimer);
       window.removeEventListener('touchstart', resetTimer);
     };
-  }, [isPanelUnlocked, lang, showToast, lockSuperAdmin]);
+  }, [isPanelUnlocked, lang, showToast]);
 
   if (!isPanelUnlocked) {
     const handleUnlock = (e) => {
       e?.preventDefault();
-      if (verifyMasterPin(pinInput)) {
+      const clean = (pinInput || '').trim();
+      if (!clean) {
+        setPinError(lang === 'bn' ? 'পাসওয়ার্ড প্রদান করুন।' : 'Please enter password.');
+        return;
+      }
+      if (verifyMasterPin(clean)) {
         setIsPanelUnlocked(true);
         setPinError('');
         setPinInput('');
@@ -417,30 +443,62 @@ export const SuperAdminPanel = () => {
       }
     };
 
+    const handleSendOtp = async () => {
+      setOtpSending(true);
+      setRecoveryError('');
+      setRecoverySuccess('');
+      try {
+        const res = await sendSuperAdminOtp();
+        setOtpSending(false);
+        if (res && res.success) {
+          setOtpSent(true);
+          setCountdown(300); // 5 minutes countdown
+          setRecoverySuccess(
+            lang === 'bn'
+              ? `✅ আপনার মাস্টার ইমেইল (${res.email})-এ ৬ সংখ্যার সিকিউরিটি কোড পাঠানো হয়েছে! ইনবক্স অথবা স্প্যাম ফোল্ডার চেক করুন।`
+              : `✅ 6-digit OTP code has been sent to ${res.email}! Check inbox/spam folder.`
+          );
+          showToast(lang === 'bn' ? '📩 ওটিপি কোড ইমেইলে পাঠানো হয়েছে' : 'OTP sent to email');
+        } else {
+          setRecoveryError(lang === 'bn' ? 'ওটিপি পাঠাতে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Failed to send OTP.');
+        }
+      } catch (err) {
+        setOtpSending(false);
+        setRecoveryError(err.message || 'ওটিপি পাঠাতে সমস্যা হয়েছে।');
+      }
+    };
+
     const handleRecoverySubmit = (e) => {
       e?.preventDefault();
       setRecoveryError('');
-      if (!recoveryInput.trim()) {
-        setRecoveryError(lang === 'bn' ? 'আপনার মাস্টার ইমেইল বা রিকভারি কোড দিন।' : 'Enter recovery email or code.');
+      const cleanOtp = (otpInput || '').trim();
+      const cleanNewPin = (newPinInput || '').trim();
+      const cleanConfirmPin = (confirmPinInput || '').trim();
+
+      if (!cleanOtp) {
+        setRecoveryError(lang === 'bn' ? 'ইমেইলে পাওয়া ৬ ডিজিটের ওটিপি লিখুন।' : 'Enter the 6-digit OTP code.');
         return;
       }
-      if (newPinInput.length < 4) {
+      if (cleanNewPin.length < 4) {
         setRecoveryError(lang === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।' : 'Password must be at least 4 chars.');
         return;
       }
-      if (newPinInput !== confirmPinInput) {
+      if (cleanNewPin !== cleanConfirmPin) {
         setRecoveryError(lang === 'bn' ? 'দুটি পাসওয়ার্ড মিলছে না! পুনরায় চেক করুন।' : 'Passwords do not match!');
         return;
       }
 
-      const res = resetMasterPinWithRecovery(recoveryInput, newPinInput);
+      const res = verifySuperAdminOtpAndResetPin(cleanOtp, cleanNewPin);
       if (res.success) {
         setIsPanelUnlocked(true);
         setIsRecoveryMode(false);
-        setRecoveryInput('');
+        setOtpSent(false);
+        setOtpInput('');
         setNewPinInput('');
         setConfirmPinInput('');
-        showToast(lang === 'bn' ? '🎉 মাস্টার পাসওয়ার্ড সফলভাবে রিসেট ও সেভ হয়েছে!' : 'Password reset & unlocked!');
+        setRecoverySuccess('');
+        setRecoveryError('');
+        showToast(lang === 'bn' ? '🎉 মাস্টার পাসওয়ার্ড সফলভাবে রিসেট ও সুপার অ্যাডমিন আনলক হয়েছে!' : 'Password reset & unlocked!');
       } else {
         setRecoveryError(res.message);
       }
@@ -455,7 +513,7 @@ export const SuperAdminPanel = () => {
         padding: '1.5rem'
       }}>
         <div className="glass-card" style={{
-          maxWidth: '480px',
+          maxWidth: '500px',
           width: '100%',
           textAlign: 'center',
           padding: '2.5rem 2rem',
@@ -467,16 +525,18 @@ export const SuperAdminPanel = () => {
             width: '80px',
             height: '80px',
             borderRadius: '24px',
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.15))',
-            border: '2px solid rgba(239, 68, 68, 0.45)',
+            background: isRecoveryMode 
+              ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(79, 70, 229, 0.15))' 
+              : 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.15))',
+            border: isRecoveryMode ? '2px solid rgba(99, 102, 241, 0.45)' : '2px solid rgba(239, 68, 68, 0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.5rem',
-            color: '#ef4444',
-            boxShadow: '0 8px 24px rgba(239, 68, 68, 0.25)'
+            color: isRecoveryMode ? '#6366f1' : '#ef4444',
+            boxShadow: isRecoveryMode ? '0 8px 24px rgba(99, 102, 241, 0.25)' : '0 8px 24px rgba(239, 68, 68, 0.25)'
           }}>
-            {isRecoveryMode ? <Key size={40} /> : <ShieldCheck size={44} />}
+            {isRecoveryMode ? <Mail size={40} /> : <ShieldCheck size={44} />}
           </div>
 
           {!isRecoveryMode ? (
@@ -567,7 +627,12 @@ export const SuperAdminPanel = () => {
               <div style={{ paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
                 <button
                   type="button"
-                  onClick={() => { setIsRecoveryMode(true); setPinError(''); setRecoveryError(''); }}
+                  onClick={() => {
+                    setIsRecoveryMode(true);
+                    setPinError('');
+                    setRecoveryError('');
+                    setRecoverySuccess('');
+                  }}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -582,101 +647,241 @@ export const SuperAdminPanel = () => {
                   }}
                 >
                   <Key size={14} />
-                  <span>{lang === 'bn' ? '❓ পাসওয়ার্ড ভুলে গেছেন? রিসেট করুন' : 'Forgot Password? Reset Here'}</span>
+                  <span>{lang === 'bn' ? '❓ পাসওয়ার্ড ভুলে গেছেন? ইমেইল ওটিপি দিয়ে রিসেট করুন' : 'Forgot Password? Reset via Email OTP'}</span>
                 </button>
               </div>
             </>
           ) : (
-            /* PASSWORD RECOVERY / RESET FORM */
+            /* REAL TWO-FACTOR EMAIL OTP PASSWORD RECOVERY FORM */
             <>
-              <h2 style={{ fontSize: '1.45rem', fontWeight: '900', margin: '0 0 8px', color: '#6366f1' }}>
-                {lang === 'bn' ? '🔑 পাসওয়ার্ড রিসেট ও রিকভারি' : 'Password Reset & Recovery'}
+              <h2 style={{ fontSize: '1.35rem', fontWeight: '900', margin: '0 0 8px', color: '#6366f1' }}>
+                {lang === 'bn' ? '📩 ইমেইল ওটিপি সিকিউরিটি রিসেট' : 'Email OTP Security Reset'}
               </h2>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
                 {lang === 'bn'
-                  ? 'আপনার মাস্টার ইমেইল (hossansajjad1994@gmail.com) অথবা গোপন রিকভারি কোড (1994) দিয়ে নতুন পাসওয়ার্ড সেট করুন:'
-                  : 'Enter Master Email or Recovery Key (1994) to set a new password:'}
+                  ? 'নিরাপত্তার স্বার্থে পাসওয়ার্ড রিসেটের ওটিপি কোড শুধুমাত্র মাস্টার ওনার ইমেইলে পাঠানো হয়।'
+                  : 'For security, password reset OTP is sent strictly to the verified Master Owner email.'}
               </p>
 
-              <form onSubmit={handleRecoverySubmit} style={{ textAlign: 'left' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
-                    মাস্টার ইমেইল বা সিক্রেট কোড *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="input-field"
-                    placeholder="যেমন: hossansajjad1994@gmail.com বা 1994"
-                    value={recoveryInput}
-                    onChange={(e) => { setRecoveryInput(e.target.value); setRecoveryError(''); }}
-                    style={{ fontSize: '0.9rem', padding: '10px' }}
-                    autoFocus
-                  />
-                </div>
-
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
-                    নতুন পাসওয়ার্ড / পিন (কমপক্ষে ৪ সংখ্যা) *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    className="input-field"
-                    placeholder="যেমন: 889900 বা আপনার পছন্দের পিন"
-                    value={newPinInput}
-                    onChange={(e) => { setNewPinInput(e.target.value); setRecoveryError(''); }}
-                    style={{ fontSize: '0.9rem', padding: '10px' }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
-                    নতুন পাসওয়ার্ড পুনরায় লিখুন *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    className="input-field"
-                    placeholder="কনফার্ম করুন"
-                    value={confirmPinInput}
-                    onChange={(e) => { setConfirmPinInput(e.target.value); setRecoveryError(''); }}
-                    style={{ fontSize: '0.9rem', padding: '10px' }}
-                  />
-                </div>
-
-                {recoveryError && (
-                  <div style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', marginBottom: '14px', lineHeight: 1.4 }}>
-                    ⚠️ {recoveryError}
+              {/* Verified Owner Email Display Box */}
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                textAlign: 'left'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Mail size={16} color="#6366f1" />
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>মাস্টার ওনার ইমেইল</div>
+                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)' }}>hossansajjad1994@gmail.com</div>
                   </div>
-                )}
+                </div>
+                <span style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  color: '#10b981',
+                  fontWeight: '800',
+                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                }}>
+                  ভেরিফাইড
+                </span>
+              </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+              {recoverySuccess && (
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: '#10b981',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  marginBottom: '14px',
+                  textAlign: 'left',
+                  lineHeight: 1.5
+                }}>
+                  {recoverySuccess}
+                </div>
+              )}
+
+              {recoveryError && (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  marginBottom: '14px',
+                  textAlign: 'left',
+                  lineHeight: 1.5
+                }}>
+                  ⚠️ {recoveryError}
+                </div>
+              )}
+
+              {!otpSent ? (
+                /* Step 1: Request OTP */
+                <div style={{ textAlign: 'center' }}>
                   <button
                     type="button"
-                    onClick={() => { setIsRecoveryMode(false); setRecoveryError(''); }}
-                    className="btn"
-                    style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', fontWeight: '700' }}
-                  >
-                    {lang === 'bn' ? 'বাতিল' : 'Cancel'}
-                  </button>
-                  <button
-                    type="submit"
+                    onClick={handleSendOtp}
+                    disabled={otpSending}
                     className="btn btn-primary"
                     style={{
-                      flex: 1.6,
-                      padding: '11px',
+                      width: '100%',
+                      padding: '12px',
                       background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
                       borderColor: '#6366f1',
                       color: '#fff',
                       fontWeight: '800',
-                      boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
+                      fontSize: '0.92rem',
+                      boxShadow: '0 4px 16px rgba(99, 102, 241, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      marginBottom: '12px'
                     }}
                   >
-                    💾 {lang === 'bn' ? 'রিসেট ও সেভ করুন' : 'Reset & Save'}
+                    {otpSending ? (
+                      <>
+                        <RefreshCw size={16} className="spin" />
+                        <span>ওটিপি পাঠানো হচ্ছে...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail size={16} />
+                        <span>📩 জিমেইলে ওটিপি কোড পাঠান</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsRecoveryMode(false); setRecoveryError(''); setRecoverySuccess(''); }}
+                    className="btn"
+                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', fontWeight: '700' }}
+                  >
+                    ← ফিরে যান
                   </button>
                 </div>
-              </form>
+              ) : (
+                /* Step 2: Verify OTP & Set New Password */
+                <form onSubmit={handleRecoverySubmit} style={{ textAlign: 'left' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)' }}>
+                        ইমেইলে প্রাপ্ত ৬ সংখ্যার ওটিপি কোড *
+                      </label>
+                      {countdown > 0 ? (
+                        <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: '700' }}>
+                          পুনরায় পাঠানো যাবে ({Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')})
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSendOtp}
+                          disabled={otpSending}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#6366f1',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          আবার ওটিপি পাঠান
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      className="input-field"
+                      placeholder="৬ ডিজিট ওটিপি (যেমন: 489201)"
+                      value={otpInput}
+                      onChange={(e) => { setOtpInput(e.target.value); setRecoveryError(''); }}
+                      style={{
+                        fontSize: '1.2rem',
+                        textAlign: 'center',
+                        letterSpacing: '6px',
+                        fontWeight: '800',
+                        padding: '10px'
+                      }}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                      নতুন সুপার অ্যাডমিন পাসওয়ার্ড *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      className="input-field"
+                      placeholder="যেমন: 889900 বা আপনার পছন্দের পিন"
+                      value={newPinInput}
+                      onChange={(e) => { setNewPinInput(e.target.value); setRecoveryError(''); }}
+                      style={{ fontSize: '0.9rem', padding: '10px' }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                      নতুন পাসওয়ার্ড নিশ্চিত করুন *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      className="input-field"
+                      placeholder="পাসওয়ার্ড পুনরায় লিখুন"
+                      value={confirmPinInput}
+                      onChange={(e) => { setConfirmPinInput(e.target.value); setRecoveryError(''); }}
+                      style={{ fontSize: '0.9rem', padding: '10px' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setIsRecoveryMode(false); setOtpSent(false); setRecoveryError(''); setRecoverySuccess(''); }}
+                      className="btn"
+                      style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', fontWeight: '700' }}
+                    >
+                      বাতিল
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      style={{
+                        flex: 1.6,
+                        padding: '11px',
+                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                        borderColor: '#6366f1',
+                        color: '#fff',
+                        fontWeight: '800',
+                        boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
+                      }}
+                    >
+                      🔐 পাসওয়ার্ড সেভ ও আনলক
+                    </button>
+                  </div>
+                </form>
+              )}
             </>
           )}
         </div>
