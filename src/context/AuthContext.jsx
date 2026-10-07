@@ -766,21 +766,38 @@ export const AuthProvider = ({ children }) => {
     } catch {}
 
     let emailDispatched = false;
+    let rateLimited = false;
+    let errorMessage = '';
+
     const supabase = getSupabase();
     if (supabase && isSupabaseReady()) {
       try {
-        await supabase.auth.resetPasswordForEmail(targetEmail);
-        emailDispatched = true;
+        const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+          redirectTo: window.location.origin
+        });
+        if (error) {
+          if (error.code === 'over_email_send_rate_limit' || error.status === 429) {
+            rateLimited = true;
+            errorMessage = 'সুপাবেস সার্ভারে ইমেইল লিমিট (Rate limit: ঘণ্টায় সর্বোচ্চ ৩-৪ বার) শেষ হয়েছে!';
+          } else {
+            errorMessage = error.message;
+          }
+          console.warn('Supabase reset email notice:', error);
+        } else {
+          emailDispatched = true;
+        }
       } catch (err) {
-        console.warn('Supabase reset email notice:', err);
+        errorMessage = err.message;
       }
     }
 
     return {
-      success: true,
+      success: emailDispatched,
       email: targetEmail,
       otp: generatedOtp,
       emailDispatched,
+      rateLimited,
+      errorMessage,
       expiresInMinutes: 10
     };
   }, []);

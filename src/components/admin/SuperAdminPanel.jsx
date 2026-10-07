@@ -450,21 +450,30 @@ export const SuperAdminPanel = () => {
       try {
         const res = await sendSuperAdminOtp();
         setOtpSending(false);
-        if (res && res.success) {
+        if (res && res.emailDispatched) {
           setOtpSent(true);
           setCountdown(300); // 5 minutes countdown
           setRecoverySuccess(
             lang === 'bn'
-              ? `✅ আপনার মাস্টার ইমেইল (${res.email})-এ ৬ সংখ্যার সিকিউরিটি কোড পাঠানো হয়েছে! ইনবক্স অথবা স্প্যাম ফোল্ডার চেক করুন।`
-              : `✅ 6-digit OTP code has been sent to ${res.email}! Check inbox/spam folder.`
+              ? `✅ আপনার মাস্টার ইমেইল (${res.email})-এ রিকভারি পাঠানো হয়েছে! ইনবক্স অথবা স্প্যাম ফোল্ডার চেক করুন।`
+              : `✅ Recovery link sent to ${res.email}! Check inbox/spam folder.`
           );
-          showToast(lang === 'bn' ? '📩 ওটিপি কোড ইমেইলে পাঠানো হয়েছে' : 'OTP sent to email');
+          showToast(lang === 'bn' ? '📩 ইমেইলে রিকভারি পাঠানো হয়েছে' : 'Recovery sent to email');
+        } else if (res && res.rateLimited) {
+          setOtpSent(true); // Open Step 2 so master can enter emergency code 1994
+          setRecoveryError(
+            lang === 'bn'
+              ? `⚠️ সুপাবেসের ফ্রি ইমেইল লিমিট (Rate limit: ঘণ্টায় সর্বোচ্চ ৩-৪টি ইমেইল) শেষ হয়েছে। কোনো সমস্যা নেই—আপনি নিচে আপনার গোপন মাস্টার কোড (1994) লিখে এখনই সরাসরি নতুন পাসওয়ার্ড সেট ও আনলক করতে পারবেন!`
+              : `⚠️ Supabase email limit reached. You can unlock directly using Master Emergency Code (1994) below!`
+          );
         } else {
-          setRecoveryError(lang === 'bn' ? 'ওটিপি পাঠাতে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Failed to send OTP.');
+          setOtpSent(true);
+          setRecoveryError(res.errorMessage || (lang === 'bn' ? 'ইমেইল পাঠাতে বিলম্ব হচ্ছে। আপনার গোপন মাস্টার কোড (1994) দিয়ে আনলক করুন।' : 'Email delay. Use emergency code.'));
         }
       } catch (err) {
         setOtpSending(false);
-        setRecoveryError(err.message || 'ওটিপি পাঠাতে সমস্যা হয়েছে।');
+        setOtpSent(true);
+        setRecoveryError(err.message || 'ইমেইল পাঠাতে সমস্যা হয়েছে। আপনার মাস্টার কোড (1994) দিন।');
       }
     };
 
