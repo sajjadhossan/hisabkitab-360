@@ -243,14 +243,14 @@ export const Navbar = () => {
   };
 
   const businessNavItems = [
-    { id: 'dashboard', label: t.businessNav.dashboard, icon: LayoutDashboard },
+    ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav.dashboard, icon: LayoutDashboard }] : []),
     ...(isOwner && isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '👑 ক্যাশ ও ব্রাঞ্চ কন্ট্রোল' : '👑 Cash & Branches', icon: Building2, highlight: true }] : []),
     ...(isModEnabled('pos') ? [{ id: 'pos', label: t.businessNav.pos, icon: ScanLine, highlight: true }] : []),
     ...(isModEnabled('debts') ? [{ id: 'debts', label: t.businessNav.debts || (lang === 'bn' ? 'নগদ দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
     ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t.businessNav.invoices, icon: FileText }] : []),
     ...(isModEnabled('quotations') ? [{ id: 'quotations', label: t.businessNav.quotations, icon: FileCheck }] : []),
     ...(isModEnabled('inventory') ? [{ id: 'inventory', label: t.businessNav.inventory, icon: Boxes }] : []),
-    { id: 'master_hub', label: lang === 'bn' ? '📁 ফোল্ডার ও মাস্টার ডাটা' : '📁 Master Setup Hub', icon: FolderOpen, highlight: true },
+    ...(isModEnabled('master_hub') ? [{ id: 'master_hub', label: lang === 'bn' ? '📁 ফোল্ডার ও মাস্টার ডাটা' : '📁 Master Setup Hub', icon: FolderOpen, highlight: true }] : []),
     ...(isModEnabled('erp') ? [{ id: 'erp', label: t.businessNav.erp, icon: Calculator }] : []),
     ...(isModEnabled('crm') ? [{ id: 'crm', label: t.businessNav.crm, icon: Users }] : []),
     ...(isModEnabled('hr') ? [{ id: 'hr', label: t.businessNav.hr, icon: BadgeDollarSign }] : []),
@@ -393,6 +393,28 @@ export const Navbar = () => {
       )
     })).filter(group => group.items && group.items.length > 0);
   }, [currentDrawerGroups, drawerSearch]);
+
+  // Dynamic business mobile bottom nav items based on admin/owner active modules
+  const businessBottomNavSlots = useMemo(() => {
+    const isPosActive = isModEnabled('pos');
+    const allCandidates = [
+      { id: 'dashboard', label: lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home', icon: LayoutDashboard },
+      { id: 'debts', label: lang === 'bn' ? 'দেনা-পাওনা' : 'Debts', icon: HandCoins },
+      { id: 'inventory', label: lang === 'bn' ? 'ইনভেন্টরি' : 'Stock', icon: Boxes },
+      { id: 'invoices', label: lang === 'bn' ? 'চালান' : 'Invoices', icon: FileText },
+      { id: 'master_hub', label: lang === 'bn' ? 'মাস্টার ডাটা' : 'Master', icon: FolderOpen },
+      { id: 'erp', label: lang === 'bn' ? 'লাভ-ক্ষতি' : 'Accounts', icon: Calculator },
+      { id: 'crm', label: lang === 'bn' ? 'কাস্টমার' : 'CRM', icon: Users }
+    ];
+
+    const activeNonHero = allCandidates.filter(c => isModEnabled(c.id));
+
+    return {
+      isPosActive,
+      leftItems: activeNonHero.slice(0, 2),
+      rightItems: activeNonHero.slice(2, 3)
+    };
+  }, [licenseInfo, lang]);
 
   return (
     <>
@@ -1737,50 +1759,54 @@ export const Navbar = () => {
       <nav className="mobile-bottom-nav no-print" aria-label="Mobile Navigation">
         {profile === 'business' ? (
           <>
-            {/* 1. Dashboard */}
-            <button
-              type="button"
-              className={`mobile-bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('dashboard'); setShowMobileDrawer(false); }}
-            >
-              <LayoutDashboard size={20} />
-              <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
-            </button>
+            {/* Dynamic Active Left Items */}
+            {businessBottomNavSlots.leftItems.map(item => {
+              const IconComp = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`mobile-bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
+                  onClick={() => { setActiveTab(item.id); setShowMobileDrawer(false); }}
+                >
+                  <IconComp size={20} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
 
-            {/* 2. Debts */}
-            <button
-              type="button"
-              className={`mobile-bottom-nav-item ${activeTab === 'debts' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('debts'); setShowMobileDrawer(false); }}
-            >
-              <HandCoins size={20} />
-              <span>{lang === 'bn' ? 'দেনা-পাওনা' : 'Debts'}</span>
-            </button>
+            {/* Center Hero POS Button (Only when POS module is enabled) */}
+            {businessBottomNavSlots.isPosActive && (
+              <div className="mobile-bottom-hero-container">
+                <button
+                  type="button"
+                  className={`mobile-bottom-hero-btn ${activeTab === 'pos' ? 'active' : ''}`}
+                  onClick={() => { setActiveTab('pos'); setShowMobileDrawer(false); }}
+                  title={lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Checkout'}
+                >
+                  <ScanLine size={24} />
+                  <span className="hero-btn-label">POS</span>
+                </button>
+              </div>
+            )}
 
-            {/* 3. Center Hero POS Button */}
-            <div className="mobile-bottom-hero-container">
-              <button
-                type="button"
-                className={`mobile-bottom-hero-btn ${activeTab === 'pos' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('pos'); setShowMobileDrawer(false); }}
-                title={lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Checkout'}
-              >
-                <ScanLine size={24} />
-                <span className="hero-btn-label">POS</span>
-              </button>
-            </div>
+            {/* Dynamic Active Right Items */}
+            {businessBottomNavSlots.rightItems.map(item => {
+              const IconComp = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`mobile-bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
+                  onClick={() => { setActiveTab(item.id); setShowMobileDrawer(false); }}
+                >
+                  <IconComp size={20} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
 
-            {/* 4. Inventory */}
-            <button
-              type="button"
-              className={`mobile-bottom-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('inventory'); setShowMobileDrawer(false); }}
-            >
-              <Boxes size={20} />
-              <span>{lang === 'bn' ? 'ইনভেন্টরি' : 'Stock'}</span>
-            </button>
-
-            {/* 5. Menu Drawer */}
+            {/* Menu Drawer Toggle */}
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}

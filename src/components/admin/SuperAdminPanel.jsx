@@ -47,7 +47,10 @@ import {
   ArrowUpRight,
   Wallet,
   CircleDot,
-  CheckCircle
+  CheckCircle,
+  LayoutDashboard,
+  FolderOpen,
+  Zap
 } from 'lucide-react';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 
@@ -143,19 +146,19 @@ export const SuperAdminPanel = () => {
 
   const modulesList = [
     {
+      id: 'dashboard',
+      name: lang === 'bn' ? 'সারসংক্ষেপ ও ওভারভিউ' : 'Overview & Dashboard',
+      desc: lang === 'bn' ? 'ব্যবসার আজকের সামগ্রিক চিত্র, লাভ-ক্ষতি ও পরিসংখ্যান' : 'Daily sales summary, KPI metrics & analytics',
+      icon: LayoutDashboard,
+      color: '#0ea5e9',
+      category: 'Overview'
+    },
+    {
       id: 'pos',
       name: lang === 'bn' ? 'POS টার্মিনাল ও দ্রুত বিলিং' : 'POS Terminal & Quick Billing',
       desc: lang === 'bn' ? 'বারকোড স্ক্যানিং, ক্যাশ ড্রয়ার ও থার্মাল রিসিপ্ট প্রিন্টিং' : 'Barcode scanning, cash drawer kick & thermal receipts',
       icon: ScanLine,
       color: '#10b981',
-      category: 'Core'
-    },
-    {
-      id: 'inventory',
-      name: lang === 'bn' ? 'পণ্য স্টক ও ইনভেন্টরি' : 'Inventory & Stock Management',
-      desc: lang === 'bn' ? 'স্টক ট্র্যাকিং, ব্যাচ, ক্রয় মূল্য, বিক্রয় মূল্য ও লো-স্টক অ্যালার্ট' : 'Stock alerts, batch tracking, buy/sell prices',
-      icon: Boxes,
-      color: '#3b82f6',
       category: 'Core'
     },
     {
@@ -181,6 +184,22 @@ export const SuperAdminPanel = () => {
       icon: FileCheck,
       color: '#8b5cf6',
       category: 'Sales'
+    },
+    {
+      id: 'inventory',
+      name: lang === 'bn' ? 'পণ্য স্টক ও ইনভেন্টরি' : 'Inventory & Stock Management',
+      desc: lang === 'bn' ? 'স্টক ট্র্যাকিং, ব্যাচ, ক্রয় মূল্য, বিক্রয় মূল্য ও লো-স্টক অ্যালার্ট' : 'Stock alerts, batch tracking, buy/sell prices',
+      icon: Boxes,
+      color: '#3b82f6',
+      category: 'Core'
+    },
+    {
+      id: 'master_hub',
+      name: lang === 'bn' ? 'মাস্টার সেটআপ ও ক্যাটাগরি হাব' : 'Master Setup & Category Hub',
+      desc: lang === 'bn' ? 'এক ক্লিকে ফুল ডাটা সেটআপ, ফোল্ডার ও ইন্ডাস্ট্রি ক্যাটালগ' : 'Fast inventory, custom categories & folder templates',
+      icon: FolderOpen,
+      color: '#a855f7',
+      category: 'Core'
     },
     {
       id: 'erp',
@@ -220,6 +239,14 @@ export const SuperAdminPanel = () => {
       desc: lang === 'bn' ? 'একাধিক দোকান শাখা এবং প্রতিটি কাউন্টারের ওপেনিং/ক্লোজিং ক্যাশ' : 'Manage multiple branch stores & individual cashier shifts',
       icon: Building2,
       color: '#e11d48',
+      category: 'Enterprise'
+    },
+    {
+      id: 'healthcare',
+      name: lang === 'bn' ? 'হেলথকেয়ার ও ফার্মা হাব' : 'Healthcare & Pharmacy Hub',
+      desc: lang === 'bn' ? 'রোগী ম্যানেজমেন্ট, প্রেসক্রিপশন, ডায়াগনস্টিক ল্যাব ও টেস্ট রিপোর্ট' : 'Patient registry, Rx, lab diagnosis & pharmacy',
+      icon: Zap,
+      color: '#0d9488',
       category: 'Enterprise'
     },
     {
@@ -1179,6 +1206,22 @@ export const SuperAdminPanel = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => applyPackagePreset('minimal')}
+                  className="btn"
+                  style={{
+                    background: 'rgba(6, 182, 212, 0.12)',
+                    color: '#06b6d4',
+                    border: '1px solid #06b6d4',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    fontWeight: '800',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ⚡ সুপার লাইট POS (হালকা)
+                </button>
                 <button
                   onClick={() => applyPackagePreset('basic')}
                   className="btn"

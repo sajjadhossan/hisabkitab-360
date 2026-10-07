@@ -64,8 +64,19 @@ const ViewLoadingFallback = () => (
 );
 
 const AppContent = () => {
-  const { profile, activeTab, licenseInfo, setActiveTab, lang } = useApp();
+  const { profile, activeTab, licenseInfo, setActiveTab, lang, isModuleActive } = useApp();
   const { user, openAuthModal, isSuperAdmin } = useAuth();
+
+  // Auto-redirect if currently viewed business module has been turned off by admin / owner
+  React.useEffect(() => {
+    if (profile === 'business' && activeTab !== 'settings' && activeTab !== 'super_admin') {
+      if (!isModuleActive(activeTab)) {
+        const fallbackCandidates = ['pos', 'dashboard', 'debts', 'inventory', 'invoices', 'master_hub', 'erp', 'crm', 'settings'];
+        const firstActive = fallbackCandidates.find(key => isModuleActive(key)) || 'settings';
+        setActiveTab(firstActive);
+      }
+    }
+  }, [profile, activeTab, licenseInfo, isModuleActive, setActiveTab]);
 
   const [verifyParam, setVerifyParam] = useState(() => {
     return new URLSearchParams(window.location.search).get('verify');
@@ -261,6 +272,50 @@ const AppContent = () => {
           return <PersonalDashboard />;
       }
     } else {
+      if (activeTab !== 'settings' && activeTab !== 'super_admin' && !isModuleActive(activeTab)) {
+        return (
+          <div style={{
+            minHeight: '60vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '72px',
+              height: '72px',
+              borderRadius: '20px',
+              background: 'rgba(148, 163, 184, 0.1)',
+              border: '1.5px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              marginBottom: '1rem'
+            }}>
+              🔒
+            </div>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px', color: 'var(--text-main)' }}>
+              {lang === 'bn' ? 'এই অপশনটি বন্ধ রাখা হয়েছে' : 'This Module is Turned Off'}
+            </h3>
+            <p style={{ maxWidth: '440px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 1.25rem' }}>
+              {lang === 'bn' 
+                ? 'সফটওয়্যার হালকা ও গতিশীল রাখতে অ্যাডমিন বা বিজনেস ওনার এই মডিউলটি বন্ধ করে রেখেছেন।'
+                : 'Admin or Business Owner turned off this module to keep the software fast and lightweight.'}
+            </p>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className="btn btn-primary"
+              style={{ padding: '8px 20px', borderRadius: '10px', fontWeight: '700' }}
+            >
+              ⚙️ {lang === 'bn' ? 'মডিউল চালু করতে সেটিংস-এ যান' : 'Go to Settings to Re-enable'}
+            </button>
+          </div>
+        );
+      }
+
       switch (activeTab) {
         case 'dashboard':
           return <BusinessDashboard />;

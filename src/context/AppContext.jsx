@@ -84,34 +84,60 @@ export const DEFAULT_BRANCHES = [
 ];
 
 export const DEFAULT_MODULES = {
+  dashboard: true,
   pos: true,
-  inventory: true,
   debts: true,
   invoices: true,
   quotations: true,
+  inventory: true,
+  master_hub: true,
   erp: true,
   crm: true,
   hr: true,
   sr: true,
   branch_control: true,
+  healthcare: true,
   google_drive_sync: true
 };
 
 export const MODULE_PRESETS = {
-  basic: {
-    name: 'বেসিক রিটেইল প্যাক (Basic Retail)',
-    planName: 'Basic Retail POS',
+  minimal: {
+    name: 'সুপার লাইট মোড (Ultra-Light POS)',
+    planName: 'Ultra-Lightweight POS',
     modules: {
+      dashboard: false,
       pos: true,
-      inventory: true,
       debts: true,
-      invoices: true,
+      invoices: false,
       quotations: false,
+      inventory: true,
+      master_hub: false,
       erp: false,
       crm: false,
       hr: false,
       sr: false,
       branch_control: false,
+      healthcare: false,
+      google_drive_sync: false
+    }
+  },
+  basic: {
+    name: 'বেসিক রিটেইল প্যাক (Basic Retail)',
+    planName: 'Basic Retail POS',
+    modules: {
+      dashboard: true,
+      pos: true,
+      debts: true,
+      invoices: true,
+      quotations: false,
+      inventory: true,
+      master_hub: true,
+      erp: false,
+      crm: false,
+      hr: false,
+      sr: false,
+      branch_control: false,
+      healthcare: false,
       google_drive_sync: false
     }
   },
@@ -119,33 +145,39 @@ export const MODULE_PRESETS = {
     name: 'স্ট্যান্ডার্ড শপ প্যাক (Standard Shop)',
     planName: 'Standard Commercial Suite',
     modules: {
+      dashboard: true,
       pos: true,
-      inventory: true,
       debts: true,
       invoices: true,
       quotations: true,
+      inventory: true,
+      master_hub: true,
       erp: true,
       crm: true,
       hr: false,
       sr: false,
       branch_control: false,
+      healthcare: false,
       google_drive_sync: true
     }
   },
   enterprise: {
-    name: 'এন্টারপ্রাইজ ইআরপি প্যাক (Enterprise Full)',
+    name: 'এন্টারপ্রাইজ ফুল প্যাক (Enterprise All-in-One)',
     planName: 'Enterprise Lifetime Suite',
     modules: {
+      dashboard: true,
       pos: true,
-      inventory: true,
       debts: true,
       invoices: true,
       quotations: true,
+      inventory: true,
+      master_hub: true,
       erp: true,
       crm: true,
       hr: true,
       sr: true,
       branch_control: true,
+      healthcare: true,
       google_drive_sync: true
     }
   }
@@ -3131,6 +3163,7 @@ export const AppProvider = ({ children }) => {
 
   const isModuleActive = (moduleKey) => {
     if (!moduleKey) return true;
+    if (moduleKey === 'settings' || moduleKey === 'super_admin') return true;
     if (!licenseInfo || !licenseInfo.modules) return true;
     return licenseInfo.modules[moduleKey] !== false;
   };
