@@ -2431,7 +2431,36 @@ export const SuperAdminPanel = () => {
                     </label>
                     <select
                       value={licenseForm.planName}
-                      onChange={(e) => setLicenseForm(prev => ({ ...prev, planName: e.target.value }))}
+                      onChange={(e) => {
+                        const newPlan = e.target.value;
+                        const now = new Date();
+                        let newExpiry = licenseForm.expiryDate;
+                        let newStatus = licenseForm.status;
+
+                        if (newPlan === '14-Day Evaluation Trial') {
+                          now.setDate(now.getDate() + 14);
+                          newExpiry = now.toISOString().split('T')[0];
+                          newStatus = 'trial';
+                        } else if (newPlan === 'Basic Monthly Retail') {
+                          now.setDate(now.getDate() + 30);
+                          newExpiry = now.toISOString().split('T')[0];
+                          newStatus = 'active';
+                        } else if (newPlan === 'Standard Annual Store') {
+                          now.setFullYear(now.getFullYear() + 1);
+                          newExpiry = now.toISOString().split('T')[0];
+                          newStatus = 'active';
+                        } else if (newPlan === 'Enterprise Lifetime License') {
+                          newExpiry = '2099-12-31';
+                          newStatus = 'active';
+                        }
+
+                        setLicenseForm(prev => ({
+                          ...prev,
+                          planName: newPlan,
+                          expiryDate: newExpiry,
+                          status: newStatus
+                        }));
+                      }}
                       className="input-field"
                       style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
                     >
@@ -2448,13 +2477,25 @@ export const SuperAdminPanel = () => {
                     <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>
                       মেয়াদ শেষ হওয়ার তারিখ (Expiry Date)
                     </label>
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 14);
+                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'trial', planName: '14-Day Evaluation Trial' }));
+                        }}
+                        className="btn"
+                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: 'none' }}
+                      >
+                        +১৪ দিন ট্রায়াল
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           const d = new Date();
                           d.setDate(d.getDate() + 30);
-                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active' }));
+                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active', planName: 'Basic Monthly Retail' }));
                         }}
                         className="btn"
                         style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none' }}
@@ -2466,7 +2507,7 @@ export const SuperAdminPanel = () => {
                         onClick={() => {
                           const d = new Date();
                           d.setFullYear(d.getFullYear() + 1);
-                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active' }));
+                          setLicenseForm(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0], status: 'active', planName: 'Standard Annual Store' }));
                         }}
                         className="btn"
                         style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: 'none' }}

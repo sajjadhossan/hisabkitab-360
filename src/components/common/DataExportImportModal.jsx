@@ -61,6 +61,8 @@ export const DataExportImportModal = ({
   // IMPORT STATE
   const [importFile, setImportFile] = useState(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [parseProgress, setParseProgress] = useState({ percent: 0, stage: '' });
+  const [dateRangeSummary, setDateRangeSummary] = useState({ min: '', max: '' });
   const [importDestination, setImportDestination] = useState('family'); // 'family' | 'daily' | 'event' | 'biz_product' | 'biz_expense'
   const [targetEventId, setTargetEventId] = useState(personalEvents[0]?.id || '');
   const [defaultFolder, setDefaultFolder] = useState('গৃহস্থালি ও নিত্য কেনাকাটা');
@@ -234,29 +236,51 @@ export const DataExportImportModal = ({
   // ----------------------------------------------------
   // IMPORT: FILE UPLOAD & PARSE
   // ----------------------------------------------------
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+  // ----------------------------------------------------
+  // IMPORT: FILE SELECT & START ANALYSIS
+  // ----------------------------------------------------
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     setImportFile(file);
+    setCandidateRows([]);
+    setExcelData(null);
+    setPdfData(null);
+    setParseProgress({ percent: 0, stage: '' });
+    setDateRangeSummary({ min: '', max: '' });
+    showToast(lang === 'bn' ? `✓ "${file.name}" নির্বাচিত হয়েছে। অ্যানালাইসিস শুরু করতে নিচের বাটনে চাপুন।` : `File "${file.name}" selected. Click Start Analysis.`, 'success');
+  };
+
+  const handleStartAnalysis = async () => {
+    if (!importFile) {
+      showToast(lang === 'bn' ? 'দয়া করে প্রথমে একটি Excel বা PDF ফাইল নির্বাচন করুন।' : 'Please select a file first.', 'warning');
+      return;
+    }
+
     setIsParsing(true);
     setCandidateRows([]);
     setExcelData(null);
     setPdfData(null);
+    setParseProgress({ percent: 10, stage: 'ফাইল রিড শুরু হচ্ছে...' });
 
-    const isExcel = /\.(xlsx|xls|csv)$/i.test(file.name);
-    const isPdf = /\.pdf$/i.test(file.name);
+    const isExcel = /\.(xlsx|xls|csv)$/i.test(importFile.name);
+    const isPdf = /\.pdf$/i.test(importFile.name);
 
     try {
       if (isExcel) {
-        const parsed = await parseExcelFile(file);
+        setParseProgress({ percent: 35, stage: 'এক্সেল স্প্রেডশীট প্রসেস হচ্ছে...' });
+        const parsed = await parseExcelFile(importFile);
         setExcelData(parsed);
         setColumnMapping(parsed.detectedMapping);
 
         // Generate candidate rows from detected mapping
         buildCandidateRowsFromExcel(parsed.rawRows, parsed.detectedMapping);
+        setParseProgress({ percent: 100, stage: 'এক্সেল প্রসেসিং সম্পন্ন!' });
       } else if (isPdf) {
-        const parsed = await parsePdfFile(file);
+        const parsed = await parsePdfFile(importFile, (prog) => {
+          setParseProgress(prog);
+        });
         setPdfData(parsed);
 
         // Convert parsed records into candidate rows
@@ -269,10 +293,20 @@ export const DataExportImportModal = ({
           quantity: rec.quantity || null,
           unit: rec.unit || '',
           folder: rec.folder || defaultFolder,
-          note: rec.note || 'Imported from PDF'
+          note: rec.note || 'PDF থেকে ইমপোর্টকৃত'
         }));
 
         setCandidateRows(rows);
+
+        if (rows.length > 0) {
+          const dates = rows.map(r => r.date).filter(Boolean).sort();
+          if (dates.length > 0) {
+            setDateRangeSummary({ min: dates[0], max: dates[dates.length - 1] });
+          }
+          showToast(lang === 'bn' ? `🎉 মোট ${rows.length}টি লেনদেন সফলভাবে অ্যানালাইসিস হয়েছে!` : `Extracted ${rows.length} transactions!`, 'success');
+        } else {
+          showToast(lang === 'bn' ? '⚠️ PDF ফাইলে কোনো লেনদেন চিহ্নিত করা যায়নি। ফাইলটি চেক করুন।' : 'No transactions found in PDF.', 'warning');
+        }
       } else {
         showToast(lang === 'bn' ? 'শুধুমাত্র Excel (.xlsx, .csv) বা PDF ফাইল আপলোড করুন' : 'Please upload .xlsx, .csv or .pdf', 'warning');
       }
@@ -281,7 +315,6 @@ export const DataExportImportModal = ({
       showToast(err.message || (lang === 'bn' ? 'ফাইল পড়তে সমস্যা হয়েছে' : 'Could not read file'), 'danger');
     } finally {
       setIsParsing(false);
-      e.target.value = '';
     }
   };
 
@@ -314,6 +347,12 @@ export const DataExportImportModal = ({
     });
 
     setCandidateRows(candidates);
+    if (candidates.length > 0) {
+      const dates = candidates.map(r => r.date).filter(Boolean).sort();
+      if (dates.length > 0) {
+        setDateRangeSummary({ min: dates[0], max: dates[dates.length - 1] });
+      }
+    }
   };
 
   // Toggle single row
@@ -783,62 +822,208 @@ export const DataExportImportModal = ({
               )}
             </div>
 
-            {/* Step 2: File Upload Box */}
+            {/* Step 2: File Upload & Action Box */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
-                {lang === 'bn' ? '২. আপনার Excel (.xlsx, .csv) বা PDF ফাইল আপলোড করুন' : '2. Upload your Excel or PDF File'}
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', color: 'var(--text-main)' }}>
+                {lang === 'bn' ? '২. আপনার Excel (.xlsx, .csv) বা PDF ফাইল আপলোড ও অ্যানালাইসিস করুন' : '2. Upload & Analyze Excel or PDF File'}
               </label>
 
-              <label
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '24px',
-                  borderRadius: '12px',
-                  border: '2px dashed var(--border-color)',
-                  background: 'var(--bg-main)',
-                  cursor: 'pointer',
-                  transition: 'border 0.2s ease',
-                  textAlign: 'center'
-                }}
-              >
-                <div
+              {!importFile ? (
+                /* File Dropzone */
+                <label
                   style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '50%',
-                    background: 'rgba(15, 118, 110, 0.12)',
-                    color: '#0f766e',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '8px'
+                    padding: '28px 20px',
+                    borderRadius: '14px',
+                    border: '2px dashed var(--border-color)',
+                    background: 'var(--bg-main)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center'
                   }}
                 >
-                  <Upload size={22} />
+                  <div
+                    style={{
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '50%',
+                      background: 'rgba(15, 118, 110, 0.12)',
+                      color: '#0f766e',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <Upload size={26} />
+                  </div>
+                  <div style={{ fontSize: '0.96rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? 'PDF বা Excel ফাইল এখানে ড্রপ করুন অথবা ক্লিক করে নির্বাচন করুন' : 'Click or drag PDF/Excel file here'}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    {lang === 'bn' ? 'সাপোর্টেড ফরম্যাট: .pdf (স্টেটমেন্ট/বিল/রিপোর্ট) এবং .xlsx, .xls, .csv' : 'Supported: .pdf, .xlsx, .xls, and .csv'}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv, .pdf"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              ) : (
+                /* Selected File Card & Prominent Upload Action Button */
+                <div style={{
+                  background: 'var(--bg-main)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '10px',
+                        background: /\.pdf$/i.test(importFile.name) ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                        color: /\.pdf$/i.test(importFile.name) ? '#ef4444' : '#10b981',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {/\.pdf$/i.test(importFile.name) ? <FileText size={22} /> : <FileSpreadsheet size={22} />}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.92rem', color: 'var(--text-main)', wordBreak: 'break-all' }}>
+                          {importFile.name}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '8px', marginTop: '2px' }}>
+                          <span>সাইজ: {(importFile.size / 1024).toFixed(1)} KB</span>
+                          <span>•</span>
+                          <span style={{ color: /\.pdf$/i.test(importFile.name) ? '#ef4444' : '#10b981', fontWeight: '700' }}>
+                            {/\.pdf$/i.test(importFile.name) ? '📄 PDF ট্রানজেকশন ফাইল' : '📊 Excel স্প্রেডশীট'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <label style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}>
+                      <RefreshCw size={14} />
+                      <span>{lang === 'bn' ? 'ফাইল পরিবর্তন' : 'Change File'}</span>
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls, .csv, .pdf"
+                        onChange={handleFileSelect}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* PROMINENT UPLOAD & START ANALYSIS BUTTON */}
+                  <button
+                    type="button"
+                    onClick={handleStartAnalysis}
+                    disabled={isParsing}
+                    style={{
+                      width: '100%',
+                      padding: '12px 18px',
+                      borderRadius: '10px',
+                      background: isParsing 
+                        ? 'rgba(15, 118, 110, 0.5)' 
+                        : 'linear-gradient(135deg, #0ea5e9, #0f766e)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '0.95rem',
+                      fontWeight: '800',
+                      cursor: isParsing ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 16px rgba(14, 165, 233, 0.35)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <Sparkles size={18} />
+                    <span>
+                      {isParsing
+                        ? (lang === 'bn' ? 'অ্যানালাইসিস চলছে...' : 'Analyzing File...')
+                        : (lang === 'bn' 
+                            ? `⚡ ${/\.pdf$/i.test(importFile.name) ? 'PDF' : 'Excel'} ফাইল আপলোড ও অ্যানালাইসিস শুরু করুন` 
+                            : '⚡ Upload & Start Deep Analysis')}
+                    </span>
+                  </button>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    {lang === 'bn' 
+                      ? '💡 স্মার্ট ইঞ্জিন ফাইলটির পৃষ্ঠা ও লাইন স্ক্যান করে তারিখ, টাকা, পণ্যের বিবরণ ও ক্যাটাগরি স্বয়ংক্রিয়ভাবে বের করবে।'
+                      : 'AI/Regex engine scans pages, lines, dates, amounts, and auto-classifies categories.'}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                  {importFile ? importFile.name : (lang === 'bn' ? 'ফাইল সিলেক্ট করুন বা ড্র্যাগ করে ছাড়ুন' : 'Click or drag file here')}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {lang === 'bn' ? 'সাপোর্টেড ফরম্যাট: .xlsx, .xls, .csv এবং .pdf' : 'Supported: .xlsx, .xls, .csv, and .pdf'}
-                </div>
-                <input
-                  type="file"
-                  accept=".xlsx, .xls, .csv, .pdf"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-              </label>
+              )}
             </div>
 
-            {/* Parsing Indicator */}
+            {/* REAL-TIME PROGRESS BAR & STAGE INDICATOR */}
             {isParsing && (
-              <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                <RefreshCw size={24} className="spin" style={{ color: '#0f766e', marginBottom: '6px' }} />
-                <div>{lang === 'bn' ? 'স্মার্ট এনালাইজার ফাইলটি স্ক্যান করছে...' : 'Smart analyzer is scanning your file...'}</div>
+              <div style={{
+                background: 'rgba(15, 118, 110, 0.08)',
+                border: '1px solid rgba(15, 118, 110, 0.25)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    <RefreshCw size={16} className="spin" style={{ color: '#0ea5e9' }} />
+                    <span>{parseProgress.stage || (lang === 'bn' ? 'ফাইল প্রসেস হচ্ছে...' : 'Processing file...')}</span>
+                  </div>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.95rem',
+                    fontWeight: '900',
+                    color: '#0ea5e9',
+                    background: 'rgba(14, 165, 233, 0.15)',
+                    padding: '2px 8px',
+                    borderRadius: '6px'
+                  }}>
+                    {parseProgress.percent}%
+                  </span>
+                </div>
+
+                {/* Progress Bar Track */}
+                <div style={{
+                  height: '8px',
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${parseProgress.percent}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #0ea5e9, #10b981)',
+                    transition: 'width 0.25s ease',
+                    borderRadius: '4px'
+                  }} />
+                </div>
               </div>
             )}
 
@@ -948,20 +1133,39 @@ export const DataExportImportModal = ({
             {/* Candidate Rows Preview */}
             {candidateRows.length > 0 && !isParsing && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CheckCircle2 size={16} style={{ color: '#10b981' }} />
-                    <span>
-                      {lang === 'bn'
-                        ? `মোট ${candidateRows.length}টি রেকর্ড পাওয়া গেছে (${candidateRows.filter(r => r.selected).length}টি নির্বাচিত)`
-                        : `Found ${candidateRows.length} records (${candidateRows.filter(r => r.selected).length} selected)`}
-                    </span>
+                {/* Summary Stat Pills */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  marginBottom: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.84rem' }}>
+                    <div style={{ fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <CheckCircle2 size={16} color="#10b981" />
+                      <span>{candidateRows.length}টি লেনদেন প্রস্তুত ({candidateRows.filter(r => r.selected).length}টি নির্বাচিত)</span>
+                    </div>
+                    <div style={{ fontWeight: '800', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                      মোট: ৳{candidateRows.reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString('en-IN')}
+                    </div>
+                    {dateRangeSummary.min && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Calendar size={13} color="#f59e0b" />
+                        <span>তারিখ পরিসর: <strong>{dateRangeSummary.min}</strong> থেকে <strong>{dateRangeSummary.max}</strong></span>
+                      </div>
+                    )}
                   </div>
 
                   <button
                     type="button"
                     onClick={toggleSelectAll}
-                    style={{ background: 'transparent', border: 'none', color: '#0f766e', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}
+                    style={{ background: 'transparent', border: 'none', color: '#0f766e', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer' }}
                   >
                     {selectAll ? (lang === 'bn' ? 'সব আনচেক করুন' : 'Unselect All') : (lang === 'bn' ? 'সব নির্বাচন করুন' : 'Select All')}
                   </button>

@@ -366,14 +366,27 @@ function detectColumnIndex(headers, keywords) {
 // 4. INTELLIGENT PDF PARSER
 // ----------------------------------------------------
 
-export const parsePdfFile = async (file) => {
+export const parsePdfFile = async (file, onProgress) => {
+  const reportProgress = (percent, stage) => {
+    if (typeof onProgress === 'function') {
+      onProgress({ percent, stage });
+    }
+  };
+
+  reportProgress(10, 'ফাইল পড়া শুরু হচ্ছে...');
   const buffer = await file.arrayBuffer();
+
+  reportProgress(25, 'PDF ইঞ্জিন প্রস্তুত হচ্ছে ও পেজ ডিটেক্ট করা হচ্ছে...');
   const loadingTask = pdfjsLib.getDocument({ data: buffer });
   const pdf = await loadingTask.promise;
 
   let allLines = [];
+  const totalPages = pdf.numPages || 1;
 
-  for (let i = 1; i <= pdf.numPages; i++) {
+  for (let i = 1; i <= totalPages; i++) {
+    const pagePercent = Math.round(25 + ((i / totalPages) * 35));
+    reportProgress(pagePercent, `পেজ ${i}/${totalPages} স্ক্যান ও লাইন এক্সট্রাক্ট করা হচ্ছে...`);
+
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     const items = textContent.items || [];
@@ -402,17 +415,28 @@ export const parsePdfFile = async (file) => {
     });
   }
 
-  // Analyze lines using intelligent regex heuristics for Date, Amount, Description
+  reportProgress(65, 'লাইন বাই লাইন লেনদেন ও তারিখ অ্যানালাইসিস শুরু...');
   const parsedRecords = [];
 
-  // Date regex: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, or DD Mon YYYY
-  const dateRegex = /\b(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4})\b/;
+  // Robust Date regex: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, or Month Name dates
+  const dateRegex = /\b(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[a-z]*\s+\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4})\b/i;
   // Currency/Number regex: e.g. 1,500.00 or 500 or 1500
   const numberRegex = /\b(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+)\b/g;
 
-  allLines.forEach((line) => {
-    // Ignore lines that are header-like or footer-like
-    if (line.includes('Page ') || line.includes('Total') && line.includes('Report')) {
+  const totalLines = allLines.length;
+  allLines.forEach((line, idx) => {
+    if (idx % 20 === 0 && totalLines > 0) {
+      const lineProgress = Math.round(65 + ((idx / totalLines) * 25));
+      reportProgress(lineProgress, `লেনদেনের বিবরণ ও ক্যাটাগরি তৈরি হচ্ছে (${idx}/${totalLines})...`);
+    }
+
+    // Ignore lines that are strictly header or summary totals
+    if (
+      line.includes('Page ') || 
+      (line.includes('Total') && line.includes('Report')) ||
+      line.includes('Statement Period') ||
+      line.toLowerCase().includes('generated on')
+    ) {
       return;
     }
 
@@ -421,7 +445,7 @@ export const parsePdfFile = async (file) => {
 
     // If line has a date and at least one number, it's likely a transaction
     if (dateMatch && numbers.length > 0) {
-      // Pick the last number on the line as the amount (typical for expense sheets)
+      // Pick the last number on the line as the amount (typical for expense/statement sheets)
       const rawAmountStr = numbers[numbers.length - 1].replace(/,/g, '');
       const amountVal = parseFloat(rawAmountStr);
 
@@ -432,6 +456,7 @@ export const parsePdfFile = async (file) => {
           .replace(foundDate, '')
           .replace(numbers[numbers.length - 1], '')
           .replace(/[৳$€£,]/g, '')
+          .replace(/\s+/g, ' ')
           .trim();
 
         // Extract possible quantity & unit (e.g. 5 kg, 2 pcs, 500 g)
@@ -452,12 +477,14 @@ export const parsePdfFile = async (file) => {
             quantity: quantity,
             unit: unit,
             folder: guessFolderFromText(desc),
-            note: 'Imported from PDF'
+            note: 'PDF থেকে ইমপোর্টকৃত'
           });
         }
       }
     }
   });
+
+  reportProgress(100, `অ্যানালাইসিস সম্পন্ন! মোট ${parsedRecords.length}টি লেনদেন পাওয়া গেছে।`);
 
   return {
     rawLinesCount: allLines.length,
@@ -466,43 +493,93 @@ export const parsePdfFile = async (file) => {
 };
 
 function normalizeDate(str) {
+  if (!str) return new Date().toISOString().split('T')[0];
   try {
-    const parts = str.split(/[-/.]/);
+    // Convert Bengali digits to English
+    const bnDigits = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+    let clean = String(str).replace(/[০-৯]/g, d => bnDigits[d] || d).trim();
+
+    // Month mapping table
+    const monthMap = {
+      jan: '01', january: '01', 'জানু': '01', 'জানুয়ারি': '01',
+      feb: '02', february: '02', 'ফেব্রু': '02', 'ফেব্রুয়ারি': '02',
+      mar: '03', march: '03', 'মার্চ': '03',
+      apr: '04', april: '04', 'এপ্রিল': '04',
+      may: '05', 'মে': '05',
+      jun: '06', june: '06', 'জুন': '06',
+      jul: '07', july: '07', 'জুলাই': '07',
+      aug: '08', august: '08', 'আগস্ট': '08',
+      sep: '09', september: '09', 'সেপ্টেম্বর': '09',
+      oct: '10', october: '10', 'অক্টোবর': '10',
+      nov: '11', november: '11', 'নভেম্বর': '11',
+      dec: '12', december: '12', 'ডিসেম্বর': '12'
+    };
+
+    // Check for "15 May 2026" or "15-May-2026"
+    const textMonthMatch = clean.match(/^(\d{1,2})[-/\s]+([a-zA-Z\u0980-\u09FF]+)[-/\s,]+(\d{2,4})$/);
+    if (textMonthMatch) {
+      const day = textMonthMatch[1].padStart(2, '0');
+      const mStr = textMonthMatch[2].toLowerCase().slice(0, 3);
+      const month = monthMap[mStr] || '01';
+      let year = textMonthMatch[3];
+      if (year.length === 2) year = `20${year}`;
+      return `${year}-${month}-${day}`;
+    }
+
+    // Check for "May 15, 2026"
+    const monthFirstMatch = clean.match(/^([a-zA-Z\u0980-\u09FF]+)[-/\s]+(\d{1,2})[-/\s,]+(\d{2,4})$/);
+    if (monthFirstMatch) {
+      const mStr = monthFirstMatch[1].toLowerCase().slice(0, 3);
+      const month = monthMap[mStr] || '01';
+      const day = monthFirstMatch[2].padStart(2, '0');
+      let year = monthFirstMatch[3];
+      if (year.length === 2) year = `20${year}`;
+      return `${year}-${month}-${day}`;
+    }
+
+    const parts = clean.split(/[-/.]/);
     if (parts.length === 3) {
-      // If YYYY-MM-DD
+      // YYYY-MM-DD
       if (parts[0].length === 4) {
         return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
       }
-      // If DD-MM-YYYY
+      // DD-MM-YYYY
       if (parts[2].length === 4) {
         return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
       }
+      // DD-MM-YY
+      if (parts[2].length === 2) {
+        return `20${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
     }
-  } catch {
-    // fallback
+  } catch (e) {
+    console.warn('Date normalize fallback:', e);
   }
   return new Date().toISOString().split('T')[0];
 }
 
 function guessFolderFromText(text) {
   const t = text.toLowerCase();
-  if (t.includes('চাল') || t.includes('তেল') || t.includes('বাজার') || t.includes('মাছ') || t.includes('সবজি') || t.includes('ডিম') || t.includes('grocery')) {
+  if (t.includes('চাল') || t.includes('তেল') || t.includes('বাজার') || t.includes('মাছ') || t.includes('সবজি') || t.includes('ডিম') || t.includes('grocery') || t.includes('মুরগি') || t.includes('মাংস')) {
     return 'গৃহস্থালি ও নিত্য কেনাকাটা';
   }
-  if (t.includes('বিদ্যুৎ') || t.includes('গ্যাস') || t.includes('পানি') || t.includes('কারেন্ট') || t.includes('bill')) {
+  if (t.includes('বিদ্যুৎ') || t.includes('গ্যাস') || t.includes('পানি') || t.includes('কারেন্ট') || t.includes('bill') || t.includes('ডেসকো') || t.includes('ওয়াসা')) {
     return 'বিদ্যুৎ, গ্যাস ও ইউটিলিটি';
   }
-  if (t.includes('স্কুল') || t.includes('কলেজ') || t.includes('বই') || t.includes('বেতন') || t.includes('টিউটর') || t.includes('খাতা')) {
+  if (t.includes('স্কুল') || t.includes('কলেজ') || t.includes('বই') || t.includes('বেতন') || t.includes('টিউটর') || t.includes('খাতা') || t.includes('school')) {
     return 'সন্তানের পড়াশোনা ও স্কুল';
   }
-  if (t.includes('ওষুধ') || t.includes('ডাক্তার') || t.includes('হাসপাতাল') || t.includes('ফার্মেসি') || t.includes('টেস্ট')) {
+  if (t.includes('ওষুধ') || t.includes('ডাক্তার') || t.includes('হাসপাতাল') || t.includes('ফার্মেসি') || t.includes('টেস্ট') || t.includes('pharma') || t.includes('med')) {
     return 'পারিবারিক চিকিৎসা ও ওষুধ';
   }
-  if (t.includes('ইন্টারনেট') || t.includes('মোবাইল') || t.includes('রিচার্জ') || t.includes('ওয়াইফাই')) {
+  if (t.includes('ইন্টারনেট') || t.includes('মোবাইল') || t.includes('রিচার্জ') || t.includes('ওয়াইফাই') || t.includes('wifi') || t.includes('recharge')) {
     return 'ইন্টারনেট ও মোবাইল রিচার্জ';
   }
   if (t.includes('ভাড়া') || t.includes('বাসা') || t.includes('ফ্ল্যাট') || t.includes('rent')) {
     return 'বাসা ও ফ্ল্যাট খরচ';
+  }
+  if (t.includes('গাড়ি') || t.includes('সিএনজি') || t.includes('রিকশা') || t.includes('উবার') || t.includes('পাঠাও') || t.includes('তেল/অকটেন') || t.includes('ফুয়েল')) {
+    return 'যাতায়াত ও পরিবহন';
   }
   return 'অন্যান্য পারিবারিক খরচ';
 }

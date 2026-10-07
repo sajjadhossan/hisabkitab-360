@@ -3097,7 +3097,16 @@ export const AppProvider = ({ children }) => {
   const registerNewClientLicense = ({ clientShopName, clientEmail, clientPhone, planName, expiryDate, expiryYear, applyImmediately = false }) => {
     const cleanShop = (clientShopName || 'নতুন প্রতিষ্ঠান').trim();
     const cleanEmail = (clientEmail || '').trim().toLowerCase();
-    const year = expiryYear || (expiryDate ? new Date(expiryDate).getFullYear() : 2027);
+    let calcExpiryDate = expiryDate;
+    if (planName === '14-Day Evaluation Trial' && !expiryDate) {
+      const d = new Date();
+      d.setDate(d.getDate() + 14);
+      calcExpiryDate = d.toISOString().split('T')[0];
+    } else if (!calcExpiryDate) {
+      calcExpiryDate = `${year}-12-31`;
+    }
+
+    const year = expiryYear || (calcExpiryDate ? new Date(calcExpiryDate).getFullYear() : 2027);
     const key = createCryptographicLicenseKey({ shopName: cleanShop, clientEmail: cleanEmail, year });
 
     const newLic = {
@@ -3107,9 +3116,9 @@ export const AppProvider = ({ children }) => {
       clientPhone: clientPhone || '',
       planName: planName || 'Standard Annual Store',
       expiryYear: String(year),
-      expiryDate: expiryDate || `${year}-12-31`,
+      expiryDate: calcExpiryDate,
       licenseKey: key,
-      status: 'active',
+      status: planName === '14-Day Evaluation Trial' ? 'trial' : 'active',
       issuedDate: new Date().toISOString().split('T')[0]
     };
 
@@ -3276,14 +3285,17 @@ export const AppProvider = ({ children }) => {
   };
 
   const deactivateLicense = () => {
+    const trialDate = new Date();
+    trialDate.setDate(trialDate.getDate() + 14);
     const updated = {
       ...licenseInfo,
       status: 'trial',
       planName: '14-Day Evaluation Trial',
+      expiryDate: trialDate.toISOString().split('T')[0],
       activatedDate: null
     };
     setLicenseInfo(updated);
-    showToast(lang === 'bn' ? 'লাইসেন্স নিষ্ক্রিয় করা হয়েছে (ট্রায়াল মোড সক্রিয়)' : 'License deactivated to trial mode');
+    showToast(lang === 'bn' ? `লাইসেন্স নিষ্ক্রিয় করা হয়েছে (১৪ দিনের ট্রায়াল মোড সক্রিয়, মেয়াদ: ${updated.expiryDate})` : 'License deactivated to 14-day trial mode');
   };
 
   const toggleLicenseModule = (moduleKey, enabled) => {
