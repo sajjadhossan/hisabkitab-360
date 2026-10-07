@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { CounterShiftClosingModal } from '../pos/CounterShiftClosingModal';
 import { CounterShiftOpeningModal } from '../pos/CounterShiftOpeningModal';
+import { MobilePOSView } from '../pos/MobilePOSView';
 import confetti from 'canvas-confetti';
 import {
   ScanLine,
@@ -283,6 +284,7 @@ export const POSTerminal = () => {
   const [isMobileScreen, setIsMobileScreen] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
   });
+  const [forceDesktopMode, setForceDesktopMode] = useState(false);
   const [isMobileHeaderExpanded, setIsMobileHeaderExpanded] = useState(false);
 
   // Responsive Screen Zoom Level (Auto 85% on mobile for comfortable overview, 100% on PC)
@@ -757,6 +759,146 @@ export const POSTerminal = () => {
     setPartialPaidInput('');
   };
 
+  // Dedicated Mobile-First POS View for Android & Mobile Phones
+  if (isMobileScreen && !forceDesktopMode) {
+    return (
+      <div className="animate-fade-in pos-terminal-view" style={{ width: '100%', boxSizing: 'border-box' }}>
+        <MobilePOSView
+          cart={cart}
+          addToCart={addToCart}
+          updateCartQty={updateCartQty}
+          removeFromCart={removeFromCart}
+          clearCart={clearCart}
+          products={products}
+          customers={customers}
+          selectedCustomerId={selectedCustomerId}
+          setSelectedCustomerId={setSelectedCustomerId}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
+          discountAmount={discountAmount}
+          setDiscountAmount={setDiscountAmount}
+          isPartialPayment={isPartialPayment}
+          setIsPartialPayment={setIsPartialPayment}
+          partialPaidInput={partialPaidInput}
+          setPartialPaidInput={setPartialPaidInput}
+          handleCheckout={handleCheckout}
+          openScanner={openScanner}
+          setShowVoiceBillingModal={setShowVoiceBillingModal}
+          soundboxActive={soundboxActive}
+          setSoundboxActive={setSoundboxActive}
+          activeBranch={activeBranch}
+          activeCounter={activeCounter}
+          isShiftActive={isShiftActive}
+          setShowClosingModal={setShowClosingModal}
+          setShowOpeningModal={setShowOpeningModal}
+          onSwitchToDesktop={() => setForceDesktopMode(true)}
+          quickFilters={quickFilters}
+        />
+
+        {/* Counter Shift Closing Modal */}
+        <CounterShiftClosingModal
+          isOpen={showClosingModal}
+          onClose={() => setShowClosingModal(false)}
+        />
+
+        {/* Counter Shift Opening Modal (Morning Cash Register Open) */}
+        <CounterShiftOpeningModal
+          isOpen={showOpeningModal}
+          onClose={() => setShowOpeningModal(false)}
+          onShiftOpened={() => setIsShiftActive(true)}
+        />
+
+        {/* MODAL: INSTANT SALE SUCCESS CONFIRMATION */}
+        {showSuccessModal && lastCompletedSale && (
+          <div className="modal-overlay animate-fade-in" style={{ zIndex: 1200 }}>
+            <div className="glass-card modal-container" style={{ maxWidth: '440px', width: '92%', padding: '1.75rem', borderRadius: '16px', textAlign: 'center' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
+                <CheckCircle2 size={36} />
+              </div>
+
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                {lang === 'bn' ? 'বিক্রি সফলভাবে সম্পন্ন হয়েছে!' : 'Sale Completed Successfully!'}
+              </h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn' ? 'ইনভয়েস নম্বর:' : 'Invoice No:'} <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>#{lastCompletedSale.id}</strong>
+              </p>
+
+              {/* Summary Box */}
+              <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '1.25rem', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'ক্রেতার নাম:' : 'Customer:'}</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{lastCompletedSale.customerName}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'পণ্যের সংখ্যা:' : 'Items Count:'}</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{lastCompletedSale.items?.reduce((s, it) => s + it.qty, 0) || 0} টি</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', borderTop: '1px dashed var(--border-color)', paddingTop: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'মোট বিল:' : 'Grand Total:'}</span>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '1rem', fontFamily: 'var(--font-mono)' }}>৳{Number(lastCompletedSale.grandTotal).toLocaleString()}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'পরিশোধ:' : 'Paid:'}</span>
+                  <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{Number(lastCompletedSale.paidAmount).toLocaleString()} ({lastCompletedSale.paymentMethod?.toUpperCase()})</strong>
+                </div>
+                {Number(lastCompletedSale.dueAmount) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444' }}>
+                    <span>{lang === 'bn' ? 'অবশিষ্ট বকেয়া:' : 'Remaining Due:'}</span>
+                    <strong style={{ fontFamily: 'var(--font-mono)' }}>৳{Number(lastCompletedSale.dueAmount).toLocaleString()}</strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openInvoicePrint(lastCompletedSale);
+                    setShowSuccessModal(false);
+                  }}
+                  className="btn btn-primary"
+                  style={{ flex: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                >
+                  <FileText size={16} />
+                  <span>{lang === 'bn' ? 'রিসিট প্রিন্ট করুন' : 'Print Receipt'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSuccessModal(false)}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, fontWeight: '700' }}
+                >
+                  {lang === 'bn' ? 'পরবর্তী বিল' : 'Next Sale'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* BENGALI AI VOICE BILLING MODAL */}
+        <VoiceBillingModal
+          isOpen={showVoiceBillingModal}
+          onClose={() => setShowVoiceBillingModal(false)}
+          onAddToCart={addToCart}
+          onPOSAction={(action) => {
+            if (action.type === 'discount') {
+              setDiscountAmount(String(action.amount));
+            } else if (action.type === 'clear_cart') {
+              clearCart();
+            } else if (action.type === 'open_drawer') {
+              openCashDrawer('manual');
+            } else if (action.type === 'checkout') {
+              handleCheckout();
+            } else if (action.type === 'payment_method') {
+              setPaymentMethod(action.method);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className="animate-fade-in pos-terminal-view"
@@ -873,6 +1015,28 @@ export const POSTerminal = () => {
                 <ZoomIn size={13} />
               </button>
             </div>
+
+            {forceDesktopMode && (
+              <button
+                type="button"
+                onClick={() => setForceDesktopMode(false)}
+                className="btn btn-primary"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  borderRadius: '7px',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                }}
+                title={lang === 'bn' ? 'মোবাইল মোডে ফিরুন' : 'Back to Mobile Mode'}
+              >
+                <span>📱 {lang === 'bn' ? 'মোবাইল মোড' : 'Mobile'}</span>
+              </button>
+            )}
 
             <button
               type="button"
