@@ -42,7 +42,9 @@ import {
   Volume2,
   VolumeX,
   Keyboard,
-  RotateCcw
+  RotateCcw,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { QuickFilterManagerModal } from '../pos/QuickFilterManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -282,6 +284,35 @@ export const POSTerminal = () => {
     return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
   });
   const [isMobileHeaderExpanded, setIsMobileHeaderExpanded] = useState(false);
+
+  // Responsive Screen Zoom Level (Auto 85% on mobile for comfortable overview, 100% on PC)
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_pos_zoom_level');
+      if (saved) return Number(saved);
+      return typeof window !== 'undefined' && window.innerWidth <= 768 ? 85 : 100;
+    } catch {
+      return 100;
+    }
+  });
+
+  const handleZoomChange = (delta) => {
+    setZoomLevel((prev) => {
+      const next = Math.min(130, Math.max(65, prev + delta));
+      try {
+        localStorage.setItem('hk360_pos_zoom_level', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    const defaultVal = isMobileScreen ? 85 : 100;
+    setZoomLevel(defaultVal);
+    try {
+      localStorage.setItem('hk360_pos_zoom_level', String(defaultVal));
+    } catch {}
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -727,7 +758,16 @@ export const POSTerminal = () => {
   };
 
   return (
-    <div className="animate-fade-in pos-terminal-view" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', width: '100%' }}>
+    <div
+      className="animate-fade-in pos-terminal-view"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.85rem',
+        width: '100%',
+        zoom: zoomLevel !== 100 ? `${zoomLevel}%` : undefined
+      }}
+    >
       {/* MOBILE COMPACT HEADER BAR */}
       {isMobileScreen && (
         <div
@@ -740,7 +780,8 @@ export const POSTerminal = () => {
             background: 'var(--bg-secondary)',
             borderLeft: '4px solid var(--business-primary)',
             borderRadius: '12px',
-            gap: '8px'
+            gap: '8px',
+            flexWrap: 'wrap'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}>
@@ -762,24 +803,96 @@ export const POSTerminal = () => {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsMobileHeaderExpanded(!isMobileHeaderExpanded)}
-            className="btn btn-secondary"
-            style={{
-              padding: '5px 9px',
-              fontSize: '0.72rem',
-              fontWeight: '700',
-              borderRadius: '7px',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <SlidersHorizontal size={12} />
-            <span>{isMobileHeaderExpanded ? (lang === 'bn' ? '▲ কম দেখান' : 'Hide') : (lang === 'bn' ? '⚙️ টুলস ও শিফট ▼' : 'Tools ▼')}</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Mobile Screen Zoom In / Out Controls */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                padding: '2px 4px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => handleZoomChange(-5)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  padding: '3px 5px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={lang === 'bn' ? 'জুম আউট (স্ক্রিন ছোট করুন)' : 'Zoom Out'}
+              >
+                <ZoomOut size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                style={{
+                  background: zoomLevel !== 100 ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                  border: 'none',
+                  color: zoomLevel !== 100 ? '#818cf8' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  borderRadius: '4px',
+                  fontSize: '0.68rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: '700'
+                }}
+                title={lang === 'bn' ? 'রিসেট' : 'Reset'}
+              >
+                {zoomLevel}%
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleZoomChange(5)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  padding: '3px 5px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={lang === 'bn' ? 'জুম ইন (স্ক্রিন বড় করুন)' : 'Zoom In'}
+              >
+                <ZoomIn size={13} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileHeaderExpanded(!isMobileHeaderExpanded)}
+              className="btn btn-secondary"
+              style={{
+                padding: '5px 8px',
+                fontSize: '0.72rem',
+                fontWeight: '700',
+                borderRadius: '7px',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <SlidersHorizontal size={12} />
+              <span>{isMobileHeaderExpanded ? (lang === 'bn' ? '▲ লুকান' : 'Hide') : (lang === 'bn' ? '⚙️ টুলস' : 'Tools')}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -994,6 +1107,77 @@ export const POSTerminal = () => {
             {soundboxActive ? <Volume2 size={15} /> : <VolumeX size={15} />}
             <span>{soundboxActive ? (lang === 'bn' ? '🔊 সাউন্ডবক্স চালু' : 'Soundbox ON') : (lang === 'bn' ? '🔇 সাউন্ডবক্স' : 'Soundbox OFF')}</span>
           </button>
+
+          {/* Screen Zoom Control (Desktop & Tablet) */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '4px 8px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              fontSize: '0.78rem'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleZoomChange(-5)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title={lang === 'bn' ? 'জুম আউট (স্ক্রিন ছোট করুন)' : 'Zoom Out'}
+            >
+              <ZoomOut size={14} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              style={{
+                background: zoomLevel !== 100 ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                border: 'none',
+                color: zoomLevel !== 100 ? '#818cf8' : 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '0.75rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: '700'
+              }}
+              title={lang === 'bn' ? 'রিসেট ১০০%' : 'Reset to 100%'}
+            >
+              🔍 {zoomLevel}%
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleZoomChange(5)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title={lang === 'bn' ? 'জুম ইন (স্ক্রিন বড় করুন)' : 'Zoom In'}
+            >
+              <ZoomIn size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
