@@ -1014,10 +1014,11 @@ input:checked+.slider:before {
 .product-card-grid {
   display: grid;
   gap: 0.85rem;
-  max-height: calc(100vh - 280px);
+  max-height: calc(100vh - 200px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-right: 4px;
+  overscroll-behavior-y: contain;
 }
 
 .product-card-grid.mode-image_grid {
@@ -1389,6 +1390,7 @@ input:checked+.slider:before {
 
   .pos-catalog-col.active {
     display: block !important;
+    padding-bottom: 160px !important;
   }
 
   .pos-cart-col {
@@ -1397,6 +1399,7 @@ input:checked+.slider:before {
     min-height: calc(100vh - 240px);
     position: static !important;
     margin-bottom: 2rem;
+    padding-bottom: 120px !important;
   }
 
   .pos-cart-col.active {
@@ -1738,10 +1741,13 @@ input:checked+.slider:before {
     font-size: 0.65rem !important;
   }
 
-  /* Product Catalog in POS on Mobile */
+  /* Product Catalog in POS on Mobile: Single native fluid scroll with zero touch-trap */
   .product-card-grid {
     gap: 8px !important;
-    max-height: calc(100dvh - 220px) !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: visible !important;
+    -webkit-overflow-scrolling: auto !important;
     padding-right: 0 !important;
   }
 

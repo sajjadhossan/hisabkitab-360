@@ -496,6 +496,22 @@ export const POSTerminal = () => {
     return filteredProducts.slice(0, visibleCount);
   }, [filteredProducts, visibleCount]);
 
+  // Seamless auto-load on scroll near bottom (Zero scroll freeze / trap)
+  const loadMoreRef = useRef(null);
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && filteredProducts.length > visibleCount) {
+          setVisibleCount((prev) => Math.min(prev + 30, filteredProducts.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '300px' }
+    );
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [filteredProducts.length, visibleCount]);
+
   // Handle enter key in search (e.g. from USB barcode scanner gun)
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -2411,22 +2427,22 @@ export const POSTerminal = () => {
           })}
         </div>
 
-        {/* Load More Button for Progressive Chunking */}
+        {/* Load More Button for Progressive Chunking & Auto-Scroll Sentinel */}
         {filteredProducts.length > visibleCount && (
-          <div style={{ textAlign: 'center', margin: '14px 0 18px', width: '100%' }}>
+          <div ref={loadMoreRef} style={{ textAlign: 'center', margin: '16px 0 32px', width: '100%' }}>
             <button
               type="button"
-              onClick={() => setVisibleCount(prev => prev + 24)}
+              onClick={() => setVisibleCount(prev => Math.min(prev + 30, filteredProducts.length))}
               className="btn btn-secondary press-scale"
               style={{
-                padding: '9px 22px',
+                padding: '11px 24px',
                 borderRadius: '12px',
                 fontWeight: '800',
-                fontSize: '0.84rem',
+                fontSize: '0.85rem',
                 border: '1.5px solid var(--business-primary)',
                 color: 'var(--business-primary)',
                 background: 'var(--bg-secondary)',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
