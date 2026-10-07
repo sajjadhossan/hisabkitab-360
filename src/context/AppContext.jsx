@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { initialData } from '../data/initialData';
 import { translations } from '../data/translations';
 import {
@@ -3161,12 +3161,12 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? `🎉 ${preset.name} প্যাকেজ সক্রিয় করা হয়েছে!` : `Preset applied: ${preset.name}`);
   };
 
-  const isModuleActive = (moduleKey) => {
+  const isModuleActive = useCallback((moduleKey) => {
     if (!moduleKey) return true;
     if (moduleKey === 'settings' || moduleKey === 'super_admin') return true;
     if (!licenseInfo || !licenseInfo.modules) return true;
     return licenseInfo.modules[moduleKey] !== false;
-  };
+  }, [licenseInfo]);
 
   const switchIndustryTemplate = (templateId, shouldLoadSampleProducts = false) => {
     const tpl = getTemplateById(templateId);

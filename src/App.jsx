@@ -73,10 +73,12 @@ const AppContent = () => {
       if (!isModuleActive(activeTab)) {
         const fallbackCandidates = ['pos', 'dashboard', 'debts', 'inventory', 'invoices', 'master_hub', 'erp', 'crm', 'settings'];
         const firstActive = fallbackCandidates.find(key => isModuleActive(key)) || 'settings';
-        setActiveTab(firstActive);
+        if (firstActive !== activeTab) {
+          setActiveTab(firstActive);
+        }
       }
     }
-  }, [profile, activeTab, licenseInfo, isModuleActive, setActiveTab]);
+  }, [profile, activeTab, isModuleActive, setActiveTab]);
 
   const [verifyParam, setVerifyParam] = useState(() => {
     return new URLSearchParams(window.location.search).get('verify');
