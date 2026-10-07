@@ -88,6 +88,7 @@ export const SuperAdminPanel = () => {
     isSuperAdmin,
     verifyMasterPin,
     changeMasterPin,
+    resetMasterPinWithRecovery,
     lockSuperAdmin,
     getMasterPin
   } = useAuth();
@@ -358,99 +359,326 @@ export const SuperAdminPanel = () => {
     return diffDays > 0 ? diffDays : 0;
   };
 
+  // ALWAYS-LOCKED SUPER ADMIN MASTER GATE & AUTO-LOCK ENGINE
+  const [isPanelUnlocked, setIsPanelUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
+  const [showPinPlain, setShowPinPlain] = useState(false);
 
-  if (!isSuperAdmin) {
+  // Password Recovery state
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [recoveryInput, setRecoveryInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [recoveryError, setRecoveryError] = useState('');
+
+  // 1. Auto-lock on leaving this tab (cleanup when component unmounts)
+  useEffect(() => {
+    return () => {
+      setIsPanelUnlocked(false);
+      lockSuperAdmin();
+    };
+  }, [lockSuperAdmin]);
+
+  // 2. Inactivity auto-lock timer (45 seconds of idle on SuperAdmin screen)
+  useEffect(() => {
+    if (!isPanelUnlocked) return;
+    let timer;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setIsPanelUnlocked(false);
+        lockSuperAdmin();
+        showToast(lang === 'bn' ? '🔒 নিরাপত্তার স্বার্থে সুপার অ্যাডমিন স্বয়ংক্রিয়ভাবে লক করা হয়েছে' : 'Super Admin auto-locked for security');
+      }, 45000);
+    };
+    resetTimer();
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('touchstart', resetTimer);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('touchstart', resetTimer);
+    };
+  }, [isPanelUnlocked, lang, showToast, lockSuperAdmin]);
+
+  if (!isPanelUnlocked) {
     const handleUnlock = (e) => {
       e?.preventDefault();
       if (verifyMasterPin(pinInput)) {
-        showToast(lang === 'bn' ? '🔓 ভেন্ডর সুপার অ্যাডমিন আনলক হয়েছে!' : 'Super Admin unlocked!');
+        setIsPanelUnlocked(true);
+        setPinError('');
+        setPinInput('');
+        showToast(lang === 'bn' ? '🔓 সুপার অ্যাডমিন সফলভাবে আনলক হয়েছে!' : 'Super Admin unlocked!');
       } else {
-        setPinError(lang === 'bn' ? 'ভুল মাস্টার পিন! শুধুমাত্র সফটওয়্যার ভেন্ডর প্রবেশ করতে পারবে।' : 'Invalid Master PIN! Access restricted to vendor.');
+        setPinError(lang === 'bn' ? 'ভুল মাস্টার পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিন অথবা নিচের অপশন দিয়ে রিসেট করুন।' : 'Invalid password! Enter correct password or reset below.');
+      }
+    };
+
+    const handleRecoverySubmit = (e) => {
+      e?.preventDefault();
+      setRecoveryError('');
+      if (!recoveryInput.trim()) {
+        setRecoveryError(lang === 'bn' ? 'আপনার মাস্টার ইমেইল বা রিকভারি কোড দিন।' : 'Enter recovery email or code.');
+        return;
+      }
+      if (newPinInput.length < 4) {
+        setRecoveryError(lang === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।' : 'Password must be at least 4 chars.');
+        return;
+      }
+      if (newPinInput !== confirmPinInput) {
+        setRecoveryError(lang === 'bn' ? 'দুটি পাসওয়ার্ড মিলছে না! পুনরায় চেক করুন।' : 'Passwords do not match!');
+        return;
+      }
+
+      const res = resetMasterPinWithRecovery(recoveryInput, newPinInput);
+      if (res.success) {
+        setIsPanelUnlocked(true);
+        setIsRecoveryMode(false);
+        setRecoveryInput('');
+        setNewPinInput('');
+        setConfirmPinInput('');
+        showToast(lang === 'bn' ? '🎉 মাস্টার পাসওয়ার্ড সফলভাবে রিসেট ও সেভ হয়েছে!' : 'Password reset & unlocked!');
+      } else {
+        setRecoveryError(res.message);
       }
     };
 
     return (
       <div style={{
-        minHeight: '70vh',
+        minHeight: '75vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem'
       }}>
         <div className="glass-card" style={{
-          maxWidth: '460px',
+          maxWidth: '480px',
           width: '100%',
           textAlign: 'center',
           padding: '2.5rem 2rem',
-          border: '1.5px solid rgba(239, 68, 68, 0.4)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 0 25px rgba(239, 68, 68, 0.15)'
+          border: '1.5px solid rgba(239, 68, 68, 0.45)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(239, 68, 68, 0.2)',
+          borderRadius: '24px'
         }}>
           <div style={{
-            width: '76px',
-            height: '76px',
-            borderRadius: '22px',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '2px solid rgba(239, 68, 68, 0.35)',
+            width: '80px',
+            height: '80px',
+            borderRadius: '24px',
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.15))',
+            border: '2px solid rgba(239, 68, 68, 0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.5rem',
-            color: '#ef4444'
+            color: '#ef4444',
+            boxShadow: '0 8px 24px rgba(239, 68, 68, 0.25)'
           }}>
-            <ShieldCheck size={42} />
+            {isRecoveryMode ? <Key size={40} /> : <ShieldCheck size={44} />}
           </div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: '900', margin: '0 0 8px', color: '#ef4444' }}>
-            {lang === 'bn' ? '🛡️ ভেন্ডর মাস্টার কন্ট্রোল লকড' : 'Vendor Master Control Locked'}
-          </h2>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.75rem' }}>
-            {lang === 'bn'
-              ? 'এই প্যানেলটি শুধুমাত্র সফটওয়্যার নির্মাতা / ভেন্ডরের জন্য সংরক্ষিত। দোকানদার বা বিজনেস অ্যাডমিন এই প্যানেল পরিচালনা করতে পারবে না।'
-              : 'This panel is strictly restricted to software authors & master vendors. Business owners and clients cannot access this.'}
-          </p>
 
-          <form onSubmit={handleUnlock}>
-            <div style={{ marginBottom: '1.25rem' }}>
-              <input
-                type="password"
-                className="input-field"
-                placeholder={lang === 'bn' ? 'মাস্টার পিন দিন...' : 'Enter Master PIN...'}
-                value={pinInput}
-                onChange={(e) => { setPinInput(e.target.value); setPinError(''); }}
-                style={{
-                  textAlign: 'center',
-                  fontSize: '1.2rem',
-                  letterSpacing: '6px',
-                  fontWeight: '800',
-                  padding: '12px'
-                }}
-                autoFocus
-              />
-              {pinError && (
-                <div style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', marginTop: '6px' }}>
-                  {pinError}
+          {!isRecoveryMode ? (
+            /* NORMAL UNLOCK FORM */
+            <>
+              <h2 style={{ fontSize: '1.45rem', fontWeight: '900', margin: '0 0 8px', color: '#ef4444' }}>
+                {lang === 'bn' ? '🛡️ সুপার অ্যাডমিন মাস্টার লক' : 'Super Admin Master Lock'}
+              </h2>
+              <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.75rem' }}>
+                {lang === 'bn'
+                  ? 'সফটওয়্যারের সর্বোচ্চ নিরাপত্তার জন্য সুপার অ্যাডমিন সবসময় পাসওয়ার্ড সুরক্ষিত। কাজ করতে আপনার মাস্টার পাসওয়ার্ড দিয়ে আনলক করুন।'
+                  : 'Protected by Master PIN for system security. Enter your master password to unlock.'}
+              </p>
+
+              <form onSubmit={handleUnlock}>
+                <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+                  <input
+                    type={showPinPlain ? 'text' : 'password'}
+                    className="input-field"
+                    placeholder={lang === 'bn' ? 'মাস্টার পাসওয়ার্ড বা পিন...' : 'Enter Master Password / PIN...'}
+                    value={pinInput}
+                    onChange={(e) => { setPinInput(e.target.value); setPinError(''); }}
+                    style={{
+                      textAlign: 'center',
+                      fontSize: '1.25rem',
+                      letterSpacing: showPinPlain ? '2px' : '6px',
+                      fontWeight: '800',
+                      padding: '12px 40px 12px 14px',
+                      border: pinError ? '1.5px solid #ef4444' : '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)'
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPinPlain(!showPinPlain)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                    title={showPinPlain ? 'লুকান' : 'দেখান'}
+                  >
+                    {showPinPlain ? <Lock size={16} /> : <Unlock size={16} />}
+                  </button>
+
+                  {pinError && (
+                    <div style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', marginTop: '8px', lineHeight: 1.4 }}>
+                      ⚠️ {pinError}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('settings')}
-                className="btn"
-                style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', fontWeight: '700' }}
-              >
-                {lang === 'bn' ? 'ফিরে যান' : 'Go Back'}
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ flex: 1.5, padding: '10px', background: '#ef4444', borderColor: '#ef4444', color: '#fff', fontWeight: '800' }}
-              >
-                🔓 {lang === 'bn' ? 'আনলক করুন' : 'Unlock'}
-              </button>
-            </div>
-          </form>
+
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '1.25rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('settings')}
+                    className="btn"
+                    style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', fontWeight: '700' }}
+                  >
+                    {lang === 'bn' ? 'ফিরে যান' : 'Go Back'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{
+                      flex: 1.5,
+                      padding: '11px',
+                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      borderColor: '#ef4444',
+                      color: '#fff',
+                      fontWeight: '800',
+                      boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)'
+                    }}
+                  >
+                    🔓 {lang === 'bn' ? 'আনলক করুন' : 'Unlock'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Forgot Password Link */}
+              <div style={{ paddingTop: '12px', borderTop: '1px dashed var(--border-color)' }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsRecoveryMode(true); setPinError(''); setRecoveryError(''); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6366f1',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  <Key size={14} />
+                  <span>{lang === 'bn' ? '❓ পাসওয়ার্ড ভুলে গেছেন? রিসেট করুন' : 'Forgot Password? Reset Here'}</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            /* PASSWORD RECOVERY / RESET FORM */
+            <>
+              <h2 style={{ fontSize: '1.45rem', fontWeight: '900', margin: '0 0 8px', color: '#6366f1' }}>
+                {lang === 'bn' ? '🔑 পাসওয়ার্ড রিসেট ও রিকভারি' : 'Password Reset & Recovery'}
+              </h2>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+                {lang === 'bn'
+                  ? 'আপনার মাস্টার ইমেইল (hossansajjad1994@gmail.com) অথবা গোপন রিকভারি কোড (1994) দিয়ে নতুন পাসওয়ার্ড সেট করুন:'
+                  : 'Enter Master Email or Recovery Key (1994) to set a new password:'}
+              </p>
+
+              <form onSubmit={handleRecoverySubmit} style={{ textAlign: 'left' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    মাস্টার ইমেইল বা সিক্রেট কোড *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="input-field"
+                    placeholder="যেমন: hossansajjad1994@gmail.com বা 1994"
+                    value={recoveryInput}
+                    onChange={(e) => { setRecoveryInput(e.target.value); setRecoveryError(''); }}
+                    style={{ fontSize: '0.9rem', padding: '10px' }}
+                    autoFocus
+                  />
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    নতুন পাসওয়ার্ড / পিন (কমপক্ষে ৪ সংখ্যা) *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    className="input-field"
+                    placeholder="যেমন: 889900 বা আপনার পছন্দের পিন"
+                    value={newPinInput}
+                    onChange={(e) => { setNewPinInput(e.target.value); setRecoveryError(''); }}
+                    style={{ fontSize: '0.9rem', padding: '10px' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    নতুন পাসওয়ার্ড পুনরায় লিখুন *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    className="input-field"
+                    placeholder="কনফার্ম করুন"
+                    value={confirmPinInput}
+                    onChange={(e) => { setConfirmPinInput(e.target.value); setRecoveryError(''); }}
+                    style={{ fontSize: '0.9rem', padding: '10px' }}
+                  />
+                </div>
+
+                {recoveryError && (
+                  <div style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', marginBottom: '14px', lineHeight: 1.4 }}>
+                    ⚠️ {recoveryError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setIsRecoveryMode(false); setRecoveryError(''); }}
+                    className="btn"
+                    style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', fontWeight: '700' }}
+                  >
+                    {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{
+                      flex: 1.6,
+                      padding: '11px',
+                      background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                      borderColor: '#6366f1',
+                      color: '#fff',
+                      fontWeight: '800',
+                      boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
+                    }}
+                  >
+                    💾 {lang === 'bn' ? 'রিসেট ও সেভ করুন' : 'Reset & Save'}
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
       </div>
     );
@@ -577,27 +805,28 @@ export const SuperAdminPanel = () => {
 
             <button
               onClick={() => {
+                setIsPanelUnlocked(false);
                 lockSuperAdmin();
-                setActiveTab('dashboard');
-                showToast(lang === 'bn' ? 'সুপার অ্যাডমিন লক করা হয়েছে' : 'Super Admin locked');
+                showToast(lang === 'bn' ? '🔒 সুপার অ্যাডমিন অবিলম্বে লক করা হয়েছে' : 'Super Admin locked');
               }}
               className="btn"
               style={{
-                background: 'rgba(239, 68, 68, 0.2)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                color: '#fca5a5',
+                background: 'rgba(239, 68, 68, 0.25)',
+                border: '1.5px solid #ef4444',
+                color: '#ffffff',
                 padding: '9px 16px',
                 borderRadius: '12px',
-                fontWeight: '700',
+                fontWeight: '800',
                 fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
               }}
             >
               <Lock size={16} />
-              {lang === 'bn' ? 'লক করুন' : 'Lock Panel'}
+              {lang === 'bn' ? '🔒 এখনই লক করুন' : 'Lock Now'}
             </button>
           </div>
         </div>

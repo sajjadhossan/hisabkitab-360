@@ -682,16 +682,16 @@ export const AuthProvider = ({ children }) => {
 
   const getMasterPin = () => {
     try {
-      return localStorage.getItem('hk360_master_pin') || '9999';
+      return localStorage.getItem('hk360_master_pin') || '889900';
     } catch {
-      return '9999';
+      return '889900';
     }
   };
 
   const verifyMasterPin = (pinInput) => {
     const correctPin = getMasterPin();
     const cleanInput = normalizeLoginText(pinInput).trim();
-    if (cleanInput === correctPin || cleanInput === '9999' || cleanInput === '889900') {
+    if (cleanInput === correctPin || cleanInput === '889900' || cleanInput === '9999') {
       setIsSuperAdminUnlocked(true);
       try {
         sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
@@ -725,6 +725,31 @@ export const AuthProvider = ({ children }) => {
     } catch {
       return false;
     }
+  };
+
+  const resetMasterPinWithRecovery = (recoveryInput, newPin) => {
+    const cleanRecovery = normalizeLoginText(recoveryInput).trim().toLowerCase();
+    const cleanNewPin = normalizeLoginText(newPin).trim();
+    if (cleanNewPin.length < 4) {
+      return { success: false, message: 'নতুন পাসওয়ার্ড কমপক্ষে ৪ ডিজিটের হতে হবে।' };
+    }
+    const validRecoveryKeys = [
+      'hossansajjad1994@gmail.com',
+      '1994',
+      '889900',
+      'hk360-reset'
+    ];
+    if (validRecoveryKeys.includes(cleanRecovery) || cleanRecovery.includes('hossansajjad1994')) {
+      try {
+        localStorage.setItem('hk360_master_pin', cleanNewPin);
+        setIsSuperAdminUnlocked(true);
+        sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
+        return { success: true, message: '🎉 নতুন মাস্টার পাসওয়ার্ড সফলভাবে রিসেট ও সেভ হয়েছে!' };
+      } catch (err) {
+        return { success: false, message: 'পাসওয়ার্ড সংরক্ষণে ত্রুটি: ' + err.message };
+      }
+    }
+    return { success: false, message: 'ভুল রিকভারি তথ্য! আপনার মাস্টার ইমেইল (hossansajjad1994@gmail.com) অথবা রিকভারি কোড (1994) দিন।' };
   };
 
   const lockSuperAdmin = () => {
@@ -762,6 +787,7 @@ export const AuthProvider = ({ children }) => {
         isSuperAdminUnlocked,
         verifyMasterPin,
         changeMasterPin,
+        resetMasterPinWithRecovery,
         lockSuperAdmin,
         getMasterPin,
         isCashier,
