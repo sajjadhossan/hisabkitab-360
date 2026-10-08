@@ -1,13 +1,14 @@
 /**
- * High-Capacity IndexedDB Cache Engine for HisabKitab 360
- * --------------------------------------------------------
- * Overcomes localStorage 5MB size limits, enables instant
- * millisecond loading of large catalogs and zero-lag offline persistence.
+ * High-Capacity Non-Blocking IndexedDB Cache Engine for HisabKitab 360
+ * -------------------------------------------------------------------
+ * Overcomes localStorage 5MB size limits, enables millisecond loading
+ * of large product catalogs (10,000+ items), invoices, debts, and zero-lag
+ * offline persistence. Runs completely asynchronous off the main UI thread.
  */
 
 const DB_NAME = 'HisabKitab360_OfflineDB';
-const DB_VERSION = 1;
-const STORES = ['products_cache', 'sales_cache', 'debts_cache', 'app_meta'];
+const DB_VERSION = 2;
+const STORES = ['products_cache', 'sales_cache', 'debts_cache', 'app_meta', 'offline_mutations', 'live_state'];
 
 let dbInstance = null;
 
@@ -35,7 +36,7 @@ export const openOfflineDB = () => {
     };
 
     request.onerror = (e) => {
-      console.warn('IndexedDB open error:', e.target.error);
+      console.warn('[IndexedDB] Open error:', e.target.error);
       reject(e.target.error);
     };
   });
@@ -54,7 +55,7 @@ export const setIndexedDbItem = async (storeName, id, data) => {
       req.onerror = () => reject(req.error);
     });
   } catch (err) {
-    console.warn(`IndexedDB setItem (${storeName}) failed:`, err);
+    console.warn(`[IndexedDB] setItem (${storeName}) failed:`, err);
     return false;
   }
 };
@@ -106,6 +107,54 @@ export const clearIndexedDbStore = async (storeName) => {
       req.onerror = () => resolve(false);
     });
   } catch {
+    return false;
+  }
+};
+
+// ============================================================================
+// NON-BLOCKING DEBOUNCED SNAPSHOT CACHING (Zero-lag React rendering)
+// ============================================================================
+const writeDebounceTimers = new Map();
+
+/**
+ * Saves heavy data to IndexedDB without choking UI frames.
+ * Uses requestIdleCallback with 300ms debounce.
+ */
+export const cacheAppStateAsync = (storeName, id, data, debounceMs = 300) => {
+  if (typeof window === 'undefined') return;
+
+  const timerKey = `${storeName}_${id}`;
+  if (writeDebounceTimers.has(timerKey)) {
+    clearTimeout(writeDebounceTimers.get(timerKey));
+  }
+
+  const timer = setTimeout(() => {
+    writeDebounceTimers.delete(timerKey);
+    const scheduleWrite = () => {
+      setIndexedDbItem(storeName, id, data).catch((err) => {
+        console.debug(`[IndexedDB Cache] Deferred write suppressed:`, err);
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(scheduleWrite, { timeout: 1000 });
+    } else {
+      setTimeout(scheduleWrite, 10);
+    }
+  }, debounceMs);
+
+  writeDebounceTimers.set(timerKey, timer);
+};
+
+/**
+ * Instant initialization of IndexedDB offline cache on application mount
+ */
+export const initFastOfflineCache = async () => {
+  try {
+    await openOfflineDB();
+    return true;
+  } catch (err) {
+    console.debug('[IndexedDB Cache] Init failed:', err);
     return false;
   }
 };

@@ -179,6 +179,22 @@ export const initNativeKeyboardListeners = () => {
     }, 150);
   };
 
+  // Auto-attach inputMode="decimal" to all number inputs for instant numeric keypad
+  if (typeof document !== 'undefined') {
+    document.addEventListener('focusin', (e) => {
+      const target = e.target;
+      if (target && target.tagName === 'INPUT') {
+        const type = target.getAttribute('type');
+        const name = (target.getAttribute('name') || '').toLowerCase();
+        const placeholder = (target.getAttribute('placeholder') || '').toLowerCase();
+        const isNumeric = type === 'number' || name.includes('amount') || name.includes('price') || name.includes('qty') || placeholder.includes('৳') || placeholder.includes('টাকা');
+        if (isNumeric && !target.hasAttribute('inputmode')) {
+          target.setAttribute('inputmode', 'decimal');
+        }
+      }
+    }, { passive: true });
+  }
+
   if (isNativePlatform()) {
     try {
       Keyboard.addListener('keyboardWillShow', (info) => {

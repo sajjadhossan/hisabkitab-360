@@ -20,8 +20,12 @@ import { SyncStatusIndicator } from './components/common/SyncStatusIndicator';
 import { ScreenLockModal } from './components/common/ScreenLockModal';
 import { CustomerMirrorDisplay } from './components/pos/CustomerMirrorDisplay';
 import { FloatingQuickPad } from './components/common/FloatingQuickPad';
+import { LiveCashCounterWidget } from './components/common/LiveCashCounterWidget';
 import { checkDailyScheduledNotifications } from './services/localNotificationService';
 import { initPowerOptimizer } from './services/powerOptimizerService';
+import { initFastOfflineCache } from './services/indexedDbCache';
+import { initLiveSyncChannel, subscribeLiveSync } from './services/liveSyncService';
+import { initOfflineSyncEngine } from './services/offlineSyncQueue';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -151,12 +155,24 @@ const AppContent = () => {
     showToast
   };
 
-  // Initialize Native Android Hardware Handlers
+  // Initialize Native Android Hardware Handlers & Fast Live Engines
   React.useEffect(() => {
     initNativeKeyboardListeners();
     hideNativeSplashScreen(350);
     initHardwareBarcodeScannerListener();
     initPowerOptimizer();
+    initFastOfflineCache();
+    initLiveSyncChannel();
+    initOfflineSyncEngine();
+
+    const unsubLive = subscribeLiveSync((evt) => {
+      const cur = appStateRef.current;
+      if (evt?.eventType === 'sale_created') {
+        if (cur.showToast) {
+          cur.showToast(cur.lang === 'bn' ? '⚡ লাইভ ক্লাউড আপডেট: নতুন বিক্রি রেকর্ড হয়েছে' : '⚡ Live Sync: New sale recorded', 'info');
+        }
+      }
+    });
 
     const unsubBarcode = onHardwareBarcodeScan((code) => {
       if (handleBarcodeScanned) {
@@ -247,6 +263,7 @@ const AppContent = () => {
       unsubBarcode();
       if (unsubVolume) unsubVolume();
       if (unsubAutoLock) unsubAutoLock();
+      if (unsubLive) unsubLive();
     };
   }, []);
 
@@ -708,6 +725,9 @@ const AppContent = () => {
           </div>
         </div>
       )}
+
+      {/* Live Floating Cash Counter & Drawer Balance Pill */}
+      <LiveCashCounterWidget />
 
       {/* Global Floating Quick Pad (Pocket Calculator, Scratchpad & Denomination Tool) */}
       <FloatingQuickPad />

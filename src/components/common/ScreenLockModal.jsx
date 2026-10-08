@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Unlock, ShieldCheck, KeyRound, AlertCircle, RefreshCw, Fingerprint } from 'lucide-react';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { registerBackAction, hapticFeedback } from '../../services/nativeAppService';
+import { authenticateWithDeviceBiometrics } from '../../services/biometricAuthService';
 
 export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang = 'bn' }) => {
   const [enteredPin, setEnteredPin] = useState('');
@@ -24,14 +25,20 @@ export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang =
     hapticFeedback.light();
     playButtonClick();
     try {
-      hapticFeedback.success();
-      playSuccessChime();
-      setEnteredPin('');
-      setErrorMsg('');
-      onClose();
+      const res = await authenticateWithDeviceBiometrics();
+      if (res && res.success) {
+        hapticFeedback.success();
+        playSuccessChime();
+        setEnteredPin('');
+        setErrorMsg('');
+        onClose();
+      } else {
+        hapticFeedback.heavy();
+        setErrorMsg(lang === 'bn' ? 'ফিঙ্গারপ্রিন্ট যাচাই হয়নি, পিন টাইপ করুন।' : 'Biometric unverified. Please enter PIN.');
+      }
     } catch {
       hapticFeedback.heavy();
-      setErrorMsg(lang === 'bn' ? 'ফিঙ্গারপ্রিন্ট ব্যর্থ হয়েছে, পিন টাইপ করুন।' : 'Biometric failed. Please enter PIN.');
+      setErrorMsg(lang === 'bn' ? 'ফিঙ্গারপ্রিন্ট ত্রুটি, পিন টাইপ করুন।' : 'Biometric error. Please enter PIN.');
     }
   };
 

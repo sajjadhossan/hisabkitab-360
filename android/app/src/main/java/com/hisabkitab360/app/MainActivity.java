@@ -23,22 +23,24 @@ public class MainActivity extends BridgeActivity {
 
     private void requestNativeAppPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            String[] permissions = {
-                Manifest.permission.CAMERA,
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.MODIFY_AUDIO_SETTINGS
-            };
+            java.util.List<String> permList = new java.util.ArrayList<>();
+            permList.add(Manifest.permission.CAMERA);
+            permList.add(Manifest.permission.RECORD_AUDIO);
+            permList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS);
 
-            boolean hasAll = true;
-            for (String perm : permissions) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permList.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+
+            java.util.List<String> needed = new java.util.ArrayList<>();
+            for (String perm : permList) {
                 if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                    hasAll = false;
-                    break;
+                    needed.add(perm);
                 }
             }
 
-            if (!hasAll) {
-                ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQ_CODE);
+            if (!needed.isEmpty()) {
+                ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), PERMISSION_REQ_CODE);
             }
         }
     }
@@ -50,6 +52,13 @@ public class MainActivity extends BridgeActivity {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 WebView webView = getBridge().getWebView();
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+                webView.getSettings().setDomStorageEnabled(true);
+                webView.getSettings().setDatabaseEnabled(true);
+                webView.getSettings().setRenderPriority(android.webkit.WebSettings.RenderPriority.HIGH);
+                webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+                webView.setScrollBarStyle(WebView.SCROLLBARS_INSIDE_OVERLAY);
+                // Hardware GPU compositor acceleration
+                webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
             }
         } catch (Exception e) {
             e.printStackTrace();

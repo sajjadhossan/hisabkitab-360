@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shortcut_pos"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_pos_short"
+        android:shortcutLongLabel="@string/shortcut_pos_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.hisabkitab360.app"
+            android:targetClass="com.hisabkitab360.app.MainActivity"
+            android:data="https://hisabkitab360.app/?tab=pos" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shortcut_debts"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_debts_short"
+        android:shortcutLongLabel="@string/shortcut_debts_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.hisabkitab360.app"
+            android:targetClass="com.hisabkitab360.app.MainActivity"
+            android:data="https://hisabkitab360.app/?tab=debts" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shortcut_inventory"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_inv_short"
+        android:shortcutLongLabel="@string/shortcut_inv_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.hisabkitab360.app"
+            android:targetClass="com.hisabkitab360.app.MainActivity"
+            android:data="https://hisabkitab360.app/?tab=inventory" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shortcut_closing"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_cash_short"
+        android:shortcutLongLabel="@string/shortcut_cash_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.hisabkitab360.app"
+            android:targetClass="com.hisabkitab360.app.MainActivity"
+            android:data="https://hisabkitab360.app/?tab=branch_control" />
+    </shortcut>
+</shortcuts>

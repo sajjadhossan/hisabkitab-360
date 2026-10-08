@@ -4,4 +4,12 @@
     <string name="title_activity_main">HisabKitab 360</string>
     <string name="package_name">com.hisabkitab360.app</string>
     <string name="custom_url_scheme">com.hisabkitab360.app</string>
+    <string name="shortcut_pos_short">নতুন বিক্রি</string>
+    <string name="shortcut_pos_long">নতুন বিক্রি (POS টার্মিনাল)</string>
+    <string name="shortcut_debts_short">বাকির খাতা</string>
+    <string name="shortcut_debts_long">বাকির খাতা ও দেনা-পাওনা</string>
+    <string name="shortcut_inv_short">মজুদ পণ্য</string>
+    <string name="shortcut_inv_long">মজুদ মালামাল ও ইনভেন্টরি</string>
+    <string name="shortcut_cash_short">ক্যাশ ক্লোজিং</string>
+    <string name="shortcut_cash_long">ক্যাশ ড্রয়ার ও Z-রিপোর্ট ক্লোজিং</string>
 </resources>

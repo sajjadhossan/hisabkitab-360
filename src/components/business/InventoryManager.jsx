@@ -39,6 +39,7 @@ import { VoiceInputButton } from '../common/VoiceInputButton';
 import { useAuth } from '../../context/AuthContext';
 import { BarcodeStickerModal } from '../common/BarcodeStickerModal';
 import { compressImageToWebP, hapticFeedback } from '../../services/nativeAppService';
+import { OptimizedImage } from '../common/OptimizedImage';
 
 const PRESET_PRODUCT_IMAGES = [
   { label: 'বিরিয়ানি', url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300' },
@@ -881,11 +882,12 @@ export const InventoryManager = () => {
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {p.image ? (
-                              <img
+                              <OptimizedImage
                                 src={p.image}
                                 alt={p.name}
-                                style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
+                                width={32}
+                                height={32}
+                                borderRadius="6px"
                               />
                             ) : null}
                             <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.name}</div>

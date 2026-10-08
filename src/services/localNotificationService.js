@@ -1,8 +1,11 @@
 /**
- * Smart Scheduled Local Notification Engine for Android / PWA
- * -------------------------------------------------------------
- * Schedules morning due reminders and evening shop closing Z-reports.
+ * Smart Scheduled & Real-Time Local Notification Engine for Android / PWA
+ * -----------------------------------------------------------------------
+ * Handles morning due reminders, evening shop closing Z-reports,
+ * instant low-stock alerts, and successful sale confirmations.
  */
+
+import { hapticFeedback } from './nativeAppService';
 
 export const requestNotificationPermission = async () => {
   if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -12,8 +15,12 @@ export const requestNotificationPermission = async () => {
     return true;
   }
   if (Notification.permission !== 'denied') {
-    const perm = await Notification.requestPermission();
-    return perm === 'granted';
+    try {
+      const perm = await Notification.requestPermission();
+      return perm === 'granted';
+    } catch {
+      return false;
+    }
   }
   return false;
 };
@@ -45,6 +52,30 @@ export const sendLocalNotification = (title, options = {}) => {
 };
 
 /**
+ * Triggers instant Low-Stock alert notification
+ */
+export const notifyLowStockAlert = (productName, remainingStock) => {
+  hapticFeedback.warning();
+  sendLocalNotification('⚠️ লো-স্টক সতর্কতা | HisabKitab 360', {
+    body: `"${productName}" এর মজুদ কমে ${remainingStock} টিতে নেমেছে! নতুন মাল তোলার অর্ডার দিন।`,
+    tag: `low_stock_${productName}`,
+    url: '/?tab=inventory'
+  });
+};
+
+/**
+ * Triggers instant Sale Completion notification
+ */
+export const notifySaleCompleted = (invoiceNumber, grandTotal) => {
+  hapticFeedback.success();
+  sendLocalNotification('🧾 বিক্রয় সম্পন্ন!', {
+    body: `ইনভয়েস #${invoiceNumber}: মোট ৳${Number(grandTotal).toLocaleString()} সফলভাবে ক্যাশ ইন হয়েছে।`,
+    tag: 'sale_success',
+    url: '/?tab=invoices'
+  });
+};
+
+/**
  * Checks if morning due reminder or evening closing prompt is due today
  */
 export const checkDailyScheduledNotifications = ({ overdueDebtsCount = 0, todaySalesTotal = 0 }) => {
@@ -52,7 +83,7 @@ export const checkDailyScheduledNotifications = ({ overdueDebtsCount = 0, todayS
   const currentHour = now.getHours();
   const todayStr = now.toISOString().split('T')[0];
 
-  // Morning 9 AM - 11 AM: Overdue debts alert
+  // Morning 9 AM - 12 PM: Overdue debts alert
   if (currentHour >= 9 && currentHour < 12 && overdueDebtsCount > 0) {
     const key = `hk360_notif_due_${todayStr}`;
     if (!localStorage.getItem(key)) {
@@ -70,7 +101,7 @@ export const checkDailyScheduledNotifications = ({ overdueDebtsCount = 0, todayS
     const key = `hk360_notif_close_${todayStr}`;
     if (!localStorage.getItem(key)) {
       sendLocalNotification('🌙 হিসাবকিতাব ৩৬০ - দোকান ক্লোজিং রিমাইন্ডার', {
-        body: `আজকের বিক্রয়: ৳${todaySalesTotal.toLocaleString()}। ক্যাশ ড্রয়ার ও Z-রিপোর্ট ক্লোজ করুন।`,
+        body: `আজকের বিক্রয়: ৳${Number(todaySalesTotal).toLocaleString()}। ক্যাশ ড্রয়ার ও Z-রিপোর্ট ক্লোজ করুন।`,
         tag: 'evening_close',
         url: '/?tab=dashboard'
       });
