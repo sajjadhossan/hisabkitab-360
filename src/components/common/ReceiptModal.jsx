@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Printer, X, Check, ShieldCheck, MessageCircle } from 'lucide-react';
-import { printElement } from '../../services/printService';
+import { Printer, X, Check, ShieldCheck, MessageCircle, Bluetooth } from 'lucide-react';
+import { printElement, printBluetoothEscPos } from '../../services/printService';
 import { generateQrDataUrl, createInvoiceVerificationUrl, generateInvoiceQrPayload } from '../../services/qrService';
 import { generatePaymentQrDataUrl } from '../../services/barcodeService';
 
@@ -14,11 +14,31 @@ export const ReceiptModal = () => {
     openCashDrawer,
     businessSettings,
     t,
-    lang
+    lang,
+    showToast
   } = useApp();
 
   const [qrMode, setQrMode] = useState('payload'); // 'payload' | 'url' | 'bkash'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [isBtPrinting, setIsBtPrinting] = useState(false);
+
+  const handleBluetoothPrint = async () => {
+    setIsBtPrinting(true);
+    try {
+      await printBluetoothEscPos(activeReceipt, businessSettings);
+      if (showToast) {
+        showToast(lang === 'bn' ? 'ব্লুটুথ থার্মাল প্রিন্টারে রসিদ পাঠানো হয়েছে!' : 'Sent to Bluetooth Thermal Printer!', 'success');
+      }
+    } catch (err) {
+      console.warn('Bluetooth print fallback:', err);
+      handlePrint();
+      if (showToast) {
+        showToast(lang === 'bn' ? 'ব্লুটুথ ডিভাইস কানেক্ট হয়নি, স্ক্রিন প্রিন্ট চালু করা হয়েছে' : 'Bluetooth not connected, standard print opened', 'info');
+      }
+    } finally {
+      setIsBtPrinting(false);
+    }
+  };
 
   useEffect(() => {
     if (activeReceipt) {
@@ -358,8 +378,30 @@ export const ReceiptModal = () => {
             <span>{lang === 'bn' ? '📲 হোয়াটসঅ্যাপ' : '📲 WhatsApp'}</span>
           </button>
 
-          <button className="btn btn-primary" onClick={handlePrint} style={{ flex: 1, minWidth: '150px' }}>
-            <Printer size={16} /> {lang === 'bn' ? 'থার্মাল রসিদ প্রিন্ট' : 'Print Thermal Slip'}
+          <button
+            className="btn"
+            onClick={handleBluetoothPrint}
+            disabled={isBtPrinting}
+            style={{
+              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'ব্লুটুথ থার্মাল প্রিন্টারে সরাসরি ১-ক্লিকে প্রিন্ট' : '1-Click Direct Bluetooth ESC/POS'}
+          >
+            <Bluetooth size={16} />
+            <span>{isBtPrinting ? (lang === 'bn' ? 'প্রিন্ট হচ্ছে...' : 'Printing...') : (lang === 'bn' ? 'ব্লুটুথ প্রিন্ট' : 'BT Print')}</span>
+          </button>
+
+          <button className="btn btn-primary" onClick={handlePrint} style={{ flex: 1, minWidth: '130px' }}>
+            <Printer size={16} /> {lang === 'bn' ? 'থার্মাল প্রিন্ট' : 'Thermal Slip'}
           </button>
           <button
             className="btn btn-secondary"

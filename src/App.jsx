@@ -15,6 +15,7 @@ import { InvoiceVerificationView } from './components/common/InvoiceVerification
 import { GlobalVoiceWidget } from './components/common/GlobalVoiceWidget';
 import { HealthcareProvider } from './context/HealthcareContext';
 import { useAuth } from './context/AuthContext';
+import { PullToRefresh } from './components/common/PullToRefresh';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -489,11 +490,17 @@ const AppContent = () => {
   return (
     <div className="app-container">
       <Navbar />
-      <main className="main-content">
-        <Suspense fallback={<ViewLoadingFallback />}>
-          {renderContent()}
-        </Suspense>
-      </main>
+      <PullToRefresh onRefresh={async () => {
+        if (showToast) {
+          showToast(lang === 'bn' ? 'সিস্টেম ডাটা রিফ্রেশ সম্পন্ন!' : 'System data refreshed!', 'success');
+        }
+      }}>
+        <main className="main-content">
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {renderContent()}
+          </Suspense>
+        </main>
+      </PullToRefresh>
       <AuthModal />
       <ReceiptModal />
       <InvoicePrintModal />

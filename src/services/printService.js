@@ -625,3 +625,102 @@ export const kickCashDrawer = () => {
     console.warn('kickCashDrawer warning:', err);
   }
 };
+
+/**
+ * Direct Android / Web Bluetooth ESC/POS Thermal Printer Driver
+ * Communicates with 58mm / 80mm Bluetooth printers without system print dialogs.
+ */
+export const printBluetoothEscPos = async (receiptData, businessSettings = {}) => {
+  if (typeof navigator === 'undefined' || !navigator.bluetooth) {
+    throw new Error('Bluetooth API is not supported on this device/browser');
+  }
+
+  const device = await navigator.bluetooth.requestDevice({
+    filters: [
+      { namePrefix: 'POS' },
+      { namePrefix: 'MPT' },
+      { namePrefix: 'RP' },
+      { namePrefix: 'Thermal' },
+      { namePrefix: 'Printer' },
+      { namePrefix: 'XP-' },
+      { namePrefix: 'InnerPrinter' },
+      { namePrefix: 'Bluetooth' }
+    ],
+    optionalServices: [
+      '000018f0-0000-1000-8000-00805f9b34fb',
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+      '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+    ]
+  });
+
+  const server = await device.gatt.connect();
+  const services = await server.getPrimaryServices();
+  let writeChar = null;
+
+  for (const s of services) {
+    const chars = await s.getCharacteristics();
+    for (const c of chars) {
+      if (c.properties.write || c.properties.writeWithoutResponse) {
+        writeChar = c;
+        break;
+      }
+    }
+    if (writeChar) break;
+  }
+
+  if (!writeChar) {
+    throw new Error('Writable thermal printer service not found on this Bluetooth device');
+  }
+
+  const encoder = new TextEncoder();
+  const initCmd = new Uint8Array([0x1B, 0x40]);
+  const centerCmd = new Uint8Array([0x1B, 0x61, 0x01]);
+  const leftCmd = new Uint8Array([0x1B, 0x61, 0x00]);
+  const boldOn = new Uint8Array([0x1B, 0x45, 0x01]);
+  const boldOff = new Uint8Array([0x1B, 0x45, 0x00]);
+  const feedCmd = new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A]);
+  const cutCmd = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
+
+  const shopName = businessSettings.shopName || receiptData.shopName || 'HisabKitab 360';
+  const shopPhone = businessSettings.phone || receiptData.phone || '';
+
+  // Write header
+  await writeChar.writeValue(initCmd);
+  await writeChar.writeValue(centerCmd);
+  await writeChar.writeValue(boldOn);
+  await writeChar.writeValue(encoder.encode(`${shopName}\n`));
+  await writeChar.writeValue(boldOff);
+  if (shopPhone) {
+    await writeChar.writeValue(encoder.encode(`Phone: ${shopPhone}\n`));
+  }
+  await writeChar.writeValue(encoder.encode(`Inv #${receiptData.id}  ${new Date().toLocaleDateString()}\n`));
+  await writeChar.writeValue(encoder.encode('--------------------------------\n'));
+
+  // Write items
+  await writeChar.writeValue(leftCmd);
+  if (Array.isArray(receiptData.items)) {
+    for (const item of receiptData.items) {
+      const name = (item.name || 'Item').slice(0, 16).padEnd(16, ' ');
+      const val = `${item.quantity}x${item.price}=${item.quantity * item.price}`.padStart(16, ' ');
+      await writeChar.writeValue(encoder.encode(`${name}${val}\n`));
+    }
+  }
+
+  await writeChar.writeValue(encoder.encode('--------------------------------\n'));
+  await writeChar.writeValue(boldOn);
+  await writeChar.writeValue(encoder.encode(`TOTAL: BDT ${receiptData.grandTotal || receiptData.total || 0}\n`));
+  await writeChar.writeValue(boldOff);
+  await writeChar.writeValue(centerCmd);
+  await writeChar.writeValue(encoder.encode('Dhonnobad! Abar Ashben.\n'));
+  await writeChar.writeValue(feedCmd);
+  try {
+    await writeChar.writeValue(cutCmd);
+  } catch {}
+
+  setTimeout(() => {
+    try { device.gatt.disconnect(); } catch {}
+  }, 1000);
+
+  return true;
+};
+
