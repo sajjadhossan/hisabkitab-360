@@ -269,13 +269,29 @@ export const BarcodeScannerModal = () => {
   };
 
   const stopCamera = async () => {
-    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+    if (html5QrCodeRef.current) {
       try {
-        await html5QrCodeRef.current.stop();
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop();
+        }
+        await html5QrCodeRef.current.clear();
       } catch (e) {
         console.warn('Scanner stop error:', e);
       }
     }
+    // Deep hardware track release to ensure camera indicator and battery sleep immediately
+    try {
+      const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+      if (videoElem && videoElem.srcObject) {
+        const stream = videoElem.srcObject;
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach((track) => {
+            try { track.stop(); } catch {}
+          });
+        }
+        videoElem.srcObject = null;
+      }
+    } catch {}
     setCameraActive(false);
     setTorchOn(false);
   };

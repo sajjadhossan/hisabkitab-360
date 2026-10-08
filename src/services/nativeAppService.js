@@ -201,8 +201,10 @@ export const initNativeKeyboardListeners = () => {
 // 6. SCREEN WAKE LOCK (ALWAYS-ON POS DISPLAY)
 // ==========================================
 let wakeLockSentinel = null;
+let isWakeLockRequested = false;
 
 export const requestScreenWakeLock = async () => {
+  isWakeLockRequested = true;
   if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
     try {
       wakeLockSentinel = await navigator.wakeLock.request('screen');
@@ -218,6 +220,7 @@ export const requestScreenWakeLock = async () => {
 };
 
 export const releaseScreenWakeLock = async () => {
+  isWakeLockRequested = false;
   if (wakeLockSentinel) {
     try {
       await wakeLockSentinel.release();
@@ -225,6 +228,17 @@ export const releaseScreenWakeLock = async () => {
     wakeLockSentinel = null;
   }
 };
+
+// Re-acquire wake lock automatically when app returns to foreground
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && isWakeLockRequested && !wakeLockSentinel) {
+      try {
+        await requestScreenWakeLock();
+      } catch {}
+    }
+  });
+}
 
 // ==========================================
 // 7. PHYSICAL BARCODE SCANNER GUN (KEYBOARD WEDGE)
