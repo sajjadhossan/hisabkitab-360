@@ -60,6 +60,7 @@ import {
   playButtonClick,
   playWarningTone
 } from '../../services/soundFeedback';
+import { requestScreenWakeLock, releaseScreenWakeLock } from '../../services/nativeAppService';
 
 const DEFAULT_QUICK_FILTERS = [
   {
@@ -322,6 +323,14 @@ export const POSTerminal = () => {
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Screen Wake Lock: Keep phone screen on while in POS counter
+  useEffect(() => {
+    requestScreenWakeLock();
+    return () => {
+      releaseScreenWakeLock();
+    };
   }, []);
 
   // Multi-Layer Filter States (Layer 1, Layer 2, Brand & Custom Manager)

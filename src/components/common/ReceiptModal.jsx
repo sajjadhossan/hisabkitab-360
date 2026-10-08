@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Printer, X, Check, ShieldCheck, MessageCircle, Bluetooth } from 'lucide-react';
 import { printElement, printBluetoothEscPos } from '../../services/printService';
-import { generateQrDataUrl, createInvoiceVerificationUrl, generateInvoiceQrPayload } from '../../services/qrService';
+import { generateQrDataUrl, createInvoiceVerificationUrl, generateInvoiceQrPayload, formatWhatsAppInvoiceMessage, normalizeWhatsAppPhone } from '../../services/qrService';
 import { generatePaymentQrDataUrl } from '../../services/barcodeService';
 
 export const ReceiptModal = () => {
@@ -37,6 +37,22 @@ export const ReceiptModal = () => {
       }
     } finally {
       setIsBtPrinting(false);
+    }
+  };
+
+  const handleDirectWhatsAppOrShare = () => {
+    if (activeReceipt?.customerPhone) {
+      const normPhone = normalizeWhatsAppPhone(activeReceipt.customerPhone);
+      const msg = formatWhatsAppInvoiceMessage(activeReceipt, businessSettings, lang);
+      const url = normPhone
+        ? `https://api.whatsapp.com/send?phone=${normPhone}&text=${encodeURIComponent(msg)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      if (showToast) {
+        showToast(lang === 'bn' ? '📲 হোয়াটসঅ্যাপে মেমো পাঠানো হচ্ছে...' : 'Opening WhatsApp...', 'success');
+      }
+    } else {
+      openShareInvoice(activeReceipt);
     }
   };
 
@@ -358,7 +374,7 @@ export const ReceiptModal = () => {
           <button
             type="button"
             className="btn"
-            onClick={() => openShareInvoice(activeReceipt)}
+            onClick={handleDirectWhatsAppOrShare}
             style={{
               background: '#25D366',
               color: '#ffffff',

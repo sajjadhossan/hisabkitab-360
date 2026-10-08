@@ -195,18 +195,83 @@ export const initNativeKeyboardListeners = () => {
       console.debug('[Native] Keyboard listener ignored:', err);
     }
   }
+};
 
-  // Also support mobile web Chrome visual viewport resize
-  if (typeof window !== 'undefined' && window.visualViewport) {
+// ==========================================
+// 6. SCREEN WAKE LOCK (ALWAYS-ON POS DISPLAY)
+// ==========================================
+let wakeLockSentinel = null;
+
+export const requestScreenWakeLock = async () => {
+  if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
     try {
-      window.visualViewport.addEventListener('resize', () => {
-        if (window.visualViewport.height < window.innerHeight * 0.78) {
-          document.body.classList.add('keyboard-is-open');
-          scrollActiveElement();
-        } else {
-          document.body.classList.remove('keyboard-is-open');
-        }
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        wakeLockSentinel = null;
       });
-    } catch {}
+      return true;
+    } catch (err) {
+      console.debug('[Native] Wake lock not acquired:', err);
+    }
   }
+  return false;
+};
+
+export const releaseScreenWakeLock = async () => {
+  if (wakeLockSentinel) {
+    try {
+      await wakeLockSentinel.release();
+    } catch {}
+    wakeLockSentinel = null;
+  }
+};
+
+// ==========================================
+// 7. PHYSICAL BARCODE SCANNER GUN (KEYBOARD WEDGE)
+// ==========================================
+let barcodeBuffer = '';
+let lastKeyTime = 0;
+const barcodeScanListeners = new Set();
+let isHardwareListenerInit = false;
+
+export const onHardwareBarcodeScan = (callback) => {
+  barcodeScanListeners.add(callback);
+  return () => barcodeScanListeners.delete(callback);
+};
+
+export const initHardwareBarcodeScannerListener = () => {
+  if (typeof window === 'undefined' || isHardwareListenerInit) return;
+  isHardwareListenerInit = true;
+
+  window.addEventListener('keydown', (e) => {
+    const active = document.activeElement;
+    // Skip if user is actively writing a long note
+    const isTypingText = active && active.tagName === 'TEXTAREA';
+    if (isTypingText) return;
+
+    const now = Date.now();
+
+    if (e.key === 'Enter') {
+      if (barcodeBuffer.length >= 3 && (now - lastKeyTime < 120)) {
+        const scannedCode = barcodeBuffer.trim();
+        barcodeBuffer = '';
+        if (scannedCode) {
+          hapticFeedback.light();
+          barcodeScanListeners.forEach((cb) => {
+            try { cb(scannedCode); } catch {}
+          });
+        }
+      }
+      barcodeBuffer = '';
+      return;
+    }
+
+    if (e.key && e.key.length === 1) {
+      if (now - lastKeyTime > 80) {
+        barcodeBuffer = '';
+      }
+      barcodeBuffer += e.key;
+      lastKeyTime = now;
+    }
+  });
 };

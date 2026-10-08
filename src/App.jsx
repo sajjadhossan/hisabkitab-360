@@ -22,7 +22,9 @@ import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
   initNativeBackHandling,
-  initNativeKeyboardListeners
+  initNativeKeyboardListeners,
+  initHardwareBarcodeScannerListener,
+  onHardwareBarcodeScan
 } from './services/nativeAppService';
 
 // Helper for code-splitting named exports
@@ -98,7 +100,8 @@ const AppContent = () => {
     showToast,
     isScreenLocked,
     unlockScreen,
-    businessSettings
+    businessSettings,
+    handleBarcodeScanned
   } = useApp();
   const { user, openAuthModal, isAuthModalOpen, closeAuthModal, isSuperAdmin } = useAuth();
 
@@ -131,6 +134,13 @@ const AppContent = () => {
   React.useEffect(() => {
     initNativeKeyboardListeners();
     hideNativeSplashScreen(350);
+    initHardwareBarcodeScannerListener();
+
+    const unsubBarcode = onHardwareBarcodeScan((code) => {
+      if (handleBarcodeScanned) {
+        handleBarcodeScanned(code);
+      }
+    });
 
     initNativeBackHandling({
       onHomeExitNotice: () => {
@@ -187,6 +197,10 @@ const AppContent = () => {
         return false;
       }
     });
+
+    return () => {
+      unsubBarcode();
+    };
   }, []);
 
   // Synchronize Status Bar colors dynamically with Dark/Light theme
