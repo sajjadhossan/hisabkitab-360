@@ -80,15 +80,27 @@ export const playSoundboxChime = () => {
 /**
  * Speaks the soundbox voice announcement in Bengali
  */
-export const speakSoundboxText = (text, delayMs = 650) => {
-  if (!('speechSynthesis' in window) || !text) return;
+export const speakSoundboxText = (text, delayMs = 600) => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return;
 
   setTimeout(() => {
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'bn-BD';
-      utterance.rate = 1.05;
+      
+      // Detect best Bengali voice on Android
+      const voices = window.speechSynthesis.getVoices() || [];
+      const bengaliVoice = voices.find(v => v.lang === 'bn-BD' || v.lang === 'bn-IN' || v.lang?.startsWith('bn'))
+        || voices.find(v => v.name?.toLowerCase().includes('bangla') || v.name?.toLowerCase().includes('bengali'));
+
+      if (bengaliVoice) {
+        utterance.voice = bengaliVoice;
+        utterance.lang = bengaliVoice.lang;
+      } else {
+        utterance.lang = 'bn-BD';
+      }
+
+      utterance.rate = 1.0;
       utterance.volume = 1.0;
       utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
@@ -102,10 +114,9 @@ export const speakSoundboxText = (text, delayMs = 650) => {
  * Triggers complete smart soundbox announcement for transactions:
  * 
  * Examples:
- *  - bKash: "বিকাশে ১,৫০০ টাকা সফলভাবে গ্রহণ করা হয়েছে।"
- *  - Nagad: "নগদে ৮২০ টাকা সফলভাবে পাওয়া গেছে।"
- *  - Cash: "নগদ ৫০০ টাকা পরিশোধ সম্পন্ন হয়েছে।"
- *  - Due collection: "রহিম ভাইয়ের কাছ থেকে ১,০০০ টাকা জমা নেওয়া হয়েছে।"
+ *  - bKash: "হিসাবকিতাব ৩৬০: বিকাশে ১,৫০০ টাকা সফলভাবে গ্রহণ করা হয়েছে।"
+ *  - Cash: "হিসাবকিতাব ৩৬০: নগদ ৫০০ টাকা বিক্রয় সম্পন্ন হয়েছে।"
+ *  - Due collection: "হিসাবকিতাব ৩৬০: রহিম ভাইয়ের কাছ থেকে ১,০০০ টাকা বকেয়া আদায় সফল হয়েছে।"
  */
 export const triggerSoundboxPayment = ({
   amount = 0,
@@ -124,33 +135,33 @@ export const triggerSoundboxPayment = ({
 
   if (type === 'debt_collection') {
     const person = customerName ? `${customerName} এর কাছ থেকে ` : '';
-    speech = `${person}${roundedAmt} টাকা বকেয়া আদায় সফল হয়েছে।`;
+    speech = `হিসাবকিতাব ৩৬০: ${person}${roundedAmt} টাকা বকেয়া আদায় সফল হয়েছে।`;
   } else {
     switch (method?.toLowerCase()) {
       case 'bkash':
       case 'বিকাশ':
-        speech = `বিকাশে ${roundedAmt} টাকা সফলভাবে গ্রহণ করা হয়েছে।`;
+        speech = `হিসাবকিতাব ৩৬০: বিকাশে ${roundedAmt} টাকা সফলভাবে গ্রহণ করা হয়েছে।`;
         break;
       case 'nagad':
       case 'নগদ (নগদ)':
       case 'নগদ ওয়ালেট':
-        speech = `নগদে ${roundedAmt} টাকা সফলভাবে গ্রহণ করা হয়েছে।`;
+        speech = `হিসাবকিতাব ৩৬০: নগদে ${roundedAmt} টাকা সফলভাবে গ্রহণ করা হয়েছে।`;
         break;
       case 'card':
       case 'কার্ড':
       case 'ব্যাংক':
-        speech = `কার্ডে ${roundedAmt} টাকা পরিশোধ সম্পন্ন হয়েছে।`;
+        speech = `হিসাবকিতাব ৩৬০: কার্ডে ${roundedAmt} টাকা পরিশোধ সম্পন্ন হয়েছে।`;
         break;
       case 'due':
       case 'বাকি':
-        speech = `${roundedAmt} টাকা বাকি মেমো হিসেবে সংরক্ষণ করা হয়েছে।`;
+        speech = `হিসাবকিতাব ৩৬০: ${roundedAmt} টাকা বাকি মেমো হিসেবে সংরক্ষণ করা হয়েছে।`;
         break;
       default:
-        speech = `নগদ ${roundedAmt} টাকা পরিশোধ সম্পন্ন হয়েছে।`;
+        speech = `হিসাবকিতাব ৩৬০: নগদ ${roundedAmt} টাকা বিক্রয় সম্পন্ন হয়েছে।`;
         break;
     }
   }
 
   // 3. Speak the voice announcement
-  speakSoundboxText(speech, 650);
+  speakSoundboxText(speech, 600);
 };

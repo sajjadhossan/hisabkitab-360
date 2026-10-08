@@ -2036,3 +2036,10 @@ input:checked+.slider:before {
     20%, 60% { transform: translateX(-8px); }
     40%, 80% { transform: translateX(8px); }
   }
+
+  body.keyboard-is-open .mobile-bottom-nav {
+    display: none !important;
+  }
+  body.keyboard-is-open .main-content {
+    padding-bottom: calc(var(--keyboard-height, 280px) + 24px) !important;
+  }

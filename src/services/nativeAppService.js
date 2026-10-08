@@ -170,19 +170,43 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome }) => 
 // 5. KEYBOARD ADAPTABILITY & INSET FIX
 // ==========================================
 export const initNativeKeyboardListeners = () => {
-  if (!isNativePlatform()) return;
+  const scrollActiveElement = () => {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+        active.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+  };
 
-  try {
-    Keyboard.addListener('keyboardWillShow', (info) => {
-      document.body.classList.add('keyboard-is-open');
-      document.documentElement.style.setProperty('--keyboard-height', `${info.keyboardHeight || 280}px`);
-    });
+  if (isNativePlatform()) {
+    try {
+      Keyboard.addListener('keyboardWillShow', (info) => {
+        document.body.classList.add('keyboard-is-open');
+        document.documentElement.style.setProperty('--keyboard-height', `${info.keyboardHeight || 280}px`);
+        scrollActiveElement();
+      });
 
-    Keyboard.addListener('keyboardDidHide', () => {
-      document.body.classList.remove('keyboard-is-open');
-      document.documentElement.style.removeProperty('--keyboard-height');
-    });
-  } catch (err) {
-    console.debug('[Native] Keyboard listener ignored:', err);
+      Keyboard.addListener('keyboardDidHide', () => {
+        document.body.classList.remove('keyboard-is-open');
+        document.documentElement.style.removeProperty('--keyboard-height');
+      });
+    } catch (err) {
+      console.debug('[Native] Keyboard listener ignored:', err);
+    }
+  }
+
+  // Also support mobile web Chrome visual viewport resize
+  if (typeof window !== 'undefined' && window.visualViewport) {
+    try {
+      window.visualViewport.addEventListener('resize', () => {
+        if (window.visualViewport.height < window.innerHeight * 0.78) {
+          document.body.classList.add('keyboard-is-open');
+          scrollActiveElement();
+        } else {
+          document.body.classList.remove('keyboard-is-open');
+        }
+      });
+    } catch {}
   }
 };
