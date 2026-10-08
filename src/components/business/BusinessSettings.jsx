@@ -51,7 +51,8 @@ import {
   Users,
   Layers,
   LayoutDashboard,
-  Building2
+  Building2,
+  AlertTriangle
 } from 'lucide-react';
 
 export const BusinessSettings = () => {

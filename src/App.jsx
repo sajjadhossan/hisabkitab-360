@@ -15,6 +15,12 @@ import { InvoiceVerificationView } from './components/common/InvoiceVerification
 import { GlobalVoiceWidget } from './components/common/GlobalVoiceWidget';
 import { HealthcareProvider } from './context/HealthcareContext';
 import { useAuth } from './context/AuthContext';
+import {
+  syncNativeStatusBar,
+  hideNativeSplashScreen,
+  initNativeBackHandling,
+  initNativeKeyboardListeners
+} from './services/nativeAppService';
 
 // Helper for code-splitting named exports
 const lazyNamed = (importFn, name) => lazy(() => importFn().then(m => ({ default: m[name] })));
@@ -64,8 +70,123 @@ const ViewLoadingFallback = () => (
 );
 
 const AppContent = () => {
-  const { profile, activeTab, licenseInfo, setActiveTab, lang, isModuleActive } = useApp();
-  const { user, openAuthModal, isSuperAdmin } = useAuth();
+  const {
+    profile,
+    activeTab,
+    licenseInfo,
+    setActiveTab,
+    lang,
+    theme,
+    isModuleActive,
+    activeReceipt,
+    setActiveReceipt,
+    activeInvoicePrint,
+    closeInvoicePrint,
+    activeQuotationPrint,
+    closeQuotationPrint,
+    activeBarcodePrint,
+    closeBarcodePrint,
+    activeShareInvoice,
+    closeShareInvoice,
+    isHelpSupportOpen,
+    closeHelpSupport,
+    isScannerOpen,
+    closeScanner,
+    showToast
+  } = useApp();
+  const { user, openAuthModal, isAuthModalOpen, closeAuthModal, isSuperAdmin } = useAuth();
+
+  const appStateRef = React.useRef({});
+  appStateRef.current = {
+    user,
+    isAuthModalOpen,
+    closeAuthModal,
+    activeReceipt,
+    setActiveReceipt,
+    activeInvoicePrint,
+    closeInvoicePrint,
+    activeQuotationPrint,
+    closeQuotationPrint,
+    activeBarcodePrint,
+    closeBarcodePrint,
+    activeShareInvoice,
+    closeShareInvoice,
+    isHelpSupportOpen,
+    closeHelpSupport,
+    isScannerOpen,
+    closeScanner,
+    activeTab,
+    setActiveTab,
+    lang,
+    showToast
+  };
+
+  // Initialize Native Android Hardware Handlers
+  React.useEffect(() => {
+    initNativeKeyboardListeners();
+    hideNativeSplashScreen(350);
+
+    initNativeBackHandling({
+      onHomeExitNotice: () => {
+        const cur = appStateRef.current;
+        if (cur.showToast) {
+          cur.showToast(
+            cur.lang === 'bn' ? 'অ্যাপ থেকে বের হতে আর একবার ব্যাক বাটন চাপুন' : 'Press BACK again to exit app',
+            'warning'
+          );
+        }
+      },
+      onNavigateHome: () => {
+        const cur = appStateRef.current;
+        // 1. Close open global modals
+        if (cur.isAuthModalOpen && cur.user) {
+          cur.closeAuthModal();
+          return true;
+        }
+        if (cur.activeReceipt) {
+          cur.setActiveReceipt(null);
+          return true;
+        }
+        if (cur.activeInvoicePrint && cur.closeInvoicePrint) {
+          cur.closeInvoicePrint();
+          return true;
+        }
+        if (cur.activeQuotationPrint && cur.closeQuotationPrint) {
+          cur.closeQuotationPrint();
+          return true;
+        }
+        if (cur.activeBarcodePrint && cur.closeBarcodePrint) {
+          cur.closeBarcodePrint();
+          return true;
+        }
+        if (cur.activeShareInvoice && cur.closeShareInvoice) {
+          cur.closeShareInvoice();
+          return true;
+        }
+        if (cur.isScannerOpen && cur.closeScanner) {
+          cur.closeScanner();
+          return true;
+        }
+        if (cur.isHelpSupportOpen && cur.closeHelpSupport) {
+          cur.closeHelpSupport();
+          return true;
+        }
+
+        // 2. If inside a sub-tab, return to home dashboard
+        if (cur.activeTab !== 'dashboard') {
+          cur.setActiveTab('dashboard');
+          return true;
+        }
+
+        return false;
+      }
+    });
+  }, []);
+
+  // Synchronize Status Bar colors dynamically with Dark/Light theme
+  React.useEffect(() => {
+    syncNativeStatusBar(theme);
+  }, [theme]);
 
   // Auto-redirect if currently viewed business module has been turned off by admin / owner
   React.useEffect(() => {

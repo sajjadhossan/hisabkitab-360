@@ -1474,6 +1474,12 @@ input:checked+.slider:before {
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45) !important;
   }
 
+  /* Automatically hide bottom bar when mobile keyboard is open to avoid covering inputs */
+  body.keyboard-is-open .mobile-bottom-nav,
+  body.keyboard-is-open .global-voice-floating-btn {
+    display: none !important;
+  }
+
   /* Universal Horizontal Touch Strip for Mobile (Left-Right Swipeable Buttons) */
   .horizontal-touch-strip {
     display: flex !important;

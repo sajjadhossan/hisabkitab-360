@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { registerBackAction } from '../services/nativeAppService';
 import {
   User,
   Briefcase,
@@ -133,6 +134,34 @@ export const Navbar = () => {
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
+
+  // Native Android Hardware Back Button Listeners for Mobile Drawer & Modals
+  useEffect(() => {
+    if (showMobileDrawer) {
+      return registerBackAction(() => {
+        setShowMobileDrawer(false);
+        return true;
+      });
+    }
+  }, [showMobileDrawer]);
+
+  useEffect(() => {
+    if (showExportImportHub) {
+      return registerBackAction(() => {
+        setShowExportImportHub(false);
+        return true;
+      });
+    }
+  }, [showExportImportHub]);
+
+  useEffect(() => {
+    if (showDiagnosticsModal) {
+      return registerBackAction(() => {
+        setShowDiagnosticsModal(false);
+        return true;
+      });
+    }
+  }, [showDiagnosticsModal]);
 
   // Listen to keyboard shortcut for Super Admin (Ctrl+Shift+S or Alt+S)
   useEffect(() => {

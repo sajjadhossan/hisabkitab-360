@@ -3,6 +3,8 @@
 // Pure Web Audio API Synth: Ultra-Fast, 0ms Latency, 100% Offline
 // ========================================================
 
+import { hapticFeedback } from './nativeAppService';
+
 let audioCtx = null;
 let isAudioMuted = localStorage.getItem('hk360_sound_muted') === 'true';
 
@@ -30,6 +32,7 @@ export const toggleSoundMute = () => {
 
 // 1. Soft Pop Sound (Item added to cart, quantity change)
 export const playCartPop = () => {
+  hapticFeedback.light();
   if (isAudioMuted) return;
   try {
     const ctx = getAudioContext();
@@ -57,6 +60,7 @@ export const playCartPop = () => {
 
 // 2. Crisp Retail Barcode Scan Beep
 export const playScanBeep = () => {
+  hapticFeedback.medium();
   if (isAudioMuted) return;
   try {
     const ctx = getAudioContext();
@@ -83,6 +87,7 @@ export const playScanBeep = () => {
 
 // 3. Cheerful Success Chime (Sale checkout, print, invoice generation)
 export const playSuccessChime = () => {
+  hapticFeedback.success();
   if (isAudioMuted) return;
   try {
     const ctx = getAudioContext();
@@ -114,6 +119,7 @@ export const playSuccessChime = () => {
 
 // 4. Subtle Tactile Button Click
 export const playButtonClick = () => {
+  hapticFeedback.selection();
   if (isAudioMuted) return;
   try {
     const ctx = getAudioContext();
@@ -141,6 +147,7 @@ export const playButtonClick = () => {
 
 // 5. Warning Tone (Low Stock, Cash Shortage, Error)
 export const playWarningTone = () => {
+  hapticFeedback.warning();
   if (isAudioMuted) return;
   try {
     const ctx = getAudioContext();
