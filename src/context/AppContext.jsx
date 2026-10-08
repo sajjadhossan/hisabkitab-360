@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { initialData } from '../data/initialData';
 import { translations } from '../data/translations';
 import {
@@ -447,7 +447,14 @@ export const AppProvider = ({ children }) => {
   });
   const [lang, setLang] = useState(() => localStorage.getItem(STORAGE_KEYS.LANG) || 'bn');
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_KEYS.THEME) || 'dark');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTabState] = useState('dashboard');
+
+  // React 19 Non-blocking transition-wrapped tab switching
+  const handleSetActiveTab = useCallback((nextTab) => {
+    startTransition(() => {
+      setActiveTabState(nextTab);
+    });
+  }, []);
 
   // Quick POS Counter Screen Lock
   const [isScreenLocked, setIsScreenLocked] = useState(false);
@@ -933,16 +940,18 @@ export const AppProvider = ({ children }) => {
 
   // Profile Switching handler (Auto-unlocks to dual mode so user is never trapped)
   const handleSwitchProfile = (newProfile) => {
-    if (operatingMode === 'business_only' && newProfile !== 'business') {
-      setOperatingModeState('dual');
-      localStorage.setItem(STORAGE_KEYS.OPERATING_MODE, 'dual');
-    }
-    if (operatingMode === 'personal_only' && newProfile !== 'personal') {
-      setOperatingModeState('dual');
-      localStorage.setItem(STORAGE_KEYS.OPERATING_MODE, 'dual');
-    }
-    setProfile(newProfile);
-    setActiveTab('dashboard'); // reset tab on profile switch
+    startTransition(() => {
+      if (operatingMode === 'business_only' && newProfile !== 'business') {
+        setOperatingModeState('dual');
+        localStorage.setItem(STORAGE_KEYS.OPERATING_MODE, 'dual');
+      }
+      if (operatingMode === 'personal_only' && newProfile !== 'personal') {
+        setOperatingModeState('dual');
+        localStorage.setItem(STORAGE_KEYS.OPERATING_MODE, 'dual');
+      }
+      setProfile(newProfile);
+      setActiveTabState('dashboard'); // reset tab on profile switch
+    });
     showToast(
       newProfile === 'personal'
         ? (lang === 'bn' ? 'ব্যক্তিগত প্রোফাইলে পরিবর্তন করা হয়েছে' : 'Switched to Personal Profile')
@@ -1591,11 +1600,7 @@ export const AppProvider = ({ children }) => {
         }
         return p;
       });
-      try {
-        localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error saving updated products to storage:', e);
-      }
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, updated);
       return updated;
     });
 
@@ -1612,33 +1617,21 @@ export const AppProvider = ({ children }) => {
           }
           return cust;
         });
-        try {
-          localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(updated));
-        } catch (e) {
-          console.error('Error saving updated customers to storage:', e);
-        }
+        scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, updated);
         return updated;
       });
     }
 
     setSalesHistory(prevSales => {
       const updated = [saleRecord, ...prevSales];
-      try {
-        localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error saving sales to storage:', e);
-      }
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, updated);
       return updated;
     });
 
     // Also mirror to invoices list for unified management!
     setInvoices(prevInvoices => {
       const updated = [saleRecord, ...prevInvoices];
-      try {
-        localStorage.setItem(STORAGE_KEYS.BIZ_INVOICES, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error saving invoices to storage:', e);
-      }
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, updated);
       return updated;
     });
 
@@ -3394,7 +3387,7 @@ export const AppProvider = ({ children }) => {
         theme,
         setTheme,
         activeTab,
-        setActiveTab,
+        setActiveTab: handleSetActiveTab,
         t,
         toastMessage,
         showToast,
