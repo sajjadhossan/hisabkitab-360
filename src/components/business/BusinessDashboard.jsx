@@ -70,6 +70,37 @@ export const BusinessDashboard = () => {
 
   const netProfit = totalSales - cogs - totalBizExpenses - totalDamagedLoss;
 
+  // Today's Real-time Performance Metrics
+  const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todaySalesList = useMemo(() => filteredSales.filter(s => (s.date || '').startsWith(todayDateStr)), [filteredSales, todayDateStr]);
+  const todaySalesTotal = useMemo(() => todaySalesList.reduce((acc, s) => acc + (Number(s.grandTotal) || 0), 0), [todaySalesList]);
+  const todayCogs = useMemo(() => {
+    return todaySalesList.reduce((acc, sale) => {
+      const saleCost = (sale.items || []).reduce((itemAcc, item) => itemAcc + ((Number(item.costPrice) || 0) * (Number(item.qty) || 0)), 0);
+      return acc + saleCost;
+    }, 0);
+  }, [todaySalesList]);
+  const todayExpensesTotal = useMemo(() => {
+    return businessExpenses.filter(e => (e.date || '').startsWith(todayDateStr)).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  }, [businessExpenses, todayDateStr]);
+  const todayNetProfit = todaySalesTotal - todayCogs - todayExpensesTotal;
+
+  // Today's Top 5 Selling Products
+  const todayTopProducts = useMemo(() => {
+    const itemMap = {};
+    todaySalesList.forEach(s => {
+      (s.items || []).forEach(item => {
+        if (!item.name) return;
+        if (!itemMap[item.name]) {
+          itemMap[item.name] = { name: item.name, qty: 0, total: 0 };
+        }
+        itemMap[item.name].qty += (Number(item.qty) || 0);
+        itemMap[item.name].total += ((Number(item.sellPrice) || 0) * (Number(item.qty) || 0));
+      });
+    });
+    return Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 5);
+  }, [todaySalesList]);
+
   const lowStockProducts = useMemo(() => products.filter(p => (Number(p.stock) || 0) <= (Number(p.minAlert) || 5)), [products]);
   const totalMarketDue = useMemo(() => customers.reduce((acc, c) => acc + (Number(c.outstandingDue) || 0), 0), [customers]);
 
@@ -405,6 +436,97 @@ export const BusinessDashboard = () => {
                 </div>
               );
             })}
+        </div>
+      </div>
+
+      {/* Today's Real-time Profit & Top Sellers Banner */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '1rem',
+          marginBottom: '1.25rem',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(99, 102, 241, 0.08))',
+          border: '1.5px solid rgba(16, 185, 129, 0.3)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '1rem',
+          alignItems: 'center'
+        }}
+      >
+        {/* Today's Profit Summary */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span style={{ fontSize: '1.1rem' }}>💰</span>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              {lang === 'bn' ? 'আজকের বিক্রয় ও নিট লাভ' : "Today's Sales & Net Profit"}
+            </h3>
+            <span className="badge badge-success" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
+              LIVE
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'baseline', marginTop: '4px' }}>
+            <div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                {lang === 'bn' ? 'আজকের বিক্রি' : 'Sales'}:
+              </span>
+              <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#6366f1', fontFamily: 'monospace' }}>
+                ৳{todaySalesTotal.toLocaleString()}
+              </span>
+            </div>
+            {canViewNetProfit && (
+              <div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                  {lang === 'bn' ? 'আজকের নিট লাভ' : 'Net Profit'}:
+                </span>
+                <span style={{ fontSize: '1.25rem', fontWeight: '800', color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontFamily: 'monospace' }}>
+                  ৳{todayNetProfit.toLocaleString()}
+                </span>
+              </div>
+            )}
+            <div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                {lang === 'bn' ? 'আজকের খরচ' : 'Expense'}:
+              </span>
+              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444', fontFamily: 'monospace' }}>
+                -৳{todayExpensesTotal.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's Top 5 Selling Items */}
+        <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '1rem' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+            🔥 {lang === 'bn' ? 'আজকের শীর্ষ বিক্রীত পণ্য:' : "Today's Top Sellers:"}
+          </span>
+          {todayTopProducts.length === 0 ? (
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+              {lang === 'bn' ? 'আজ এখনও কোনো পণ্য বিক্রি হয়নি' : 'No sales today yet'}
+            </span>
+          ) : (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {todayTopProducts.map((item, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '0.74rem',
+                    fontWeight: '700',
+                    color: 'var(--text-main)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span style={{ color: '#10b981' }}>#{idx + 1}</span> {item.name} ({item.qty}টি)
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

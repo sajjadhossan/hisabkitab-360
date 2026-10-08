@@ -192,7 +192,7 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
 
   // Filtered People List
   const filteredPeople = useMemo(() => {
-    return debtList.filter((person) => {
+    const filtered = debtList.filter((person) => {
       const stats = getPersonStats(person);
       const search = searchTerm.toLowerCase().trim();
 
@@ -212,12 +212,18 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
       if (!matchesSearch) return false;
 
       if (activeFilter === 'receivable') return stats.isReceivable;
+      if (activeFilter === 'top_debtors') return stats.isReceivable && stats.netBalance > 0;
       if (activeFilter === 'payable') return stats.isPayable;
       if (activeFilter === 'settled') return stats.isSettled;
       if (activeFilter === 'overdue') return stats.hasOverdue;
 
       return true; // 'all'
     });
+
+    if (activeFilter === 'top_debtors') {
+      return [...filtered].sort((a, b) => getPersonStats(b).netBalance - getPersonStats(a).netBalance);
+    }
+    return filtered;
   }, [debtList, searchTerm, activeFilter]);
 
   // Windowed Lazy Rendering for high-performance 120fps scrolling
@@ -940,6 +946,7 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {[
             { id: 'all', label: lang === 'bn' ? 'সকল খাতা' : 'All', count: debtList.length },
+            { id: 'top_debtors', label: lang === 'bn' ? '🚨 বড় বাকিদার' : 'Top Debtors', badgeColor: '#f43f5e' },
             { id: 'receivable', label: lang === 'bn' ? 'আমি পাবো' : 'Receivable', badgeColor: '#10b981' },
             { id: 'payable', label: lang === 'bn' ? 'আমি দেবো' : 'Payable', badgeColor: '#f43f5e' },
             { id: 'settled', label: lang === 'bn' ? 'পরিশোধিত' : 'Settled' },
