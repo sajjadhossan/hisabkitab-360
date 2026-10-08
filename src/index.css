@@ -43,11 +43,27 @@
   --color-warning: #f59e0b;
   --color-info: #3b82f6;
 
-  /* Shadows & Glass */
+  /* Shadows & Elevation */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.45);
-  --glass-blur: blur(12px);
+  --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --elevation-2: 0 4px 12px -2px rgba(0, 0, 0, 0.3), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
+  --elevation-3: 0 12px 28px -4px rgba(0, 0, 0, 0.4), 0 4px 12px -2px rgba(0, 0, 0, 0.25);
+  --elevation-float: 0 20px 40px -8px rgba(0, 0, 0, 0.5), 0 8px 16px -4px rgba(0, 0, 0, 0.3);
+  --glass-blur: blur(14px);
+
+  /* 8-Pixel Mathematical Spacing Tokens */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -82,6 +98,10 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
   --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
   --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.03);
+  --elevation-1: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --elevation-2: 0 4px 12px -2px rgba(15, 23, 42, 0.07), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --elevation-3: 0 12px 28px -4px rgba(15, 23, 42, 0.09), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+  --elevation-float: 0 20px 40px -8px rgba(15, 23, 42, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.06);
 }
 
 /* OLED Pure Black Theme - True 0-nit black for maximum battery saving on AMOLED displays */
@@ -89,14 +109,17 @@
 body.oled-black-mode {
   --bg-primary: #000000 !important;
   --bg-secondary: #000000 !important;
-  --bg-card: #080808 !important;
-  --bg-card-hover: #141414 !important;
-  --bg-glass: rgba(0, 0, 0, 0.95) !important;
-  --border-color: rgba(255, 255, 255, 0.14) !important;
-  --border-hover: rgba(255, 255, 255, 0.25) !important;
+  --bg-card: #050505 !important;
+  --bg-card-hover: #0e0e0e !important;
+  --bg-glass: rgba(0, 0, 0, 0.96) !important;
+  --border-color: rgba(255, 255, 255, 0.12) !important;
+  --border-hover: rgba(255, 255, 255, 0.28) !important;
   --text-main: #ffffff !important;
   --text-muted: #a1a1aa !important;
   --text-dim: #71717a !important;
+  --elevation-1: 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  --elevation-2: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 4px 16px rgba(0, 0, 0, 0.8) !important;
+  --elevation-3: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 12px 32px rgba(0, 0, 0, 0.95) !important;
 }
 
 /* =========================================================
@@ -244,6 +267,122 @@ textarea,
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   line-height: 1.2;
 }
+
+/* =========================================================
+   Tabular Numerics (Monospace Alignment for Financial Figures)
+   ========================================================= */
+.num-tabular,
+.font-tabular,
+.tabular-nums,
+[data-tabular="true"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv01" 1;
+  letter-spacing: -0.01em;
+}
+
+/* =========================================================
+   Status & Badge Visual System (High-Contrast & Refined Tint)
+   ========================================================= */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.badge-status-paid {
+  background: rgba(16, 185, 129, 0.14);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-status-due {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-status-partial {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-status-lowstock {
+  background: rgba(236, 72, 153, 0.14);
+  color: #ec4899;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.badge-status-info {
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* =========================================================
+   High-Density Compact Mode (Data-Dense View for Rapid Business)
+   ========================================================= */
+[data-density='compact'],
+body.compact-mode {
+  --table-padding-y: 6px;
+  --table-padding-x: 10px;
+  --input-padding-y: 7px;
+}
+
+[data-density='compact'] .card,
+body.compact-mode .card {
+  padding: 12px !important;
+}
+
+[data-density='compact'] .input-field,
+body.compact-mode .input-field {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  font-size: 0.88rem !important;
+}
+
+[data-density='compact'] table th,
+[data-density='compact'] table td,
+body.compact-mode table th,
+body.compact-mode table td {
+  padding: 6px 10px !important;
+  font-size: 0.85rem !important;
+}
+
+/* =========================================================
+   Glassmorphism Depth & Elevation Layers
+   ========================================================= */
+.glass-layer-1 {
+  background: var(--bg-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--elevation-1);
+}
+
+.glass-layer-2 {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-hover);
+  box-shadow: var(--elevation-2);
+}
+
+.glass-floating-bar {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-hover);
+  box-shadow: var(--elevation-float);
+  border-radius: var(--radius-lg);
+}
+
 
 [data-theme='light'] .kbd-badge {
   background: #f1f5f9;

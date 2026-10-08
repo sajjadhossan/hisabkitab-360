@@ -75,6 +75,8 @@ export const Navbar = () => {
     setLang,
     theme,
     setTheme,
+    densityMode,
+    toggleDensityMode,
     activeTab,
     setActiveTab,
     t,
@@ -922,6 +924,21 @@ export const Navbar = () => {
               style={{ transition: 'transform 0.1s ease' }}
             >
               {theme === 'dark' ? <Sun size={17} color="#fbbf24" /> : <Moon size={17} color="#6366f1" />}
+            </button>
+
+            {/* High-Density Compact Mode Switch */}
+            <button
+              className="btn-icon press-scale hide-mobile-sm"
+              onClick={toggleDensityMode}
+              title={densityMode === 'compact' ? (lang === 'bn' ? 'স্ট্যান্ডার্ড ভিউতে ফিরুন' : 'Switch to Standard Density') : (lang === 'bn' ? 'হাই-ডেনসিটি কম্প্যাক্ট মোড' : 'High-Density Compact Mode')}
+              style={{
+                color: densityMode === 'compact' ? 'var(--personal-primary, #10b981)' : 'var(--text-muted)',
+                background: densityMode === 'compact' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                border: densityMode === 'compact' ? '1px solid rgba(16, 185, 129, 0.3)' : undefined,
+                transition: 'transform 0.1s ease'
+              }}
+            >
+              {densityMode === 'compact' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
 
             {/* Sound Feedback Toggle */}

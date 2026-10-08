@@ -449,6 +449,18 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_KEYS.THEME) || 'dark');
   const [activeTab, setActiveTabState] = useState('dashboard');
 
+  // UI Data Density Mode: 'standard' | 'compact'
+  const [densityMode, setDensityMode] = useState(() => localStorage.getItem('hk360_density') || 'standard');
+
+  const toggleDensityMode = useCallback(() => {
+    setDensityMode(prev => {
+      const next = prev === 'compact' ? 'standard' : 'compact';
+      localStorage.setItem('hk360_density', next);
+      document.documentElement.setAttribute('data-density', next);
+      return next;
+    });
+  }, []);
+
   // React 19 Non-blocking transition-wrapped tab switching
   const handleSetActiveTab = useCallback((nextTab) => {
     startTransition(() => {
@@ -820,10 +832,12 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-profile', profile);
+    document.documentElement.setAttribute('data-density', densityMode);
     localStorage.setItem(STORAGE_KEYS.PROFILE, profile);
     localStorage.setItem(STORAGE_KEYS.LANG, lang);
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
-  }, [profile, lang, theme]);
+    localStorage.setItem('hk360_density', densityMode);
+  }, [profile, lang, theme, densityMode]);
 
   // Sync state to LocalStorage (Non-blocking debounced queue for 60fps UI)
   useEffect(() => {
@@ -3386,6 +3400,9 @@ export const AppProvider = ({ children }) => {
         setLang,
         theme,
         setTheme,
+        densityMode,
+        setDensityMode,
+        toggleDensityMode,
         activeTab,
         setActiveTab: handleSetActiveTab,
         t,
