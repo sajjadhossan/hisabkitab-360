@@ -28,7 +28,8 @@ import {
   Check,
   Sparkles,
   Image as ImageIcon,
-  FolderOpen
+  FolderOpen,
+  MessageCircle
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -37,6 +38,7 @@ import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { useAuth } from '../../context/AuthContext';
 import { BarcodeStickerModal } from '../common/BarcodeStickerModal';
+import { compressImageToWebP, hapticFeedback } from '../../services/nativeAppService';
 
 const PRESET_PRODUCT_IMAGES = [
   { label: 'বিরিয়ানি', url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300' },
@@ -214,24 +216,51 @@ export const InventoryManager = () => {
     });
   }, [damagedGoods, deferredDamageSearch, damageReasonFilter]);
 
-  // Product Actions
-  const handleImageFileUpload = (e, target = 'new') => {
+  // Product Actions: WebP Image Auto-Compressor
+  const handleImageFileUpload = async (e, target = 'new') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert(lang === 'bn' ? 'ছবির সাইজ ২ মেগাবাইটের কম হতে হবে।' : 'Image size must be less than 2MB.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (loadEvt) => {
-      const dataUrl = loadEvt.target.result;
+    try {
+      hapticFeedback.light();
+      const compressedWebP = await compressImageToWebP(file, 640, 0.75);
       if (target === 'edit') {
-        setEditProductForm(prev => ({ ...prev, image: dataUrl }));
+        setEditProductForm(prev => ({ ...prev, image: compressedWebP }));
       } else {
-        setNewProductForm(prev => ({ ...prev, image: dataUrl }));
+        setNewProductForm(prev => ({ ...prev, image: compressedWebP }));
       }
-    };
-    reader.readAsDataURL(file);
+      showToast(lang === 'bn' ? 'ছবি সফলভাবে অপ্টিমাইজড (WebP) করা হয়েছে!' : 'Image optimized to WebP!', 'success');
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const dataUrl = loadEvt.target.result;
+        if (target === 'edit') {
+          setEditProductForm(prev => ({ ...prev, image: dataUrl }));
+        } else {
+          setNewProductForm(prev => ({ ...prev, image: dataUrl }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 1-Click WhatsApp Purchase Order Requisition to Supplier
+  const handleWhatsAppReorder = (product) => {
+    hapticFeedback.medium();
+    const minAlert = Number(product.minAlert) || 5;
+    const requiredQty = Math.max(10, minAlert * 3);
+    const storeName = businessSettings?.storeName || (lang === 'bn' ? 'আমার দোকান' : 'My Store');
+    const msg =
+      `📦 *${storeName} - জরুরি স্টক পারচেজ রিকুইজিশন*\n\n` +
+      `আসসালামু আলাইকুম,\nআমাদের দোকানে নিম্নলিখিত পণ্যের স্টক ফুরিয়ে আসছে। জরুরি ভিত্তিতে ডেলিভারি পাঠানোর অনুরোধ রইল:\n\n` +
+      `• *পণ্য:* ${product.name}\n` +
+      `• *বারকোড / SKU:* ${product.barcode || product.sku || 'N/A'}\n` +
+      `• *ক্যাটাগরি:* ${product.category || 'সাধারণ'}\n` +
+      `• *বর্তমান স্টক:* ${product.stock} টি\n` +
+      `• *অর্ডার রিকুইজিশন:* ${requiredQty} টি\n\n` +
+      `তারিখ: ${new Date().toLocaleDateString('bn-BD')}\n` +
+      `ধন্যবাদ।`;
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleOpenEditModal = (product) => {
@@ -914,6 +943,16 @@ export const InventoryManager = () => {
                             >
                               <Barcode size={15} />
                             </button>
+                            {isLow && (
+                              <button
+                                className="btn-icon"
+                                title={lang === 'bn' ? 'সাপ্লায়ারকে ১-ক্লিক WhatsApp পারচেজ অর্ডার রিকুইজিশন পাঠান' : '1-Click WhatsApp Supplier Reorder'}
+                                onClick={() => handleWhatsAppReorder(p)}
+                                style={{ color: '#25D366' }}
+                              >
+                                <MessageCircle size={15} />
+                              </button>
+                            )}
                             <button
                               className="btn-icon"
                               title={t.business.stockIn}

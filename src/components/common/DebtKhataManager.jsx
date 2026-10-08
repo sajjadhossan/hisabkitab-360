@@ -39,6 +39,7 @@ import { VoiceInputButton } from './VoiceInputButton';
 import { triggerSoundboxPayment } from '../../services/soundboxService';
 import { DueReminderModal } from './DueReminderModal';
 import { exportDebtKhataToCSV } from '../../services/exportService';
+import { hapticFeedback } from '../../services/nativeAppService';
 
 export const DebtKhataManager = ({ profile: currentProfile }) => {
   const {
@@ -356,15 +357,17 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
       note: txForm.note.trim()
     });
 
-    // Trigger Soundbox if debt repayment received
-    if (txForm.type === 'repay_lend') {
+    // Trigger Soundbox if debt repayment received or paid
+    if (txForm.type === 'repay_lend' || txForm.type === 'repay_borrow') {
       triggerSoundboxPayment({
         amount: Number(txForm.amount),
         method: txForm.method || 'cash',
         customerName: activePersonForTx.name,
-        type: 'debt_collection'
+        type: txForm.type === 'repay_lend' ? 'debt_collection' : 'expense'
       });
     }
+
+    hapticFeedback.success();
 
     // If ledger modal is open, refresh activePersonForLedger
     if (activePersonForLedger && activePersonForLedger.id === activePersonForTx.id) {
@@ -2054,6 +2057,39 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
                     }}
                   />
                 </div>
+                {/* Quick Amount Suggestion Chips */}
+                {(() => {
+                  const pStats = getPersonStats(activePersonForTx);
+                  const due = Math.abs(pStats.netReceivable || 0);
+                  const presets = [];
+                  if (due > 0) presets.push({ label: `পুরো বাকি (৳${due})`, val: due, highlight: true });
+                  [100, 500, 1000, 2000, 5000].forEach(v => {
+                    if (v !== due) presets.push({ label: `৳${v}`, val: v });
+                  });
+                  return (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {presets.slice(0, 5).map((pr, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setTxForm({ ...txForm, amount: String(pr.val) })}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            border: pr.highlight ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                            background: pr.highlight ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main)',
+                            color: pr.highlight ? '#10b981' : 'var(--text-main)',
+                            fontSize: '0.74rem',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {pr.label}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Date & Due Date in 2 columns */}

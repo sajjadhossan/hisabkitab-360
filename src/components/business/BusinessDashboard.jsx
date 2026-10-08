@@ -24,8 +24,13 @@ import {
   Award,
   Building2,
   PlusCircle,
-  UserCheck
+  UserCheck,
+  FileText,
+  MessageCircle,
+  Share2,
+  X
 } from 'lucide-react';
+import { hapticFeedback } from '../../services/nativeAppService';
 
 export const BusinessDashboard = () => {
   const {
@@ -33,6 +38,7 @@ export const BusinessDashboard = () => {
     salesHistory,
     customers,
     businessExpenses,
+    businessSettings,
     invoices = [],
     damagedGoods = [],
     branches = [],
@@ -84,6 +90,50 @@ export const BusinessDashboard = () => {
     return businessExpenses.filter(e => (e.date || '').startsWith(todayDateStr)).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   }, [businessExpenses, todayDateStr]);
   const todayNetProfit = todaySalesTotal - todayCogs - todayExpensesTotal;
+
+  // Day-End Z-Report State & Today's Payment Method Breakdown
+  const [showZReportModal, setShowZReportModal] = useState(false);
+
+  const todayCashSales = useMemo(() => {
+    return todaySalesList
+      .filter(s => !s.paymentMethod || s.paymentMethod === 'cash')
+      .reduce((acc, s) => acc + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
+  }, [todaySalesList]);
+
+  const todayDigitalSales = useMemo(() => {
+    return todaySalesList
+      .filter(s => s.paymentMethod && s.paymentMethod !== 'cash' && s.paymentMethod !== 'due')
+      .reduce((acc, s) => acc + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
+  }, [todaySalesList]);
+
+  const todayDueSales = useMemo(() => {
+    return todaySalesList.reduce((acc, s) => {
+      const grand = Number(s.grandTotal) || 0;
+      const paid = Number(s.paidAmount !== undefined ? s.paidAmount : grand);
+      return acc + Math.max(0, grand - paid);
+    }, 0);
+  }, [todaySalesList]);
+
+  const handleShareZReportWhatsApp = () => {
+    hapticFeedback.medium();
+    const storeName = businessSettings?.storeName || (lang === 'bn' ? 'আমার দোকান' : 'My Store');
+    const msg =
+      `🌙 *${storeName} - দৈনিক ক্লোজিং Z-রিপোর্ট*\n` +
+      `📅 তারিখ: ${new Date().toLocaleDateString('bn-BD')}\n` +
+      `🕒 সময়: ${new Date().toLocaleTimeString('bn-BD')}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `• মোট বিক্রয়: ৳${todaySalesTotal.toLocaleString()} (${todaySalesList.length}টি মেমো)\n` +
+      `• ক্যাশ বিক্রয় আদায়: ৳${todayCashSales.toLocaleString()}\n` +
+      `• ডিজিটাল/মোবাইল পেমেন্ট: ৳${todayDigitalSales.toLocaleString()}\n` +
+      `• বকেয়া/বাকিতে বিক্রি: ৳${todayDueSales.toLocaleString()}\n` +
+      `• আজকের মোট খরচ: ৳${todayExpensesTotal.toLocaleString()}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `📈 *আজকের প্রাক্কলিত লাভ:* ৳${todayNetProfit.toLocaleString()}\n` +
+      `💵 *ক্যাশ ড্রয়ার স্থিতি:* ৳${Math.max(0, todayCashSales - todayExpensesTotal).toLocaleString()}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `হিসাবকিতাব ৩৬০ সিস্টেম থেকে স্বয়ংক্রিয়ভাবে প্রস্তুতকৃত।`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+  };
 
   // Today's Top 5 Selling Products
   const todayTopProducts = useMemo(() => {
@@ -193,6 +243,185 @@ export const BusinessDashboard = () => {
             <span>{t.businessNav.inventory}</span>
           </button>
         </div>
+      </div>
+
+      {/* 1. LIVE FLOATING SUMMARY TICKER BANNER */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '12px 16px',
+          borderRadius: '16px',
+          marginBottom: '1.25rem',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
+          border: '1.5px solid rgba(16, 185, 129, 0.3)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div className="live-sales-ticker-badge" style={{ margin: 0 }}>
+            <span className="live-sales-ticker-pulse" />
+            <span style={{ fontSize: '0.78rem', fontWeight: '800' }}>{lang === 'bn' ? '⚡ আজকের লাইভ বিক্রয়:' : '⚡ Today Sales:'}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '900', color: '#10b981', fontSize: '0.95rem' }}>
+              ৳{todaySalesTotal.toLocaleString()}
+            </span>
+            <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>({todaySalesList.length} {lang === 'bn' ? 'টি মেমো' : 'orders'})</span>
+          </div>
+
+          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>💸 {lang === 'bn' ? 'আজকের খরচ:' : 'Expenses:'}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: '#ef4444', fontWeight: '800' }}>৳{todayExpensesTotal.toLocaleString()}</span>
+          </div>
+
+          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>📈 {lang === 'bn' ? 'প্রাক্কলিত লাভ:' : 'Net Profit:'}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontWeight: '800' }}>
+              ৳{todayNetProfit.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            hapticFeedback.light();
+            setShowZReportModal(true);
+          }}
+          style={{
+            padding: '7px 14px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+            border: '1.5px solid rgba(245, 158, 11, 0.5)',
+            color: '#f59e0b',
+            fontWeight: '800',
+            fontSize: '0.82rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
+          }}
+        >
+          <span>🌙</span>
+          <span>{lang === 'bn' ? 'দৈনিক Z-রিপোর্ট' : 'Daily Z-Report'}</span>
+        </button>
+      </div>
+
+      {/* 2. QUICK ACTION POWER MATRIX */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gap: '10px',
+          marginBottom: '1.25rem'
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => { hapticFeedback.light(); setActiveTab('pos'); }}
+          className="glass-card press-scale"
+          style={{
+            padding: '12px 10px',
+            borderRadius: '14px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '5px',
+            cursor: 'pointer',
+            textAlign: 'center'
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>🛒</span>
+          <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)' }}>
+            {lang === 'bn' ? 'নতুন বিক্রি (POS)' : 'New Sale (POS)'}
+          </span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            {lang === 'bn' ? 'দ্রুত ক্যাশ মেমো' : 'Fast Billing'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { hapticFeedback.light(); setActiveTab('debts'); }}
+          className="glass-card press-scale"
+          style={{
+            padding: '12px 10px',
+            borderRadius: '14px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '5px',
+            cursor: 'pointer',
+            textAlign: 'center'
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>📒</span>
+          <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)' }}>
+            {lang === 'bn' ? 'বাকি খাতা' : 'Debt Khata'}
+          </span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            {lang === 'bn' ? 'তাগাদা ও আদায়' : 'Due Ledger'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { hapticFeedback.light(); setActiveTab('inventory'); }}
+          className="glass-card press-scale"
+          style={{
+            padding: '12px 10px',
+            borderRadius: '14px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '5px',
+            cursor: 'pointer',
+            textAlign: 'center'
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>📦</span>
+          <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)' }}>
+            {lang === 'bn' ? 'মজুদ ইনভেন্টরি' : 'Inventory'}
+          </span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            {lang === 'bn' ? 'স্টক ও অ্যালার্ট' : 'Stock & Alert'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { hapticFeedback.light(); setActiveTab('invoices'); }}
+          className="glass-card press-scale"
+          style={{
+            padding: '12px 10px',
+            borderRadius: '14px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '5px',
+            cursor: 'pointer',
+            textAlign: 'center'
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>🧾</span>
+          <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)' }}>
+            {lang === 'bn' ? 'চালান ও রসিদ' : 'Invoices'}
+          </span>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            {lang === 'bn' ? 'বিক্রয় ইতিহাস' : 'Sales History'}
+          </span>
+        </button>
       </div>
 
       {/* MULTI-BRANCH & LIVE CASH COUNTER MONITORING (OWNER VIEW) */}
@@ -1009,6 +1238,124 @@ export const BusinessDashboard = () => {
           </table>
         </div>
       </div>
+
+      {/* 3. DAY-END Z-REPORT MODAL */}
+      {showZReportModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1200 }}>
+          <div
+            className="modal-content animate-scale-up"
+            style={{
+              maxWidth: '460px',
+              width: '95%',
+              background: 'var(--bg-card)',
+              borderRadius: '20px',
+              border: '1.5px solid rgba(245, 158, 11, 0.5)',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+              padding: '1.5rem',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.5rem' }}>🌙</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? 'দৈনিক ক্লোজিং Z-রিপোর্ট' : 'Daily Closing Z-Report'}
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {new Date().toLocaleDateString('bn-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowZReportModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--bg-main)', borderRadius: '14px', padding: '1rem', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>মোট বিক্রয় ({todaySalesList.length} মেমো):</span>
+                <span style={{ fontWeight: '800', fontFamily: 'var(--font-mono)' }}>৳{todaySalesTotal.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>💵 ক্যাশ আদায়:</span>
+                <span style={{ fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{todayCashSales.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>📱 ডিজিটাল/মোবাইল পেমেন্ট:</span>
+                <span style={{ fontWeight: '800', color: '#6366f1', fontFamily: 'var(--font-mono)' }}>৳{todayDigitalSales.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>📒 বকেয়া/বাকি দেওয়া:</span>
+                <span style={{ fontWeight: '800', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>৳{todayDueSales.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>💸 আজকের মোট খরচ:</span>
+                <span style={{ fontWeight: '800', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>-৳{todayExpensesTotal.toLocaleString()}</span>
+              </div>
+              <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: '800' }}>
+                <span>💰 নিট ক্যাশ ড্রয়ার স্থিতি:</span>
+                <span style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{Math.max(0, todayCashSales - todayExpensesTotal).toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem', fontWeight: '800' }}>
+                <span>📈 আজকের প্রাক্কলিত লাভ:</span>
+                <span style={{ color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{todayNetProfit.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleShareZReportWhatsApp}
+                style={{
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#25D366',
+                  color: '#ffffff',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <MessageCircle size={16} />
+                <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপ' : 'WhatsApp'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                style={{
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-main)',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Printer size={16} />
+                <span>{lang === 'bn' ? 'প্রিন্ট রসিদ' : 'Print'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
