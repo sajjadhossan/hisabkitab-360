@@ -4,6 +4,8 @@
  * Guaranteed zero data loss with automatic flush on `beforeunload` and `pagehide`.
  */
 
+import { idbSet } from './idbStorage';
+
 const pendingWrites = new Map();
 const pendingTimers = new Map();
 
@@ -17,8 +19,13 @@ const doWrite = (key) => {
     const serialized = typeof data === 'string' ? data : JSON.stringify(data);
     localStorage.setItem(key, serialized);
   } catch (err) {
-    console.warn(`[StorageQueue] Failed to persist key "${key}":`, err);
+    console.warn(`[StorageQueue] LocalStorage limit reached for key "${key}", backed up to IndexedDB:`, err);
   }
+
+  // Asynchronous unbounded IndexedDB persistence
+  try {
+    idbSet(key, data);
+  } catch {}
 };
 
 export const scheduleStorageWrite = (key, data, delay = 250) => {
@@ -54,6 +61,7 @@ export const flushPendingStorageWrites = () => {
     try {
       const serialized = typeof data === 'string' ? data : JSON.stringify(data);
       localStorage.setItem(key, serialized);
+      idbSet(key, data);
     } catch (err) {
       console.warn(`[StorageQueue] Flush error for key "${key}":`, err);
     }
@@ -75,6 +83,10 @@ export const writeStorageImmediate = (key, data) => {
   } catch (err) {
     console.warn(`[StorageQueue] Immediate write error for key "${key}":`, err);
   }
+
+  try {
+    idbSet(key, data);
+  } catch {}
 };
 
 // Safeguard: Ensure all queued updates are flushed to disk before user closes tab or navigates away

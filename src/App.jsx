@@ -16,6 +16,7 @@ import { GlobalVoiceWidget } from './components/common/GlobalVoiceWidget';
 import { HealthcareProvider } from './context/HealthcareContext';
 import { useAuth } from './context/AuthContext';
 import { PullToRefresh } from './components/common/PullToRefresh';
+import { SyncStatusIndicator } from './components/common/SyncStatusIndicator';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -511,6 +512,7 @@ const AppContent = () => {
       <HelpSupportModal />
       <NotificationToast />
       <GlobalVoiceWidget />
+      <SyncStatusIndicator />
     </div>
   );
 };
