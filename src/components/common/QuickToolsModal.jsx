@@ -40,6 +40,7 @@ export const QuickToolsModal = ({ activeTool, onClose }) => {
     importAllData,
     resetToDemo,
     snapshots,
+    storageQuota,
     salesHistory,
     businessExpenses,
     invoices,
@@ -621,23 +622,30 @@ export const QuickToolsModal = ({ activeTool, onClose }) => {
             )}
           </div>
 
-          {/* Section 2: Instant Snapshot */}
+          {/* Section 2: Instant Snapshot & Storage Health */}
           <div style={{ background: 'var(--bg-primary)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: '700', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Camera size={16} style={{ color: '#10b981' }} />
-                  <span>{lang === 'bn' ? 'ইনস্ট্যান্ট লোকাল স্ন্যাপশট ব্যাকআপ' : 'Local Snapshot Backup'}</span>
+                  <span>{lang === 'bn' ? '৭-দিনের রোলিং লোকাল স্ন্যাপশট ব্যাকআপ' : '7-Day Rolling Local Snapshots'}</span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {lang === 'bn' ? `বর্তমান স্ন্যাপশট সংখ্যা: ${snapshots.length} টি (১-ক্লিকে রিস্টোর করা যায়)` : `${snapshots.length} snapshots available`}
+                  {lang === 'bn' 
+                    ? `স্ন্যাপশট: ${snapshots.length} টি সংরক্ষিত (IndexedDB সিকিউর) • ব্রাউজার মেমোরি: ${storageQuota?.usageFormatted || '0 MB'} (${storageQuota?.percentUsed || 0}% ব্যবহৃত)` 
+                    : `${snapshots.length} rolling snapshots in IndexedDB • Storage: ${storageQuota?.usageFormatted || '0 MB'} (${storageQuota?.percentUsed || 0}% used)`}
                 </div>
+                {storageQuota?.isPersisted && (
+                  <div style={{ fontSize: '0.72rem', color: '#10b981', marginTop: '2px', fontWeight: '600' }}>
+                    {lang === 'bn' ? '🛡️ পারসিস্টেন্ট স্টোরেজ সক্রিয়: ব্রাউজার কখনই ডাটা ডিলিট করবে না' : '🛡️ Persistent Storage Protected: Data will never be auto-evicted'}
+                  </div>
+                )}
               </div>
 
               <button
                 className="btn btn-secondary"
-                onClick={() => {
-                  createAutoSnapshot(lang === 'bn' ? 'মেনু থেকে স্ন্যাপশট' : 'Manual Menu Snapshot');
+                onClick={async () => {
+                  await createAutoSnapshot(lang === 'bn' ? 'কুইক ইউজার স্ন্যাপশট' : 'Quick User Snapshot');
                   showToast(lang === 'bn' ? 'নতুন স্ন্যাপশট ব্যাকআপ সংরক্ষিত হয়েছে!' : 'Snapshot created!');
                 }}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px' }}

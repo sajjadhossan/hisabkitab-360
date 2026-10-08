@@ -8,6 +8,8 @@
 
 import { openOfflineDB, getAllIndexedDbItems, setIndexedDbItem, clearIndexedDbStore } from './indexedDbCache';
 import { broadcastLiveEvent } from './liveSyncService';
+import { broadcastLocalTerminalEvent } from './lanSyncProtocol';
+import { resolveConflictLWW } from './conflictResolver';
 
 const QUEUE_STORE = 'offline_mutations';
 const syncListeners = new Set();
@@ -48,6 +50,12 @@ export const enqueueOfflineMutation = async (actionType, payload) => {
   await setIndexedDbItem(QUEUE_STORE, mutationId, record);
   const queue = await getAllIndexedDbItems(QUEUE_STORE);
   notifyStatusChange(queue.length);
+  
+  // Instant 0ms broadcast to sibling counter windows/tabs on LAN
+  try {
+    broadcastLocalTerminalEvent(actionType, payload);
+  } catch {}
+
   return record;
 };
 

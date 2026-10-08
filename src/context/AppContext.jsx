@@ -20,6 +20,22 @@ import {
   getTemplateById
 } from '../data/industryTemplates';
 import { scheduleStorageWrite, flushPendingStorageWrites } from '../utils/storageQueue';
+import {
+  createSystemSnapshot,
+  loadSnapshotData,
+  deleteSnapshotById,
+  getSnapshotMetaList
+} from '../services/snapshotService';
+import { inMemoryCache } from '../services/inMemoryCache';
+import {
+  requestPersistentStorage,
+  subscribeStorageQuota
+} from '../services/storageQuotaService';
+import {
+  broadcastLocalTerminalEvent,
+  subscribeLocalTerminalSync
+} from '../services/lanSyncProtocol';
+import { exportUniversalBackupAsync, validateUniversalBackup } from '../services/fastExportService';
 
 const AppContext = createContext();
 
@@ -674,14 +690,18 @@ export const AppProvider = ({ children }) => {
     return DEFAULT_APP_CATEGORIES;
   });
 
-  // Backup Snapshots State
+  // Backup Snapshots State (7-Day Rolling IndexedDB)
   const [snapshots, setSnapshots] = useState(() => {
-    try {
-      const saved = localStorage.getItem('hk360_snapshots');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+    return getSnapshotMetaList();
+  });
+
+  // Storage Quota & Eviction Protection State
+  const [storageQuota, setStorageQuota] = useState({
+    usageFormatted: '0 MB',
+    quotaFormatted: '0 MB',
+    percentUsed: 0,
+    isPersisted: false,
+    isLowSpace: false
   });
 
   // Commercial Reselling & Client Licensing State
@@ -920,9 +940,34 @@ export const AppProvider = ({ children }) => {
     scheduleStorageWrite(STORAGE_KEYS.APP_CATEGORIES, categories);
   }, [categories]);
 
+  // Reactive in-memory cache warming for 0ms lookups
   useEffect(() => {
-    scheduleStorageWrite('hk360_snapshots', snapshots);
-  }, [snapshots]);
+    inMemoryCache.warmProducts(products);
+  }, [products]);
+
+  useEffect(() => {
+    inMemoryCache.warmCustomers(customers);
+  }, [customers]);
+
+  // Storage Quota & Eviction Protection
+  useEffect(() => {
+    requestPersistentStorage();
+    const unsubQuota = subscribeStorageQuota(setStorageQuota);
+    return () => unsubQuota();
+  }, []);
+
+  // Multi-terminal / Cross-tab Local Sync
+  useEffect(() => {
+    const unsubLan = subscribeLocalTerminalSync((msg) => {
+      if (msg.type === 'SALE_COMPLETED' && msg.payload?.sale) {
+        setSalesHistory((prev) => {
+          const exists = prev.some((s) => s.id === msg.payload.sale.id);
+          return exists ? prev : [msg.payload.sale, ...prev];
+        });
+      }
+    });
+    return () => unsubLan();
+  }, []);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.LICENSE_INFO, licenseInfo);
@@ -1656,6 +1701,11 @@ export const AppProvider = ({ children }) => {
     if (businessSettings.autoOpenCashDrawer !== false && (paymentMethod === 'cash' || actualPaid > 0)) {
       openCashDrawer('sale');
     }
+
+    // Instant 0ms broadcast to sibling counter terminals on LAN/Tabs
+    try {
+      broadcastLocalTerminalEvent('SALE_COMPLETED', { sale: saleRecord });
+    } catch {}
 
     showToast(lang === 'bn' ? `ইনভয়েস #${invoiceId} সফলভাবে সম্পন্ন হয়েছে!` : `Sale #${invoiceId} completed!`);
     return saleRecord;
@@ -2780,51 +2830,45 @@ export const AppProvider = ({ children }) => {
   // ----------------------------------------------------
   // AUTOMATIC & MANUAL BACKUP, SNAPSHOTS & GOOGLE DRIVE SYNC
   // ----------------------------------------------------
-  const createAutoSnapshot = (label = (lang === 'bn' ? 'স্বয়ংক্রিয় ব্যাকআপ স্ন্যাপশট' : 'Auto Backup Snapshot')) => {
+  const createAutoSnapshot = async (label = (lang === 'bn' ? 'স্বয়ংক্রিয় ব্যাকআপ স্ন্যাপশট' : 'Auto Backup Snapshot')) => {
     try {
       const currentData = {
-        version: '2.0.0',
+        version: '3.0.0',
         createdAt: new Date().toISOString(),
         personal: { personalExpenses, personalIncomes, personalSavings, personalDebts, personalEvents },
         business: { products, salesHistory, customers, employees, suppliers, businessExpenses, businessSettings, invoices, quotations }
       };
-      const serialized = JSON.stringify(currentData);
-      const sizeKb = (serialized.length / 1024).toFixed(1);
-      const now = new Date();
-      const newSnapshot = {
-        id: `snap-${Date.now()}`,
-        date: now.toISOString().split('T')[0],
-        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        label,
-        size: `${sizeKb} KB`,
-        invoicesCount: invoices.length,
-        customersCount: customers.length,
-        productsCount: products.length,
-        data: currentData
-      };
-      // Keep up to 10 snapshots in storage
-      const updated = [newSnapshot, ...snapshots.slice(0, 9)];
-      setSnapshots(updated);
-      return newSnapshot;
+      const result = await createSystemSnapshot(currentData, label);
+      if (result && result.success) {
+        setSnapshots(getSnapshotMetaList());
+        return result.meta;
+      }
+      return null;
     } catch (err) {
       console.warn('Snapshot error:', err);
       return null;
     }
   };
 
-  const restoreFromSnapshot = (snapshotId) => {
+  const restoreFromSnapshot = async (snapshotId) => {
     const snap = snapshots.find(s => s.id === snapshotId);
-    if (!snap || !snap.data) {
-      showToast(lang === 'bn' ? 'স্ন্যাপশট ডাটা পাওয়া যায়নি' : 'Snapshot not found', 'danger');
+    if (!snap) {
+      showToast(lang === 'bn' ? 'স্ন্যাপশট পাওয়া যায়নি' : 'Snapshot not found', 'danger');
+      return;
+    }
+    const snapData = (await loadSnapshotData(snapshotId)) || snap.data;
+    if (!snapData) {
+      showToast(lang === 'bn' ? 'স্ন্যাপশট ডাটা পাওয়া যায়নি' : 'Snapshot data not found', 'danger');
       return;
     }
     if (window.confirm(lang === 'bn' ? `আপনি কি "${snap.date} ${snap.time}"-এর ব্যাকআপ রিস্টোর করতে চান?` : `Restore backup from ${snap.date} ${snap.time}?`)) {
-      importAllData(JSON.stringify(snap.data));
+      importAllData(JSON.stringify(snapData));
     }
   };
 
-  const deleteSnapshot = (snapshotId) => {
-    setSnapshots(snapshots.filter(s => s.id !== snapshotId));
+  const deleteSnapshot = async (snapshotId) => {
+    await deleteSnapshotById(snapshotId);
+    setSnapshots(getSnapshotMetaList());
     showToast(lang === 'bn' ? 'স্ন্যাপশট মুছে ফেলা হয়েছে' : 'Snapshot deleted');
   };
 
@@ -3015,28 +3059,39 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // Manual Backup & Restore
-  const exportAllData = () => {
+  // Manual Backup & Restore (Zero-Lag Streaming & Portable Migration)
+  const exportAllData = async () => {
     const backupData = {
-      version: '2.0.0',
+      version: '3.0.0',
       exportDate: new Date().toISOString(),
       personal: { personalExpenses, personalIncomes, personalSavings, personalDebts, personalEvents },
       business: { products, salesHistory, customers, employees, fieldOrders, suppliers, businessExpenses, businessSettings, invoices, quotations, damagedGoods, businessDebts },
       categories
     };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `HisabKitab360_Backup_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast(lang === 'bn' ? 'ডাটা ব্যাকআপ ডাউনলোড শুরু হয়েছে' : 'Backup downloaded');
+    try {
+      await exportUniversalBackupAsync(backupData);
+      showToast(lang === 'bn' ? 'ডাটা ব্যাকআপ ডাউনলোড শুরু হয়েছে (জিরো-ল্যাগ)' : 'Backup downloaded (Zero-Lag)');
+    } catch {
+      // Fallback in case of browser restrictions
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HisabKitab360_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(lang === 'bn' ? 'ডাটা ব্যাকআপ ডাউনলোড শুরু হয়েছে' : 'Backup downloaded');
+    }
   };
 
   const importAllData = (jsonString) => {
     try {
-      const data = JSON.parse(jsonString);
+      const validation = validateUniversalBackup(jsonString);
+      if (!validation.isValid) {
+        showToast(lang === 'bn' ? 'ভুল ব্যাকআপ ফাইল ফরম্যাট' : 'Invalid backup JSON file', 'danger');
+        return;
+      }
+      const data = validation.data;
       if (data.personal) {
         if (data.personal.personalExpenses) setPersonalExpenses(data.personal.personalExpenses);
         if (data.personal.personalIncomes) setPersonalIncomes(data.personal.personalIncomes);
@@ -3572,6 +3627,8 @@ export const AppProvider = ({ children }) => {
         exportAllData,
         importAllData,
         resetToDemo,
+        storageQuota,
+        inMemoryCache,
 
         // Google Drive 1-Click OAuth 2.0
         isDriveConnected,
