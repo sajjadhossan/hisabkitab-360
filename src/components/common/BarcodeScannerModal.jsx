@@ -733,7 +733,7 @@ export const BarcodeScannerModal = () => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Flash / Torch Toggle */}
-              {hasTorch && (
+              {(hasTorch || cameraActive) && (
                 <button
                   type="button"
                   onClick={toggleTorch}
