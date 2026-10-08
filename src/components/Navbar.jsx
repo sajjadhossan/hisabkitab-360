@@ -54,7 +54,8 @@ import {
   Bell,
   AlertTriangle,
   TrendingDown,
-  MessageCircle
+  MessageCircle,
+  Truck
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -379,6 +380,8 @@ export const Navbar = () => {
       title: lang === 'bn' ? '🛒 বিক্রয়, মেমো ও বিলিং' : '🛒 Sales & Billing',
       items: [
         { id: 'pos', label: lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Terminal', desc: lang === 'bn' ? 'দ্রুত খুচরা বিক্রয় ও বিল' : 'Retail checkout', icon: ScanLine, color: '#6366f1', badge: 'HOT' },
+        { id: 'salesman_order', label: lang === 'bn' ? '📝 সেলসম্যান অর্ডার বুকিং' : '📝 Salesman Order Booking', desc: lang === 'bn' ? 'দোকানে ঘুরে অর্ডার কাটা' : 'Field retailer order booking', icon: FileText, color: '#4f46e5', badge: 'FIELD' },
+        { id: 'sr_delivery', label: lang === 'bn' ? '🚚 এসআর ডেলিভারি হাব' : '🚚 SR Delivery & Cash Hub', desc: lang === 'bn' ? 'মাল ডেলিভারি ও টাকা আদায়' : 'Deliver orders & collect cash', icon: Truck, color: '#10b981', badge: 'SR' },
         { id: 'invoices', label: lang === 'bn' ? 'চালান ও ইনভয়েস' : 'Invoices & Bills', desc: lang === 'bn' ? 'সকল ইনভয়েস ও মেমো' : 'All sales history', icon: FileText, color: '#3b82f6' },
         { id: 'quotations', label: lang === 'bn' ? 'কোটেশন / এস্টিমেট' : 'Quotations', desc: lang === 'bn' ? 'আনুমানিক খরচের অফার' : 'Estimates & quotes', icon: FileCheck, color: '#06b6d4' },
         ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল' : '🏢 Branch & Cash Hub', desc: lang === 'bn' ? 'শাখা, কাউন্টার ও স্টাফ কন্ট্রোল' : 'Multi-branch cash & staff', icon: Building2, color: '#10b981', badge: 'PRO' }] : [])

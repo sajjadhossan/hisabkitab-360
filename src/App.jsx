@@ -62,6 +62,8 @@ const CRMCustomers = lazyNamed(() => import('./components/business/CRMCustomers'
 const HRPayroll = lazyNamed(() => import('./components/business/HRPayroll'), 'HRPayroll');
 const BusinessSettings = lazyNamed(() => import('./components/business/BusinessSettings'), 'BusinessSettings');
 const SRFieldManager = lazyNamed(() => import('./components/business/SRFieldManager'), 'SRFieldManager');
+const SalesmanOrderBooking = lazyNamed(() => import('./components/business/SalesmanOrderBooking'), 'SalesmanOrderBooking');
+const SRDeliveryHub = lazyNamed(() => import('./components/business/SRDeliveryHub'), 'SRDeliveryHub');
 const BranchCashControlCenter = lazyNamed(() => import('./components/business/BranchCashControlCenter'), 'BranchCashControlCenter');
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
@@ -572,6 +574,10 @@ const AppContent = () => {
           return <HRPayroll />;
         case 'sr':
           return <SRFieldManager />;
+        case 'salesman_order':
+          return <SalesmanOrderBooking onSwitchToSR={() => setActiveTab('sr_delivery')} />;
+        case 'sr_delivery':
+          return <SRDeliveryHub onSwitchToSalesman={() => setActiveTab('salesman_order')} />;
         case 'branch_control':
           return <BranchCashControlCenter />;
         case 'settings':

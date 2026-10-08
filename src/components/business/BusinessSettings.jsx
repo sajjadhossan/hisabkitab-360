@@ -57,6 +57,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
+import { POSPermissionsSettings } from './POSPermissionsSettings';
 
 export const BusinessSettings = () => {
   const {
@@ -273,6 +274,28 @@ export const BusinessSettings = () => {
           >
             <FolderOpen size={14} />
             <span>{lang === 'bn' ? 'ক্যাশ বক্স ও বারকোড স্ক্যানার' : 'POS Hardware & Drawer'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('pos_permissions')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeSubTab === 'pos_permissions' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+              color: activeSubTab === 'pos_permissions' ? '#fff' : 'var(--text-muted)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: activeSubTab === 'pos_permissions' ? '0 2px 10px rgba(16, 185, 129, 0.35)' : 'none'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>{lang === 'bn' ? '🛒 POS ও পারমিশন কন্ট্রোল' : '🛒 POS & Permissions'}</span>
           </button>
 
           <button
@@ -1872,6 +1895,13 @@ export const BusinessSettings = () => {
             </div>
 
           </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB: POS PERMISSIONS, VISIBLE BUTTONS & ROLE CONTROL */}
+        {/* ========================================================= */}
+        {activeSubTab === 'pos_permissions' && (
+          <POSPermissionsSettings lang={lang} />
         )}
 
         {/* ========================================================= */}

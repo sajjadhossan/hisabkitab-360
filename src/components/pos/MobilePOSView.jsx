@@ -70,8 +70,9 @@ export const MobilePOSView = ({
   onSwitchToDesktop,
   quickFilters = []
 }) => {
-  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart } = useApp();
+  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {} } = useApp();
   const { user } = useAuth();
+  const posPerms = businessSettings?.posPermissions || {};
 
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'cart'
   const [searchTerm, setSearchTerm] = useState('');
@@ -404,107 +405,117 @@ export const MobilePOSView = ({
         {/* Header Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {/* Drawer Float Reconciliation Button */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticFeedback.light();
-              setShowDrawerFloatModal(true);
-            }}
-            style={{
-              padding: '5px 8px',
-              borderRadius: '8px',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
-              background: 'rgba(16, 185, 129, 0.12)',
-              color: '#10b981',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.72rem',
-              fontWeight: '800',
-              cursor: 'pointer'
-            }}
-            title={lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব ও রিকনসিলিয়েশন' : 'Cash Drawer Float'}
-          >
-            <Banknote size={14} />
-            <span>{lang === 'bn' ? 'ক্যাশ ড্রয়ার' : 'Drawer'}</span>
-          </button>
+          {posPerms.showCashDrawer !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowDrawerFloatModal(true);
+              }}
+              style={{
+                padding: '5px 8px',
+                borderRadius: '8px',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব ও রিকনসিলিয়েশন' : 'Cash Drawer Float'}
+            >
+              <Banknote size={14} />
+              <span>{lang === 'bn' ? 'ক্যাশ ড্রয়ার' : 'Drawer'}</span>
+            </button>
+          )}
 
           {/* Held Carts Button */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticFeedback.light();
-              setShowRecallModal(true);
-            }}
-            style={{
-              padding: '5px 8px',
-              borderRadius: '8px',
-              border: heldCarts.length > 0 ? '1px solid #f59e0b' : '1px solid var(--border-color)',
-              background: heldCarts.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-              color: heldCarts.length > 0 ? '#f59e0b' : 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.72rem',
-              fontWeight: '800',
-              cursor: 'pointer'
-            }}
-            title={lang === 'bn' ? `হোল্ড কার্ট (${heldCarts.length}টি সংরক্ষিত)` : `Held Carts (${heldCarts.length})`}
-          >
-            <History size={14} />
-            <span>{lang === 'bn' ? `হোল্ড (${heldCarts.length})` : `Held (${heldCarts.length})`}</span>
-          </button>
+          {posPerms.showHoldCart !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowRecallModal(true);
+              }}
+              style={{
+                padding: '5px 8px',
+                borderRadius: '8px',
+                border: heldCarts.length > 0 ? '1px solid #f59e0b' : '1px solid var(--border-color)',
+                background: heldCarts.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                color: heldCarts.length > 0 ? '#f59e0b' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? `হোল্ড কার্ট (${heldCarts.length}টি সংরক্ষিত)` : `Held Carts (${heldCarts.length})`}
+            >
+              <History size={14} />
+              <span>{lang === 'bn' ? `হোল্ড (${heldCarts.length})` : `Held (${heldCarts.length})`}</span>
+            </button>
+          )}
 
           {/* Network Quality & Latency Badge */}
           <NetworkQualityIndicator lang={lang} />
 
           {/* Screen Wake Lock Toggle (Always-on Screen) */}
-          <ScreenWakeLockToggle lang={lang} showToast={showToast} />
+          {posPerms.showWakeLock !== false && (
+            <ScreenWakeLockToggle lang={lang} showToast={showToast} />
+          )}
 
           {/* Soundbox toggle */}
-          <button
-            type="button"
-            onClick={() => setSoundboxActive(!soundboxActive)}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              border: soundboxActive ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-              background: soundboxActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-              color: soundboxActive ? '#10b981' : 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
-            }}
-            title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু' : 'সাউন্ডবক্স বন্ধ'}
-          >
-            {soundboxActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
+          {posPerms.showSoundbox !== false && (
+            <button
+              type="button"
+              onClick={() => setSoundboxActive(!soundboxActive)}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                border: soundboxActive ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                background: soundboxActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                color: soundboxActive ? '#10b981' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু' : 'সাউন্ডবক্স বন্ধ'}
+            >
+              {soundboxActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
+          )}
 
           {/* Customer Display Live Mirror Screen Button */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticFeedback.light();
-              window.open('/?view=customer_mirror', '_blank');
-            }}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              border: '1px solid rgba(99, 102, 241, 0.4)',
-              background: 'rgba(99, 102, 241, 0.12)',
-              color: 'var(--business-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer'
-            }}
-            title={lang === 'bn' ? 'গ্রাহক লাইভ ডিসপ্লে স্ক্রিন খুলুন' : 'Open Customer Live Display'}
-          >
-            <Monitor size={15} />
-          </button>
+          {posPerms.showCustomerMirror !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                window.open('/?view=customer_mirror', '_blank');
+              }}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                background: 'rgba(99, 102, 241, 0.12)',
+                color: 'var(--business-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'গ্রাহক লাইভ ডিসপ্লে স্ক্রিন খুলুন' : 'Open Customer Live Display'}
+            >
+              <Monitor size={15} />
+            </button>
+          )}
 
           {/* Desktop view switch */}
 
@@ -1505,24 +1516,30 @@ export const MobilePOSView = ({
                 <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)' }}>
                   ডিসকাউন্ট (টাকা):
                 </span>
-                <input
-                  type="number"
-                  placeholder="০"
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  style={{
-                    width: '90px',
-                    height: '32px',
-                    textAlign: 'right',
-                    padding: '4px 8px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.85rem',
-                    fontWeight: '800'
-                  }}
-                />
+                {posPerms.allowCashierDiscount === false ? (
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                    🔒 বন্ধ
+                  </span>
+                ) : (
+                  <input
+                    type="number"
+                    placeholder="০"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    style={{
+                      width: '90px',
+                      height: '32px',
+                      textAlign: 'right',
+                      padding: '4px 8px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem',
+                      fontWeight: '800'
+                    }}
+                  />
+                )}
               </div>
 
               {/* Order Summary Breakdown Box */}
@@ -1565,31 +1582,33 @@ export const MobilePOSView = ({
               </div>
 
               {/* Digital Memo Dispatcher Button (WhatsApp & SMS) */}
-              <button
-                type="button"
-                onClick={() => {
-                  hapticFeedback.light();
-                  setShowDigitalMemoModal(true);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '12px',
-                  border: '1.5px solid #25D366',
-                  background: 'rgba(37, 211, 102, 0.12)',
-                  color: '#25D366',
-                  fontWeight: '800',
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                  marginBottom: '8px'
-                }}
-              >
-                <span>📱 WhatsApp / SMS ডিজিটাল মেমো পাঠান</span>
-              </button>
+              {posPerms.showDigitalMemo !== false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticFeedback.light();
+                    setShowDigitalMemoModal(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #25D366',
+                    background: 'rgba(37, 211, 102, 0.12)',
+                    color: '#25D366',
+                    fontWeight: '800',
+                    fontSize: '0.84rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    marginBottom: '8px'
+                  }}
+                >
+                  <span>📱 WhatsApp / SMS ডিজিটাল মেমো পাঠান</span>
+                </button>
+              )}
 
               {/* Big Touch Checkout Button */}
               <button
