@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { playCartPop, playButtonClick } from '../../services/soundFeedback';
 import { VoiceInputButton } from '../common/VoiceInputButton';
+import { broadcastCartToCustomerDisplay } from '../../services/customerMirrorService';
 
 export const MobilePOSView = ({
   cart,
@@ -259,6 +260,22 @@ export const MobilePOSView = ({
   const discount = Math.min(Math.max(0, subtotal), Number(discountAmount) || 0);
   const grandTotal = Math.max(0, subtotal - discount);
 
+  // Live Mirror Broadcast to Customer Display
+  const activeCustomer = useMemo(() => {
+    return (customers || []).find(c => c.id === selectedCustomerId);
+  }, [customers, selectedCustomerId]);
+
+  useEffect(() => {
+    broadcastCartToCustomerDisplay({
+      cart,
+      subtotal,
+      discount,
+      grandTotal,
+      storeName: activeBranch?.name || 'হিসাবকিতাব ৩৬০',
+      customerName: activeCustomer?.name || ''
+    });
+  }, [cart, subtotal, discount, grandTotal, activeBranch?.name, activeCustomer?.name]);
+
   // Live Sales Ticker Totals
   const todaySalesTotal = useMemo(() => {
     return (salesHistory || []).filter(s => {
@@ -453,6 +470,30 @@ export const MobilePOSView = ({
             title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু' : 'সাউন্ডবক্স বন্ধ'}
           >
             {soundboxActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+
+          {/* Customer Display Live Mirror Screen Button */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.light();
+              window.open('/?view=customer_mirror', '_blank');
+            }}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              border: '1px solid rgba(99, 102, 241, 0.4)',
+              background: 'rgba(99, 102, 241, 0.12)',
+              color: 'var(--business-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'গ্রাহক লাইভ ডিসপ্লে স্ক্রিন খুলুন' : 'Open Customer Live Display'}
+          >
+            <Monitor size={15} />
           </button>
 
           {/* Desktop view switch */}

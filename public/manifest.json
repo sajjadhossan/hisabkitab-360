@@ -15,5 +15,35 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "নতুন বিক্রি (POS)",
+      "short_name": "POS বিক্রি",
+      "description": "সরাসরি পিওএস ক্যাশিয়ার স্ক্রিন চালু করুন",
+      "url": "/?tab=pos",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "বাকি খাতা (Debt Khata)",
+      "short_name": "বাকি খাতা",
+      "description": "বাকি দেনা-পাওনা খতিয়ান দেখুন",
+      "url": "/?tab=debts",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "ক্যাশ ড্রয়ার নিয়ন্ত্রণ",
+      "short_name": "ক্যাশ ড্রয়ার",
+      "description": "কাউন্টার ক্যাশ ইন হ্যান্ড স্থিতি",
+      "url": "/?tab=branch_control",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "পণ্য ইনভেন্টরি",
+      "short_name": "ইনভেন্টরি",
+      "description": "মজুদ স্টক ও লো-স্টক অ্যালার্ট",
+      "url": "/?tab=inventory",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ],
   "categories": ["business", "finance", "productivity"]
 }

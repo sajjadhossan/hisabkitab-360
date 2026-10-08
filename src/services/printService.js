@@ -911,3 +911,51 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}, i
   return true;
 };
 
+// ========================================================
+// BACKGROUND OFFLINE PRINT QUEUE ENGINE
+// ========================================================
+const PRINT_QUEUE_KEY = 'hk360_pending_print_queue';
+
+export const getPendingPrintQueue = () => {
+  try {
+    const saved = localStorage.getItem(PRINT_QUEUE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const savePendingPrintQueue = (queue) => {
+  try {
+    localStorage.setItem(PRINT_QUEUE_KEY, JSON.stringify(queue));
+  } catch {}
+};
+
+export const enqueuePendingPrint = (receiptData, businessSettings = {}, is58mm = true) => {
+  const queue = getPendingPrintQueue();
+  const job = {
+    id: `print_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    receiptData,
+    businessSettings,
+    is58mm,
+    timestamp: Date.now()
+  };
+  const updated = [...queue, job];
+  savePendingPrintQueue(updated);
+  return job;
+};
+
+export const removePendingPrintJob = (jobId) => {
+  const queue = getPendingPrintQueue();
+  const updated = queue.filter(j => j.id !== jobId);
+  savePendingPrintQueue(updated);
+  return updated;
+};
+
+export const clearPendingPrintQueue = () => {
+  try {
+    localStorage.removeItem(PRINT_QUEUE_KEY);
+  } catch {}
+};
+
+

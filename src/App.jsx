@@ -18,6 +18,9 @@ import { useAuth } from './context/AuthContext';
 import { PullToRefresh } from './components/common/PullToRefresh';
 import { SyncStatusIndicator } from './components/common/SyncStatusIndicator';
 import { ScreenLockModal } from './components/common/ScreenLockModal';
+import { CustomerMirrorDisplay } from './components/pos/CustomerMirrorDisplay';
+import { FloatingQuickPad } from './components/common/FloatingQuickPad';
+import { checkDailyScheduledNotifications } from './services/localNotificationService';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -271,6 +274,27 @@ const AppContent = () => {
     } catch {}
   }, [setActiveTab]);
 
+  const [viewParam, setViewParam] = useState(() => {
+    return new URLSearchParams(window.location.search).get('view');
+  });
+
+  // Handle Android App Shortcut ?tab= parameter
+  React.useEffect(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam && ['pos', 'debts', 'inventory', 'invoices', 'branch_control'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [setActiveTab]);
+
+  // Check Daily Scheduled Local Notifications
+  React.useEffect(() => {
+    const todaySales = (salesHistory || []).reduce((acc, s) => acc + (Number(s.grandTotal) || 0), 0);
+    checkDailyScheduledNotifications({
+      overdueDebtsCount: (debtRecords || []).length,
+      todaySalesTotal: todaySales
+    });
+  }, [debtRecords, salesHistory]);
+
   const [verifyParam, setVerifyParam] = useState(() => {
     return new URLSearchParams(window.location.search).get('verify');
   });
@@ -282,9 +306,25 @@ const AppContent = () => {
     const url = new URL(window.location);
     url.searchParams.delete('verify');
     url.searchParams.delete('data');
+    url.searchParams.delete('view');
     window.history.replaceState({}, '', url);
     setVerifyParam(null);
+    setViewParam(null);
   };
+
+  // If opened in Customer-Facing Mirror Screen mode
+  if (viewParam === 'customer_mirror') {
+    return (
+      <CustomerMirrorDisplay
+        onExit={() => {
+          const url = new URL(window.location);
+          url.searchParams.delete('view');
+          window.history.replaceState({}, '', url);
+          setViewParam(null);
+        }}
+      />
+    );
+  }
 
   // If opened via QR code scan or link verification
   if (verifyParam) {
@@ -660,6 +700,9 @@ const AppContent = () => {
           </div>
         </div>
       )}
+
+      {/* Global Floating Quick Pad (Pocket Calculator, Scratchpad & Denomination Tool) */}
+      <FloatingQuickPad />
 
       <ScreenLockModal
         isOpen={isScreenLocked}
