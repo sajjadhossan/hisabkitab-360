@@ -25,6 +25,7 @@ import {
   markNightlyBackupPromptDone,
   triggerInstantWhatsAppSelfBackup
 } from './services/nativeAppService';
+import { initGlobalShortcuts } from './services/shortcutService';
 
 // Helper for code-splitting named exports
 const lazyNamed = (importFn, name) => lazy(() => importFn().then(m => ({ default: m[name] })));
@@ -261,13 +262,35 @@ const AppContent = () => {
       }
     });
 
+    // Universal Global Hotkeys (F1, F2, F3, F4, Ctrl+Shift+L, Escape)
+    const unsubShortcuts = initGlobalShortcuts({
+      onNavigate: (tab) => {
+        const cur = appStateRef.current;
+        if (cur.setActiveTab) cur.setActiveTab(tab);
+      },
+      onToggleLock: () => {
+        const cur = appStateRef.current;
+        if (cur.lockScreen) cur.lockScreen();
+      },
+      onCloseModals: () => {
+        const cur = appStateRef.current;
+        if (cur.closeInvoicePrint) cur.closeInvoicePrint();
+        if (cur.closeQuotationPrint) cur.closeQuotationPrint();
+        if (cur.closeBarcodePrint) cur.closeBarcodePrint();
+        if (cur.closeScanner) cur.closeScanner();
+        if (cur.closeHelpSupport) cur.closeHelpSupport();
+      },
+      lang
+    });
+
     return () => {
       unsubBarcode();
       if (unsubVolume) unsubVolume();
       if (unsubAutoLock) unsubAutoLock();
       if (unsubLive) unsubLive();
+      if (unsubShortcuts) unsubShortcuts();
     };
-  }, []);
+  }, [lang]);
 
   // Synchronize Status Bar colors dynamically with Dark/Light theme
   React.useEffect(() => {

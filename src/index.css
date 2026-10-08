@@ -382,6 +382,44 @@ body.compact-mode table td {
   box-shadow: var(--elevation-float);
   border-radius: var(--radius-lg);
 }
+/* Sticky Action Bar (Guarantees Checkout and Save actions stay visible) */
+.sticky-action-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-color);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  z-index: 50;
+  box-shadow: var(--elevation-float);
+}
+
+/* Inline Editable Cell */
+.editable-cell {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px dashed transparent;
+  transition: all 0.12s ease;
+}
+
+.editable-cell:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-hover);
+}
+
+.editable-cell:focus-within {
+  border-color: var(--personal-primary, #10b981);
+  background: var(--bg-secondary);
+}
+
 
 
 [data-theme='light'] .kbd-badge {
