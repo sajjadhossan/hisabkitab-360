@@ -2,25 +2,11 @@ import React, { useState, Suspense, lazy } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
-import { AuthModal } from './components/auth/AuthModal';
 import { NotificationToast } from './components/common/NotificationToast';
-import { ReceiptModal } from './components/common/ReceiptModal';
-import { InvoicePrintModal } from './components/common/InvoicePrintModal';
-import { QuotationPrintModal } from './components/common/QuotationPrintModal';
-import { BarcodePrintModal } from './components/common/BarcodePrintModal';
-import { BarcodeScannerModal } from './components/common/BarcodeScannerModal';
-import { ShareInvoiceModal } from './components/common/ShareInvoiceModal';
-import { HelpSupportModal } from './components/common/HelpSupportModal';
-import { InvoiceVerificationView } from './components/common/InvoiceVerificationView';
-import { GlobalVoiceWidget } from './components/common/GlobalVoiceWidget';
 import { HealthcareProvider } from './context/HealthcareContext';
 import { useAuth } from './context/AuthContext';
 import { PullToRefresh } from './components/common/PullToRefresh';
 import { SyncStatusIndicator } from './components/common/SyncStatusIndicator';
-import { ScreenLockModal } from './components/common/ScreenLockModal';
-import { CustomerMirrorDisplay } from './components/pos/CustomerMirrorDisplay';
-import { FloatingQuickPad } from './components/common/FloatingQuickPad';
-import { LiveCashCounterWidget } from './components/common/LiveCashCounterWidget';
 import { checkDailyScheduledNotifications } from './services/localNotificationService';
 import { initPowerOptimizer } from './services/powerOptimizerService';
 import { initFastOfflineCache } from './services/indexedDbCache';
@@ -71,6 +57,22 @@ const SRDeliveryHub = lazyNamed(() => import('./components/business/SRDeliveryHu
 const BranchCashControlCenter = lazyNamed(() => import('./components/business/BranchCashControlCenter'), 'BranchCashControlCenter');
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
+
+// On-Demand Modals & Widgets (Code-split to keep initial bundle ultra-lightweight)
+const AuthModal = lazyNamed(() => import('./components/auth/AuthModal'), 'AuthModal');
+const ReceiptModal = lazyNamed(() => import('./components/common/ReceiptModal'), 'ReceiptModal');
+const InvoicePrintModal = lazyNamed(() => import('./components/common/InvoicePrintModal'), 'InvoicePrintModal');
+const QuotationPrintModal = lazyNamed(() => import('./components/common/QuotationPrintModal'), 'QuotationPrintModal');
+const BarcodePrintModal = lazyNamed(() => import('./components/common/BarcodePrintModal'), 'BarcodePrintModal');
+const BarcodeScannerModal = lazyNamed(() => import('./components/common/BarcodeScannerModal'), 'BarcodeScannerModal');
+const ShareInvoiceModal = lazyNamed(() => import('./components/common/ShareInvoiceModal'), 'ShareInvoiceModal');
+const HelpSupportModal = lazyNamed(() => import('./components/common/HelpSupportModal'), 'HelpSupportModal');
+const InvoiceVerificationView = lazyNamed(() => import('./components/common/InvoiceVerificationView'), 'InvoiceVerificationView');
+const GlobalVoiceWidget = lazyNamed(() => import('./components/common/GlobalVoiceWidget'), 'GlobalVoiceWidget');
+const ScreenLockModal = lazyNamed(() => import('./components/common/ScreenLockModal'), 'ScreenLockModal');
+const CustomerMirrorDisplay = lazyNamed(() => import('./components/pos/CustomerMirrorDisplay'), 'CustomerMirrorDisplay');
+const FloatingQuickPad = lazyNamed(() => import('./components/common/FloatingQuickPad'), 'FloatingQuickPad');
+const LiveCashCounterWidget = lazyNamed(() => import('./components/common/LiveCashCounterWidget'), 'LiveCashCounterWidget');
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -625,16 +627,18 @@ const AppContent = () => {
           </Suspense>
         </main>
       </PullToRefresh>
-      <AuthModal />
-      <ReceiptModal />
-      <InvoicePrintModal />
-      <QuotationPrintModal />
-      <BarcodePrintModal />
-      <BarcodeScannerModal />
-      <ShareInvoiceModal />
-      <HelpSupportModal />
+      <Suspense fallback={null}>
+        <AuthModal />
+        <ReceiptModal />
+        <InvoicePrintModal />
+        <QuotationPrintModal />
+        <BarcodePrintModal />
+        <BarcodeScannerModal />
+        <ShareInvoiceModal />
+        <HelpSupportModal />
+        <GlobalVoiceWidget />
+      </Suspense>
       <NotificationToast />
-      <GlobalVoiceWidget />
       <SyncStatusIndicator />
 
       {/* Nightly End-of-Day Backup Reminder Prompt */}
@@ -726,18 +730,20 @@ const AppContent = () => {
         </div>
       )}
 
-      {/* Live Floating Cash Counter & Drawer Balance Pill */}
-      <LiveCashCounterWidget />
+      <Suspense fallback={null}>
+        {/* Live Floating Cash Counter & Drawer Balance Pill */}
+        <LiveCashCounterWidget />
 
-      {/* Global Floating Quick Pad (Pocket Calculator, Scratchpad & Denomination Tool) */}
-      <FloatingQuickPad />
+        {/* Global Floating Quick Pad (Pocket Calculator, Scratchpad & Denomination Tool) */}
+        <FloatingQuickPad />
 
-      <ScreenLockModal
-        isOpen={isScreenLocked}
-        onClose={unlockScreen}
-        businessSettings={businessSettings}
-        lang={lang}
-      />
+        <ScreenLockModal
+          isOpen={isScreenLocked}
+          onClose={unlockScreen}
+          businessSettings={businessSettings}
+          lang={lang}
+        />
+      </Suspense>
     </div>
   );
 };

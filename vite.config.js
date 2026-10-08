@@ -6,7 +6,7 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -24,6 +24,15 @@ export default defineConfig({
           }
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'vendor-react';
+          }
+          if (id.includes('node_modules/html5-qrcode') || id.includes('node_modules/qrcode')) {
+            return 'vendor-barcode-scanner';
+          }
+          if (id.includes('node_modules/@capacitor')) {
+            return 'vendor-capacitor';
+          }
+          if (id.includes('node_modules/canvas-confetti')) {
+            return 'vendor-confetti';
           }
         }
       }

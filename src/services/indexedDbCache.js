@@ -4,10 +4,11 @@
  * Overcomes localStorage 5MB size limits, enables millisecond loading
  * of large product catalogs (10,000+ items), invoices, debts, and zero-lag
  * offline persistence. Runs completely asynchronous off the main UI thread.
+ * Supports indexed queries to prevent RAM bloat.
  */
 
 const DB_NAME = 'HisabKitab360_OfflineDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORES = ['products_cache', 'sales_cache', 'debts_cache', 'app_meta', 'offline_mutations', 'live_state'];
 
 let dbInstance = null;
@@ -24,8 +25,21 @@ export const openOfflineDB = () => {
     request.onupgradeneeded = (e) => {
       const db = e.target.result;
       STORES.forEach((storeName) => {
+        let store;
         if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: 'id' });
+          store = db.createObjectStore(storeName, { keyPath: 'id' });
+        } else {
+          store = e.target.transaction.objectStore(storeName);
+        }
+
+        // Add indices for fast non-blocking range & filter queries
+        if (store && !store.indexNames.contains('updatedAt')) {
+          store.createIndex('updatedAt', 'updatedAt', { unique: false });
+        }
+        if (store && (storeName === 'products_cache' || storeName === 'sales_cache')) {
+          if (!store.indexNames.contains('category')) {
+            store.createIndex('category', 'category', { unique: false });
+          }
         }
       });
     };
@@ -48,7 +62,12 @@ export const setIndexedDbItem = async (storeName, id, data) => {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName], 'readwrite');
       const store = tx.objectStore(storeName);
-      const record = { id, data, updatedAt: Date.now() };
+      const record = {
+        id,
+        data,
+        updatedAt: Date.now(),
+        category: data?.category || ''
+      };
       const req = store.put(record);
 
       req.onsuccess = () => resolve(true);
@@ -88,6 +107,32 @@ export const getAllIndexedDbItems = async (storeName) => {
 
       req.onsuccess = () => {
         resolve((req.result || []).map((r) => r.data));
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * High-speed Indexed query (bypasses full array scan in memory)
+ */
+export const queryIndexedDbByIndex = async (storeName, indexName, value, limit = 50) => {
+  try {
+    const db = await openOfflineDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction([storeName], 'readonly');
+      const store = tx.objectStore(storeName);
+      if (!store.indexNames.contains(indexName)) {
+        resolve([]);
+        return;
+      }
+      const index = store.index(indexName);
+      const req = index.getAll(value, limit);
+
+      req.onsuccess = () => {
+        resolve((req.result || []).map(r => r.data));
       };
       req.onerror = () => resolve([]);
     });
