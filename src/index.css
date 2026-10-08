@@ -2001,19 +2001,21 @@ input:checked+.slider:before {
   img {
     max-width: 100% !important;
   }
+}
 
-  /* Shimmer Skeleton Loading Animation for React.lazy Suspense */
-  @keyframes shimmerAnim {
-    0% {
-      background-position: -200% 0;
-    }
-
-    100% {
-      background-position: 200% 0;
-    }
+/* =========================================================
+   GLOBAL SHIMMER SKELETON & MICRO-ANIMATIONS
+   ========================================================= */
+@keyframes shimmerAnim {
+  0% {
+    background-position: -200% 0;
   }
+  100% {
+    background-position: 200% 0;
+  }
+}
 
-  .shimmer-skeleton {
+.shimmer-skeleton {
     background: linear-gradient(90deg,
         var(--bg-secondary) 25%,
         rgba(255, 255, 255, 0.09) 50%,

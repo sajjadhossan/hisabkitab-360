@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Printer, X, Check, ShieldCheck, MessageCircle, Bluetooth } from 'lucide-react';
+import { Printer, X, Check, ShieldCheck, MessageCircle, MessageSquare, Bluetooth } from 'lucide-react';
 import { printElement, printBluetoothEscPos } from '../../services/printService';
 import { generateQrDataUrl, createInvoiceVerificationUrl, generateInvoiceQrPayload, formatWhatsAppInvoiceMessage, normalizeWhatsAppPhone } from '../../services/qrService';
 import { generatePaymentQrDataUrl } from '../../services/barcodeService';
@@ -53,6 +53,25 @@ export const ReceiptModal = () => {
       }
     } else {
       openShareInvoice(activeReceipt);
+    }
+  };
+
+  const handleDirectSmsMemo = () => {
+    if (!activeReceipt) return;
+    const phone = activeReceipt.customerPhone ? activeReceipt.customerPhone.replace(/[^0-9+]/g, '') : '';
+    const storeName = businessSettings?.storeName || 'হিসাবখাতা ৩৬০';
+    const total = activeReceipt.grandTotal || 0;
+    const paid = activeReceipt.paidAmount || 0;
+    const due = Math.max(0, total - paid);
+
+    const smsText = lang === 'bn'
+      ? `[${storeName}] মেমো #${activeReceipt.id}। মোট: ৳${total}, পরিশোধ: ৳${paid}${due > 0 ? `, বাকি: ৳${due}` : ''}। কেনাকাটার জন্য ধন্যবাদ!`
+      : `[${storeName}] Memo #${activeReceipt.id}. Total: ৳${total}, Paid: ৳${paid}${due > 0 ? `, Due: ৳${due}` : ''}. Thank you!`;
+
+    const smsUrl = phone ? `sms:${phone}?body=${encodeURIComponent(smsText)}` : `sms:?body=${encodeURIComponent(smsText)}`;
+    window.open(smsUrl, '_blank');
+    if (showToast) {
+      showToast(lang === 'bn' ? '✉️ মেসেজ অ্যাপ ওপেন হচ্ছে...' : 'Opening SMS app...', 'info');
     }
   };
 
@@ -392,6 +411,29 @@ export const ReceiptModal = () => {
           >
             <MessageCircle size={16} />
             <span>{lang === 'bn' ? '📲 হোয়াটসঅ্যাপ' : '📲 WhatsApp'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn"
+            onClick={handleDirectSmsMemo}
+            style={{
+              background: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'সাধারণ মোবাইলে SMS পাঠান' : 'Send SMS Receipt'}
+          >
+            <MessageSquare size={16} />
+            <span>{lang === 'bn' ? '✉️ SMS' : '✉️ SMS'}</span>
           </button>
 
           <button

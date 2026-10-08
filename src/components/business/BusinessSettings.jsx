@@ -52,8 +52,11 @@ import {
   Layers,
   LayoutDashboard,
   Building2,
-  AlertTriangle
+  AlertTriangle,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
+import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
 
 export const BusinessSettings = () => {
   const {
@@ -107,6 +110,7 @@ export const BusinessSettings = () => {
   const [drawerTestCount, setDrawerTestCount] = useState(0);
   const [copiedKey, setCopiedKey] = useState(false);
   const [inputLicenseKey, setInputLicenseKey] = useState('');
+  const [isSoundboxActive, setIsSoundboxActive] = useState(() => isSoundboxEnabled());
 
   // Commercial / Reseller and Clean Slate setup states
   const [resellerForm, setResellerForm] = useState({
@@ -1802,6 +1806,60 @@ export const BusinessSettings = () => {
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 3. SMART DIGITAL SOUNDBOX CONTROLS */}
+            <div className="glass-card" style={{ borderLeft: '4px solid #ec4899' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: 'rgba(236, 72, 153, 0.15)', padding: '8px', borderRadius: '8px', color: '#ec4899' }}>
+                    <Volume2 size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      {lang === 'bn' ? '🔊 স্মার্ট ডিজিটাল সাউন্ডবক্স (Digital Voice Soundbox)' : 'Smart Digital Voice Soundbox'}
+                    </h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {lang === 'bn' ? 'বিক্রয় ও বাকি আদায়ের সময় মিষ্টি সুরেলা বেল ও প্রাকৃতিক বাংলা ভয়েস ঘোষণা' : 'Pleasant chime & natural Bengali voice announcement for completed sales'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      triggerSoundboxPayment({ amount: 500, method: 'bkash', type: 'sale' });
+                      if (showToast) showToast(lang === 'bn' ? '🔊 সাউন্ডবক্স বাংলা ভয়েস টেস্ট প্লে হচ্ছে...' : 'Playing test soundbox voice...', 'success');
+                    }}
+                    style={{ background: '#ec4899', borderColor: '#ec4899', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}
+                  >
+                    <Volume2 size={16} />
+                    <span>{lang === 'bn' ? '🔊 ভয়েস টেস্ট শুনুন' : '🔊 Test Soundbox'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem', background: 'var(--bg-secondary)', borderRadius: '10px' }}>
+                <div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? 'স্বয়ংক্রিয় বাংলা ভয়েস সাউন্ডবক্স চালু রাখুন' : 'Enable Bengali Voice Soundbox'}
+                  </span>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'প্রতিটি ক্যাশ বা বিকাশ বিক্রির পর টাকার পরিমাণ সুন্দর বাংলায় ঘোষণা করবে' : 'Announces total payment amount aloud upon checkout'}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isSoundboxActive}
+                  onChange={(e) => {
+                    setSoundboxEnabled(e.target.checked);
+                    setIsSoundboxActive(e.target.checked);
+                  }}
+                  style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#ec4899' }}
+                />
               </div>
             </div>
 

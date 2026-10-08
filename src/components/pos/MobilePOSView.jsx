@@ -65,6 +65,7 @@ export const MobilePOSView = ({
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'cart'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilterId, setSelectedFilterId] = useState('all');
+  const [cashReceived, setCashReceived] = useState('');
 
   // Android Hardware Back Button: When in mobile cart view, back button returns to catalog
   useEffect(() => {
@@ -934,6 +935,62 @@ export const MobilePOSView = ({
                   })}
                 </div>
               </div>
+
+              {/* Quick Cash Helper (৳100, ৳500, ৳1000, ৳2000, Exact) */}
+              {paymentMethod === 'cash' && (
+                <div
+                  className="glass-card"
+                  style={{
+                    padding: '0.75rem',
+                    borderRadius: '12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>
+                      💵 ক্যাশ গ্রহণ (নোট বা বোতাম চাপুন):
+                    </span>
+                    {Number(cashReceived) >= grandTotal && Number(cashReceived) > 0 && (
+                      <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#10b981' }}>
+                        ফেরত: ৳{(Number(cashReceived) - grandTotal).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'সঠিক টাকা', val: grandTotal },
+                      { label: '৳১০০', val: 100 },
+                      { label: '৳৫০০', val: 500 },
+                      { label: '৳১,০০০', val: 1000 },
+                      { label: '৳২,০০০', val: 2000 }
+                    ].map((note, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          playButtonClick();
+                          setCashReceived(String(note.val));
+                        }}
+                        style={{
+                          flex: '1 1 auto',
+                          minWidth: '55px',
+                          padding: '6px 8px',
+                          borderRadius: '8px',
+                          border: Number(cashReceived) === note.val ? '2px solid #10b981' : '1px solid var(--border-color)',
+                          background: Number(cashReceived) === note.val ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-primary)',
+                          color: Number(cashReceived) === note.val ? '#10b981' : 'var(--text-main)',
+                          fontSize: '0.78rem',
+                          fontWeight: '800',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {note.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Discount Input */}
               <div
