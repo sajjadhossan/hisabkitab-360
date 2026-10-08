@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { registerBackAction } from '../../services/nativeAppService';
 import {
   ScanLine,
   Search,
@@ -64,6 +65,16 @@ export const MobilePOSView = ({
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'cart'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilterId, setSelectedFilterId] = useState('all');
+
+  // Android Hardware Back Button: When in mobile cart view, back button returns to catalog
+  useEffect(() => {
+    if (activeTab === 'cart') {
+      return registerBackAction(() => {
+        setActiveTab('catalog');
+        return true;
+      });
+    }
+  }, [activeTab]);
 
   // Filter products by search and category
   const filteredProducts = useMemo(() => {

@@ -31,6 +31,7 @@ import {
   triggerHaptic
 } from '../../services/imageRecognitionService';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { registerBackAction } from '../../services/nativeAppService';
 
 export const BarcodeScannerModal = () => {
   const {
@@ -72,6 +73,17 @@ export const BarcodeScannerModal = () => {
   const isStartingScannerRef = useRef(false);
   const lastScanTimestampRef = useRef(0);
   const lastScannedCodeRef = useRef('');
+
+  // Android Hardware Back Button: Smoothly release camera and close scanner modal
+  useEffect(() => {
+    if (isScannerOpen) {
+      return registerBackAction(() => {
+        stopCamera();
+        closeScanner();
+        return true;
+      });
+    }
+  }, [isScannerOpen]);
 
   // Sync mode when opened
   useEffect(() => {
