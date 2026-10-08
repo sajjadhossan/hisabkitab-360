@@ -25,6 +25,7 @@ import {
   Calendar,
   Layers,
   MessageCircle,
+  MessageSquare,
   Download
 } from 'lucide-react';
 import { printInvoiceDirectly, printReceiptDirectly } from '../../services/printService';
@@ -462,6 +463,19 @@ export const InvoicesManager = () => {
   const unpaidInvoices = invoices.filter(i => i.status === 'unpaid');
   const returnedInvoices = invoices.filter(i => i.status === 'returned' || i.status === 'partial_return' || (i.returns && i.returns.length > 0));
 
+  // Today's Quick Metrics
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayInvoices = invoices.filter(inv => (inv.createdAt || inv.date || '').startsWith(todayStr));
+  const todaySales = todayInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+  const todayCollected = todayInvoices.reduce((sum, inv) => {
+    if (inv.paidAmount !== undefined) return sum + Number(inv.paidAmount);
+    return sum + (inv.status === 'paid' ? Number(inv.grandTotal) : 0);
+  }, 0);
+  const todayDue = todayInvoices.reduce((sum, inv) => {
+    if (inv.dueAmount !== undefined) return sum + Number(inv.dueAmount);
+    return sum + (inv.status === 'paid' ? 0 : Number(inv.grandTotal));
+  }, 0);
+
   return (
     <div className="animate-fade-in">
       {/* Top Header */}
@@ -550,6 +564,38 @@ export const InvoicesManager = () => {
               {unpaidInvoices.length} {lang === 'bn' ? 'টি সম্পূর্ণ বাকি' : 'fully due'}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Today's Quick Summary Pill Bar */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '0.65rem 0.85rem',
+          marginBottom: '0.85rem',
+          display: 'flex',
+          gap: '10px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(16, 185, 129, 0.08))',
+          borderRadius: '12px'
+        }}
+      >
+        <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-muted)' }}>
+          📅 {lang === 'bn' ? 'আজকের বিক্রয় এক নজরে:' : "Today's Sales At a Glance:"}
+        </span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <span className="badge badge-primary" style={{ padding: '3px 8px', fontSize: '0.75rem', fontWeight: '700' }}>
+            {lang === 'bn' ? 'মোট বিক্রি' : 'Sales'}: ৳{todaySales.toLocaleString()} ({todayInvoices.length}টি)
+          </span>
+          <span className="badge badge-success" style={{ padding: '3px 8px', fontSize: '0.75rem', fontWeight: '700' }}>
+            {lang === 'bn' ? 'নগদ আদায়' : 'Paid'}: ৳{todayCollected.toLocaleString()}
+          </span>
+          {todayDue > 0 && (
+            <span className="badge badge-danger" style={{ padding: '3px 8px', fontSize: '0.75rem', fontWeight: '700' }}>
+              {lang === 'bn' ? 'বাকি' : 'Due'}: ৳{todayDue.toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
 
@@ -827,6 +873,31 @@ export const InvoicesManager = () => {
                           <MessageCircle size={13} />
                           <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপ' : 'WhatsApp'}</span>
                         </button>
+
+                        {/* Direct SMS Receipt Button */}
+                        {inv.customerPhone && (
+                          <a
+                            href={`sms:${inv.customerPhone.replace(/[^0-9+]/g, '')}?body=${encodeURIComponent(
+                              `[${businessSettings?.storeName || 'হিসাবখাতা ৩৬০'}] চালান #${inv.id}। মোট: ৳${grandTotal.toLocaleString()}, পরিশোধ: ৳${paidVal.toLocaleString()}${dueVal > 0 ? `, বাকি: ৳${dueVal.toLocaleString()}` : ''}। ধন্যবাদ!`
+                            )}`}
+                            className="btn btn-secondary"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: 'rgba(2, 132, 199, 0.12)',
+                              color: '#0284c7',
+                              borderColor: 'rgba(2, 132, 199, 0.35)',
+                              textDecoration: 'none'
+                            }}
+                            title={lang === 'bn' ? 'সাধারণ মোবাইলে SMS পাঠান' : 'Send SMS Receipt'}
+                          >
+                            <MessageSquare size={13} />
+                            <span>SMS</span>
+                          </a>
+                        )}
 
                         {/* View Invoice Preview Modal */}
                         <button

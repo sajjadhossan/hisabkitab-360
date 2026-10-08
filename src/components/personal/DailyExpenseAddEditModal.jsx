@@ -739,6 +739,28 @@ export const DailyExpenseAddEditModal = ({
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   style={{ width: '100%', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '800' }}
                 />
+                {/* Quick Expense Shortcut Pills */}
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                  {[20, 50, 100, 200, 500].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, amount: String(amt) }))}
+                      style={{
+                        padding: '3px 7px',
+                        borderRadius: '6px',
+                        border: Number(formData.amount) === amt ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                        background: Number(formData.amount) === amt ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
+                        color: Number(formData.amount) === amt ? '#10b981' : 'var(--text-muted)',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ৳{amt}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
