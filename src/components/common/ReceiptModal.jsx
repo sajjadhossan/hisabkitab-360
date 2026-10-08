@@ -77,13 +77,13 @@ export const ReceiptModal = () => {
 
   useEffect(() => {
     if (activeReceipt) {
-      if (qrMode === 'bkash') {
-        const merchantPhone = businessSettings.bkashNumber || businessSettings.phone || '01700000000';
+      if (qrMode === 'bkash' || qrMode === 'nagad') {
+        const merchantPhone = (qrMode === 'bkash' ? businessSettings.bkashNumber : businessSettings.nagadNumber) || businessSettings.phone || '01700000000';
         generatePaymentQrDataUrl({
           merchantNumber: merchantPhone,
           amount: activeReceipt.grandTotal,
           reference: `INV-${activeReceipt.id}`,
-          provider: 'bkash'
+          provider: qrMode
         }).then(url => {
           if (url) setQrCodeUrl(url);
         });
@@ -101,6 +101,7 @@ export const ReceiptModal = () => {
       }
     }
   }, [activeReceipt, businessSettings, qrMode]);
+
 
   if (!activeReceipt) return null;
 
@@ -160,6 +161,25 @@ export const ReceiptModal = () => {
             >
               📱 {lang === 'bn' ? 'বিকাশ পে' : 'bKash'}
             </button>
+            <button
+              type="button"
+              className={`btn ${qrMode === 'nagad' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                padding: '2px 6px',
+                fontSize: '0.7rem',
+                height: 'auto',
+                minHeight: 'unset',
+                borderRadius: '6px',
+                background: qrMode === 'nagad' ? '#ea580c' : undefined,
+                borderColor: qrMode === 'nagad' ? '#ea580c' : undefined,
+                color: qrMode === 'nagad' ? '#ffffff' : undefined
+              }}
+              onClick={() => setQrMode('nagad')}
+              title={lang === 'bn' ? 'নগদ ডায়নামিক পেমেন্ট কিউআর কোড' : 'Nagad Payment QR'}
+            >
+              🟠 {lang === 'bn' ? 'নগদ পে' : 'Nagad'}
+            </button>
+
             <button
               type="button"
               className={`btn ${qrMode === 'url' ? 'btn-primary' : 'btn-secondary'}`}

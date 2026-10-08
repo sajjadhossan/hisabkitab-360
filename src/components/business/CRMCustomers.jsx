@@ -338,10 +338,38 @@ export const CRMCustomers = () => {
                 const hasTradeLicense = cust.tradeLicenseDoc || cust.tradeLicenseNo || cust.hasTradeLicenseDoc;
                 const hasDue = (Number(cust.outstandingDue) || 0) > 0;
 
+                const spent = Number(cust.totalPurchased) || 0;
+                const vipBadge = spent >= 50000 
+                  ? { label: '👑 প্ল্যাটিনাম VIP', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)', border: 'rgba(139, 92, 246, 0.3)' }
+                  : spent >= 20000
+                  ? { label: '🥇 গোল্ড VIP', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.3)' }
+                  : spent >= 5000
+                  ? { label: '🥈 সিলভার মেম্বার', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)', border: 'rgba(6, 182, 212, 0.3)' }
+                  : { label: '🥉 সাধারণ গ্রাহক', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)', border: 'rgba(100, 116, 139, 0.25)' };
+
+                const cleanPhone = cust.phone ? cust.phone.replace(/[^0-9]/g, '') : '';
+                const waPhone = cleanPhone.startsWith('880') ? cleanPhone : cleanPhone.startsWith('0') ? `88${cleanPhone}` : `880${cleanPhone}`;
+
                 return (
                   <tr key={cust.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s ease' }}>
                     <td style={{ padding: '12px 10px' }}>
-                      <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{cust.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{cust.name}</div>
+                        <span
+                          style={{
+                            fontSize: '0.66rem',
+                            fontWeight: '800',
+                            padding: '1px 6px',
+                            borderRadius: '12px',
+                            background: vipBadge.bg,
+                            color: vipBadge.color,
+                            border: `1px solid ${vipBadge.border}`,
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {vipBadge.label}
+                        </span>
+                      </div>
                       {cust.companyName && (
                         <div style={{ fontSize: '0.78rem', color: 'var(--business-primary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                           <Building size={12} />
@@ -357,17 +385,53 @@ export const CRMCustomers = () => {
                     </td>
 
                     <td style={{ padding: '12px 10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                        <Phone size={13} style={{ color: 'var(--text-dim)' }} />
-                        <span>{cust.phone}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Phone size={13} style={{ color: 'var(--text-dim)' }} />
+                          <span style={{ fontWeight: '600' }}>{cust.phone}</span>
+                        </div>
+                        {cust.phone && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
+                            {/* 1-Click Phone Call */}
+                            <a
+                              href={`tel:${cust.phone}`}
+                              className="btn-icon"
+                              style={{ width: '24px', height: '24px', color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                              title={lang === 'bn' ? 'সরাসরি ফোন কল করুন' : 'Direct Call'}
+                            >
+                              <Phone size={11} />
+                            </a>
+                            {/* 1-Click SMS */}
+                            <a
+                              href={`sms:${cust.phone}?body=${encodeURIComponent(lang === 'bn' ? `সম্মানিত ${cust.name}, আপনার ব্যবসার হিসাব ও মেমো সংক্রান্ত তথ্যের জন্য ধন্যবাদ।` : `Dear ${cust.name}, thank you for doing business with us.`)}`}
+                              className="btn-icon"
+                              style={{ width: '24px', height: '24px', color: '#3b82f6', background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                              title={lang === 'bn' ? 'সরাসরি SMS পাঠান' : 'Direct SMS'}
+                            >
+                              <Mail size={11} />
+                            </a>
+                            {/* 1-Click WhatsApp */}
+                            <a
+                              href={`https://wa.me/${waPhone}?text=${encodeURIComponent(lang === 'bn' ? `আসসালামু আলাইকুম ${cust.name} সাহেব,` : `Hello ${cust.name},`)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn-icon"
+                              style={{ width: '24px', height: '24px', color: '#25D366', background: 'rgba(37, 211, 102, 0.12)', border: '1px solid rgba(37, 211, 102, 0.25)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                              title={lang === 'bn' ? 'হোয়াটসঅ্যাপে চ্যাট করুন' : 'WhatsApp Chat'}
+                            >
+                              <MessageCircle size={11} />
+                            </a>
+                          </div>
+                        )}
                       </div>
                       {cust.address && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
                           <MapPin size={11} style={{ color: 'var(--text-dim)' }} />
                           <span style={{ maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cust.address}</span>
                         </div>
                       )}
                     </td>
+
 
                     {/* Documents Indicator */}
                     <td style={{ padding: '12px 10px', textAlign: 'center' }}>

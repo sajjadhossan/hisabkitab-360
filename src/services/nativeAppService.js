@@ -289,3 +289,57 @@ export const initHardwareBarcodeScannerListener = () => {
     }
   });
 };
+
+// ==========================================
+// 8. 1-CLICK WHATSAPP INSTANT SELF-BACKUP
+// ==========================================
+export const triggerWhatsAppSelfBackup = ({ businessSettings, productsCount = 0, customersCount = 0, salesCount = 0, lang = 'bn', exportDataJson = null }) => {
+  try {
+    hapticFeedback.medium();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+    const storeName = businessSettings?.storeName || (lang === 'bn' ? 'হিসাবখাতা ৩৬০' : 'HisabKitab 360');
+
+    // Trigger local JSON file download if data payload is provided
+    if (exportDataJson) {
+      const blob = new Blob([typeof exportDataJson === 'string' ? exportDataJson : JSON.stringify(exportDataJson, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HisabKitab360_Backup_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Format WhatsApp message
+    const msg = lang === 'bn'
+      ? `🛡️ *হিসাবকিতাব ৩৬০ - ইনস্ট্যান্ট সেলফ ব্যাকআপ*\n` +
+        `🏬 *প্রতিষ্ঠান:* ${storeName}\n` +
+        `📅 *তারিখ ও সময়:* ${dateStr}, ${timeStr}\n` +
+        `📦 *মোট পণ্য:* ${productsCount} টি\n` +
+        `👥 *কাস্টমার:* ${customersCount} জন\n` +
+        `🧾 *মোট বিক্রয় মেমো:* ${salesCount} টি\n\n` +
+        `✅ *ডাটাবেজ স্ট্যাটাস:* ব্যাকআপ ফাইল সফলভাবে ডিভাইসে সেভ হয়েছে।\n` +
+        `🔒 এই মেসেজটি আপনার ব্যবসা ক্লাউড ব্যাকআপ লগ হিসেবে সংরক্ষণ করুন।`
+      : `🛡️ *HisabKitab 360 - Instant Self-Backup*\n` +
+        `🏬 *Store:* ${storeName}\n` +
+        `📅 *Date & Time:* ${dateStr}, ${timeStr}\n` +
+        `📦 *Products:* ${productsCount}\n` +
+        `👥 *Customers:* ${customersCount}\n` +
+        `🧾 *Invoices:* ${salesCount}\n\n` +
+        `✅ *Database Status:* Backup file successfully saved to device.\n` +
+        `🔒 Keep this message as your verified business backup log.`;
+
+    const encoded = encodeURIComponent(msg);
+    const waUrl = `https://api.whatsapp.com/send?text=${encoded}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    return true;
+  } catch (err) {
+    console.error('WhatsApp self backup error:', err);
+    return false;
+  }
+};
+

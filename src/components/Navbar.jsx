@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { registerBackAction } from '../services/nativeAppService';
+import { registerBackAction, hapticFeedback, triggerWhatsAppSelfBackup } from '../services/nativeAppService';
 import {
   User,
   Briefcase,
@@ -50,7 +50,11 @@ import {
   Activity,
   Volume2,
   VolumeX,
-  Lock
+  Lock,
+  Bell,
+  AlertTriangle,
+  TrendingDown,
+  MessageCircle
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -84,7 +88,12 @@ export const Navbar = () => {
     isDriveConnected,
     openHelpSupport,
     openScanner,
-    lockScreen
+    lockScreen,
+    products = [],
+    businessDebts = [],
+    personalDebts = [],
+    customers = [],
+    salesHistory = []
   } = useApp();
 
   const {
@@ -103,6 +112,7 @@ export const Navbar = () => {
   } = useAuth();
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showAlertCenter, setShowAlertCenter] = useState(false);
   const [showMasterPinModal, setShowMasterPinModal] = useState(false);
   const [activeTool, setActiveTool] = useState(null); // 'calculator' | 'cash' | 'notes' | 'backup_hub' | 'shortcuts'
   const [showExportImportHub, setShowExportImportHub] = useState(false);
@@ -115,7 +125,25 @@ export const Navbar = () => {
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
   const [drawerSearch, setDrawerSearch] = useState('');
   const menuRef = useRef(null);
+  const alertRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // In-App Smart Alert Center calculations (Low stock & Pending debts)
+  const lowStockAlerts = useMemo(() => {
+    if (profile !== 'business') return [];
+    return (products || []).filter(p => {
+      const stock = Number(p.stock) || 0;
+      const minStock = Number(p.minStock) || 5;
+      return stock <= minStock;
+    });
+  }, [profile, products]);
+
+  const debtAlerts = useMemo(() => {
+    const list = profile === 'business' ? (businessDebts || []) : (personalDebts || []);
+    return list.filter(d => (Number(d.netDebt) || Number(d.amount) || 0) > 0);
+  }, [profile, businessDebts, personalDebts]);
+
+  const totalAlertCount = lowStockAlerts.length + debtAlerts.length;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -123,10 +151,14 @@ export const Navbar = () => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowMoreMenu(false);
       }
+      if (alertRef.current && !alertRef.current.contains(e.target)) {
+        setShowAlertCenter(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
 
   // Listen to fullscreen changes
   useEffect(() => {
@@ -146,6 +178,15 @@ export const Navbar = () => {
       });
     }
   }, [showMobileDrawer]);
+
+  useEffect(() => {
+    if (showAlertCenter) {
+      return registerBackAction(() => {
+        setShowAlertCenter(false);
+        return true;
+      });
+    }
+  }, [showAlertCenter]);
 
   useEffect(() => {
     if (showExportImportHub) {
@@ -920,8 +961,188 @@ export const Navbar = () => {
               <Lock size={16} />
             </button>
 
+            {/* IN-APP SMART ALERT CENTER (BELL) */}
+            <div style={{ position: 'relative', flexShrink: 0 }} ref={alertRef}>
+              <button
+                type="button"
+                className="btn-icon press-scale"
+                onClick={() => {
+                  hapticFeedback.light();
+                  setShowAlertCenter(!showAlertCenter);
+                }}
+                title={lang === 'bn' ? `অ্যালার্ট সেন্টার (${totalAlertCount}টি নোটিফিকেশন)` : `Alert Center (${totalAlertCount} alerts)`}
+                style={{
+                  position: 'relative',
+                  background: totalAlertCount > 0 ? 'rgba(239, 68, 68, 0.15)' : showAlertCenter ? 'var(--mode-color)' : undefined,
+                  color: totalAlertCount > 0 ? '#ef4444' : showAlertCenter ? '#ffffff' : 'var(--text-muted)',
+                  border: totalAlertCount > 0 ? '1px solid rgba(239, 68, 68, 0.35)' : undefined,
+                  transition: 'transform 0.1s ease'
+                }}
+              >
+                <Bell size={17} />
+                {totalAlertCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      borderRadius: '10px',
+                      padding: '1px 5px',
+                      fontSize: '0.62rem',
+                      fontWeight: '900',
+                      minWidth: '16px',
+                      textAlign: 'center',
+                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.6)',
+                      animation: 'pulse 1.8s infinite'
+                    }}
+                  >
+                    {totalAlertCount > 99 ? '99+' : totalAlertCount}
+                  </span>
+                )}
+              </button>
+
+              {/* ALERT CENTER DROPDOWN */}
+              {showAlertCenter && (
+                <div
+                  className="glass-card animate-fade-in"
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '320px',
+                    maxWidth: '92vw',
+                    maxHeight: '440px',
+                    overflowY: 'auto',
+                    zIndex: 1050,
+                    borderRadius: '14px',
+                    padding: '0.85rem',
+                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.35)',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', fontSize: '0.86rem', color: 'var(--text-main)' }}>
+                      <Bell size={15} style={{ color: '#ef4444' }} />
+                      <span>{lang === 'bn' ? 'স্মার্ট অ্যালার্ট সেন্টার' : 'Smart Alert Center'}</span>
+                    </div>
+                    <span style={{ fontSize: '0.7rem', padding: '2px 7px', borderRadius: '12px', background: totalAlertCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: totalAlertCount > 0 ? '#ef4444' : '#10b981', fontWeight: '800' }}>
+                      {totalAlertCount} {lang === 'bn' ? 'টি এলার্ট' : 'Alerts'}
+                    </span>
+                  </div>
+
+                  {/* Section 1: Low Stock Alert */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+                      <AlertTriangle size={13} />
+                      <span>{lang === 'bn' ? `স্টক সতর্কতা (${lowStockAlerts.length})` : `Low Stock (${lowStockAlerts.length})`}</span>
+                    </div>
+                    {lowStockAlerts.length === 0 ? (
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', padding: '6px 8px', background: 'var(--bg-primary)', borderRadius: '8px' }}>
+                        ✓ {lang === 'bn' ? 'সকল পণ্যের স্টক পর্যাপ্ত আছে' : 'All stock levels healthy'}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {lowStockAlerts.slice(0, 4).map(item => (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setActiveTab('inventory');
+                              setShowAlertCenter(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '6px 8px',
+                              background: 'rgba(245, 158, 11, 0.08)',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              border: '1px solid rgba(245, 158, 11, 0.25)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-main)', maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.name}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', fontWeight: '800', color: (Number(item.stock) || 0) <= 0 ? '#ef4444' : '#f59e0b', background: 'var(--bg-primary)', padding: '1px 6px', borderRadius: '4px' }}>
+                              {lang === 'bn' ? 'স্টক:' : 'Stock:'} {item.stock || 0}
+                            </span>
+                          </div>
+                        ))}
+                        {lowStockAlerts.length > 4 && (
+                          <button
+                            type="button"
+                            onClick={() => { setActiveTab('inventory'); setShowAlertCenter(false); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--business-primary)', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer', textAlign: 'right', padding: '2px 4px' }}
+                          >
+                            {lang === 'bn' ? `আরও ${lowStockAlerts.length - 4}টি দেখুন ➔` : `View all ➔`}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 2: Overdue / Due Debts Alert */}
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+                      <TrendingDown size={13} />
+                      <span>{lang === 'bn' ? `বকেয়া তাগাদা (${debtAlerts.length})` : `Overdue Receivables (${debtAlerts.length})`}</span>
+                    </div>
+                    {debtAlerts.length === 0 ? (
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', padding: '6px 8px', background: 'var(--bg-primary)', borderRadius: '8px' }}>
+                        ✓ {lang === 'bn' ? 'কোনো অতিরিক্ত বকেয়া পাওনা নেই' : 'No overdue dues'}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {debtAlerts.slice(0, 4).map(item => (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setActiveTab('debts');
+                              setShowAlertCenter(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '6px 8px',
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-main)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.name || item.personName}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#ef4444', background: 'var(--bg-primary)', padding: '1px 6px', borderRadius: '4px' }}>
+                              ৳{(Number(item.netDebt) || Number(item.amount) || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                        {debtAlerts.length > 4 && (
+                          <button
+                            type="button"
+                            onClick={() => { setActiveTab('debts'); setShowAlertCenter(false); }}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer', textAlign: 'right', padding: '2px 4px' }}
+                          >
+                            {lang === 'bn' ? `আরও ${debtAlerts.length - 4}টি দেখুন ➔` : `View all ➔`}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* THREE-DOT MENU (ব্যাকআপ ও প্রয়োজনীয় প্রোগ্রাম মেনু - ALWAYS VISIBLE) */}
             <div style={{ position: 'relative', flexShrink: 0 }} ref={menuRef}>
+
               <button
                 className="btn-icon navbar-3dot-btn"
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
@@ -1170,9 +1391,60 @@ export const Navbar = () => {
                       ☁️ {lang === 'bn' ? 'ক্লাউড ও ব্যাকআপ সিস্টেম' : 'Cloud & Backup System'}
                     </div>
 
+                    {/* 1-Click WhatsApp Instant Self-Backup */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        const success = triggerWhatsAppSelfBackup({
+                          businessSettings,
+                          productsCount: products?.length || 0,
+                          customersCount: customers?.length || 0,
+                          salesCount: salesHistory?.length || 0,
+                          lang,
+                          exportDataJson: exportAllData()
+                        });
+                        if (success && showToast) {
+                          showToast(lang === 'bn' ? '📲 হোয়াটসঅ্যাপ ব্যাকআপ ও ফাইল ডাউনলোড শুরু হয়েছে!' : 'WhatsApp backup created!', 'success');
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(37, 211, 102, 0.35)',
+                        background: 'rgba(37, 211, 102, 0.12)',
+                        color: '#25D366',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        marginBottom: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(37, 211, 102, 0.22)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(37, 211, 102, 0.12)'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <MessageCircle size={17} style={{ color: '#25D366' }} />
+                        <div>
+                          <div style={{ fontWeight: '800' }}>{lang === 'bn' ? '📲 হোয়াটসঅ্যাপ সেলফ ব্যাকআপ' : '1-Click WhatsApp Backup'}</div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'JSON ফাইল সেভ + নিজস্ব নম্বরে লগ' : 'Save JSON + Share log to WA'}</div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.65rem', background: '#25D366', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                        FAST
+                      </span>
+                    </button>
+
                     {/* Google Drive Sync Now */}
                     <button
                       onClick={handleQuickDriveSync}
+
                       disabled={isDriveSyncing}
                       style={{
                         width: '100%',
@@ -1865,7 +2137,11 @@ export const Navbar = () => {
                   key={item.id}
                   type="button"
                   className={`mobile-bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={() => { setActiveTab(item.id); setShowMobileDrawer(false); }}
+                  onClick={() => {
+                    hapticFeedback.light();
+                    setActiveTab(item.id);
+                    setShowMobileDrawer(false);
+                  }}
                 >
                   <IconComp size={20} />
                   <span>{item.label}</span>
@@ -1879,7 +2155,11 @@ export const Navbar = () => {
                 <button
                   type="button"
                   className={`mobile-bottom-hero-btn ${activeTab === 'pos' ? 'active' : ''}`}
-                  onClick={() => { setActiveTab('pos'); setShowMobileDrawer(false); }}
+                  onClick={() => {
+                    hapticFeedback.medium();
+                    setActiveTab('pos');
+                    setShowMobileDrawer(false);
+                  }}
                   title={lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Checkout'}
                 >
                   <ScanLine size={24} />
@@ -1896,7 +2176,11 @@ export const Navbar = () => {
                   key={item.id}
                   type="button"
                   className={`mobile-bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={() => { setActiveTab(item.id); setShowMobileDrawer(false); }}
+                  onClick={() => {
+                    hapticFeedback.light();
+                    setActiveTab(item.id);
+                    setShowMobileDrawer(false);
+                  }}
                 >
                   <IconComp size={20} />
                   <span>{item.label}</span>
@@ -1908,7 +2192,10 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}
-              onClick={() => setShowMobileDrawer(!showMobileDrawer)}
+              onClick={() => {
+                hapticFeedback.light();
+                setShowMobileDrawer(!showMobileDrawer);
+              }}
             >
               <Menu size={20} />
               <span>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
@@ -1920,7 +2207,11 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('dashboard'); setShowMobileDrawer(false); }}
+              onClick={() => {
+                hapticFeedback.light();
+                setActiveTab('dashboard');
+                setShowMobileDrawer(false);
+              }}
             >
               <LayoutDashboard size={20} />
               <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
@@ -1930,7 +2221,11 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${activeTab === 'daily' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('daily'); setShowMobileDrawer(false); }}
+              onClick={() => {
+                hapticFeedback.light();
+                setActiveTab('daily');
+                setShowMobileDrawer(false);
+              }}
             >
               <ShoppingCart size={20} />
               <span>{lang === 'bn' ? 'দৈনিক খরচ' : 'Daily'}</span>
@@ -1941,7 +2236,11 @@ export const Navbar = () => {
               <button
                 type="button"
                 className={`mobile-bottom-hero-btn personal ${activeTab === 'family' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('family'); setShowMobileDrawer(false); }}
+                onClick={() => {
+                  hapticFeedback.medium();
+                  setActiveTab('family');
+                  setShowMobileDrawer(false);
+                }}
                 title={lang === 'bn' ? 'পারিবারিক খরচ' : 'Family Expenses'}
               >
                 <Home size={24} />
@@ -1953,7 +2252,11 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${activeTab === 'debts' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('debts'); setShowMobileDrawer(false); }}
+              onClick={() => {
+                hapticFeedback.light();
+                setActiveTab('debts');
+                setShowMobileDrawer(false);
+              }}
             >
               <HandCoins size={20} />
               <span>{lang === 'bn' ? 'দেনা-পাওনা' : 'Debts'}</span>
@@ -1963,7 +2266,10 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}
-              onClick={() => setShowMobileDrawer(!showMobileDrawer)}
+              onClick={() => {
+                hapticFeedback.light();
+                setShowMobileDrawer(!showMobileDrawer);
+              }}
             >
               <Menu size={20} />
               <span>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
@@ -1971,6 +2277,7 @@ export const Navbar = () => {
           </>
         )}
       </nav>
+
 
       {/* ========================================================
           ALL-IN-ONE MOBILE FEATURE DRAWER / BOTTOM SHEET

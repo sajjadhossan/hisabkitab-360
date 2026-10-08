@@ -2045,3 +2045,55 @@ input:checked+.slider:before {
   body.keyboard-is-open .main-content {
     padding-bottom: calc(var(--keyboard-height, 280px) + 24px) !important;
   }
+
+/* =========================================================
+   ZERO-LAG 120 FPS HARDWARE ACCELERATION & VIRTUAL LAYER
+   ========================================================= */
+.gpu-accelerated,
+.product-pos-card,
+.mobile-bottom-nav-item,
+.modal-container {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+.smooth-scroll-container {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+}
+
+/* Modern windowed optimization for long catalogs */
+.virtual-item-render {
+  content-visibility: auto;
+  contain-intrinsic-size: 80px;
+}
+
+/* Touch Active Ripple Feedback */
+.press-scale {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.press-scale:active {
+  transform: scale(0.96) !important;
+}
+
+/* Mobile Top Floating Alert Banner Animation */
+@keyframes slideDownAlert {
+  from {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDownAlert 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

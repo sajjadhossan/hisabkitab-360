@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { registerBackAction } from '../../services/nativeAppService';
+import { registerBackAction, hapticFeedback } from '../../services/nativeAppService';
 import {
   ScanLine,
   Search,
@@ -24,9 +24,15 @@ import {
   Sparkles,
   ArrowLeft,
   Sun,
-  LayoutGrid
+  LayoutGrid,
+  PauseCircle,
+  PlayCircle,
+  History,
+  RotateCcw,
+  ShieldAlert
 } from 'lucide-react';
 import { playCartPop, playButtonClick } from '../../services/soundFeedback';
+import { VoiceInputButton } from '../common/VoiceInputButton';
 
 export const MobilePOSView = ({
   cart,
@@ -59,7 +65,7 @@ export const MobilePOSView = ({
   onSwitchToDesktop,
   quickFilters = []
 }) => {
-  const { lang, t, showToast } = useApp();
+  const { lang, t, showToast, cashMovements = [], salesHistory = [] } = useApp();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'cart'
@@ -67,7 +73,106 @@ export const MobilePOSView = ({
   const [selectedFilterId, setSelectedFilterId] = useState('all');
   const [cashReceived, setCashReceived] = useState('');
 
-  // Android Hardware Back Button: When in mobile cart view, back button returns to catalog
+  // POS Hold & Recall Cart State
+  const [heldCarts, setHeldCarts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_held_carts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showRecallModal, setShowRecallModal] = useState(false);
+
+  // Cash Drawer Float Reconciliation State
+  const [showDrawerFloatModal, setShowDrawerFloatModal] = useState(false);
+  const [actualDrawerCashInput, setActualDrawerCashInput] = useState('');
+
+  const saveHeldCarts = (list) => {
+    setHeldCarts(list);
+    try {
+      localStorage.setItem('hk360_held_carts', JSON.stringify(list));
+    } catch {}
+  };
+
+  const handleHoldCart = () => {
+    if (!cart || cart.length === 0) {
+      showToast(lang === 'bn' ? 'হোল্ড করার মতো কোনো পণ্য কার্টে নেই!' : 'Cart is empty!', 'warning');
+      return;
+    }
+    const newHold = {
+      id: `hold-${Date.now()}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: new Date().toLocaleDateString(),
+      items: [...cart],
+      selectedCustomerId,
+      discountAmount,
+      totalQty: cart.reduce((sum, i) => sum + i.qty, 0),
+      totalAmount: cart.reduce((sum, i) => sum + i.qty * i.price, 0) - (Number(discountAmount) || 0)
+    };
+    const updated = [newHold, ...heldCarts];
+    saveHeldCarts(updated);
+    clearCart();
+    hapticFeedback.medium();
+    showToast(lang === 'bn' ? '🛒 কার্ট সফলভাবে হোল্ড করা হয়েছে!' : 'Cart put on hold!', 'success');
+  };
+
+  const handleRecallCart = (heldItem) => {
+    if (cart.length > 0) {
+      if (!window.confirm(lang === 'bn' ? 'বর্তমান কার্টে পণ্য আছে। এটি প্রতিস্থাপন করতে চান?' : 'Current cart has items. Replace?')) {
+        return;
+      }
+    }
+    clearCart();
+    setTimeout(() => {
+      heldItem.items.forEach(item => {
+        addToCart(item, item.qty);
+      });
+      if (heldItem.selectedCustomerId && setSelectedCustomerId) {
+        setSelectedCustomerId(heldItem.selectedCustomerId);
+      }
+      if (heldItem.discountAmount && setDiscountAmount) {
+        setDiscountAmount(heldItem.discountAmount);
+      }
+      const remaining = heldCarts.filter(h => h.id !== heldItem.id);
+      saveHeldCarts(remaining);
+      setShowRecallModal(false);
+      setActiveTab('cart');
+      hapticFeedback.success();
+      showToast(lang === 'bn' ? 'হোল্ড কার্ট ফিরিয়ে আনা হয়েছে!' : 'Cart restored!', 'success');
+    }, 50);
+  };
+
+  const handleDeleteHeldCart = (heldId) => {
+    const remaining = heldCarts.filter(h => h.id !== heldId);
+    saveHeldCarts(remaining);
+    hapticFeedback.light();
+    showToast(lang === 'bn' ? 'হোল্ড কার্ট মুছে ফেলা হয়েছে' : 'Held cart deleted');
+  };
+
+  // Drawer Float Calculations
+  const todayStr = new Date().toISOString().split('T')[0];
+  const openingFloat = Number(activeCounter?.openingFloat) || 1000;
+
+  const todayCashSales = useMemo(() => {
+    return (salesHistory || []).filter(s => {
+      const matchDate = s.date && s.date.startsWith(todayStr);
+      const isCash = !s.paymentMethod || s.paymentMethod === 'cash';
+      return matchDate && isCash;
+    }).reduce((sum, s) => sum + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
+  }, [salesHistory, todayStr]);
+
+  const todayCashMovements = useMemo(() => {
+    return (cashMovements || []).filter(m => !m.date || m.date === todayStr);
+  }, [cashMovements, todayStr]);
+
+  const totalCashDeposited = todayCashMovements.filter(m => m.type === 'deposit').reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  const totalCashWithdrawn = todayCashMovements.filter(m => m.type === 'withdraw').reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  const expectedDrawerCash = openingFloat + todayCashSales + totalCashDeposited - totalCashWithdrawn;
+  const actualCountNum = actualDrawerCashInput !== '' ? Number(actualDrawerCashInput) : null;
+  const drawerDiscrepancy = actualCountNum !== null ? actualCountNum - expectedDrawerCash : 0;
+
+  // Android Hardware Back Button Listeners
   useEffect(() => {
     if (activeTab === 'cart') {
       return registerBackAction(() => {
@@ -76,6 +181,25 @@ export const MobilePOSView = ({
       });
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (showRecallModal) {
+      return registerBackAction(() => {
+        setShowRecallModal(false);
+        return true;
+      });
+    }
+  }, [showRecallModal]);
+
+  useEffect(() => {
+    if (showDrawerFloatModal) {
+      return registerBackAction(() => {
+        setShowDrawerFloatModal(false);
+        return true;
+      });
+    }
+  }, [showDrawerFloatModal]);
+
 
   // Filter products by search and category
   const filteredProducts = useMemo(() => {
@@ -211,6 +335,58 @@ export const MobilePOSView = ({
 
         {/* Header Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Drawer Float Reconciliation Button */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.light();
+              setShowDrawerFloatModal(true);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '8px',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#10b981',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.72rem',
+              fontWeight: '800',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব ও রিকনসিলিয়েশন' : 'Cash Drawer Float'}
+          >
+            <Banknote size={14} />
+            <span>{lang === 'bn' ? 'ক্যাশ ড্রয়ার' : 'Drawer'}</span>
+          </button>
+
+          {/* Held Carts Button */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.light();
+              setShowRecallModal(true);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '8px',
+              border: heldCarts.length > 0 ? '1px solid #f59e0b' : '1px solid var(--border-color)',
+              background: heldCarts.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+              color: heldCarts.length > 0 ? '#f59e0b' : 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.72rem',
+              fontWeight: '800',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? `হোল্ড কার্ট (${heldCarts.length}টি সংরক্ষিত)` : `Held Carts (${heldCarts.length})`}
+          >
+            <History size={14} />
+            <span>{lang === 'bn' ? `হোল্ড (${heldCarts.length})` : `Held (${heldCarts.length})`}</span>
+          </button>
+
           {/* Soundbox toggle */}
           <button
             type="button"
@@ -233,6 +409,7 @@ export const MobilePOSView = ({
           </button>
 
           {/* Desktop view switch */}
+
           {onSwitchToDesktop && (
             <button
               type="button"
@@ -359,7 +536,7 @@ export const MobilePOSView = ({
                 style={{
                   width: '100%',
                   paddingLeft: '36px',
-                  paddingRight: searchTerm ? '32px' : '12px',
+                  paddingRight: searchTerm ? '64px' : '40px',
                   height: '44px',
                   fontSize: '0.9rem',
                   borderRadius: '12px',
@@ -367,6 +544,15 @@ export const MobilePOSView = ({
                   border: '1.5px solid var(--border-color)'
                 }}
               />
+              <div style={{ position: 'absolute', right: searchTerm ? '32px' : '6px', top: '50%', transform: 'translateY(-50%)' }}>
+                <VoiceInputButton
+                  onTranscript={(txt) => {
+                    setSearchTerm(txt);
+                    hapticFeedback.light();
+                  }}
+                  title={lang === 'bn' ? 'মুখে পণ্যের নাম বলুন' : 'Voice Search'}
+                />
+              </div>
               {searchTerm && (
                 <button
                   type="button"
@@ -387,6 +573,7 @@ export const MobilePOSView = ({
                 </button>
               )}
             </div>
+
 
             {/* Direct Camera Scanner Button */}
             <button
@@ -722,27 +909,82 @@ export const MobilePOSView = ({
               <span>{lang === 'bn' ? '← পণ্য যোগ করুন' : '← Add More'}</span>
             </button>
 
-            {cart.length > 0 && (
-              <button
-                type="button"
-                onClick={clearCart}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#ef4444',
-                  fontSize: '0.78rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <Trash2 size={13} />
-                <span>{lang === 'bn' ? 'কার্ট খালি করুন' : 'Clear'}</span>
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleHoldCart}
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    color: '#f59e0b',
+                    fontSize: '0.76rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    padding: '5px 8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title={lang === 'bn' ? 'বর্তমান কার্ট হোল্ড করে রাখুন' : 'Hold Cart'}
+                >
+                  <PauseCircle size={13} />
+                  <span>{lang === 'bn' ? 'হোল্ড' : 'Hold'}</span>
+                </button>
+              )}
+
+              {heldCarts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticFeedback.light();
+                    setShowRecallModal(true);
+                  }}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    color: '#10b981',
+                    fontSize: '0.76rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    padding: '5px 8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title={lang === 'bn' ? 'হোল্ড করা কার্ট রিকল করুন' : 'Recall Cart'}
+                >
+                  <PlayCircle size={13} />
+                  <span>{lang === 'bn' ? `রিকল (${heldCarts.length})` : `Recall (${heldCarts.length})`}</span>
+                </button>
+              )}
+
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: '0.76rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    padding: '4px 6px'
+                  }}
+                >
+                  <Trash2 size={13} />
+                  <span>{lang === 'bn' ? 'খালি' : 'Clear'}</span>
+                </button>
+              )}
+            </div>
           </div>
+
 
           {/* Cart Items List */}
           {cart.length === 0 ? (
@@ -1094,6 +1336,238 @@ export const MobilePOSView = ({
           )}
         </div>
       )}
+
+      {/* MODAL 1: RECALL HELD CARTS MODAL */}
+
+      {showRecallModal && (
+        <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100 }}>
+          <div
+            className="glass-card modal-container"
+            style={{
+              maxWidth: '460px',
+              width: '92%',
+              padding: '1.25rem',
+              borderRadius: '16px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              maxHeight: '85vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <History size={18} style={{ color: '#10b981' }} />
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? `হোল্ড করা কার্ট তালিকা (${heldCarts.length})` : `Held Carts (${heldCarts.length})`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRecallModal(false)}
+                className="btn-icon"
+                style={{ width: '28px', height: '28px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {heldCarts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-dim)' }}>
+                <History size={36} style={{ margin: '0 auto 8px auto', opacity: 0.5 }} />
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                  {lang === 'bn' ? 'বর্তমানে কোনো হোল্ড করা কার্ট নেই।' : 'No carts on hold.'}
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {heldCarts.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '12px',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                        ⏰ {item.date} {item.time}
+                      </span>
+                      <span style={{ fontSize: '0.92rem', fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+                        ৳{(item.totalAmount || 0).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', fontWeight: '600' }}>
+                      {item.totalQty} টি পণ্য • {item.items.slice(0, 3).map(i => i.name).join(', ')}{item.items.length > 3 ? '...' : ''}
+                    </div>
+
+                    {item.customer && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--business-primary)', fontWeight: '700' }}>
+                        👤 কাস্টমার: {item.customer}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleRecallCart(item)}
+                        className="btn btn-primary"
+                        style={{ flex: 1, padding: '7px 10px', fontSize: '0.78rem', fontWeight: '800', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                      >
+                        <RotateCcw size={13} />
+                        <span>{lang === 'bn' ? 'কার্টে ফিরিয়ে আনুন (Recall)' : 'Recall to Cart'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteHeldCart(item.id)}
+                        className="btn-icon"
+                        style={{ color: '#ef4444', width: '32px', height: '32px', borderRadius: '8px' }}
+                        title="মুছে ফেলুন"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: CASH DRAWER FLOAT RECONCILIATION MODAL */}
+      {showDrawerFloatModal && (
+        <div className="modal-overlay animate-fade-in" style={{ zIndex: 1100 }}>
+          <div
+            className="glass-card modal-container"
+            style={{
+              maxWidth: '460px',
+              width: '92%',
+              padding: '1.25rem',
+              borderRadius: '16px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              maxHeight: '85vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Banknote size={18} style={{ color: '#10b981' }} />
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব ও রিকনসিলিয়েশন' : 'Cash Drawer Reconciliation'}
+                  </h3>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {activeCounter?.name || 'কাউন্টার ০১'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDrawerFloatModal(false)}
+                className="btn-icon"
+                style={{ width: '28px', height: '28px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Cash Float Breakdown Cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--bg-primary)', borderRadius: '10px', fontSize: '0.82rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>🌅 সকালের প্রারম্ভিক ক্যাশ (Opening Float):</span>
+                <span style={{ fontWeight: '800', fontFamily: 'var(--font-mono)' }}>৳{openingFloat.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '10px', fontSize: '0.82rem' }}>
+                <span style={{ color: '#10b981' }}>🛒 আজকের নগদ বিক্রয় (Cash Sales):</span>
+                <span style={{ fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}>+৳{todayCashSales.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', fontSize: '0.82rem' }}>
+                <span style={{ color: '#3b82f6' }}>📥 ড্রয়ারে ক্যাশ জমা (Deposits):</span>
+                <span style={{ fontWeight: '800', color: '#3b82f6', fontFamily: 'var(--font-mono)' }}>+৳{totalCashDeposited.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '10px', fontSize: '0.82rem' }}>
+                <span style={{ color: '#ef4444' }}>📤 ড্রয়ার থেকে ক্যাশ উত্তোলন (Withdrawals):</span>
+                <span style={{ fontWeight: '800', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>-৳{totalCashWithdrawn.toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'var(--bg-primary)', borderRadius: '10px', fontSize: '0.92rem', fontWeight: '800', border: '1.5px solid var(--border-color)' }}>
+                <span style={{ color: 'var(--text-main)' }}>🎯 ড্রয়ারে প্রত্যাশিত ক্যাশ (Expected):</span>
+                <span style={{ color: 'var(--business-primary)', fontFamily: 'var(--font-mono)' }}>৳{expectedDrawerCash.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Actual Physical Cash Count Input */}
+            <div style={{ padding: '12px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px' }}>
+                {lang === 'bn' ? 'ড্রয়ারে গুনে পাওয়া প্রকৃত নগদ টাকা (Physical Count):' : 'Actual Cash in Drawer:'}
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: '800', color: 'var(--text-muted)' }}>৳</span>
+                <input
+                  type="number"
+                  className="input-field"
+                  placeholder={lang === 'bn' ? 'টাকার পরিমাণ লিখুন...' : 'Enter actual counted cash...'}
+                  value={actualDrawerCashInput}
+                  onChange={(e) => setActualDrawerCashInput(e.target.value)}
+                  style={{ width: '100%', paddingLeft: '28px', height: '42px', fontSize: '1rem', fontWeight: '800' }}
+                />
+              </div>
+
+              {/* Live Reconciliation Discrepancy Box */}
+              {actualCountNum !== null && (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.84rem',
+                    fontWeight: '800',
+                    background: drawerDiscrepancy === 0 ? 'rgba(16, 185, 129, 0.15)' : drawerDiscrepancy > 0 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: drawerDiscrepancy === 0 ? '#10b981' : drawerDiscrepancy > 0 ? '#3b82f6' : '#ef4444',
+                    border: `1px solid ${drawerDiscrepancy === 0 ? '#10b981' : drawerDiscrepancy > 0 ? '#3b82f6' : '#ef4444'}`
+                  }}
+                >
+                  <span>
+                    {drawerDiscrepancy === 0
+                      ? (lang === 'bn' ? '✓ ক্যাশ সম্পূর্ণ মিলেছে!' : '✓ Perfect match!')
+                      : drawerDiscrepancy > 0
+                      ? (lang === 'bn' ? 'উদ্বৃত্ত (Surplus):' : 'Surplus:')
+                      : (lang === 'bn' ? 'ঘাটতি (Shortage):' : 'Shortage:')}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>
+                    {drawerDiscrepancy > 0 ? `+৳${drawerDiscrepancy.toLocaleString()}` : `৳${drawerDiscrepancy.toLocaleString()}`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.success();
+                setShowDrawerFloatModal(false);
+                if (showToast) {
+                  showToast(lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব যাচাই সম্পন্ন!' : 'Cash drawer verified!', 'success');
+                }
+              }}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', fontWeight: '800', fontSize: '0.9rem' }}
+            >
+              ✓ {lang === 'bn' ? 'যাচাই সম্পন্ন' : 'Done Verification'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
