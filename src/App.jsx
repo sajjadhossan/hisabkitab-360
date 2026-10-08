@@ -24,7 +24,12 @@ import {
   initNativeBackHandling,
   initNativeKeyboardListeners,
   initHardwareBarcodeScannerListener,
-  onHardwareBarcodeScan
+  onHardwareBarcodeScan,
+  initHardwareVolumeKeyScanner,
+  initInactivityAutoLock,
+  checkNightlyBackupDue,
+  markNightlyBackupPromptDone,
+  triggerInstantWhatsAppSelfBackup
 } from './services/nativeAppService';
 
 // Helper for code-splitting named exports
@@ -97,13 +102,20 @@ const AppContent = () => {
     closeHelpSupport,
     isScannerOpen,
     closeScanner,
+    openScanner,
     showToast,
     isScreenLocked,
+    lockScreen,
     unlockScreen,
     businessSettings,
-    handleBarcodeScanned
+    handleBarcodeScanned,
+    products = [],
+    salesHistory = [],
+    debtRecords = []
   } = useApp();
   const { user, openAuthModal, isAuthModalOpen, closeAuthModal, isSuperAdmin } = useAuth();
+
+  const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
 
   const appStateRef = React.useRef({});
   appStateRef.current = {
@@ -124,6 +136,9 @@ const AppContent = () => {
     closeHelpSupport,
     isScannerOpen,
     closeScanner,
+    openScanner,
+    lockScreen,
+    handleBarcodeScanned,
     activeTab,
     setActiveTab,
     lang,
@@ -141,6 +156,29 @@ const AppContent = () => {
         handleBarcodeScanned(code);
       }
     });
+
+    // Hardware Volume Down/Up Key Barcode Scanner Trigger
+    const unsubVolume = initHardwareVolumeKeyScanner(() => {
+      const cur = appStateRef.current;
+      if (cur.openScanner) {
+        cur.openScanner((code) => {
+          if (cur.handleBarcodeScanned) cur.handleBarcodeScanned(code);
+        }, 'pos', 'barcode');
+      }
+    });
+
+    // Inactivity Auto-lock (Locks POS counter after 10 mins of idle time)
+    const unsubAutoLock = initInactivityAutoLock(() => {
+      const cur = appStateRef.current;
+      if (cur.lockScreen) {
+        cur.lockScreen();
+      }
+    }, 10);
+
+    // Nightly End-of-Day Backup Due Check
+    if (checkNightlyBackupDue()) {
+      setShowNightlyPrompt(true);
+    }
 
     initNativeBackHandling({
       onHomeExitNotice: () => {
@@ -200,6 +238,8 @@ const AppContent = () => {
 
     return () => {
       unsubBarcode();
+      if (unsubVolume) unsubVolume();
+      if (unsubAutoLock) unsubAutoLock();
     };
   }, []);
 
@@ -531,6 +571,96 @@ const AppContent = () => {
       <NotificationToast />
       <GlobalVoiceWidget />
       <SyncStatusIndicator />
+
+      {/* Nightly End-of-Day Backup Reminder Prompt */}
+      {showNightlyPrompt && (
+        <div
+          className="animate-slide-up"
+          style={{
+            position: 'fixed',
+            bottom: '72px',
+            left: '12px',
+            right: '12px',
+            maxWidth: '460px',
+            margin: '0 auto',
+            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98))',
+            border: '1.5px solid rgba(16, 185, 129, 0.5)',
+            borderRadius: '16px',
+            padding: '12px 14px',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <span style={{ fontSize: '1.6rem' }}>🌙</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '0.84rem', fontWeight: '800', color: '#ffffff' }}>
+                {lang === 'bn' ? 'রাত্রিকালীন ক্লোজিং ব্যাকআপ' : 'Nightly Closing Backup'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                {lang === 'bn' ? 'আজকের বিক্রয় ও খাতার ডাটা সুরক্ষিত রাখুন' : 'Safeguard today’s sales & ledger records'}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => {
+                triggerInstantWhatsAppSelfBackup({
+                  businessSettings,
+                  productsCount: products?.length || 0,
+                  salesCount: salesHistory?.length || 0,
+                  customersCount: debtRecords?.length || 0,
+                  lang,
+                  exportDataJson: JSON.stringify({
+                    backupDate: new Date().toISOString(),
+                    products: products || [],
+                    salesHistory: salesHistory || [],
+                    debtRecords: debtRecords || []
+                  }, null, 2)
+                });
+                markNightlyBackupPromptDone();
+                setShowNightlyPrompt(false);
+              }}
+              style={{
+                background: '#25D366',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                fontSize: '0.76rem',
+                fontWeight: '800',
+                cursor: 'pointer'
+              }}
+            >
+              {lang === 'bn' ? 'হোয়াটসঅ্যাপ' : 'WhatsApp'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                markNightlyBackupPromptDone();
+                setShowNightlyPrompt(false);
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                color: '#94a3b8',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                fontSize: '0.78rem',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <ScreenLockModal
         isOpen={isScreenLocked}
         onClose={unlockScreen}

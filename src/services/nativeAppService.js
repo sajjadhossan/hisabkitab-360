@@ -343,3 +343,169 @@ export const triggerWhatsAppSelfBackup = ({ businessSettings, productsCount = 0,
   }
 };
 
+export const triggerInstantWhatsAppSelfBackup = triggerWhatsAppSelfBackup;
+
+// ==========================================
+// 9. LOW RAM & BATTERY SAVER MODE ENGINE
+// ==========================================
+const POWER_SAVER_KEY = 'hk360_power_saver_mode';
+
+export const isPowerSaverActive = () => {
+  try {
+    const saved = localStorage.getItem(POWER_SAVER_KEY);
+    if (saved !== null) return saved === 'true';
+    // Auto-detect 2GB-3GB RAM or low-core mobile devices
+    if (typeof navigator !== 'undefined') {
+      const memory = navigator.deviceMemory;
+      const cores = navigator.hardwareConcurrency;
+      if ((memory && memory <= 3) || (cores && cores <= 4)) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+export const setPowerSaverMode = (enabled) => {
+  try {
+    localStorage.setItem(POWER_SAVER_KEY, String(enabled));
+    if (typeof document !== 'undefined') {
+      if (enabled) {
+        document.body.classList.add('low-ram-power-saver');
+      } else {
+        document.body.classList.remove('low-ram-power-saver');
+      }
+    }
+  } catch {}
+};
+
+// Initialize class on load
+if (typeof document !== 'undefined') {
+  if (isPowerSaverActive()) {
+    document.body.classList.add('low-ram-power-saver');
+  }
+}
+
+// ==========================================
+// 10. WEBP IMAGE AUTO-COMPRESSION ENGINE
+// ==========================================
+export const compressImageToWebP = (fileOrBlob, maxDimension = 900, quality = 0.78) => {
+  return new Promise((resolve, reject) => {
+    if (!fileOrBlob) return resolve(null);
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to WebP (with JPEG fallback if WebP unsupported)
+        let dataUrl = canvas.toDataURL('image/webp', quality);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(dataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(fileOrBlob);
+  });
+};
+
+// ==========================================
+// 11. HARDWARE KEY TRIGGER FOR BARCODE SCANNER
+// ==========================================
+export const initHardwareVolumeKeyScanner = (onScanTrigger) => {
+  if (typeof window === 'undefined') return () => {};
+
+  const handleKeyDown = (e) => {
+    // Listen for VolumeDown or specific scanner key
+    if (e.key === 'AudioVolumeDown' || e.code === 'AudioVolumeDown') {
+      const active = document.activeElement;
+      const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+      if (!isInput && onScanTrigger) {
+        e.preventDefault();
+        hapticFeedback.medium();
+        onScanTrigger();
+      }
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+};
+
+// ==========================================
+// 12. INACTIVITY AUTO-LOCK WATCHER
+// ==========================================
+let autoLockTimer = null;
+
+export const initInactivityAutoLock = (onLock, timeoutMinutes = 5) => {
+  if (typeof window === 'undefined' || typeof onLock !== 'function' || timeoutMinutes <= 0) return () => {};
+
+  const ms = timeoutMinutes * 60 * 1000;
+
+  const resetTimer = () => {
+    if (autoLockTimer) clearTimeout(autoLockTimer);
+    autoLockTimer = setTimeout(() => {
+      onLock();
+    }, ms);
+  };
+
+  const events = ['touchstart', 'mousedown', 'keydown', 'scroll'];
+  events.forEach(ev => window.addEventListener(ev, resetTimer, { passive: true }));
+  resetTimer();
+
+  return () => {
+    if (autoLockTimer) clearTimeout(autoLockTimer);
+    events.forEach(ev => window.removeEventListener(ev, resetTimer));
+  };
+};
+
+// ==========================================
+// 13. NIGHTLY END-OF-DAY BACKUP PROMPT
+// ==========================================
+export const checkNightlyBackupDue = () => {
+  try {
+    const now = new Date();
+    const currentHour = now.getHours();
+    // After 9:00 PM (21:00)
+    if (currentHour >= 21) {
+      const todayStr = now.toISOString().split('T')[0];
+      const lastPromptDate = localStorage.getItem('hk360_last_nightly_backup_prompt');
+      if (lastPromptDate !== todayStr) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+export const markNightlyBackupPromptDone = () => {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    localStorage.setItem('hk360_last_nightly_backup_prompt', todayStr);
+  } catch {}
+};
+
+

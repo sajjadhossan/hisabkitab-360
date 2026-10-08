@@ -29,7 +29,8 @@ import {
   PlayCircle,
   History,
   RotateCcw,
-  ShieldAlert
+  ShieldAlert,
+  TrendingUp
 } from 'lucide-react';
 import { playCartPop, playButtonClick } from '../../services/soundFeedback';
 import { VoiceInputButton } from '../common/VoiceInputButton';
@@ -65,7 +66,7 @@ export const MobilePOSView = ({
   onSwitchToDesktop,
   quickFilters = []
 }) => {
-  const { lang, t, showToast, cashMovements = [], salesHistory = [] } = useApp();
+  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart } = useApp();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'cart'
@@ -249,11 +250,57 @@ export const MobilePOSView = ({
   }, [cart]);
 
   const subtotal = useMemo(() => {
-    return cart.reduce((acc, it) => acc + (Number(it.sellPrice) || 0) * (Number(it.qty) || 1), 0);
+    return cart.reduce((acc, it) => {
+      const itemTotal = (Number(it.sellPrice) || 0) * (Number(it.qty) || 1);
+      return acc + (it.isReturn ? -itemTotal : itemTotal);
+    }, 0);
   }, [cart]);
 
-  const discount = Math.min(subtotal, Number(discountAmount) || 0);
+  const discount = Math.min(Math.max(0, subtotal), Number(discountAmount) || 0);
   const grandTotal = Math.max(0, subtotal - discount);
+
+  // Live Sales Ticker Totals
+  const todaySalesTotal = useMemo(() => {
+    return (salesHistory || []).filter(s => {
+      return s.date && s.date.startsWith(todayStr);
+    }).reduce((sum, s) => sum + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
+  }, [salesHistory, todayStr]);
+
+  const todaySalesCount = useMemo(() => {
+    return (salesHistory || []).filter(s => s.date && s.date.startsWith(todayStr)).length;
+  }, [salesHistory, todayStr]);
+
+  // Favorites Fast Matrix (Top 8 items for 1-tap addition)
+  const favoriteProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    return products.slice(0, 8);
+  }, [products]);
+
+  // Currency Note Breakdown Recommendation (৳1000, ৳500, ৳100, ৳50, ৳20, ৳10, ৳5, ৳2, ৳1)
+  const changeAmount = Math.max(0, Number(cashReceived) - grandTotal);
+  const noteBreakdown = useMemo(() => {
+    if (changeAmount <= 0) return [];
+    const denominations = [1000, 500, 100, 50, 20, 10, 5, 2, 1];
+    let rem = Math.floor(changeAmount);
+    const result = [];
+    for (const d of denominations) {
+      if (rem >= d) {
+        const count = Math.floor(rem / d);
+        result.push({ note: d, count });
+        rem = rem % d;
+      }
+    }
+    return result;
+  }, [changeAmount]);
+
+  // Return / Damage item adjustment toggle
+  const handleToggleReturn = (itemId) => {
+    if (setCart) {
+      setCart(prev => prev.map(it => it.id === itemId ? { ...it, isReturn: !it.isReturn } : it));
+      hapticFeedback.medium();
+      showToast(lang === 'bn' ? 'পণ্য ফেরত / ড্যামেজ অ্যাডজাস্টমেন্ট টগল হয়েছে' : 'Return mode toggled');
+    }
+  };
 
   const handleItemCardClick = (product) => {
     playCartPop();
@@ -430,6 +477,32 @@ export const MobilePOSView = ({
               <span>{lang === 'bn' ? 'পিসি মোড' : 'PC'}</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Live Floating Sales Counter Ticker Strip */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 12px',
+          background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.12), rgba(99, 102, 241, 0.12))',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          borderRadius: '12px',
+          marginBottom: '0.75rem'
+        }}
+      >
+        <div className="live-sales-ticker-badge" style={{ margin: 0 }}>
+          <span className="live-sales-ticker-pulse" />
+          <span style={{ fontSize: '0.74rem', fontWeight: '800' }}>{lang === 'bn' ? '⚡ আজকের লাইভ বিক্রয়:' : '⚡ Today Sales:'}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '900', color: '#10b981', fontSize: '0.86rem' }}>
+            ৳{todaySalesTotal.toLocaleString()}
+          </span>
+        </div>
+        <div style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <TrendingUp size={13} style={{ color: '#10b981' }} />
+          <span>{todaySalesCount} {lang === 'bn' ? 'টি মেমো' : 'Orders'}</span>
         </div>
       </div>
 
@@ -620,6 +693,58 @@ export const MobilePOSView = ({
               <Mic size={20} />
             </button>
           </div>
+
+          {/* Favorites Fast Matrix (Fast Selling Pinned Chips) */}
+          {favoriteProducts.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: '800', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Sparkles size={12} />
+                  <span>{lang === 'bn' ? 'দ্রুত বিক্রয় (টপ ফেভারিটস):' : 'Fast Matrix:'}</span>
+                </span>
+                <span style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? '১-ট্যাপে যোগ' : '1-Tap Add'}
+                </span>
+              </div>
+              <div className="horizontal-touch-strip" style={{ gap: '6px', paddingBottom: '3px' }}>
+                {favoriteProducts.map((p) => (
+                  <button
+                    key={`fav-fast-${p.id}`}
+                    type="button"
+                    onClick={() => {
+                      playCartPop();
+                      addToCart(p);
+                      hapticFeedback.light();
+                    }}
+                    className="favorites-fast-chip"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 9px',
+                      borderRadius: '9px',
+                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(99, 102, 241, 0.12))',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      flexShrink: 0
+                    }}
+                    title={p.name}
+                  >
+                    <span style={{ fontSize: '0.72rem' }}>⚡</span>
+                    <span style={{ maxWidth: '82px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.name}
+                    </span>
+                    <span style={{ color: '#10b981', fontWeight: '800', fontFamily: 'var(--font-mono)', fontSize: '0.73rem' }}>
+                      ৳{p.sellPrice}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick Category Chips (Horizontally Scrollable) */}
           <div
@@ -1015,6 +1140,34 @@ export const MobilePOSView = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Digital Kitchen / Order Token Banner */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '7px 12px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
+                  border: '1px solid rgba(99, 102, 241, 0.3)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '1rem' }}>🎟️</span>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                      {lang === 'bn' ? 'অর্ডার / কিচেন টোকেন' : 'Digital Order Token'}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#6366f1', fontFamily: 'var(--font-mono)' }}>
+                      #TK-{String((salesHistory?.length || 0) + 1).padStart(3, '0')}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                  🕒 {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+
               {cart.map((item) => (
                 <div
                   key={item.id}
@@ -1026,16 +1179,44 @@ export const MobilePOSView = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '10px',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)'
+                    background: item.isReturn ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)',
+                    border: item.isReturn ? '1px dashed #ef4444' : '1px solid var(--border-color)'
                   }}
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.name}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.name}
+                      </div>
+                      {item.isReturn && (
+                        <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.64rem', fontWeight: '800', padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>
+                          {lang === 'bn' ? 'ফেরত' : 'RETURN'}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      ৳{item.sellPrice} / {item.unit || 'পিস'}
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <span>৳{item.sellPrice} / {item.unit || 'পিস'}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleReturn(item.id)}
+                        style={{
+                          background: item.isReturn ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                          border: '1px solid ' + (item.isReturn ? '#ef4444' : 'var(--border-color)'),
+                          color: item.isReturn ? '#ef4444' : 'var(--text-muted)',
+                          fontSize: '0.66rem',
+                          fontWeight: '700',
+                          padding: '1px 5px',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}
+                        title={lang === 'bn' ? 'পণ্য ফেরত / ড্যামেজ হিসেবে অ্যাডজাস্ট করুন' : 'Toggle return adjustment'}
+                      >
+                        <RotateCcw size={10} />
+                        <span>{item.isReturn ? (lang === 'bn' ? 'ফেরত বাতিল' : 'Undo Return') : (lang === 'bn' ? 'ফেরত?' : 'Return?')}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1095,8 +1276,8 @@ export const MobilePOSView = ({
                   </div>
 
                   {/* Item Total Price */}
-                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#10b981', minWidth: '60px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                    ৳{(item.sellPrice * item.qty).toLocaleString()}
+                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: item.isReturn ? '#ef4444' : '#10b981', minWidth: '60px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                    {item.isReturn ? '-' : ''}৳{(item.sellPrice * item.qty).toLocaleString()}
                   </div>
                 </div>
               ))}
@@ -1194,9 +1375,32 @@ export const MobilePOSView = ({
                       💵 ক্যাশ গ্রহণ (নোট বা বোতাম চাপুন):
                     </span>
                     {Number(cashReceived) >= grandTotal && Number(cashReceived) > 0 && (
-                      <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#10b981' }}>
-                        ফেরত: ৳{(Number(cashReceived) - grandTotal).toLocaleString()}
-                      </span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#10b981' }}>
+                          ফেরত: ৳{(Number(cashReceived) - grandTotal).toLocaleString()}
+                        </span>
+                        {noteBreakdown.length > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '3px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            {noteBreakdown.map((nb, i) => (
+                              <span
+                                key={i}
+                                style={{
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                                  color: '#10b981',
+                                  padding: '1px 4px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.66rem',
+                                  fontWeight: '800',
+                                  fontFamily: 'var(--font-mono)'
+                                }}
+                              >
+                                ৳{nb.note}×{nb.count}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
