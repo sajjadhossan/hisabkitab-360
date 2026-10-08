@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Edit3, X, Copy, Check, Banknote, Sparkles } from 'lucide-react';
+import { Calculator, Edit3, X, Copy, Check, Banknote, Sparkles, Activity } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { useApp } from '../../context/AppContext';
 import { CashDenominationModal } from './CashDenominationModal';
+import { SystemDiagnosticsModal } from './SystemDiagnosticsModal';
 
 export const FloatingQuickPad = () => {
   const { lang, showToast } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState('calc'); // 'calc' | 'notes'
   const [showDenomModal, setShowDenomModal] = useState(false);
+  const [showDiagModal, setShowDiagModal] = useState(false);
 
   // Calculator State
   const [calcDisplay, setCalcDisplay] = useState('0');
@@ -203,6 +205,30 @@ export const FloatingQuickPad = () => {
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowDiagModal(true);
+                }}
+                style={{
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                  color: 'var(--business-primary)',
+                  borderRadius: '6px',
+                  padding: '3px 7px',
+                  fontSize: '0.68rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+                title={lang === 'bn' ? 'সিস্টেম স্বাস্থ্য ও ক্যাশ ক্লিনার' : 'Diagnostics & Cache'}
+              >
+                <Activity size={12} />
+                <span>স্বাস্থ্য</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
               >
@@ -340,6 +366,14 @@ export const FloatingQuickPad = () => {
       <CashDenominationModal
         isOpen={showDenomModal}
         onClose={() => setShowDenomModal(false)}
+      />
+
+      {/* System Diagnostics & Memory Optimizer Modal */}
+      <SystemDiagnosticsModal
+        isOpen={showDiagModal}
+        onClose={() => setShowDiagModal(false)}
+        lang={lang}
+        showToast={showToast}
       />
     </>
   );

@@ -2224,3 +2224,20 @@ html, body {
   backface-visibility: hidden;
   perspective: 1000px;
 }
+
+/* =========================================================
+   LOW POWER & BATTERY SAVER OPTIMIZATION
+   ========================================================= */
+body.low-power-mode * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.05s !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+body.low-power-mode .glass-card {
+  background: var(--bg-secondary) !important;
+  backdrop-filter: none !important;
+}

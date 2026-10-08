@@ -241,17 +241,45 @@ export const BarcodeScannerModal = () => {
       setCameraActive(true);
       setCameraError(null);
 
-      // Check flashlight/torch & optical zoom capability
+      // Check flashlight/torch & optical zoom capability via Html5Qrcode & direct MediaStream track
       try {
-        const capabilities = qrCode.getRunningTrackCapabilities();
-        setHasTorch(Boolean(capabilities && capabilities.torch));
-        if (capabilities && capabilities.zoom) {
-          setSupportedZoom({
-            min: capabilities.zoom.min || 1,
-            max: capabilities.zoom.max || 3,
-            available: true
-          });
+        let canTorch = false;
+        let zoomMin = 1;
+        let zoomMax = 3;
+        let canZoom = false;
+
+        try {
+          const capabilities = qrCode.getRunningTrackCapabilities();
+          if (capabilities) {
+            if (capabilities.torch) canTorch = true;
+            if (capabilities.zoom) {
+              canZoom = true;
+              zoomMin = capabilities.zoom.min || 1;
+              zoomMax = capabilities.zoom.max || 3;
+            }
+          }
+        } catch {}
+
+        if (!canTorch || !canZoom) {
+          const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+          if (videoElem && videoElem.srcObject) {
+            const track = videoElem.srcObject.getVideoTracks?.()[0];
+            const caps = track?.getCapabilities?.() || {};
+            if (caps.torch) canTorch = true;
+            if (caps.zoom) {
+              canZoom = true;
+              zoomMin = caps.zoom.min || 1;
+              zoomMax = caps.zoom.max || 3;
+            }
+          }
         }
+
+        setHasTorch(canTorch);
+        setSupportedZoom({
+          min: zoomMin,
+          max: zoomMax,
+          available: canZoom
+        });
       } catch {
         setHasTorch(false);
       }
@@ -297,13 +325,33 @@ export const BarcodeScannerModal = () => {
   };
 
   const toggleTorch = async () => {
-    if (!html5QrCodeRef.current || !hasTorch) return;
     try {
       const nextTorch = !torchOn;
-      await html5QrCodeRef.current.applyVideoConstraints({
-        advanced: [{ torch: nextTorch }]
-      });
+      let applied = false;
+      if (html5QrCodeRef.current) {
+        try {
+          await html5QrCodeRef.current.applyVideoConstraints({
+            advanced: [{ torch: nextTorch }]
+          });
+          applied = true;
+        } catch {}
+      }
+
+      if (!applied) {
+        const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+        if (videoElem && videoElem.srcObject) {
+          const track = videoElem.srcObject.getVideoTracks?.()[0];
+          if (track && track.applyConstraints) {
+            await track.applyConstraints({
+              advanced: [{ torch: nextTorch }]
+            });
+            applied = true;
+          }
+        }
+      }
+
       setTorchOn(nextTorch);
+      triggerHaptic([20]);
     } catch (err) {
       console.warn('Torch toggle failed:', err);
     }
@@ -312,12 +360,30 @@ export const BarcodeScannerModal = () => {
   const handleSetZoom = async (level) => {
     setZoomLevel(level);
     try {
+      let applied = false;
       if (html5QrCodeRef.current) {
-        await html5QrCodeRef.current.applyVideoConstraints({
-          advanced: [{ zoom: level }]
-        });
-        triggerHaptic([15]);
+        try {
+          await html5QrCodeRef.current.applyVideoConstraints({
+            advanced: [{ zoom: level }]
+          });
+          applied = true;
+        } catch {}
       }
+
+      if (!applied) {
+        const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+        if (videoElem && videoElem.srcObject) {
+          const track = videoElem.srcObject.getVideoTracks?.()[0];
+          if (track && track.applyConstraints) {
+            await track.applyConstraints({
+              advanced: [{ zoom: level }]
+            });
+            applied = true;
+          }
+        }
+      }
+
+      triggerHaptic([15]);
     } catch (err) {
       console.warn('Zoom change failed:', err);
     }

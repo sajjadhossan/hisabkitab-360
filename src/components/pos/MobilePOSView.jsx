@@ -35,6 +35,9 @@ import {
 import { playCartPop, playButtonClick } from '../../services/soundFeedback';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { broadcastCartToCustomerDisplay } from '../../services/customerMirrorService';
+import { ScreenWakeLockToggle } from './ScreenWakeLockToggle';
+import { NetworkQualityIndicator } from '../common/NetworkQualityIndicator';
+import { DigitalMemoShareModal } from './DigitalMemoShareModal';
 
 export const MobilePOSView = ({
   cart,
@@ -89,6 +92,7 @@ export const MobilePOSView = ({
   // Cash Drawer Float Reconciliation State
   const [showDrawerFloatModal, setShowDrawerFloatModal] = useState(false);
   const [actualDrawerCashInput, setActualDrawerCashInput] = useState('');
+  const [showDigitalMemoModal, setShowDigitalMemoModal] = useState(false);
 
   const saveHeldCarts = (list) => {
     setHeldCarts(list);
@@ -450,6 +454,12 @@ export const MobilePOSView = ({
             <History size={14} />
             <span>{lang === 'bn' ? `হোল্ড (${heldCarts.length})` : `Held (${heldCarts.length})`}</span>
           </button>
+
+          {/* Network Quality & Latency Badge */}
+          <NetworkQualityIndicator lang={lang} />
+
+          {/* Screen Wake Lock Toggle (Always-on Screen) */}
+          <ScreenWakeLockToggle lang={lang} showToast={showToast} />
 
           {/* Soundbox toggle */}
           <button
@@ -1554,6 +1564,33 @@ export const MobilePOSView = ({
                 </div>
               </div>
 
+              {/* Digital Memo Dispatcher Button (WhatsApp & SMS) */}
+              <button
+                type="button"
+                onClick={() => {
+                  hapticFeedback.light();
+                  setShowDigitalMemoModal(true);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #25D366',
+                  background: 'rgba(37, 211, 102, 0.12)',
+                  color: '#25D366',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  marginBottom: '8px'
+                }}
+              >
+                <span>📱 WhatsApp / SMS ডিজিটাল মেমো পাঠান</span>
+              </button>
+
               {/* Big Touch Checkout Button */}
               <button
                 type="button"
@@ -1812,6 +1849,25 @@ export const MobilePOSView = ({
           </div>
         </div>
       )}
+
+      {/* Digital Memo Share Modal (WhatsApp & SMS) */}
+      <DigitalMemoShareModal
+        isOpen={showDigitalMemoModal}
+        onClose={() => setShowDigitalMemoModal(false)}
+        saleData={{
+          cart,
+          subtotal,
+          discount,
+          grandTotal,
+          paidAmount: grandTotal,
+          customerPhone: activeCustomer?.phone
+        }}
+        businessSettings={{
+          shopName: activeBranch?.name || 'হিসাবকিতাব ৩৬০'
+        }}
+        customer={activeCustomer}
+        lang={lang}
+      />
     </div>
   );
 };

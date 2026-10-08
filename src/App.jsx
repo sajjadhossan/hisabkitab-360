@@ -21,6 +21,7 @@ import { ScreenLockModal } from './components/common/ScreenLockModal';
 import { CustomerMirrorDisplay } from './components/pos/CustomerMirrorDisplay';
 import { FloatingQuickPad } from './components/common/FloatingQuickPad';
 import { checkDailyScheduledNotifications } from './services/localNotificationService';
+import { initPowerOptimizer } from './services/powerOptimizerService';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -153,6 +154,7 @@ const AppContent = () => {
     initNativeKeyboardListeners();
     hideNativeSplashScreen(350);
     initHardwareBarcodeScannerListener();
+    initPowerOptimizer();
 
     const unsubBarcode = onHardwareBarcodeScan((code) => {
       if (handleBarcodeScanned) {
