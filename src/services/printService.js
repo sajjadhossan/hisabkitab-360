@@ -627,10 +627,206 @@ export const kickCashDrawer = () => {
 };
 
 /**
- * Direct Android / Web Bluetooth ESC/POS Thermal Printer Driver
- * Communicates with 58mm / 80mm Bluetooth printers without system print dialogs.
+/**
+ * Renders complete Bengali/English receipt into a crisp 1-bit monochrome raster image
+ * Compatible with all standard 58mm & 80mm ESC/POS Bluetooth printers (GS v 0 format).
  */
-export const printBluetoothEscPos = async (receiptData, businessSettings = {}) => {
+export const renderReceiptToEscPosRaster = (receiptData, businessSettings = {}, is58mm = true) => {
+  if (typeof document === 'undefined') return null;
+
+  const width = is58mm ? 384 : 576;
+  const items = Array.isArray(receiptData.items) ? receiptData.items : [];
+  const estimatedHeight = 260 + (items.length * 36) + 160;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = estimatedHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // White background
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, estimatedHeight);
+
+  // Dark text
+  ctx.fillStyle = '#000000';
+  ctx.textBaseline = 'top';
+
+  let y = 12;
+  const centerX = width / 2;
+
+  // 1. Shop Name (Bold Bengali font)
+  const shopName = businessSettings.shopName || receiptData.shopName || 'হিসাবকিতাব ৩৬০';
+  ctx.font = `bold ${is58mm ? 22 : 26}px "Hind Siliguri", "SolaimanLipi", -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(shopName, centerX, y);
+  y += is58mm ? 32 : 36;
+
+  // Address & Phone
+  const phone = businessSettings.phone || receiptData.phone || '';
+  const address = businessSettings.address || receiptData.address || '';
+  ctx.font = `${is58mm ? 13 : 15}px "Hind Siliguri", sans-serif`;
+  if (address) {
+    ctx.fillText(address, centerX, y);
+    y += 18;
+  }
+  if (phone) {
+    ctx.fillText(`মোবাইল: ${phone}`, centerX, y);
+    y += 20;
+  }
+
+  // Dashed separator
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.setLineDash([4, 2]);
+  ctx.moveTo(8, y);
+  ctx.lineTo(width - 8, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  y += 8;
+
+  // Invoice ID & Date
+  ctx.textAlign = 'left';
+  ctx.font = `${is58mm ? 12 : 14}px "Hind Siliguri", sans-serif`;
+  const invoiceId = receiptData.id || receiptData.invoiceNo || 'INV-001';
+  const dateStr = receiptData.date || new Date().toLocaleDateString('bn-BD');
+  ctx.fillText(`মেমো: ${invoiceId}`, 8, y);
+  ctx.textAlign = 'right';
+  ctx.fillText(`তারিখ: ${dateStr}`, width - 8, y);
+  y += 20;
+
+  // Customer Name
+  if (receiptData.customerName) {
+    ctx.textAlign = 'left';
+    ctx.fillText(`কাস্টমার: ${receiptData.customerName}`, 8, y);
+    y += 18;
+  }
+
+  // Divider
+  ctx.beginPath();
+  ctx.moveTo(8, y);
+  ctx.lineTo(width - 8, y);
+  ctx.stroke();
+  y += 6;
+
+  // Table Headers
+  ctx.font = `bold ${is58mm ? 12 : 14}px "Hind Siliguri", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('পণ্য / বিবরণ', 8, y);
+  ctx.textAlign = 'center';
+  ctx.fillText('পরিমাণ', width * 0.58, y);
+  ctx.textAlign = 'right';
+  ctx.fillText('মোট (৳)', width - 8, y);
+  y += 20;
+
+  // Items List
+  ctx.font = `${is58mm ? 12 : 14}px "Hind Siliguri", sans-serif`;
+  items.forEach(item => {
+    ctx.textAlign = 'left';
+    const itemName = item.name || 'পণ্য';
+    ctx.fillText(itemName.length > 18 ? itemName.slice(0, 18) + '..' : itemName, 8, y);
+    ctx.textAlign = 'center';
+    ctx.fillText(`${item.quantity || 1} x ${item.price || 0}`, width * 0.58, y);
+    ctx.textAlign = 'right';
+    const itemTotal = (Number(item.quantity || 1) * Number(item.price || 0)).toFixed(0);
+    ctx.fillText(`৳${itemTotal}`, width - 8, y);
+    y += 20;
+  });
+
+  // Divider
+  y += 4;
+  ctx.beginPath();
+  ctx.moveTo(8, y);
+  ctx.lineTo(width - 8, y);
+  ctx.stroke();
+  y += 8;
+
+  // Grand Total
+  ctx.font = `bold ${is58mm ? 16 : 18}px "Hind Siliguri", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('সর্বমোট টাকা:', 8, y);
+  ctx.textAlign = 'right';
+  const grandTotal = Number(receiptData.grandTotal || receiptData.total || 0).toLocaleString('en-IN');
+  ctx.fillText(`৳${grandTotal}`, width - 8, y);
+  y += 24;
+
+  // Paid & Due if available
+  if (receiptData.paidAmount !== undefined || receiptData.dueAmount !== undefined) {
+    ctx.font = `${is58mm ? 12 : 14}px "Hind Siliguri", sans-serif`;
+    if (receiptData.paidAmount !== undefined) {
+      ctx.textAlign = 'left';
+      ctx.fillText('নগদ জমা:', 8, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(`৳${Number(receiptData.paidAmount).toLocaleString('en-IN')}`, width - 8, y);
+      y += 18;
+    }
+    if (receiptData.dueAmount) {
+      ctx.textAlign = 'left';
+      ctx.fillText('বাকি টাকা:', 8, y);
+      ctx.textAlign = 'right';
+      ctx.fillText(`৳${Number(receiptData.dueAmount).toLocaleString('en-IN')}`, width - 8, y);
+      y += 18;
+    }
+  }
+
+  // Footer Blessing
+  y += 12;
+  ctx.textAlign = 'center';
+  ctx.font = `bold ${is58mm ? 12 : 14}px "Hind Siliguri", sans-serif`;
+  ctx.fillText('ধন্যবাদ! আবার আসবেন।', centerX, y);
+  y += 28;
+
+  // Crop to actual height (multiple of 8)
+  const actualHeight = Math.ceil(y / 8) * 8;
+  const croppedCanvas = document.createElement('canvas');
+  croppedCanvas.width = width;
+  croppedCanvas.height = actualHeight;
+  const croppedCtx = croppedCanvas.getContext('2d');
+  croppedCtx.fillStyle = '#FFFFFF';
+  croppedCtx.fillRect(0, 0, width, actualHeight);
+  croppedCtx.drawImage(canvas, 0, 0);
+
+  // Convert pixels to 1-bit monochrome ESC/POS raster data (GS v 0)
+  const imgData = croppedCtx.getImageData(0, 0, width, actualHeight);
+  const pixels = imgData.data;
+  const widthBytes = width / 8;
+  const rasterBytes = new Uint8Array(8 + (widthBytes * actualHeight));
+
+  // GS v 0 m xL xH yL yH
+  rasterBytes[0] = 0x1D;
+  rasterBytes[1] = 0x76;
+  rasterBytes[2] = 0x30;
+  rasterBytes[3] = 0x00;
+  rasterBytes[4] = widthBytes & 0xFF;
+  rasterBytes[5] = (widthBytes >> 8) & 0xFF;
+  rasterBytes[6] = actualHeight & 0xFF;
+  rasterBytes[7] = (actualHeight >> 8) & 0xFF;
+
+  let byteIdx = 8;
+  for (let r = 0; r < actualHeight; r++) {
+    for (let c = 0; c < widthBytes; c++) {
+      let b = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const xPos = (c * 8) + bit;
+        const pIdx = ((r * width) + xPos) * 4;
+        const lum = (0.299 * pixels[pIdx]) + (0.587 * pixels[pIdx + 1]) + (0.114 * pixels[pIdx + 2]);
+        if (lum < 165) {
+          b |= (1 << (7 - bit));
+        }
+      }
+      rasterBytes[byteIdx++] = b;
+    }
+  }
+
+  return rasterBytes;
+};
+
+/**
+ * Direct Android / Web Bluetooth ESC/POS Thermal Printer Driver
+ * Uses Canvas Raster Bitmaps to print 100% crisp, authentic Bengali fonts on any thermal printer!
+ */
+export const printBluetoothEscPos = async (receiptData, businessSettings = {}, is58mm = true) => {
   if (typeof navigator === 'undefined' || !navigator.bluetooth) {
     throw new Error('Bluetooth API is not supported on this device/browser');
   }
@@ -672,46 +868,37 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}) =
     throw new Error('Writable thermal printer service not found on this Bluetooth device');
   }
 
-  const encoder = new TextEncoder();
   const initCmd = new Uint8Array([0x1B, 0x40]);
-  const centerCmd = new Uint8Array([0x1B, 0x61, 0x01]);
-  const leftCmd = new Uint8Array([0x1B, 0x61, 0x00]);
-  const boldOn = new Uint8Array([0x1B, 0x45, 0x01]);
-  const boldOff = new Uint8Array([0x1B, 0x45, 0x00]);
-  const feedCmd = new Uint8Array([0x0A, 0x0A, 0x0A, 0x0A]);
+  const feedCmd = new Uint8Array([0x0A, 0x0A, 0x0A]);
   const cutCmd = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
 
-  const shopName = businessSettings.shopName || receiptData.shopName || 'HisabKitab 360';
-  const shopPhone = businessSettings.phone || receiptData.phone || '';
+  // Try Bengali Raster Graphics first
+  let rasterBytes = null;
+  try {
+    rasterBytes = renderReceiptToEscPosRaster(receiptData, businessSettings, is58mm);
+  } catch (err) {
+    console.warn('Fallback to text printing due to raster error:', err);
+  }
 
-  // Write header
   await writeChar.writeValue(initCmd);
-  await writeChar.writeValue(centerCmd);
-  await writeChar.writeValue(boldOn);
-  await writeChar.writeValue(encoder.encode(`${shopName}\n`));
-  await writeChar.writeValue(boldOff);
-  if (shopPhone) {
-    await writeChar.writeValue(encoder.encode(`Phone: ${shopPhone}\n`));
-  }
-  await writeChar.writeValue(encoder.encode(`Inv #${receiptData.id}  ${new Date().toLocaleDateString()}\n`));
-  await writeChar.writeValue(encoder.encode('--------------------------------\n'));
 
-  // Write items
-  await writeChar.writeValue(leftCmd);
-  if (Array.isArray(receiptData.items)) {
-    for (const item of receiptData.items) {
-      const name = (item.name || 'Item').slice(0, 16).padEnd(16, ' ');
-      const val = `${item.quantity}x${item.price}=${item.quantity * item.price}`.padStart(16, ' ');
-      await writeChar.writeValue(encoder.encode(`${name}${val}\n`));
+  if (rasterBytes && rasterBytes.length > 0) {
+    // Send in 512-byte slices with small pauses to avoid BLE GATT buffer overflow
+    const chunkSize = 512;
+    for (let offset = 0; offset < rasterBytes.length; offset += chunkSize) {
+      const slice = rasterBytes.slice(offset, offset + chunkSize);
+      await writeChar.writeValue(slice);
+      await new Promise(r => setTimeout(r, 15));
     }
+  } else {
+    // Fallback: ASCII Text
+    const encoder = new TextEncoder();
+    const shopName = businessSettings.shopName || receiptData.shopName || 'HisabKitab 360';
+    await writeChar.writeValue(encoder.encode(`${shopName}\n`));
+    await writeChar.writeValue(encoder.encode(`Inv #${receiptData.id}\n`));
+    await writeChar.writeValue(encoder.encode(`TOTAL: BDT ${receiptData.grandTotal || 0}\n`));
   }
 
-  await writeChar.writeValue(encoder.encode('--------------------------------\n'));
-  await writeChar.writeValue(boldOn);
-  await writeChar.writeValue(encoder.encode(`TOTAL: BDT ${receiptData.grandTotal || receiptData.total || 0}\n`));
-  await writeChar.writeValue(boldOff);
-  await writeChar.writeValue(centerCmd);
-  await writeChar.writeValue(encoder.encode('Dhonnobad! Abar Ashben.\n'));
   await writeChar.writeValue(feedCmd);
   try {
     await writeChar.writeValue(cutCmd);
@@ -719,7 +906,7 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}) =
 
   setTimeout(() => {
     try { device.gatt.disconnect(); } catch {}
-  }, 1000);
+  }, 1200);
 
   return true;
 };

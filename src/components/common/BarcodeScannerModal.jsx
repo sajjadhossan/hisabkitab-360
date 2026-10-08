@@ -53,6 +53,8 @@ export const BarcodeScannerModal = () => {
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [supportedZoom, setSupportedZoom] = useState({ min: 1, max: 3, available: false });
   const [isBatchScan, setIsBatchScan] = useState(true); // Supermarket continuous scan
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
   const [scannedSessionCount, setScannedSessionCount] = useState(0);
@@ -239,10 +241,17 @@ export const BarcodeScannerModal = () => {
       setCameraActive(true);
       setCameraError(null);
 
-      // Check flashlight/torch capability
+      // Check flashlight/torch & optical zoom capability
       try {
         const capabilities = qrCode.getRunningTrackCapabilities();
         setHasTorch(Boolean(capabilities && capabilities.torch));
+        if (capabilities && capabilities.zoom) {
+          setSupportedZoom({
+            min: capabilities.zoom.min || 1,
+            max: capabilities.zoom.max || 3,
+            available: true
+          });
+        }
       } catch {
         setHasTorch(false);
       }
@@ -281,6 +290,20 @@ export const BarcodeScannerModal = () => {
       setTorchOn(nextTorch);
     } catch (err) {
       console.warn('Torch toggle failed:', err);
+    }
+  };
+
+  const handleSetZoom = async (level) => {
+    setZoomLevel(level);
+    try {
+      if (html5QrCodeRef.current) {
+        await html5QrCodeRef.current.applyVideoConstraints({
+          advanced: [{ zoom: level }]
+        });
+        triggerHaptic([15]);
+      }
+    } catch (err) {
+      console.warn('Zoom change failed:', err);
     }
   };
 
@@ -918,6 +941,100 @@ export const BarcodeScannerModal = () => {
                   <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 12px', borderRadius: '12px', fontSize: '0.74rem' }}>
                     📸 পণ্যটি ফ্রেমের মাঝখানে রাখুন
                   </span>
+                </div>
+              )}
+
+              {/* Floating Camera Controls: Zoom Pills & Quick Torch */}
+              {cameraActive && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    zIndex: 20,
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)'
+                  }}
+                >
+                  {[1, 1.5, 2, 3].map(z => (
+                    <button
+                      key={z}
+                      type="button"
+                      onClick={() => handleSetZoom(z)}
+                      style={{
+                        background: zoomLevel === z ? '#10b981' : 'transparent',
+                        color: zoomLevel === z ? '#fff' : 'rgba(255, 255, 255, 0.8)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '2px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {z}x
+                    </button>
+                  ))}
+                  {hasTorch && (
+                    <button
+                      type="button"
+                      onClick={toggleTorch}
+                      style={{
+                        background: torchOn ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)',
+                        color: torchOn ? '#000' : '#fff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '2px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                    >
+                      <Zap size={11} /> {torchOn ? 'ON' : 'টর্চ'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Camera Error & Permission Recovery Card */}
+              {cameraError && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    textAlign: 'center',
+                    padding: '1.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(9, 13, 22, 0.95)',
+                    zIndex: 25
+                  }}
+                >
+                  <AlertCircle size={32} style={{ color: '#ef4444', marginBottom: '8px' }} />
+                  <div style={{ color: '#fff', fontWeight: '800', fontSize: '0.92rem', marginBottom: '4px' }}>
+                    {lang === 'bn' ? 'ক্যামেরা পারমিশন অন করুন' : 'Camera Permission Required'}
+                  </div>
+                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem', margin: '0 0 12px', maxWidth: '280px' }}>
+                    {cameraError}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => startCamera(facingMode)}
+                    style={{ fontSize: '0.8rem', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    {lang === 'bn' ? '🔄 পুনরায় চেষ্টা করুন' : 'Retry Camera'}
+                  </button>
                 </div>
               )}
             </div>

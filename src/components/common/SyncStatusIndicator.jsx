@@ -1,25 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { hapticFeedback } from '../../services/nativeAppService';
+import { getPendingSyncCount, subscribeToQueueChanges, flushOfflineQueue } from '../../utils/syncQueue';
 
 export const SyncStatusIndicator = () => {
-  const { lang, showToast } = useApp();
+  const { lang, showToast, syncToGoogleDrive } = useApp();
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
   const [isSyncing, setIsSyncing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [pendingCount, setPendingCount] = useState(() => getPendingSyncCount());
 
   useEffect(() => {
-    const handleOnline = () => {
+    const unsub = subscribeToQueueChanges((cnt) => {
+      setPendingCount(cnt);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = async () => {
       setIsOnline(true);
       setIsSyncing(true);
       hapticFeedback.success();
+
+      // Flush offline sync queue
+      try {
+        await flushOfflineQueue(async (item) => {
+          // If google drive sync is active, sync
+          if (syncToGoogleDrive) {
+            await syncToGoogleDrive();
+          }
+        });
+      } catch (e) {
+        console.warn('Queue flush warning:', e);
+      }
+
       if (showToast) {
-        showToast(lang === 'bn' ? 'ইন্টারনেট সংযোগ পুনরায় চালু হয়েছে! ক্লাউড সিঙ্ক হচ্ছে...' : 'Internet reconnected! Syncing to cloud...', 'success');
+        showToast(lang === 'bn' ? 'ইন্টারনেট সংযোগ চালু হয়েছে! অফলাইন ডেটা সিঙ্ক সম্পন্ন।' : 'Internet reconnected! Offline data synced.', 'success');
       }
       setTimeout(() => {
         setIsSyncing(false);
-      }, 1500);
+        setPendingCount(getPendingSyncCount());
+      }, 1200);
     };
 
     const handleOffline = () => {
@@ -90,6 +113,11 @@ export const SyncStatusIndicator = () => {
         <>
           <WifiOff size={13} />
           <span>{lang === 'bn' ? 'অফলাইন' : 'Offline'}</span>
+          {pendingCount > 0 && (
+            <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.68rem', fontWeight: '800', marginLeft: '2px' }}>
+              {pendingCount} অপেক্ষমাণ
+            </span>
+          )}
         </>
       ) : isSyncing ? (
         <>

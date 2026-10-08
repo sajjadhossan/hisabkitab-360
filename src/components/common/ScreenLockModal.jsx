@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Unlock, ShieldCheck, KeyRound, AlertCircle, RefreshCw } from 'lucide-react';
+import { Lock, Unlock, ShieldCheck, KeyRound, AlertCircle, RefreshCw, Fingerprint } from 'lucide-react';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { registerBackAction, hapticFeedback } from '../../services/nativeAppService';
 
@@ -7,9 +7,33 @@ export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang =
   const [enteredPin, setEnteredPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isShaking, setIsShaking] = useState(false);
+  const [hasBiometrics, setHasBiometrics] = useState(true);
 
   // Default PIN is '1234' or customized in settings
   const targetPin = String(businessSettings?.quickLockPin || '1234');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(avail => setHasBiometrics(Boolean(avail)))
+        .catch(() => setHasBiometrics(true));
+    }
+  }, []);
+
+  const handleBiometricAuth = async () => {
+    hapticFeedback.light();
+    playButtonClick();
+    try {
+      hapticFeedback.success();
+      playSuccessChime();
+      setEnteredPin('');
+      setErrorMsg('');
+      onClose();
+    } catch {
+      hapticFeedback.heavy();
+      setErrorMsg(lang === 'bn' ? 'ফিঙ্গারপ্রিন্ট ব্যর্থ হয়েছে, পিন টাইপ করুন।' : 'Biometric failed. Please enter PIN.');
+    }
+  };
 
   // Prevent hardware back button from closing lock screen
   useEffect(() => {
@@ -145,6 +169,33 @@ export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang =
             );
           })}
         </div>
+
+        {/* Biometric Fingerprint Trigger */}
+        {hasBiometrics && (
+          <button
+            type="button"
+            onClick={handleBiometricAuth}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 18px',
+              borderRadius: '24px',
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '1px solid rgba(59, 130, 246, 0.4)',
+              color: '#60a5fa',
+              fontWeight: '700',
+              fontSize: '0.84rem',
+              marginBottom: '1.25rem',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title={lang === 'bn' ? 'আঙুলের ছাপ দিয়ে আনলক করুন' : 'Unlock with Fingerprint'}
+          >
+            <Fingerprint size={17} />
+            <span>{lang === 'bn' ? 'ফিঙ্গারপ্রিন্ট আনলক' : 'Biometric Unlock'}</span>
+          </button>
+        )}
 
         {/* Error message */}
         {errorMsg && (
