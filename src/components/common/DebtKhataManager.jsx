@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   HandCoins,
@@ -219,6 +219,17 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
       return true; // 'all'
     });
   }, [debtList, searchTerm, activeFilter]);
+
+  // Windowed Lazy Rendering for high-performance 120fps scrolling
+  const [peopleDisplayLimit, setPeopleDisplayLimit] = useState(40);
+
+  useEffect(() => {
+    setPeopleDisplayLimit(40);
+  }, [searchTerm, activeFilter]);
+
+  const displayedPeople = useMemo(() => {
+    return filteredPeople.slice(0, peopleDisplayLimit);
+  }, [filteredPeople, peopleDisplayLimit]);
 
   // Handle open Add Person modal
   const handleOpenAddPerson = () => {
@@ -1016,7 +1027,7 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
             gap: '1rem'
           }}
         >
-          {filteredPeople.map((person) => {
+          {displayedPeople.map((person) => {
             const stats = getPersonStats(person);
             const initials = person.name
               .split(' ')
@@ -1367,6 +1378,29 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
               </div>
             );
           })}
+          {filteredPeople.length > peopleDisplayLimit && (
+            <div style={{ textAlign: 'center', margin: '1.25rem 0', width: '100%', gridColumn: '1 / -1' }}>
+              <button
+                type="button"
+                className="btn btn-secondary press-scale"
+                onClick={() => setPeopleDisplayLimit(prev => prev + 40)}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-main)',
+                  fontWeight: '700',
+                  padding: '10px 24px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                }}
+              >
+                {lang === 'bn'
+                  ? `⬇️ আরও ৪০টি খাতা লোড করুন (মোট ${filteredPeople.length}টির মধ্যে ${displayedPeople.length}টি প্রদর্শিত)`
+                  : `⬇️ Load 40 More (${displayedPeople.length} of ${filteredPeople.length} shown)`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

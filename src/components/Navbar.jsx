@@ -49,7 +49,8 @@ import {
   ChevronRight,
   Activity,
   Volume2,
-  VolumeX
+  VolumeX,
+  Lock
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -82,7 +83,8 @@ export const Navbar = () => {
     showToast,
     isDriveConnected,
     openHelpSupport,
-    openScanner
+    openScanner,
+    lockScreen
   } = useApp();
 
   const {
@@ -903,6 +905,21 @@ export const Navbar = () => {
               <Activity size={17} />
             </button>
 
+            {/* Quick POS Counter Screen Lock */}
+            <button
+              className="btn-icon press-scale"
+              onClick={lockScreen}
+              title={lang === 'bn' ? 'কাউন্টার স্ক্রিন লক করুন (কুইক লক)' : 'Lock Counter Screen (PIN Protected)'}
+              style={{
+                color: '#f59e0b',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                transition: 'transform 0.1s ease'
+              }}
+            >
+              <Lock size={16} />
+            </button>
+
             {/* THREE-DOT MENU (ব্যাকআপ ও প্রয়োজনীয় প্রোগ্রাম মেনু - ALWAYS VISIBLE) */}
             <div style={{ position: 'relative', flexShrink: 0 }} ref={menuRef}>
               <button
@@ -1318,6 +1335,33 @@ export const Navbar = () => {
                     <div style={{ fontSize: '0.7rem', color: 'var(--mode-color)', fontWeight: '700', padding: '4px 10px', textTransform: 'uppercase' }}>
                       🛠️ {lang === 'bn' ? 'প্রয়োজনীয় স্মার্ট টুলস' : 'Smart Utilities'}
                     </div>
+
+                    {/* Quick POS Screen Lock */}
+                    <button
+                      onClick={() => { setShowMoreMenu(false); lockScreen(); }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.18)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.08)'}
+                    >
+                      <Lock size={16} style={{ color: '#f59e0b' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '700', color: '#f59e0b' }}>{lang === 'bn' ? '🔒 কাউন্টার ও পর্দা লক (Quick Lock)' : '🔒 Lock POS Screen'}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'ক্যাশিয়ার সাময়িক দূরে গেলে পিন লক' : 'Lock screen with 4-digit PIN'}</div>
+                      </div>
+                    </button>
 
                     {/* Quick Calculator */}
                     <button
@@ -2006,6 +2050,16 @@ export const Navbar = () => {
                     🔄 ডুয়েল মোড
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => { setShowMobileDrawer(false); lockScreen(); }}
+                  title={lang === 'bn' ? 'পর্দা লক করুন' : 'Lock Screen'}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)' }}
+                >
+                  <Lock size={16} />
+                </button>
 
                 <button
                   type="button"

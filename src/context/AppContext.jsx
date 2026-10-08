@@ -449,6 +449,11 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_KEYS.THEME) || 'dark');
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Quick POS Counter Screen Lock
+  const [isScreenLocked, setIsScreenLocked] = useState(false);
+  const lockScreen = () => setIsScreenLocked(true);
+  const unlockScreen = () => setIsScreenLocked(false);
+
   // Personal Profile Data
   const [personalExpenses, setPersonalExpenses] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
@@ -3597,7 +3602,13 @@ export const AppProvider = ({ children }) => {
         updatePosDisplayMode,
         MASTER_INDUSTRY_TEMPLATES,
         INDUSTRY_SECTORS,
-        flushPendingStorageWrites
+        flushPendingStorageWrites,
+
+        // Quick POS Counter Screen Lock
+        isScreenLocked,
+        setIsScreenLocked,
+        lockScreen,
+        unlockScreen
       }}
     >
       {children}

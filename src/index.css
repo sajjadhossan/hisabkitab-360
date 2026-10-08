@@ -2030,3 +2030,9 @@ input:checked+.slider:before {
         #e2e8f0 75%);
     background-size: 200% 100%;
   }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-8px); }
+    40%, 80% { transform: translateX(8px); }
+  }

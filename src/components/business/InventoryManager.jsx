@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useDeferredValue } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { useApp } from '../../context/AppContext';
 import { printElement } from '../../services/printService';
 import {
@@ -164,6 +164,17 @@ export const InventoryManager = () => {
       return matchesAlert;
     });
   }, [products, deferredSearchTerm, filterLowStock]);
+
+  // Windowed Lazy Rendering for high-performance 120fps scrolling
+  const [productDisplayLimit, setProductDisplayLimit] = useState(50);
+
+  useEffect(() => {
+    setProductDisplayLimit(50);
+  }, [deferredSearchTerm, filterLowStock]);
+
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, productDisplayLimit);
+  }, [filteredProducts, productDisplayLimit]);
 
   const totalProducts = products.length;
   const totalStockUnits = useMemo(() => products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0), [products]);
@@ -786,7 +797,7 @@ export const InventoryManager = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((p) => {
+                  {displayedProducts.map((p) => {
                     const isLow = p.stock <= p.minAlert;
                     const margin = p.costPrice > 0 ? Math.round(((p.sellPrice - p.costPrice) / p.costPrice) * 100) : 0;
                     return (
@@ -889,6 +900,30 @@ export const InventoryManager = () => {
                       </tr>
                     );
                   })}
+                  {filteredProducts.length > productDisplayLimit && (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '1.25rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary press-scale"
+                          onClick={() => setProductDisplayLimit(prev => prev + 50)}
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-main)',
+                            fontWeight: '700',
+                            padding: '8px 20px',
+                            borderRadius: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {lang === 'bn'
+                            ? `⬇️ আরও ৫০টি পণ্য লোড করুন (মোট ${filteredProducts.length}টির মধ্যে ${displayedProducts.length}টি প্রদর্শিত)`
+                            : `⬇️ Load 50 More (${displayedProducts.length} of ${filteredProducts.length} shown)`}
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

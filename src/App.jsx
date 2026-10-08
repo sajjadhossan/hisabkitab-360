@@ -17,6 +17,7 @@ import { HealthcareProvider } from './context/HealthcareContext';
 import { useAuth } from './context/AuthContext';
 import { PullToRefresh } from './components/common/PullToRefresh';
 import { SyncStatusIndicator } from './components/common/SyncStatusIndicator';
+import { ScreenLockModal } from './components/common/ScreenLockModal';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -94,7 +95,10 @@ const AppContent = () => {
     closeHelpSupport,
     isScannerOpen,
     closeScanner,
-    showToast
+    showToast,
+    isScreenLocked,
+    unlockScreen,
+    businessSettings
   } = useApp();
   const { user, openAuthModal, isAuthModalOpen, closeAuthModal, isSuperAdmin } = useAuth();
 
@@ -513,6 +517,12 @@ const AppContent = () => {
       <NotificationToast />
       <GlobalVoiceWidget />
       <SyncStatusIndicator />
+      <ScreenLockModal
+        isOpen={isScreenLocked}
+        onClose={unlockScreen}
+        businessSettings={businessSettings}
+        lang={lang}
+      />
     </div>
   );
 };
