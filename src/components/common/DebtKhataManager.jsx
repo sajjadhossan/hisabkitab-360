@@ -1158,9 +1158,53 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
                   {/* Phone & Address snippet */}
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '8px 0 12px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     {person.phone && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Phone size={13} style={{ color: 'var(--primary)' }} />
-                        <span>{person.phone}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Phone size={13} style={{ color: 'var(--primary)' }} />
+                          <span>{person.phone}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <a
+                            href={`tel:${person.phone}`}
+                            title={lang === 'bn' ? 'সরাসরি কল করুন' : 'Call Customer'}
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              color: '#10b981',
+                              fontSize: '0.72rem',
+                              fontWeight: '700',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}
+                          >
+                            📞 {lang === 'bn' ? 'কল' : 'Call'}
+                          </a>
+                          {stats.isReceivable && stats.netBalance > 0 && (
+                            <a
+                              href={`sms:${person.phone.replace(/[^0-9+]/g, '')}?body=${encodeURIComponent(
+                                `আসসালামু আলাইকুম ${person.name}, ${businessSettings?.storeName || 'হিসাবখাতা ৩৬০'}-এ আপনার মোট বাকি ৳${stats.netBalance.toLocaleString()}। দয়া করে পরিশোধের ব্যবস্থা করবেন। ধন্যবাদ।`
+                              )}`}
+                              title={lang === 'bn' ? 'SMS তাগাদা পাঠান' : 'Send SMS Reminder'}
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                background: 'rgba(2, 132, 199, 0.12)',
+                                color: '#0284c7',
+                                fontSize: '0.72rem',
+                                fontWeight: '700',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              ✉️ SMS
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )}
                     {person.address && (

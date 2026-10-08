@@ -86,7 +86,7 @@ export const InventoryManager = () => {
   // Search & Filter for Products
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [filterLowStock, setFilterLowStock] = useState(false);
+  const [stockFilter, setStockFilter] = useState('all'); // 'all' | 'low' | 'out'
 
   // Modals for Products
   const [showAddModal, setShowAddModal] = useState(false);
@@ -160,17 +160,20 @@ export const InventoryManager = () => {
                             (p.barcode && p.barcode.toLowerCase().includes(q)) ||
                             (p.sku && p.sku.toLowerCase().includes(q));
       if (!matchesSearch) return false;
-      const matchesAlert = !filterLowStock || p.stock <= p.minAlert;
-      return matchesAlert;
+      const stockNum = Number(p.stock) || 0;
+      const minAlertNum = Number(p.minAlert) || 5;
+      if (stockFilter === 'low') return stockNum <= minAlertNum && stockNum > 0;
+      if (stockFilter === 'out') return stockNum <= 0;
+      return true;
     });
-  }, [products, deferredSearchTerm, filterLowStock]);
+  }, [products, deferredSearchTerm, stockFilter]);
 
   // Windowed Lazy Rendering for high-performance 120fps scrolling
   const [productDisplayLimit, setProductDisplayLimit] = useState(50);
 
   useEffect(() => {
     setProductDisplayLimit(50);
-  }, [deferredSearchTerm, filterLowStock]);
+  }, [deferredSearchTerm, stockFilter]);
 
   const displayedProducts = useMemo(() => {
     return filteredProducts.slice(0, productDisplayLimit);
@@ -179,7 +182,12 @@ export const InventoryManager = () => {
   const totalProducts = products.length;
   const totalStockUnits = useMemo(() => products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0), [products]);
   const totalInventoryValue = useMemo(() => products.reduce((acc, p) => acc + ((Number(p.stock) || 0) * (Number(p.costPrice) || 0)), 0), [products]);
-  const lowStockCount = useMemo(() => products.filter(p => (Number(p.stock) || 0) <= (Number(p.minAlert) || 5)).length, [products]);
+  const lowStockCount = useMemo(() => products.filter(p => {
+    const s = Number(p.stock) || 0;
+    const m = Number(p.minAlert) || 5;
+    return s <= m && s > 0;
+  }).length, [products]);
+  const outOfStockCount = useMemo(() => products.filter(p => (Number(p.stock) || 0) <= 0).length, [products]);
 
   // ----------------------------------------------------
   // DAMAGED GOODS METRICS (Memoized)
@@ -771,13 +779,52 @@ export const InventoryManager = () => {
             </div>
 
             <button
-              className={`btn ${filterLowStock ? 'btn-danger' : 'btn-secondary'}`}
-              onClick={() => setFilterLowStock(!filterLowStock)}
-              style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                if (openScanner) {
+                  openScanner((code) => {
+                    setSearchTerm(code);
+                    if (showToast) showToast(lang === 'bn' ? `বারকোড স্ক্যান: ${code}` : `Scanned: ${code}`, 'success');
+                  });
+                }
+              }}
+              style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title={lang === 'bn' ? 'ক্যামেরা দিয়ে বারকোড স্ক্যান করুন' : 'Scan barcode with camera'}
             >
-              <AlertTriangle size={15} />
-              <span>{lang === 'bn' ? 'শুধুমাত্র লো-স্টক' : 'Low Stock Only'} ({lowStockCount})</span>
+              <Barcode size={16} />
+              <span>{lang === 'bn' ? 'বারকোড স্ক্যান' : 'Scan'}</span>
             </button>
+
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`btn ${stockFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setStockFilter('all')}
+                style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+              >
+                <span>{lang === 'bn' ? 'সকল পণ্য' : 'All'} ({totalProducts})</span>
+              </button>
+
+              <button
+                type="button"
+                className={`btn ${stockFilter === 'low' ? 'btn-danger' : 'btn-secondary'}`}
+                onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              >
+                <AlertTriangle size={14} />
+                <span>{lang === 'bn' ? 'লো-স্টক' : 'Low'} ({lowStockCount})</span>
+              </button>
+
+              <button
+                type="button"
+                className={`btn ${stockFilter === 'out' ? 'btn-danger' : 'btn-secondary'}`}
+                onClick={() => setStockFilter(stockFilter === 'out' ? 'all' : 'out')}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              >
+                <span>❌ {lang === 'bn' ? 'স্টক শেষ' : 'Out'} ({outOfStockCount})</span>
+              </button>
+            </div>
           </div>
 
           {/* Inventory Product Table */}
