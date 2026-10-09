@@ -159,6 +159,31 @@ export const InventoryManager = () => {
     note: ''
   });
 
+  // Item 86: Dead Stock Identification (Products with stock > 0 but 0 sales in last 60 days)
+  const deadStockProductIds = useMemo(() => {
+    const soldSet = new Set();
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    const dateStr = sixtyDaysAgo.toISOString().split('T')[0];
+
+    (salesHistory || []).forEach(s => {
+      if (s.date && s.date >= dateStr && Array.isArray(s.items)) {
+        s.items.forEach(item => {
+          const pid = item.id || item.productId;
+          if (pid) soldSet.add(pid);
+        });
+      }
+    });
+
+    const deadIds = new Set();
+    products.forEach(p => {
+      if ((Number(p.stock) || 0) > 0 && !soldSet.has(p.id)) {
+        deadIds.add(p.id);
+      }
+    });
+    return deadIds;
+  }, [salesHistory, products]);
+
   // Filtered Products (Memoized with deferred search for instant typing)
   const filteredProducts = useMemo(() => {
     const q = deferredSearchTerm.trim().toLowerCase();
@@ -172,9 +197,10 @@ export const InventoryManager = () => {
       const minAlertNum = Number(p.minAlert) || 5;
       if (stockFilter === 'low') return stockNum <= minAlertNum && stockNum > 0;
       if (stockFilter === 'out') return stockNum <= 0;
+      if (stockFilter === 'dead') return deadStockProductIds.has(p.id);
       return true;
     });
-  }, [products, deferredSearchTerm, stockFilter]);
+  }, [products, deferredSearchTerm, stockFilter, deadStockProductIds]);
 
   // Windowed Lazy Rendering for high-performance 120fps scrolling
   const [productDisplayLimit, setProductDisplayLimit] = useState(50);
@@ -951,8 +977,40 @@ export const InventoryManager = () => {
               >
                 <span>❌ {lang === 'bn' ? 'স্টক শেষ' : 'Out'} ({outOfStockCount})</span>
               </button>
+
+              <button
+                type="button"
+                className={`btn ${stockFilter === 'dead' ? 'btn-warning' : 'btn-secondary'}`}
+                onClick={() => setStockFilter(stockFilter === 'dead' ? 'all' : 'dead')}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', borderColor: stockFilter === 'dead' ? '#f59e0b' : undefined }}
+                title={lang === 'bn' ? 'গত ৬০ দিনে বিক্রি না হওয়া অচল পণ্য' : 'Dead Stock without sales'}
+              >
+                <span>🛑 {lang === 'bn' ? 'অচল স্টক' : 'Dead Stock'} ({deadStockProductIds.size})</span>
+              </button>
             </div>
           </div>
+
+          {/* Dead Stock Alert Banner */}
+          {stockFilter === 'dead' && (
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1.5px dashed #f59e0b',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <AlertTriangle size={22} style={{ color: '#f59e0b', flexShrink: 0 }} />
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                <strong>{lang === 'bn' ? `অচল স্টক ফিল্টার সক্রিয় (${deadStockProductIds.size} টি পণ্য):` : 'Dead Stock Filter Active:'}</strong>{' '}
+                {lang === 'bn'
+                  ? 'এই পণ্যগুলো গত ৬০ দিনে একবারও বিক্রি হয়নি। মূলধন আটকে আছে—ডিসকাউন্ট বা আকর্ষণীয় অফার দিয়ে ক্লিয়ারেন্স সেল শুরু করার পরামর্শ দেওয়া হচ্ছে।'
+                  : 'These items have had zero sales in the last 60 days. Consider clearance discounts to recover blocked capital.'}
+              </div>
+            </div>
+          )}
 
           {/* Inventory Product Table */}
           <div className="glass-card">

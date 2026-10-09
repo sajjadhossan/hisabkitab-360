@@ -31,6 +31,10 @@ import {
   X
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
+import { NLReportSearchModal } from './NLReportSearchModal';
+import { EODSummaryModal } from './EODSummaryModal';
+import { BusinessHealthScoreModal } from './BusinessHealthScoreModal';
+import { ReceiptOCRScannerModal } from '../common/ReceiptOCRScannerModal';
 
 export const BusinessDashboard = () => {
   const {
@@ -54,6 +58,12 @@ export const BusinessDashboard = () => {
 
   const { isOwner, canViewNetProfit } = useAuth();
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
+
+  // AI & Smart Modals states (Items 81, 82, 84, 90)
+  const [showNLSearchModal, setShowNLSearchModal] = useState(false);
+  const [showEODModal, setShowEODModal] = useState(false);
+  const [showHealthScoreModal, setShowHealthScoreModal] = useState(false);
+  const [showOCRModal, setShowOCRModal] = useState(false);
 
   // Filtered sales based on selected branch (Memoized)
   const filteredSales = useMemo(() => {
@@ -218,6 +228,30 @@ export const BusinessDashboard = () => {
     return { identifiedCustomerKeys: keys, repeatCustomerCount: repeatCount, customerRetentionRate: rate };
   }, [filteredSales]);
 
+  // Item 87: Lightweight Pure SVG Interactive Chart (Last 7 Days)
+  const [selectedChartDay, setSelectedChartDay] = useState(null);
+  const last7DaysTrend = useMemo(() => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const daySales = (filteredSales || []).filter(s => s.date && s.date.startsWith(dateStr));
+      const total = daySales.reduce((sum, s) => sum + (Number(s.grandTotal) || 0), 0);
+      days.push({
+        date: dateStr,
+        label: d.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { weekday: 'short', day: 'numeric' }),
+        total,
+        count: daySales.length
+      });
+    }
+    return days;
+  }, [filteredSales, lang]);
+
+  const maxTrendTotal = useMemo(() => {
+    return Math.max(...last7DaysTrend.map(d => d.total), 1000);
+  }, [last7DaysTrend]);
+
   return (
     <div className="animate-fade-in">
       {/* Top Welcome / Header */}
@@ -232,10 +266,54 @@ export const BusinessDashboard = () => {
         </div>
 
         {/* Quick Launch Buttons */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowNLSearchModal(true)}
+            style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#818cf8', fontWeight: '700' }}
+            title={lang === 'bn' ? 'সহজ ভাষায় রিপোর্ট অনুসন্ধান' : 'Natural Language Report Search'}
+          >
+            <Sparkles size={16} />
+            <span>{lang === 'bn' ? '🔍 AI রিপোর্ট' : '🔍 AI Report'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowEODModal(true)}
+            style={{ borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981', fontWeight: '700' }}
+            title={lang === 'bn' ? 'দিনশেষের সারসংক্ষেপ (EOD Summary)' : 'End-of-Day Summary'}
+          >
+            <Calendar size={16} />
+            <span>{lang === 'bn' ? '🌙 দিনশেষ (EOD)' : '🌙 EOD'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowHealthScoreModal(true)}
+            style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: '700' }}
+            title={lang === 'bn' ? 'ব্যবসার সামগ্রিক স্বাস্থ্য স্কোর' : 'Business Health Score'}
+          >
+            <BrainCircuit size={16} />
+            <span>{lang === 'bn' ? '🏥 হেলথ স্কোর' : '🏥 Health Score'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowOCRModal(true)}
+            style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa', fontWeight: '700' }}
+            title={lang === 'bn' ? 'কাগজের রসিদ স্ক্যান (OCR)' : 'Receipt OCR Scan'}
+          >
+            <FileText size={16} />
+            <span>{lang === 'bn' ? '📷 রসিদ OCR' : '📷 Receipt OCR'}</span>
+          </button>
+
           <button className="btn btn-primary" onClick={() => setActiveTab('pos')}>
             <ScanLine size={16} />
-            <span>{lang === 'bn' ? 'POS ক্যাশিয়ার চালু করুন' : 'Open POS Cashier'}</span>
+            <span>{lang === 'bn' ? 'POS ক্যাশিয়ার' : 'Open POS'}</span>
           </button>
 
           <button className="btn btn-secondary" onClick={() => setActiveTab('inventory')}>
@@ -308,6 +386,110 @@ export const BusinessDashboard = () => {
           <span>🌙</span>
           <span>{lang === 'bn' ? 'দৈনিক Z-রিপোর্ট' : 'Daily Z-Report'}</span>
         </button>
+      </div>
+
+      {/* Item 87: INTERACTIVE PURE SVG SALES TREND CHART */}
+      <div className="glass-card" style={{ padding: '16px', borderRadius: '16px', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <TrendingUp size={18} style={{ color: '#10b981' }} />
+              <span>{lang === 'bn' ? 'বিগত ৭ দিনের বিক্রয় প্রবাহ (ইন্টারঅ্যাক্টিভ SVG চার্ট)' : 'Last 7 Days Sales Trend (Interactive SVG Chart)'}</span>
+            </h3>
+            <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn' ? 'যেকোনো বারে ক্লিক করে ঐ দিনের বিস্তারিত বিক্রয় ও অর্ডার দেখুন' : 'Click any bar to inspect daily orders and revenue'}
+            </p>
+          </div>
+          {selectedChartDay && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(99, 102, 241, 0.1)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#818cf8' }}>
+                📅 {selectedChartDay.date}: ৳{selectedChartDay.total.toLocaleString()} ({selectedChartDay.count} {lang === 'bn' ? 'টি অর্ডার' : 'orders'})
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedChartDay(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Pure SVG Responsive Bars */}
+        <div style={{ width: '100%', height: '140px' }}>
+          <svg width="100%" height="100%" viewBox="0 0 700 140" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+            <defs>
+              <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" />
+                <stop offset="100%" stopColor="#059669" stopOpacity="0.6" />
+              </linearGradient>
+              <linearGradient id="barGradSelected" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.8" />
+              </linearGradient>
+            </defs>
+
+            {/* Horizontal Grid lines */}
+            <line x1="0" y1="30" x2="700" y2="30" stroke="var(--border-color)" strokeDasharray="3 3" opacity="0.4" />
+            <line x1="0" y1="75" x2="700" y2="75" stroke="var(--border-color)" strokeDasharray="3 3" opacity="0.4" />
+            <line x1="0" y1="120" x2="700" y2="120" stroke="var(--border-color)" opacity="0.6" />
+
+            {/* Bars */}
+            {last7DaysTrend.map((d, idx) => {
+              const barWidth = 60;
+              const x = 30 + idx * 95;
+              const heightRatio = d.total / maxTrendTotal;
+              const barHeight = Math.max(8, heightRatio * 90);
+              const y = 120 - barHeight;
+              const isSelected = selectedChartDay?.date === d.date;
+
+              return (
+                <g
+                  key={d.date}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    hapticFeedback.light();
+                    setSelectedChartDay(d);
+                  }}
+                >
+                  <rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={barHeight}
+                    rx="6"
+                    fill={isSelected ? 'url(#barGradSelected)' : 'url(#barGrad)'}
+                    style={{ transition: 'all 0.2s ease' }}
+                  />
+                  {/* Amount above bar */}
+                  <text
+                    x={x + barWidth / 2}
+                    y={y - 6}
+                    textAnchor="middle"
+                    fill={isSelected ? '#818cf8' : 'var(--text-main)'}
+                    fontSize="11"
+                    fontWeight="700"
+                    fontFamily="monospace"
+                  >
+                    ৳{d.total > 0 ? (d.total >= 1000 ? `${(d.total / 1000).toFixed(1)}k` : d.total) : '0'}
+                  </text>
+                  {/* Date Label */}
+                  <text
+                    x={x + barWidth / 2}
+                    y="135"
+                    textAnchor="middle"
+                    fill="var(--text-muted)"
+                    fontSize="10"
+                    fontWeight="600"
+                  >
+                    {d.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
 
       {/* 2. QUICK ACTION POWER MATRIX */}
@@ -1356,6 +1538,30 @@ export const BusinessDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* AI NATURAL LANGUAGE REPORT SEARCH MODAL (ITEM 82) */}
+      <NLReportSearchModal
+        isOpen={showNLSearchModal}
+        onClose={() => setShowNLSearchModal(false)}
+      />
+
+      {/* END-OF-DAY EOD AUTO SUMMARY MODAL (ITEM 84) */}
+      <EODSummaryModal
+        isOpen={showEODModal}
+        onClose={() => setShowEODModal(false)}
+      />
+
+      {/* BUSINESS HEALTH SCORE AUDIT MODAL (ITEM 90) */}
+      <BusinessHealthScoreModal
+        isOpen={showHealthScoreModal}
+        onClose={() => setShowHealthScoreModal(false)}
+      />
+
+      {/* RECEIPT OCR SCANNER MODAL (ITEM 81) */}
+      <ReceiptOCRScannerModal
+        isOpen={showOCRModal}
+        onClose={() => setShowOCRModal(false)}
+      />
     </div>
   );
 };

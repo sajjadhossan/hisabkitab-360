@@ -21,6 +21,7 @@ export const ReceiptModal = () => {
   const [qrMode, setQrMode] = useState('payload'); // 'payload' | 'url' | 'bkash'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [isBtPrinting, setIsBtPrinting] = useState(false);
+  const [isMushak63, setIsMushak63] = useState(false); // Item 89: NBR Standard Mushak 6.3 format
 
   const handleBluetoothPrint = async () => {
     setIsBtPrinting(true);
@@ -236,6 +237,14 @@ export const ReceiptModal = () => {
 
               {/* Header Info */}
               <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                {isMushak63 && (
+                  <div style={{ marginBottom: '8px', paddingBottom: '6px', borderBottom: '1.5px solid #0f172a' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#0f172a' }}>গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</div>
+                    <div style={{ fontSize: '9px', fontWeight: '700', color: '#475569' }}>জাতীয় রাজস্ব বোর্ড (NBR)</div>
+                    <div style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a', margin: '2px 0' }}>কর চালানপত্র (মূসক-৬.৩)</div>
+                    <div style={{ fontSize: '8px', color: '#64748b' }}>[বিধি ৪০ এর উপ-বিধি (১) এর দফা (গ) দ্রষ্টব্য]</div>
+                  </div>
+                )}
                 <h2 style={{ fontSize: '16px', fontWeight: '800', margin: '0 0 3px', color: '#0f172a' }}>
                   {businessSettings.companyName}
                 </h2>
@@ -420,6 +429,27 @@ export const ReceiptModal = () => {
 
         {/* Modal Buttons (Not printed) */}
         <div className="no-print" style={{ display: 'flex', gap: '8px', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setIsMushak63(!isMushak63)}
+            style={{
+              background: isMushak63 ? '#0f172a' : '#f8fafc',
+              color: isMushak63 ? '#ffffff' : '#0f172a',
+              border: '1.5px solid #0f172a',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'জাতীয় রাজস্ব বোর্ডের আদর্শ মূসক-৬.৩ চালান ফরম্যাট' : 'NBR Standard Mushak-6.3 Invoice Format'}
+          >
+            <span>{isMushak63 ? '✓ মূসক-৬.৩' : '📜 মূসক-৬.৩ চালান'}</span>
+          </button>
+
           <button
             type="button"
             className="btn"

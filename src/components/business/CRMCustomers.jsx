@@ -489,7 +489,22 @@ export const CRMCustomers = () => {
                     </td>
 
                     <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: '800', fontFamily: 'monospace', color: hasDue ? '#ef4444' : '#10b981' }}>
-                      ৳{(Number(cust.outstandingDue) || 0).toLocaleString()}
+                      <div>৳{(Number(cust.outstandingDue) || 0).toLocaleString()}</div>
+                      <div style={{ marginTop: '3px' }}>
+                        {!hasDue ? (
+                          <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                            🟢 বিশ্বস্ত
+                          </span>
+                        ) : Number(cust.outstandingDue) > (Number(cust.creditLimit) || 20000) * 0.7 ? (
+                          <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>
+                            🔴 উচ্চ ঝুঁকি
+                          </span>
+                        ) : (
+                          <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                            🟡 মধ্যম ঝুঁকি
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td style={{ padding: '12px 10px', textAlign: 'center' }}>
