@@ -9,6 +9,12 @@ export const PullToRefresh = ({ onRefresh, children }) => {
   const isPullingRef = useRef(false);
   const hasTriggeredHapticRef = useRef(false);
 
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+
+  const pullYRef = useRef(0);
+  const isRefreshingRef = useRef(false);
+
   useEffect(() => {
     const handleTouchStart = (e) => {
       if (window.scrollY <= 2 && e.touches.length === 1) {
@@ -19,13 +25,14 @@ export const PullToRefresh = ({ onRefresh, children }) => {
     };
 
     const handleTouchMove = (e) => {
-      if (!isPullingRef.current || isRefreshing || window.scrollY > 5) return;
+      if (!isPullingRef.current || isRefreshingRef.current || window.scrollY > 5) return;
       const currentY = e.touches[0].clientY;
       const diff = currentY - startYRef.current;
 
       if (diff > 0) {
         // Damped pull distance
         const damped = Math.min(diff * 0.4, 75);
+        pullYRef.current = damped;
         setPullY(damped);
 
         if (damped > 50 && !hasTriggeredHapticRef.current) {
@@ -39,23 +46,27 @@ export const PullToRefresh = ({ onRefresh, children }) => {
       if (!isPullingRef.current) return;
       isPullingRef.current = false;
 
-      if (pullY >= 50 && !isRefreshing) {
+      if (pullYRef.current >= 50 && !isRefreshingRef.current) {
+        isRefreshingRef.current = true;
         setIsRefreshing(true);
         setPullY(50);
         hapticFeedback.medium();
 
         try {
-          if (onRefresh) {
-            await onRefresh();
+          if (onRefreshRef.current) {
+            await onRefreshRef.current();
           }
         } catch {}
 
         setTimeout(() => {
+          isRefreshingRef.current = false;
           setIsRefreshing(false);
+          pullYRef.current = 0;
           setPullY(0);
           hapticFeedback.light();
         }, 500);
       } else {
+        pullYRef.current = 0;
         setPullY(0);
       }
     };
@@ -69,7 +80,7 @@ export const PullToRefresh = ({ onRefresh, children }) => {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [pullY, isRefreshing, onRefresh]);
+  }, []);
 
   return (
     <div className="pull-to-refresh-container" style={{ position: 'relative', width: '100%' }}>

@@ -845,6 +845,10 @@ export const AppProvider = ({ children }) => {
     scheduleStorageWrite(STORAGE_KEYS.COUNTER_CLOSINGS, counterClosings);
   }, [counterClosings]);
 
+  useEffect(() => {
+    scheduleStorageWrite(STORAGE_KEYS.CASH_MOVEMENTS, cashMovements);
+  }, [cashMovements]);
+
   // Active Industry Template & POS Display Mode (100+ Businesses)
   const [activeIndustryId, setActiveIndustryId] = useState(() => {
     return localStorage.getItem('hk360_active_industry_id') || 'food_restaurant';
@@ -2787,10 +2791,10 @@ export const AppProvider = ({ children }) => {
       return null;
     }
 
-    const targetBranchId = branchId || activeBranchId;
-    const targetCounterId = counterId || activeCounterId;
-    const branch = branches.find(b => b.id === targetBranchId);
-    const counter = branch?.counters?.find(c => c.id === targetCounterId);
+    const branch = branches.find(b => b.id === (branchId || activeBranchId)) || branches[0];
+    const targetBranchId = branch?.id || 'br-main';
+    const counter = branch?.counters?.find(c => c.id === (counterId || activeCounterId)) || branch?.counters?.[0];
+    const targetCounterId = counter?.id || 'cnt-1';
 
     setBranches(prev => prev.map(b => {
       if (b.id === targetBranchId) {
@@ -2814,9 +2818,9 @@ export const AppProvider = ({ children }) => {
     const newMovement = {
       id: `csh-${Date.now()}`,
       branchId: targetBranchId,
-      branchName: branch?.name || 'শাখা',
+      branchName: branch?.name || 'প্রধান শাখা',
       counterId: targetCounterId,
-      counterName: counter?.name || 'কাউন্টার',
+      counterName: counter?.name || 'কাউন্টার ০১',
       type, // 'deposit' or 'withdraw'
       amount: numAmount,
       reason: reason || (type === 'deposit' ? 'ক্যাশ ইন / ড্রয়ারে টাকা জমা' : 'ক্যাশ আউট / ড্রয়ার থেকে টাকা উত্তোলন'),
@@ -3446,7 +3450,8 @@ export const AppProvider = ({ children }) => {
 
   const isModuleActive = useCallback((moduleKey) => {
     if (!moduleKey) return true;
-    if (moduleKey === 'settings' || moduleKey === 'super_admin') return true;
+    // Core administrative & operation hubs are always accessible
+    if (['settings', 'super_admin', 'branch_control', 'salesman_order', 'sr_delivery', 'master_hub', 'pos', 'dashboard', 'healthcare'].includes(moduleKey)) return true;
     if (!licenseInfo || !licenseInfo.modules) return true;
     return licenseInfo.modules[moduleKey] !== false;
   }, [licenseInfo]);

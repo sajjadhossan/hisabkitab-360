@@ -473,13 +473,21 @@ export const initHardwareVolumeKeyScanner = (onScanTrigger) => {
 // 12. INACTIVITY AUTO-LOCK WATCHER
 // ==========================================
 let autoLockTimer = null;
+let lastResetTimestamp = 0;
 
 export const initInactivityAutoLock = (onLock, timeoutMinutes = 5) => {
   if (typeof window === 'undefined' || typeof onLock !== 'function' || timeoutMinutes <= 0) return () => {};
 
   const ms = timeoutMinutes * 60 * 1000;
 
-  const resetTimer = () => {
+  const resetTimer = (e) => {
+    const now = Date.now();
+    // Throttle: don't churn timers more than once every 15 seconds during continuous interaction
+    if (e && (e.type === 'scroll' || e.type === 'touchstart' || e.type === 'mousedown')) {
+      if (now - lastResetTimestamp < 15000) return;
+    }
+    lastResetTimestamp = now;
+
     if (autoLockTimer) clearTimeout(autoLockTimer);
     autoLockTimer = setTimeout(() => {
       onLock();

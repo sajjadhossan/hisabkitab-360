@@ -95,7 +95,7 @@ export const FloatingQuickPad = () => {
         aria-label="Quick Calculator"
         style={{
           position: 'fixed',
-          bottom: '84px',
+          bottom: '144px',
           right: '16px',
           width: '48px',
           height: '48px',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -96,51 +96,116 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
     openingFloat: 1000
   });
 
-  // Calculate live drawer cash for a given counter
-  const getCounterLiveData = (counterId, baseFloat = 1000) => {
+  // Safe and memoized calculation of live drawer cash for all counters
+  const counterDataMap = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    const todaySales = salesHistory.filter(s => s.counterId === counterId && s.date.startsWith(today));
-    const cashSales = todaySales
-      .filter(s => s.paymentMethod === 'cash')
-      .reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
-    const digitalSales = todaySales
-      .filter(s => s.paymentMethod !== 'cash' && s.paymentMethod !== 'due')
-      .reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
-    const totalRevenue = todaySales.reduce((sum, s) => sum + (Number(s.grandTotal) || 0), 0);
+    const map = {};
 
-    // Sum manual cash movements today
-    const todayMovements = (cashMovements || []).filter(m => m.counterId === counterId && m.date === today);
-    const manualDeposits = todayMovements.filter(m => m.type === 'deposit').reduce((sum, m) => sum + Number(m.amount), 0);
-    const manualWithdrawals = todayMovements.filter(m => m.type === 'withdraw').reduce((sum, m) => sum + Number(m.amount), 0);
+    // Pre-process valid sales with safe string dates
+    const safeSales = (salesHistory || []).map(s => {
+      let dStr = '';
+      if (typeof s?.date === 'string') {
+        dStr = s.date;
+      } else if (s?.date) {
+        try { dStr = new Date(s.date).toISOString(); } catch {}
+      }
+      return {
+        ...s,
+        safeDate: dStr,
+        safeCounterId: s?.counterId || 'cnt-1'
+      };
+    });
 
-    const currentCashInDrawer = (Number(baseFloat) || 0) + cashSales + manualDeposits - manualWithdrawals;
+    (branches || []).forEach(br => {
+      (br.counters || []).forEach(cnt => {
+        const counterId = cnt.id;
+        const baseFloat = Number(cnt.openingFloat) || 1000;
+
+        const todaySales = safeSales.filter(s =>
+          (s.safeCounterId === counterId || (!s.counterId && counterId === (br.counters?.[0]?.id || 'cnt-1'))) &&
+          s.safeDate.startsWith(today)
+        );
+
+        const cashSales = todaySales
+          .filter(s => s.paymentMethod === 'cash')
+          .reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
+
+        const digitalSales = todaySales
+          .filter(s => s.paymentMethod !== 'cash' && s.paymentMethod !== 'due')
+          .reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
+
+        const totalRevenue = todaySales.reduce((sum, s) => sum + (Number(s.grandTotal) || 0), 0);
+
+        // Sum manual cash movements today
+        const todayMovements = (cashMovements || []).filter(m => {
+          if (!m || m.counterId !== counterId) return false;
+          const mDate = typeof m.date === 'string' ? m.date : '';
+          return mDate.startsWith(today);
+        });
+
+        const manualDeposits = todayMovements
+          .filter(m => m.type === 'deposit')
+          .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+        const manualWithdrawals = todayMovements
+          .filter(m => m.type === 'withdraw')
+          .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+        const currentCashInDrawer = baseFloat + cashSales + manualDeposits - manualWithdrawals;
+
+        map[counterId] = {
+          cashSales,
+          digitalSales,
+          totalRevenue,
+          transactionsCount: todaySales.length,
+          currentCashInDrawer,
+          manualDeposits,
+          manualWithdrawals
+        };
+      });
+    });
+
+    return map;
+  }, [salesHistory, branches, cashMovements]);
+
+  const getCounterLiveData = useCallback((counterId, baseFloat = 1000) => {
+    if (counterDataMap[counterId]) {
+      return counterDataMap[counterId];
+    }
+    return {
+      cashSales: 0,
+      digitalSales: 0,
+      totalRevenue: 0,
+      transactionsCount: 0,
+      currentCashInDrawer: Number(baseFloat) || 0,
+      manualDeposits: 0,
+      manualWithdrawals: 0
+    };
+  }, [counterDataMap]);
+
+  // Overall KPI sums across all branches and counters (memoized)
+  const { grandTotalCashInDrawers, grandTotalTodaySales, totalCountersCount } = useMemo(() => {
+    let cashSum = 0;
+    let salesSum = 0;
+    let cntCount = 0;
+
+    (branches || []).forEach(br => {
+      (br.counters || []).forEach(cnt => {
+        cntCount += 1;
+        const data = counterDataMap[cnt.id] || { currentCashInDrawer: Number(cnt.openingFloat) || 0, totalRevenue: 0 };
+        cashSum += data.currentCashInDrawer;
+        salesSum += data.totalRevenue;
+      });
+    });
 
     return {
-      cashSales,
-      digitalSales,
-      totalRevenue,
-      transactionsCount: todaySales.length,
-      currentCashInDrawer,
-      manualDeposits,
-      manualWithdrawals
+      grandTotalCashInDrawers: cashSum,
+      grandTotalTodaySales: salesSum,
+      totalCountersCount: cntCount
     };
-  };
+  }, [branches, counterDataMap]);
 
-  // Overall KPI sums across all branches and counters
-  let grandTotalCashInDrawers = 0;
-  let grandTotalTodaySales = 0;
-  let totalCountersCount = 0;
-
-  branches.forEach(br => {
-    (br.counters || []).forEach(cnt => {
-      totalCountersCount += 1;
-      const data = getCounterLiveData(cnt.id, cnt.openingFloat);
-      grandTotalCashInDrawers += data.currentCashInDrawer;
-      grandTotalTodaySales += data.totalRevenue;
-    });
-  });
-
-  // Handle cash adjustment submit
+  // Handle cash adjustment submit with fallback resolution
   const handleCashAdjustmentSubmit = (e) => {
     e.preventDefault();
     const amt = Number(cashAdjustForm.amount);
@@ -149,20 +214,29 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
       return;
     }
 
-    const finalReason = cashAdjustForm.customReason.trim() || cashAdjustForm.reason || (cashAdjustForm.type === 'deposit' ? 'ড্রয়ারে অতিরিক্ত ক্যাশ জমা' : 'ক্যাশ উত্তোলন');
+    const targetBranch = branches.find(b => b.id === cashAdjustForm.branchId) || branches[0];
+    const targetBranchId = targetBranch?.id || 'br-main';
+    const targetCounter = targetBranch?.counters?.find(c => c.id === cashAdjustForm.counterId) || targetBranch?.counters?.[0];
+    const targetCounterId = targetCounter?.id || 'cnt-1';
 
-    adjustCounterCash({
-      branchId: cashAdjustForm.branchId,
-      counterId: cashAdjustForm.counterId,
-      type: cashAdjustForm.type,
-      amount: amt,
-      reason: finalReason,
-      authorizedBy: user?.name || 'মালিক (Owner)'
-    });
+    const finalReason = cashAdjustForm.customReason?.trim() || cashAdjustForm.reason || (cashAdjustForm.type === 'deposit' ? 'ড্রয়ারে অতিরিক্ত ক্যাশ জমা' : 'ক্যাশ উত্তোলন');
+
+    if (adjustCounterCash) {
+      adjustCounterCash({
+        branchId: targetBranchId,
+        counterId: targetCounterId,
+        type: cashAdjustForm.type,
+        amount: amt,
+        reason: finalReason,
+        authorizedBy: user?.name || 'মালিক (Owner)'
+      });
+    }
 
     setShowCashAdjustModal(false);
     setCashAdjustForm({
-      ...cashAdjustForm,
+      branchId: targetBranchId,
+      counterId: targetCounterId,
+      type: 'deposit',
       amount: '',
       reason: '',
       customReason: ''
