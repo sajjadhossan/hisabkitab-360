@@ -38,6 +38,7 @@ import { broadcastCartToCustomerDisplay } from '../../services/customerMirrorSer
 import { ScreenWakeLockToggle } from './ScreenWakeLockToggle';
 import { NetworkQualityIndicator } from '../common/NetworkQualityIndicator';
 import { DigitalMemoShareModal } from './DigitalMemoShareModal';
+import { MobilePOSProductCard } from './MobilePOSProductCard';
 
 export const MobilePOSView = ({
   cart,
@@ -876,122 +877,17 @@ export const MobilePOSView = ({
                 gap: '8px'
               }}
             >
-              {visibleProducts.map((p) => {
-                const inCart = cart.find((ci) => ci.id === p.id);
-                const stock = Number(p.stock) || 0;
-                return (
-                  <div
+              {(() => {
+                const cartQtyMap = new Map((cart || []).map(ci => [ci.id, ci.qty]));
+                return visibleProducts.map((p) => (
+                  <MobilePOSProductCard
                     key={p.id}
-                    className="glass-card press-scale"
-                    onClick={() => handleItemCardClick(p)}
-                    style={{
-                      padding: '0.65rem',
-                      borderRadius: '14px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      background: inCart ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-secondary)',
-                      border: inCart ? '1.5px solid var(--business-primary)' : '1px solid var(--border-color)',
-                      position: 'relative',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-                    }}
-                  >
-                    {/* Cart count badge */}
-                    {inCart && (
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: '6px',
-                          right: '6px',
-                          background: 'var(--business-primary)',
-                          color: '#fff',
-                          borderRadius: '8px',
-                          padding: '1px 6px',
-                          fontSize: '0.65rem',
-                          fontWeight: '800',
-                          zIndex: 2
-                        }}
-                      >
-                        ✓ {inCart.qty}
-                      </span>
-                    )}
-
-                    {/* Image / Icon container */}
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '75px',
-                        borderRadius: '10px',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        marginBottom: '6px'
-                      }}
-                    >
-                      {p.image ? (
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <Package size={28} style={{ color: 'var(--business-primary)', opacity: 0.7 }} />
-                      )}
-                    </div>
-
-                    {/* Product Name */}
-                    <div
-                      style={{
-                        fontSize: '0.82rem',
-                        fontWeight: '800',
-                        color: 'var(--text-main)',
-                        lineHeight: 1.25,
-                        minHeight: '2rem',
-                        overflow: 'hidden',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        marginBottom: '4px'
-                      }}
-                    >
-                      {p.name}
-                    </div>
-
-                    {/* Stock & Unit */}
-                    <div style={{ fontSize: '0.68rem', color: stock <= 5 ? '#f59e0b' : 'var(--text-muted)', marginBottom: '6px', fontWeight: '600' }}>
-                      {lang === 'bn' ? 'স্টক:' : 'Stock:'} {stock} {p.unit || 'পিস'}
-                    </div>
-
-                    {/* Price and Add (+) Button row */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-                        ৳{p.sellPrice}
-                      </div>
-
-                      <div
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '8px',
-                          background: 'var(--business-primary)',
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: '800',
-                          boxShadow: '0 2px 6px rgba(99, 102, 241, 0.4)'
-                        }}
-                      >
-                        <Plus size={16} />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    product={p}
+                    inCartQty={cartQtyMap.get(p.id) || 0}
+                    onSelect={handleItemCardClick}
+                  />
+                ));
+              })()}
             </div>
           )}
 
