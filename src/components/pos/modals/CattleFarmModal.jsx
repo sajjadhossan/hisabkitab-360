@@ -23,7 +23,12 @@ import {
   ShieldCheck,
   Bookmark,
   FileText,
-  ShoppingCart
+  ShoppingCart,
+  Eye,
+  ArrowRight,
+  Stethoscope,
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { printElement } from '../../../services/printService';
@@ -33,20 +38,41 @@ const STORAGE_KEYS = {
   MILK: 'hk360_cattle_milk_records',
   FEED: 'hk360_cattle_feed_logs',
   VACCINES: 'hk360_cattle_vaccine_logs',
-  FINANCES: 'hk360_cattle_monthly_finances'
+  FINANCES: 'hk360_cattle_monthly_finances',
+  INDIVIDUAL_FEEDS: 'hk360_cattle_individual_feeds',
+  INDIVIDUAL_VACCINES: 'hk360_cattle_individual_vaccines'
 };
 
 const INITIAL_COWS = [
-  { id: 'cow-1', tag: 'COW-101', name: 'রানি', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: 185000, weightKg: 420, dailyMilk: 18, status: 'active', birthDate: '2023-01-15' },
-  { id: 'cow-2', tag: 'COW-102', name: 'শোভা', breed: 'শাহীওয়াল', category: 'গর্ভবতী গাভী', purchasePrice: 165000, weightKg: 380, dailyMilk: 12, status: 'pregnant', birthDate: '2023-04-10' },
-  { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, dailyMilk: 0, status: 'fattening', birthDate: '2024-02-01' },
-  { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, dailyMilk: 0, status: 'calf', birthDate: '2025-11-20' }
+  { id: 'cow-1', tag: 'COW-101', name: 'রানি', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: 185000, weightKg: 420, dailyMilk: 18, status: 'active', birthDate: '2023-01-15', marketValue: 245000 },
+  { id: 'cow-2', tag: 'COW-102', name: 'শোভা', breed: 'শাহীওয়াল', category: 'গর্ভবতী গাভী', purchasePrice: 165000, weightKg: 380, dailyMilk: 12, status: 'pregnant', birthDate: '2023-04-10', marketValue: 210000 },
+  { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, dailyMilk: 0, status: 'fattening', birthDate: '2024-02-01', marketValue: 220000 },
+  { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, dailyMilk: 0, status: 'calf', birthDate: '2025-11-20', marketValue: 75000 }
+];
+
+const INITIAL_INDIVIDUAL_VACCINES = [
+  { id: 'iv-1', cowTag: 'COW-101', date: '2026-08-15', time: '10:30 AM', vaccineName: 'খুরা রোগ (FMD) ভ্যাকসিন', medicine: 'Aftovax Bivalent', doctorName: 'ডাঃ রফিকুল ইসলাম (ভেটেরিনারি সার্জন)', nextDueDate: '2026-12-15', costBdt: 450, note: 'ডান কাঁধের চামড়ার নিচে ইনজেকশন দেওয়া হয়েছে' },
+  { id: 'iv-2', cowTag: 'COW-101', date: '2026-06-10', time: '09:00 AM', vaccineName: 'কৃমিনাশক ডোজ (Deworming)', medicine: 'Albendazole 2.5g Bolus', doctorName: 'ডাঃ রফিকুল ইসলাম', nextDueDate: '2026-09-10', costBdt: 220, note: 'সকালে খালি পেটে খাওয়ানো হয়েছে' },
+  { id: 'iv-3', cowTag: 'COW-102', date: '2026-07-10', time: '11:15 AM', vaccineName: 'লাম্পি স্কিন ডিজিজ (LSD)', medicine: 'Lumpy Shield Live', doctorName: 'ডাঃ তানভীর আহমেদ', nextDueDate: '2026-11-10', costBdt: 550, note: 'বাৎসরিক বুস্টার ডোজ' },
+  { id: 'iv-4', cowTag: 'COW-103', date: '2026-05-20', time: '08:45 AM', vaccineName: 'তড়কা ও বাদলা (BQ/Anthrax)', medicine: 'Blackleg Vaccine', doctorName: 'ডাঃ রফিকুল ইসলাম', nextDueDate: '2026-11-20', costBdt: 350, note: 'বর্ষার পূর্বে প্রটেকশন ডোজ' }
+];
+
+const INITIAL_INDIVIDUAL_FEEDS = [
+  { id: 'if-1', cowTag: 'COW-101', date: '2026-10-08', time: 'সকাল ও বিকাল', feedType: 'দানাদার পুষ্টি খাদ্য (গম ভুসি, খৈল, ভুট্টা)', amountKg: 6, costBdt: 240, note: 'উচ্চ দুধ উৎপাদনের স্পেশাল রেশন' },
+  { id: 'if-2', cowTag: 'COW-101', date: '2026-10-08', time: 'দুপুর', feedType: 'কাঁচা নেপিয়ার ঘাস ও সাইলেজ', amountKg: 20, costBdt: 120, note: 'তাজা সবুজ ঘাস' },
+  { id: 'if-3', cowTag: 'COW-101', date: '2026-10-07', time: 'সকাল ও বিকাল', feedType: 'দানাদার পুষ্টি খাদ্য (গম ভুসি, খৈল, ভুট্টা)', amountKg: 6, costBdt: 240, note: 'দৈনিক নিয়মিত রেশন' },
+  { id: 'if-4', cowTag: 'COW-102', date: '2026-10-08', time: 'সকাল ও বিকাল', feedType: 'গর্ভবতী গাভীর পুষ্টি খাদ্য ও ক্যালসিয়াম', amountKg: 5, costBdt: 210, note: 'গর্ভকালীন খাদ্য' },
+  { id: 'if-5', cowTag: 'COW-103', date: '2026-10-08', time: 'সকাল ও বিকাল', feedType: 'মোটাতাজাকরণ স্পেশাল সাইলেজ ও খড়', amountKg: 8, costBdt: 320, note: 'দ্রুত মাংস বৃদ্ধির হাই-প্রোটিন রেশন' }
 ];
 
 export const CattleFarmModal = ({ isOpen, onClose }) => {
   const { lang, showToast, addToCart, addExpense } = useApp();
 
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'herd' | 'milk' | 'feed' | 'health' | 'herbal' | 'finances'
+
+  // Selected cow for Individual Dossier View
+  const [selectedCowForDossier, setSelectedCowForDossier] = useState(null);
+  const [dossierTab, setDossierTab] = useState('pnl'); // 'pnl' | 'vaccines' | 'feeds'
 
   // Herd state
   const [cows, setCows] = useState(() => {
@@ -70,7 +96,7 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     }
   });
 
-  // Daily Feed logs
+  // General Feed logs
   const [feedLogs, setFeedLogs] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.FEED);
@@ -83,17 +109,23 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     }
   });
 
-  // Vaccines & Breeding records
-  const [vaccineLogs, setVaccineLogs] = useState(() => {
+  // Individual Cow Feeds
+  const [individualFeeds, setIndividualFeeds] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.VACCINES);
-      return saved ? JSON.parse(saved) : [
-        { id: 'v-1', cowTag: 'COW-101', vaccineName: 'খুরা রোগ (FMD)', givenDate: '2026-08-15', nextDueDate: '2026-12-15', status: 'completed' },
-        { id: 'v-2', cowTag: 'COW-102', vaccineName: 'লাম্পি স্কিন ডিজিজ (LSD)', givenDate: '2026-07-10', nextDueDate: '2026-11-10', status: 'upcoming' },
-        { id: 'v-3', cowTag: 'COW-103', vaccineName: 'তড়কা ও বাদলা (BQ/Anthrax)', givenDate: '2026-05-20', nextDueDate: '2026-11-20', status: 'upcoming' }
-      ];
+      const saved = localStorage.getItem(STORAGE_KEYS.INDIVIDUAL_FEEDS);
+      return saved ? JSON.parse(saved) : INITIAL_INDIVIDUAL_FEEDS;
     } catch {
-      return [];
+      return INITIAL_INDIVIDUAL_FEEDS;
+    }
+  });
+
+  // Individual Cow Vaccines
+  const [individualVaccines, setIndividualVaccines] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.INDIVIDUAL_VACCINES);
+      return saved ? JSON.parse(saved) : INITIAL_INDIVIDUAL_VACCINES;
+    } catch {
+      return INITIAL_INDIVIDUAL_VACCINES;
     }
   });
 
@@ -119,7 +151,7 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     }
   });
 
-  // New Cow Form Modal State
+  // Forms
   const [newCow, setNewCow] = useState({
     tag: '',
     name: '',
@@ -127,10 +159,10 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     category: 'দুগ্ধবতী গাভী',
     purchasePrice: '',
     weightKg: '',
-    dailyMilk: ''
+    dailyMilk: '',
+    marketValue: ''
   });
 
-  // New Milk Entry State
   const [newMilk, setNewMilk] = useState({
     date: new Date().toISOString().split('T')[0],
     morningLiters: '',
@@ -140,7 +172,29 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     calfLiters: 4
   });
 
-  // Save changes to localStorage
+  // New Individual Vaccine Entry Form
+  const [newIndVaccine, setNewIndVaccine] = useState({
+    date: new Date().toISOString().split('T')[0],
+    time: '10:00 AM',
+    vaccineName: 'খুরা রোগ (FMD) ভ্যাকসিন',
+    medicine: '',
+    doctorName: 'ডাঃ রফিকুল ইসলাম',
+    nextDueDate: '',
+    costBdt: '450',
+    note: ''
+  });
+
+  // New Individual Feed Entry Form
+  const [newIndFeed, setNewIndFeed] = useState({
+    date: new Date().toISOString().split('T')[0],
+    time: 'সকাল ও বিকাল',
+    feedType: 'দানাদার পুষ্টি খাদ্য (গম ভুসি, খৈল, ভুট্টা)',
+    amountKg: '6',
+    costBdt: '240',
+    note: 'দৈনিক পুষ্টি রেশন'
+  });
+
+  // LocalStorage Sync
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.HERD, JSON.stringify(cows));
   }, [cows]);
@@ -154,8 +208,12 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
   }, [feedLogs]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.VACCINES, JSON.stringify(vaccineLogs));
-  }, [vaccineLogs]);
+    localStorage.setItem(STORAGE_KEYS.INDIVIDUAL_FEEDS, JSON.stringify(individualFeeds));
+  }, [individualFeeds]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INDIVIDUAL_VACCINES, JSON.stringify(individualVaccines));
+  }, [individualVaccines]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.FINANCES, JSON.stringify(monthlyFinances));
@@ -163,26 +221,19 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  // --- Financial Computations ---
-  // 1. Total Milk Revenue
+  // --- Computations ---
   const totalMilkSoldLiters = milkLogs.reduce((sum, m) => sum + Number(m.soldLiters || 0), 0);
   const totalMilkRevenue = milkLogs.reduce((sum, m) => sum + (Number(m.soldLiters || 0) * Number(m.ratePerLiter || 80)), 0);
-
-  // 2. Feed Costs
   const totalFeedCost = feedLogs.reduce((sum, f) => sum + Number(f.costBdt || 0), 0);
-
-  // 3. Herd Capital
   const totalHerdCapital = cows.reduce((sum, c) => sum + Number(c.purchasePrice || 0), 0);
   const milkingCowsCount = cows.filter(c => c.category === 'দুগ্ধবতী গাভী').length;
 
-  // 4. Monthly Overhead Expenses
   const monthlyOverhead =
     Number(monthlyFinances.electricityBill || 0) +
     Number(monthlyFinances.waterBill || 0) +
     Number(monthlyFinances.staffSalary || 0) +
     Number(monthlyFinances.vetDoctorFee || 0);
 
-  // 5. Total Farm Revenue & Net Profit
   const totalRevenue = totalMilkRevenue + Number(monthlyFinances.dungFertilizerSale || 0);
   const totalOperatingCost = totalFeedCost + monthlyOverhead;
   const netFarmProfit = totalRevenue - totalOperatingCost;
@@ -204,13 +255,14 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
       purchasePrice: Number(newCow.purchasePrice) || 0,
       weightKg: Number(newCow.weightKg) || 250,
       dailyMilk: Number(newCow.dailyMilk) || 0,
+      marketValue: Number(newCow.marketValue) || (Number(newCow.purchasePrice) * 1.3),
       status: 'active',
       birthDate: new Date().toISOString().split('T')[0]
     };
 
     setCows(prev => [cowEntry, ...prev]);
-    setNewCow({ tag: '', name: '', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: '', weightKg: '', dailyMilk: '' });
-    if (showToast) showToast(`✅ গরু (${cowEntry.tag} - ${cowEntry.name}) যুক্ত হয়েছে!`, 'success');
+    setNewCow({ tag: '', name: '', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: '', weightKg: '', dailyMilk: '', marketValue: '' });
+    if (showToast) showToast(`✅ গরু (${cowEntry.tag} - ${cowEntry.name}) সফলভাবে যুক্ত হয়েছে!`, 'success');
   };
 
   // Handle Add Milk Log
@@ -237,6 +289,50 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     if (showToast) showToast(`🥛 ${newMilk.date}-এর দুধ উৎপাদন (${totalToday}L) রেকর্ড হয়েছে!`, 'success');
   };
 
+  // Handle Add Individual Vaccine for Selected Cow
+  const handleAddIndividualVaccine = (e) => {
+    e.preventDefault();
+    if (!selectedCowForDossier) return;
+
+    const vacEntry = {
+      id: `iv_${Date.now()}`,
+      cowTag: selectedCowForDossier.tag,
+      date: newIndVaccine.date,
+      time: newIndVaccine.time,
+      vaccineName: newIndVaccine.vaccineName,
+      medicine: newIndVaccine.medicine || newIndVaccine.vaccineName,
+      doctorName: newIndVaccine.doctorName,
+      nextDueDate: newIndVaccine.nextDueDate,
+      costBdt: Number(newIndVaccine.costBdt) || 0,
+      note: newIndVaccine.note
+    };
+
+    setIndividualVaccines(prev => [vacEntry, ...prev]);
+    setNewIndVaccine({ ...newIndVaccine, medicine: '', note: '', costBdt: '450' });
+    if (showToast) showToast(`💉 ${selectedCowForDossier.tag}-এর জন্য ${vacEntry.vaccineName} সফলভাবে যুক্ত হয়েছে!`, 'success');
+  };
+
+  // Handle Add Individual Feed for Selected Cow
+  const handleAddIndividualFeed = (e) => {
+    e.preventDefault();
+    if (!selectedCowForDossier) return;
+
+    const feedEntry = {
+      id: `if_${Date.now()}`,
+      cowTag: selectedCowForDossier.tag,
+      date: newIndFeed.date,
+      time: newIndFeed.time,
+      feedType: newIndFeed.feedType,
+      amountKg: Number(newIndFeed.amountKg) || 0,
+      costBdt: Number(newIndFeed.costBdt) || 0,
+      note: newIndFeed.note
+    };
+
+    setIndividualFeeds(prev => [feedEntry, ...prev]);
+    setNewIndFeed({ ...newIndFeed, note: '' });
+    if (showToast) showToast(`🌾 ${selectedCowForDossier.tag}-এর খাদ্য খরচ (৳${feedEntry.costBdt}) রেকর্ড হয়েছে!`, 'success');
+  };
+
   // Push Milk Sales directly to POS Cart
   const handlePushMilkToPosCart = (log) => {
     const saleLiters = Number(log.soldLiters || 0);
@@ -258,9 +354,43 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
     if (showToast) showToast(`🛒 ৳${(saleLiters * rate).toLocaleString()} টাকার দুধ POS কার্টে যুক্ত হয়েছে!`, 'success');
   };
 
+  // Calculate Individual Cow P&L
+  const getCowPnL = (cow) => {
+    if (!cow) return null;
+    const cowFeeds = individualFeeds.filter(f => f.cowTag === cow.tag);
+    const cowVaccines = individualVaccines.filter(v => v.cowTag === cow.tag);
+
+    const totalFeedCost = cowFeeds.reduce((sum, f) => sum + Number(f.costBdt || 0), 0);
+    const totalMedicalCost = cowVaccines.reduce((sum, v) => sum + Number(v.costBdt || 0), 0);
+    const purchaseCost = Number(cow.purchasePrice || 0);
+    const totalInvestment = purchaseCost + totalFeedCost + totalMedicalCost;
+
+    // Estimated milk revenue if cow is milking
+    const estimatedMilkRevenue = cow.dailyMilk > 0 ? (cow.dailyMilk * 80 * 90) : 0; // 3 months milk approximation
+    const estimatedMarketValue = Number(cow.marketValue || (purchaseCost * 1.35));
+    const totalReturn = estimatedMilkRevenue + estimatedMarketValue;
+    const netProfit = totalReturn - totalInvestment;
+
+    return {
+      cowFeeds,
+      cowVaccines,
+      totalFeedCost,
+      totalMedicalCost,
+      purchaseCost,
+      totalInvestment,
+      estimatedMilkRevenue,
+      estimatedMarketValue,
+      totalReturn,
+      netProfit,
+      roiPercent: totalInvestment > 0 ? Math.round((netProfit / totalInvestment) * 100) : 0
+    };
+  };
+
+  const selectedCowPnL = selectedCowForDossier ? getCowPnL(selectedCowForDossier) : null;
+
   return (
     <div className="modal-overlay" style={{ zIndex: 9999 }}>
-      <div className="modal-content glass-card" style={{ maxWidth: '940px', width: '96%', padding: '1.25rem', maxHeight: '94vh', overflowY: 'auto' }}>
+      <div className="modal-content glass-card" style={{ maxWidth: '980px', width: '96%', padding: '1.25rem', maxHeight: '95vh', overflowY: 'auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -273,7 +403,7 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
                 <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>PRO</span>
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                গরুর খামার, দুধ উৎপাদন, ভ্যাকসিন শিডিউল, পুষ্টি খরচ ও পূর্ণাঙ্গ লাভ-লোকসান
+                গরুর খামার, প্রতি গরুর আলাদা খাদ্য ও ভ্যাকসিন খতিয়ান এবং সম্পূর্ণ লাভ-লোকসান
               </p>
             </div>
           </div>
@@ -286,19 +416,19 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
         <div className="horizontal-touch-strip" style={{ display: 'flex', gap: '6px', marginBottom: '1.25rem', overflowX: 'auto', paddingBottom: '4px' }}>
           {[
             { id: 'overview', label: '📊 খামার ড্যাশবোর্ড', icon: Activity },
-            { id: 'herd', label: `🐄 গবাদিপশু তালিকা (${cows.length})`, icon: Layers },
+            { id: 'herd', label: `🐄 গবাদিপশু তালিকা ও খতিয়ান (${cows.length})`, icon: Layers },
             { id: 'milk', label: '🥛 দুধ উৎপাদন ও সেলস', icon: Droplets },
             { id: 'feed', label: '🌾 খাবার ও পুষ্টি খরচ', icon: Wheat },
             { id: 'health', label: '💉 ভ্যাকসিন ও প্রজনন', icon: ShieldCheck },
             { id: 'herbal', label: '🌿 ঘরোয়া ভেষজ চিকিৎসা', icon: Heart },
-            { id: 'finances', label: '💰 মাসিক লাভ-লোকসান (P&L)', icon: DollarSign }
+            { id: 'finances', label: '💰 খামারের মোট P&L', icon: DollarSign }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); setSelectedCowForDossier(null); }}
                 style={{
                   padding: '8px 14px',
                   borderRadius: '10px',
@@ -322,10 +452,297 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           })}
         </div>
 
-        {/* TAB 1: OVERVIEW & KPIS */}
+        {/* ==================================================== */}
+        {/* SUB-MODAL: INDIVIDUAL COW DOSSIER & HISTORY VIEW     */}
+        {/* ==================================================== */}
+        {selectedCowForDossier && selectedCowPnL && (
+          <div style={{ background: 'var(--bg-secondary)', border: '2px solid #10b981', borderRadius: '16px', padding: '16px', marginBottom: '1.25rem', position: 'relative' }} className="animate-fade-in">
+            {/* Dossier Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.4rem' }}>
+                  🐄
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                      {selectedCowForDossier.name}
+                    </h3>
+                    <span style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontWeight: '800', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                      {selectedCowForDossier.tag}
+                    </span>
+                    <span style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '2px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '0.75rem' }}>
+                      {selectedCowForDossier.category}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    জাত: <strong>{selectedCowForDossier.breed}</strong> • বর্তমান ওজন: <strong>{selectedCowForDossier.weightKg} কেজি</strong> • ক্রয়মূল্য: <strong>৳{selectedCowForDossier.purchasePrice.toLocaleString()}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => printElement('printable-cow-dossier', { title: `Cow-Passport-${selectedCowForDossier.tag}` })}
+                  className="btn btn-primary"
+                  style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Printer size={15} />
+                  <span>🖨️ গরুর পাসপোর্ট প্রিন্ট</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCowForDossier(null)}
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+
+            {/* Dossier Tabs */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+              <button
+                type="button"
+                onClick={() => setDossierTab('pnl')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: '800',
+                  border: dossierTab === 'pnl' ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                  background: dossierTab === 'pnl' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-primary)',
+                  color: dossierTab === 'pnl' ? '#10b981' : 'var(--text-main)',
+                  cursor: 'pointer'
+                }}
+              >
+                💰 এই গরুর লাভ-লোকসান ও ROI
+              </button>
+              <button
+                type="button"
+                onClick={() => setDossierTab('vaccines')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: '800',
+                  border: dossierTab === 'vaccines' ? '1.5px solid #818cf8' : '1px solid var(--border-color)',
+                  background: dossierTab === 'vaccines' ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-primary)',
+                  color: dossierTab === 'vaccines' ? '#818cf8' : 'var(--text-main)',
+                  cursor: 'pointer'
+                }}
+              >
+                💉 টিকা, ইনজেকশন ও স্বাস্থ্য হিস্ট্রি ({selectedCowPnL.cowVaccines.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDossierTab('feeds')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: '800',
+                  border: dossierTab === 'feeds' ? '1.5px solid #f59e0b' : '1px solid var(--border-color)',
+                  background: dossierTab === 'feeds' ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-primary)',
+                  color: dossierTab === 'feeds' ? '#f59e0b' : 'var(--text-main)',
+                  cursor: 'pointer'
+                }}
+              >
+                🌾 খাদ্য গ্রহণ ও খাবার খরচ খাতা ({selectedCowPnL.cowFeeds.length})
+              </button>
+            </div>
+
+            {/* DOSSIER TAB 1: INDIVIDUAL COW P&L */}
+            {dossierTab === 'pnl' && (
+              <div id="printable-cow-dossier">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ক্রয়মূল্য</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                      ৳{selectedCowPnL.purchaseCost.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>মোট খাবার খরচ</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#f59e0b' }}>
+                      ৳{selectedCowPnL.totalFeedCost.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>চিকিৎসা ও টিকা ব্যয়</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#818cf8' }}>
+                      ৳{selectedCowPnL.totalMedicalCost.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ background: selectedCowPnL.netProfit >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', border: selectedCowPnL.netProfit >= 0 ? '1.5px solid #10b981' : '1.5px solid #ef4444', borderRadius: '10px', padding: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>এই গরুর নিট লাভ (ROI: {selectedCowPnL.roiPercent}%)</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: '900', color: selectedCowPnL.netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                      ৳{selectedCowPnL.netProfit.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px', fontSize: '0.82rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>সর্বমোট ব্যয় ও বিনিয়োগ (ক্রয়মূল্য + খাদ্য + চিকিৎসা):</span>
+                    <strong>৳{selectedCowPnL.totalInvestment.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>দুধ বিক্রির আনুমানিক মোট আয়:</span>
+                    <strong style={{ color: '#06b6d4' }}>৳{selectedCowPnL.estimatedMilkRevenue.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>বর্তমান আনুমানিক বাজারমূল্য / বিক্রয়মূল্য:</span>
+                    <strong style={{ color: '#10b981' }}>৳{selectedCowPnL.estimatedMarketValue.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.92rem', fontWeight: '900', color: selectedCowPnL.netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                    <span>প্রত্যাশিত নিট মুনাফা:</span>
+                    <span>৳{selectedCowPnL.netProfit.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* DOSSIER TAB 2: VACCINES & MEDICAL TIMELINE */}
+            {dossierTab === 'vaccines' && (
+              <div>
+                {/* Add Vaccine Form */}
+                <form onSubmit={handleAddIndividualVaccine} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Plus size={14} />
+                    <span>এই গরুর জন্য নতুন টিকা বা ইনজেকশন এন্ট্রি</span>
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginBottom: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>তারিখ</label>
+                      <input type="date" className="input-field" value={newIndVaccine.date} onChange={e => setNewIndVaccine({ ...newIndVaccine, date: e.target.value })} required />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>সময়</label>
+                      <input type="text" className="input-field" placeholder="10:30 AM" value={newIndVaccine.time} onChange={e => setNewIndVaccine({ ...newIndVaccine, time: e.target.value })} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ভ্যাকসিন / ইনজেকশন</label>
+                      <select className="input-field" value={newIndVaccine.vaccineName} onChange={e => setNewIndVaccine({ ...newIndVaccine, vaccineName: e.target.value })}>
+                        <option value="খুরা রোগ (FMD) ভ্যাকসিন">খুরা রোগ (FMD) ভ্যাকসিন</option>
+                        <option value="লাম্পি স্কিন ডিজিজ (LSD)">লাম্পি স্কিন ডিজিজ (LSD)</option>
+                        <option value="তড়কা ও বাদলা (BQ/Anthrax)">তড়কা ও বাদলা (BQ/Anthrax)</option>
+                        <option value="কৃমিনাশক ডোজ (Deworming)">কৃমিনাশক ডোজ (Deworming)</option>
+                        <option value="ক্যালসিয়াম ও ভিটামিন ইনজেকশন">ক্যালসিয়াম ও ভিটামিন ইনজেকশন</option>
+                        <option value="অ্যান্টিবায়োটিক চিকিৎসা">অ্যান্টিবায়োটিক চিকিৎসা</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ওষুধের নাম</label>
+                      <input type="text" className="input-field" placeholder="যেমন: Aftovax / Renamycin" value={newIndVaccine.medicine} onChange={e => setNewIndVaccine({ ...newIndVaccine, medicine: e.target.value })} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>পরবর্তী তারিখ (Next Due)</label>
+                      <input type="date" className="input-field" value={newIndVaccine.nextDueDate} onChange={e => setNewIndVaccine({ ...newIndVaccine, nextDueDate: e.target.value })} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>খরচ (টাকা)</label>
+                      <input type="number" className="input-field" value={newIndVaccine.costBdt} onChange={e => setNewIndVaccine({ ...newIndVaccine, costBdt: e.target.value })} />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem', fontWeight: '800' }}>
+                    সেভ করুন
+                  </button>
+                </form>
+
+                {/* Timeline */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {selectedCowPnL.cowVaccines.map(vac => (
+                    <div key={vac.id} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>💉 {vac.vaccineName}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({vac.medicine})</span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          📅 <strong>{vac.date}</strong> ({vac.time}) • ডাক্তার: <strong>{vac.doctorName || 'খামার চিকিৎসক'}</strong>
+                          {vac.nextDueDate && <span style={{ color: '#f59e0b', marginLeft: '8px' }}>⏰ পরবর্তী ডোজ: {vac.nextDueDate}</span>}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <strong style={{ color: '#818cf8', fontSize: '0.9rem' }}>৳{vac.costBdt}</strong>
+                      </div>
+                    </div>
+                  ))}
+                  {selectedCowPnL.cowVaccines.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      এই গরুর জন্য কোনো ভ্যাকসিন রেকর্ড করা নেই
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* DOSSIER TAB 3: INDIVIDUAL FEEDS */}
+            {dossierTab === 'feeds' && (
+              <div>
+                {/* Add Feed Form */}
+                <form onSubmit={handleAddIndividualFeed} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Plus size={14} />
+                    <span>এই গরুর খাদ্য খরচ এন্ট্রি</span>
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginBottom: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>তারিখ</label>
+                      <input type="date" className="input-field" value={newIndFeed.date} onChange={e => setNewIndFeed({ ...newIndFeed, date: e.target.value })} required />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>খাবারের ধরণ</label>
+                      <select className="input-field" value={newIndFeed.feedType} onChange={e => setNewIndFeed({ ...newIndFeed, feedType: e.target.value })}>
+                        <option value="দানাদার পুষ্টি খাদ্য (গম ভুসি, খৈল, ভুট্টা)">দানাদার পুষ্টি খাদ্য (গম ভুসি, খৈল, ভুট্টা)</option>
+                        <option value="কাঁচা নেপিয়ার ঘাস ও সাইলেজ">কাঁচা নেপিয়ার ঘাস ও সাইলেজ</option>
+                        <option value="শুকনো খড় ও চিটাগুড় মিশ্রণ">শুকনো খড় ও চিটাগুড় মিশ্রণ</option>
+                        <option value="মিনারেল ও ক্যালসিয়াম মিক্স">মিনারেল ও ক্যালসিয়াম মিক্স</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>পরিমাণ (কেজি)</label>
+                      <input type="number" className="input-field" value={newIndFeed.amountKg} onChange={e => setNewIndFeed({ ...newIndFeed, amountKg: e.target.value })} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>খরচ (টাকা)</label>
+                      <input type="number" className="input-field" value={newIndFeed.costBdt} onChange={e => setNewIndFeed({ ...newIndFeed, costBdt: e.target.value })} />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '0.78rem', fontWeight: '800' }}>
+                    সেভ করুন
+                  </button>
+                </form>
+
+                {/* Feed logs */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {selectedCowPnL.cowFeeds.map(feed => (
+                    <div key={feed.id} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', color: 'var(--text-main)' }}>
+                          🌾 {feed.feedType} — <span>{feed.amountKg} কেজি</span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          📅 {feed.date} ({feed.time}) {feed.note && `• ${feed.note}`}
+                        </div>
+                      </div>
+                      <strong style={{ color: '#f59e0b', fontSize: '0.9rem' }}>৳{feed.costBdt}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* MAIN TAB 1: OVERVIEW & KPIS                          */}
+        {/* ==================================================== */}
         {activeTab === 'overview' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Top 4 KPI Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
               <div className="stat-card" style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>খামারে মোট গরু</div>
@@ -381,12 +798,12 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
                   <span>আসন্ন ভ্যাকসিন ও স্বাস্থ্য সতর্কতা</span>
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {vaccineLogs.slice(0, 3).map(v => (
+                  {individualVaccines.slice(0, 4).map(v => (
                     <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.78rem' }}>
                       <div>
                         <strong>{v.cowTag}</strong> — <span>{v.vaccineName}</span>
                       </div>
-                      <span style={{ color: '#f59e0b', fontWeight: '800' }}>তারিখ: {v.nextDueDate}</span>
+                      <span style={{ color: '#f59e0b', fontWeight: '800' }}>তারিখ: {v.nextDueDate || v.date}</span>
                     </div>
                   ))}
                 </div>
@@ -410,7 +827,9 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* TAB 2: HERD & CATTLE REGISTRY */}
+        {/* ==================================================== */}
+        {/* MAIN TAB 2: HERD & CATTLE REGISTRY                   */}
+        {/* ==================================================== */}
         {activeTab === 'herd' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Add Cow Form */}
@@ -489,6 +908,16 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
                     onChange={(e) => setNewCow({ ...newCow, weightKg: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>বাজারমূল্য (সম্ভাব্য)</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    placeholder="200000"
+                    value={newCow.marketValue}
+                    onChange={(e) => setNewCow({ ...newCow, marketValue: e.target.value })}
+                  />
+                </div>
               </div>
               <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800' }}>
                 <Plus size={16} />
@@ -498,8 +927,9 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
 
             {/* Cattle Table */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-color)', fontWeight: '800', fontSize: '0.92rem' }}>
-                খামারে নিবন্ধিত গবাদিপশুর তালিকা (মোট মূলধন: ৳{totalHerdCapital.toLocaleString()})
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-color)', fontWeight: '800', fontSize: '0.92rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>খামারে নিবন্ধিত গবাদিপশুর তালিকা (মোট মূলধন: ৳{totalHerdCapital.toLocaleString()})</span>
+                <span style={{ fontSize: '0.74rem', color: '#10b981' }}>💡 যেকোনো গরুর নামের পাশে "খতিয়ান" চাপুন</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
@@ -511,41 +941,67 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
                       <th style={{ padding: '10px' }}>ওজন</th>
                       <th style={{ padding: '10px' }}>ক্রয়মূল্য</th>
                       <th style={{ padding: '10px' }}>দৈনিক দুধ</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>গরুর খতিয়ান ও হিস্ট্রি</th>
                       <th style={{ padding: '10px', textAlign: 'center' }}>অ্যাকশন</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {cows.map(cow => (
-                      <tr key={cow.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#10b981' }}>{cow.tag}</td>
-                        <td style={{ padding: '10px' }}>
-                          <strong>{cow.name}</strong>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{cow.breed}</div>
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
-                            {cow.category}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px', fontWeight: '700' }}>{cow.weightKg} কেজি</td>
-                        <td style={{ padding: '10px', fontWeight: '800' }}>৳{cow.purchasePrice.toLocaleString()}</td>
-                        <td style={{ padding: '10px', color: '#06b6d4', fontWeight: '700' }}>{cow.dailyMilk > 0 ? `${cow.dailyMilk}L` : '—'}</td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`আপনি কি ${cow.tag} ডিলিট করতে চান?`)) {
-                                setCows(prev => prev.filter(c => c.id !== cow.id));
-                              }
-                            }}
-                            className="btn-icon"
-                            style={{ color: '#ef4444' }}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {cows.map(cow => {
+                      const pnl = getCowPnL(cow);
+
+                      return (
+                        <tr key={cow.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#10b981' }}>{cow.tag}</td>
+                          <td style={{ padding: '10px' }}>
+                            <strong>{cow.name}</strong>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{cow.breed}</div>
+                          </td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
+                              {cow.category}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px', fontWeight: '700' }}>{cow.weightKg} কেজি</td>
+                          <td style={{ padding: '10px', fontWeight: '800' }}>৳{cow.purchasePrice.toLocaleString()}</td>
+                          <td style={{ padding: '10px', color: '#06b6d4', fontWeight: '700' }}>{cow.dailyMilk > 0 ? `${cow.dailyMilk}L` : '—'}</td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedCowForDossier(cow); setDossierTab('pnl'); }}
+                              className="btn btn-secondary press-scale"
+                              style={{
+                                padding: '5px 10px',
+                                fontSize: '0.76rem',
+                                fontWeight: '800',
+                                color: '#10b981',
+                                borderColor: 'rgba(16, 185, 129, 0.4)',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                              }}
+                            >
+                              <FileText size={14} />
+                              <span>📋 বিস্তারিত খতিয়ান ও টিকা</span>
+                            </button>
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`আপনি কি ${cow.tag} ডিলিট করতে চান?`)) {
+                                  setCows(prev => prev.filter(c => c.id !== cow.id));
+                                }
+                              }}
+                              className="btn-icon"
+                              style={{ color: '#ef4444' }}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -553,7 +1009,9 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* TAB 3: MILK YIELD & SALES */}
+        {/* ==================================================== */}
+        {/* MAIN TAB 3: MILK YIELD & SALES                       */}
+        {/* ==================================================== */}
         {activeTab === 'milk' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <form onSubmit={handleAddMilkLog} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
@@ -667,7 +1125,9 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* TAB 4: FEED & NUTRITION */}
+        {/* ==================================================== */}
+        {/* MAIN TAB 4: FEED & NUTRITION                         */}
+        {/* ==================================================== */}
         {activeTab === 'feed' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
@@ -694,11 +1154,13 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* TAB 5: VACCINE & BREEDING CALENDAR */}
+        {/* ==================================================== */}
+        {/* MAIN TAB 5: VACCINE & BREEDING CALENDAR              */}
+        {/* ==================================================== */}
         {activeTab === 'health' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: '12px', padding: '12px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              💡 <strong>টিপস:</strong> খামারে খুরা রোগ (FMD) প্রতি ৪-৬ মাসে, তড়কা ও বাদলা বর্ষার পূর্বে এবং লাম্পি স্কিন ডিজিজ (LSD) বছরে ১ বার অবশ্যই দিতে হবে।
+              💡 <strong>টিপস:</strong> খামারে খুরা রোগ (FMD) প্রতি ৪-৬ মাসে, তড়কা ও বাদলা বর্ষার পূর্বে এবং লাম্পি স্কিন ডিজিজ (LSD) বছরে ১ বার অবশ্যই দিতে হবে। কোনো গরুর আলাদা খতিয়ান দেখতে <strong>"🐄 গবাদিপশু তালিকা"</strong> ট্যাবে যান।
             </div>
 
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
@@ -707,23 +1169,24 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
                   <tr style={{ background: 'var(--bg-primary)', textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ padding: '10px' }}>গরুর ট্যাগ</th>
                     <th style={{ padding: '10px' }}>ভ্যাকসিন / চিকিৎসার নাম</th>
-                    <th style={{ padding: '10px' }}>প্রদানের তারিখ</th>
+                    <th style={{ padding: '10px' }}>প্রদানের তারিখ ও সময়</th>
                     <th style={{ padding: '10px' }}>পরবর্তী তারিখ (Due Date)</th>
-                    <th style={{ padding: '10px' }}>স্ট্যাটাস</th>
+                    <th style={{ padding: '10px' }}>ডাক্তার</th>
+                    <th style={{ padding: '10px' }}>খরচ</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {vaccineLogs.map(vac => (
+                  {individualVaccines.map(vac => (
                     <tr key={vac.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#10b981' }}>{vac.cowTag}</td>
-                      <td style={{ padding: '10px', fontWeight: '700' }}>{vac.vaccineName}</td>
-                      <td style={{ padding: '10px' }}>{vac.givenDate}</td>
-                      <td style={{ padding: '10px', color: '#f59e0b', fontWeight: '800' }}>{vac.nextDueDate}</td>
-                      <td style={{ padding: '10px' }}>
-                        <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', background: vac.status === 'completed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: vac.status === 'completed' ? '#10b981' : '#f59e0b' }}>
-                          {vac.status === 'completed' ? '✓ সম্পন্ন' : '⏳ আসন্ন'}
-                        </span>
+                      <td style={{ padding: '10px', fontWeight: '700' }}>
+                        {vac.vaccineName}
+                        {vac.medicine && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{vac.medicine}</div>}
                       </td>
+                      <td style={{ padding: '10px' }}>{vac.date} ({vac.time})</td>
+                      <td style={{ padding: '10px', color: '#f59e0b', fontWeight: '800' }}>{vac.nextDueDate || '—'}</td>
+                      <td style={{ padding: '10px' }}>{vac.doctorName || 'খামার চিকিৎসক'}</td>
+                      <td style={{ padding: '10px', fontWeight: '800', color: '#818cf8' }}>৳{vac.costBdt}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -732,10 +1195,11 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* TAB 6: HERBAL HOME REMEDIES DIARY */}
+        {/* ==================================================== */}
+        {/* MAIN TAB 6: HERBAL HOME REMEDIES DIARY              */}
+        {/* ==================================================== */}
         {activeTab === 'herbal' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-            {/* 1. LSD */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '1.2rem' }}>🌿</span>
@@ -750,7 +1214,6 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
               </p>
             </div>
 
-            {/* 2. Mastitis */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '1.2rem' }}>🧊</span>
@@ -765,7 +1228,6 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
               </p>
             </div>
 
-            {/* 3. Bloat */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '1.2rem' }}>🫚</span>
@@ -779,7 +1241,6 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
               </p>
             </div>
 
-            {/* 4. Calf Diarrhea */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '1.2rem' }}>🍌</span>
@@ -795,7 +1256,9 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* TAB 7: COMPLETE FARM P&L STATEMENT */}
+        {/* ==================================================== */}
+        {/* MAIN TAB 7: COMPLETE FARM P&L STATEMENT              */}
+        {/* ==================================================== */}
         {activeTab === 'finances' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div id="cattle-pnl-sheet" style={{ background: '#fff', color: '#0f172a', padding: '1.5rem', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
@@ -880,7 +1343,6 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            {/* Print & Action Button */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
