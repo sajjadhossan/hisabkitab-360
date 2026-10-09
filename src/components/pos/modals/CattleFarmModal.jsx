@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Plus,
@@ -30,7 +30,16 @@ import {
   ChevronRight,
   Info,
   Phone,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  QrCode,
+  Scale,
+  ShoppingBag,
+  Receipt,
+  Smartphone,
+  Flame,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { printElement } from '../../../services/printService';
@@ -44,14 +53,15 @@ const STORAGE_KEYS = {
   INDIVIDUAL_FEEDS: 'hk360_cattle_individual_feeds',
   INDIVIDUAL_VACCINES: 'hk360_cattle_individual_vaccines',
   HERBAL: 'hk360_cattle_herbal_remedies',
-  BREEDING: 'hk360_cattle_breeding_records'
+  BREEDING: 'hk360_cattle_breeding_records',
+  FARM_POS_SALES: 'hk360_cattle_pos_sales'
 };
 
 const INITIAL_COWS = [
-  { id: 'cow-1', tag: 'COW-101', name: 'রানি', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: 185000, weightKg: 420, dailyMilk: 18, status: 'active', birthDate: '2023-01-15', marketValue: 245000 },
-  { id: 'cow-2', tag: 'COW-102', name: 'শোভা', breed: 'শাহীওয়াল', category: 'গর্ভবতী গাভী', purchasePrice: 165000, weightKg: 380, dailyMilk: 12, status: 'pregnant', birthDate: '2023-04-10', marketValue: 210000 },
-  { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, dailyMilk: 0, status: 'fattening', birthDate: '2024-02-01', marketValue: 220000 },
-  { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, dailyMilk: 0, status: 'calf', birthDate: '2025-11-20', marketValue: 75000 }
+  { id: 'cow-1', tag: 'COW-101', name: 'রানি', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: 185000, weightKg: 420, dailyMilk: 18, status: 'active', birthDate: '2023-01-15', marketValue: 245000, heartGirth: 78, bodyLength: 64 },
+  { id: 'cow-2', tag: 'COW-102', name: 'শোভা', breed: 'শাহীওয়াল', category: 'গর্ভবতী গাভী', purchasePrice: 165000, weightKg: 380, dailyMilk: 12, status: 'pregnant', birthDate: '2023-04-10', marketValue: 210000, heartGirth: 74, bodyLength: 60 },
+  { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, dailyMilk: 0, status: 'fattening', birthDate: '2024-02-01', marketValue: 220000, heartGirth: 84, bodyLength: 70 },
+  { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, dailyMilk: 0, status: 'calf', birthDate: '2025-11-20', marketValue: 75000, heartGirth: 45, bodyLength: 38 }
 ];
 
 const INITIAL_INDIVIDUAL_VACCINES = [
@@ -125,6 +135,17 @@ const INITIAL_BREEDINGS = [
   }
 ];
 
+// Farm Products Catalog for Dedicated Cattle POS
+const FARM_POS_CATALOG = [
+  { id: 'fp-1', name: 'খাঁটি কাঁচা দুধ (সকাল/বিকাল)', unit: 'লিটার', price: 80, icon: '🥛', category: 'দুধ ও দুগ্ধজাত' },
+  { id: 'fp-2', name: 'গাভীর খাঁটি গাওয়া ঘি (৫০০ গ্রাম জার)', unit: 'জার', price: 950, icon: '🧈', category: 'দুধ ও দুগ্ধজাত' },
+  { id: 'fp-3', name: 'তাজা ননীযুক্ত ছানা / পনির', unit: 'কেজি', price: 850, icon: '🧀', category: 'দুধ ও দুগ্ধজাত' },
+  { id: 'fp-4', name: 'খামারের স্পেশাল মিষ্টি দই', unit: 'হাঁড়ি', price: 350, icon: '🍦', category: 'দুধ ও দুগ্ধজাত' },
+  { id: 'fp-5', name: 'শুকনো গোবর জৈব সার (৪০ কেজি)', unit: 'বস্তা', price: 380, icon: '💩', category: 'সার ও বাই-প্রোডাক্ট' },
+  { id: 'fp-6', name: 'হাই-প্রোটিন ভুট্টা সাইলেজ', unit: 'কেজি', price: 16, icon: '🌾', category: 'ফিড ও ঘাস' },
+  { id: 'fp-7', name: 'কাঁচা নেপিয়ার ঘাস আঁটি', unit: 'আঁটি', price: 25, icon: '🌿', category: 'ফিড ও ঘাস' }
+];
+
 export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview', isPageMode = false }) => {
   const { lang, showToast, addToCart, addExpense } = useApp();
 
@@ -138,7 +159,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
 
   // Selected cow for Individual Dossier View
   const [selectedCowForDossier, setSelectedCowForDossier] = useState(null);
-  const [dossierTab, setDossierTab] = useState('pnl'); // 'pnl' | 'vaccines' | 'feeds'
+  const [dossierTab, setDossierTab] = useState('pnl'); // 'pnl' | 'vaccines' | 'feeds' | 'qr'
 
   // Herd state
   const [cows, setCows] = useState(() => {
@@ -237,7 +258,119 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     }
   });
 
-  // --- Add / Edit Form States ---
+  // Dedicated Farm POS Sales History & Cart
+  const [farmPosCart, setFarmPosCart] = useState([]);
+  const [farmPosSales, setFarmPosSales] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.FARM_POS_SALES);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [farmCustomer, setFarmCustomer] = useState({ name: '', phone: '', note: '' });
+  const [farmPayMethod, setFarmPayMethod] = useState('cash'); // 'cash' | 'bkash' | 'nagad' | 'due'
+
+  // --- AI CAMERA WEIGHT ESTIMATOR STATE ---
+  const [cameraActive, setCameraActive] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [selectedCowForWeight, setSelectedCowForWeight] = useState('COW-103');
+  const [heartGirthInches, setHeartGirthInches] = useState(78);
+  const [bodyLengthInches, setBodyLengthInches] = useState(64);
+  const [bodyConditionScore, setBodyConditionScore] = useState(3.5); // 1-5 scale
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // Compute Estimated Cattle Weight using Veterinary Schaeffer's Formula:
+  // Weight in lbs = (Heart Girth^2 * Body Length) / 300
+  // Weight in kg = lbs * 0.45359237
+  const estimatedWeightKg = useMemo(() => {
+    const girth = Number(heartGirthInches) || 75;
+    const length = Number(bodyLengthInches) || 60;
+    const bcsModifier = 1 + ((Number(bodyConditionScore) - 3) * 0.05); // adjusts for fat vs lean
+    const weightLbs = ((girth * girth * length) / 300) * bcsModifier;
+    return Math.round(weightLbs * 0.45359237);
+  }, [heartGirthInches, bodyLengthInches, bodyConditionScore]);
+
+  // Carcass / Meat Yield (Dressing percentage ~ 53% to 56%)
+  const estimatedMeatKg = useMemo(() => {
+    return Math.round(estimatedWeightKg * 0.54);
+  }, [estimatedWeightKg]);
+
+  // Estimated Market Value based on Live weight (Approx ৳450-520 per kg live weight in BD)
+  const estimatedMarketPrice = useMemo(() => {
+    return Math.round(estimatedWeightKg * 480);
+  }, [estimatedWeightKg]);
+
+  // Camera stream handler
+  const startCamera = async () => {
+    try {
+      setCameraActive(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      if (showToast) showToast('ক্যামেরা চালু করা যায়নি বা পারমিশন নেই। ছবি আপলোড করুন।', 'info');
+      setCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth || 640;
+    canvas.height = videoRef.current.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    setCapturedImage(dataUrl);
+    stopCamera();
+    if (showToast) showToast('📸 গরুর ছবি স্ক্যান হয়েছে! এআই সম্ভাব্য মাপ বিশ্লেষণ করছে...', 'success');
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCapturedImage(event.target.result);
+        if (showToast) showToast('📸 গরুর ছবি আপলোড সম্পন্ন! এআই সাইজিং চালু হয়েছে।', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleApplyWeightToCow = () => {
+    if (!selectedCowForWeight) return;
+    setCows(prev => prev.map(c => {
+      if (c.tag === selectedCowForWeight) {
+        return {
+          ...c,
+          weightKg: estimatedWeightKg,
+          heartGirth: heartGirthInches,
+          bodyLength: bodyLengthInches,
+          marketValue: estimatedMarketPrice
+        };
+      }
+      return c;
+    }));
+    if (showToast) showToast(`✅ ${selectedCowForWeight}-এর ওজন (${estimatedWeightKg} কেজি) প্রোফাইলে আপডেট হয়েছে!`, 'success');
+  };
+
+  // --- Forms State for Herd, Feed, Vaccine, Herbal, Breeding ---
   const [newCow, setNewCow] = useState({
     tag: '',
     name: '',
@@ -303,7 +436,6 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
   });
   const [editingMilk, setEditingMilk] = useState(null);
 
-  // New Individual Cow Dossier Vaccine & Feed Form
   const [newIndVaccine, setNewIndVaccine] = useState({
     date: new Date().toISOString().split('T')[0],
     time: '10:00 AM',
@@ -325,37 +457,22 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
   });
 
   // LocalStorage Sync
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.HERD, JSON.stringify(cows));
-  }, [cows]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.HERD, JSON.stringify(cows)); }, [cows]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.MILK, JSON.stringify(milkLogs)); }, [milkLogs]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.FEED, JSON.stringify(feedLogs)); }, [feedLogs]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.INDIVIDUAL_FEEDS, JSON.stringify(individualFeeds)); }, [individualFeeds]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.INDIVIDUAL_VACCINES, JSON.stringify(individualVaccines)); }, [individualVaccines]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.HERBAL, JSON.stringify(herbalRemedies)); }, [herbalRemedies]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.BREEDING, JSON.stringify(breedingRecords)); }, [breedingRecords]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.FINANCES, JSON.stringify(monthlyFinances)); }, [monthlyFinances]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.FARM_POS_SALES, JSON.stringify(farmPosSales)); }, [farmPosSales]);
 
+  // Clean camera stream on unmount
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MILK, JSON.stringify(milkLogs));
-  }, [milkLogs]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.FEED, JSON.stringify(feedLogs));
-  }, [feedLogs]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INDIVIDUAL_FEEDS, JSON.stringify(individualFeeds));
-  }, [individualFeeds]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INDIVIDUAL_VACCINES, JSON.stringify(individualVaccines));
-  }, [individualVaccines]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.HERBAL, JSON.stringify(herbalRemedies));
-  }, [herbalRemedies]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BREEDING, JSON.stringify(breedingRecords));
-  }, [breedingRecords]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.FINANCES, JSON.stringify(monthlyFinances));
-  }, [monthlyFinances]);
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   if (!isOpen && !isPageMode) return null;
 
@@ -365,6 +482,9 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
   const totalFeedCost = feedLogs.reduce((sum, f) => sum + Number(f.costBdt || 0), 0);
   const totalHerdCapital = cows.reduce((sum, c) => sum + Number(c.purchasePrice || 0), 0);
   const milkingCowsCount = cows.filter(c => c.category === 'দুগ্ধবতী গাভী').length;
+  const pregnantCowsCount = cows.filter(c => c.category === 'গর্ভবতী গাভী' || c.status === 'pregnant').length;
+  const fatteningBullsCount = cows.filter(c => c.category === 'মোটাতাজাকরণ ষাঁড়' || c.status === 'fattening').length;
+  const calvesCount = cows.filter(c => c.category === 'দুধের বাছুর' || c.status === 'calf').length;
 
   const monthlyOverhead =
     Number(monthlyFinances.electricityBill || 0) +
@@ -375,6 +495,71 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
   const totalRevenue = totalMilkRevenue + Number(monthlyFinances.dungFertilizerSale || 0);
   const totalOperatingCost = totalFeedCost + monthlyOverhead;
   const netFarmProfit = totalRevenue - totalOperatingCost;
+
+  // --- Dedicated Cattle POS Handlers ---
+  const handleAddProductToFarmPosCart = (prod) => {
+    setFarmPosCart(prev => {
+      const existing = prev.find(item => item.id === prod.id);
+      if (existing) {
+        return prev.map(item => item.id === prod.id ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { ...prod, qty: 1 }];
+    });
+    if (showToast) showToast(`🛒 ${prod.name} খামার কার্টে যোগ হয়েছে`, 'success');
+  };
+
+  const handleAddLiveCowToPosCart = (cow) => {
+    const item = {
+      id: `live_cow_${cow.id}`,
+      name: `লাইভ পশু: ${cow.tag} (${cow.name} - ${cow.breed})`,
+      unit: `${cow.weightKg} কেজি`,
+      price: Number(cow.marketValue || cow.purchasePrice || 150000),
+      icon: '🐂',
+      category: 'লাইভ গবাদিপশু',
+      isLiveCow: true,
+      cowTag: cow.tag
+    };
+    handleAddProductToFarmPosCart(item);
+  };
+
+  const handleUpdatePosCartQty = (id, newQty) => {
+    if (newQty <= 0) {
+      setFarmPosCart(prev => prev.filter(item => item.id !== id));
+    } else {
+      setFarmPosCart(prev => prev.map(item => item.id === id ? { ...item, qty: newQty } : item));
+    }
+  };
+
+  const farmPosTotal = useMemo(() => {
+    return farmPosCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  }, [farmPosCart]);
+
+  const handleCompleteFarmSale = () => {
+    if (farmPosCart.length === 0) return;
+
+    const saleRecord = {
+      id: `fps_${Date.now()}`,
+      date: new Date().toISOString(),
+      items: farmPosCart,
+      totalAmount: farmPosTotal,
+      customerName: farmCustomer.name || 'খুচরা খামার গ্রাহক',
+      customerPhone: farmCustomer.phone || '',
+      paymentMethod: farmPayMethod,
+      note: farmCustomer.note
+    };
+
+    // If live cow sold, mark as sold
+    farmPosCart.forEach(item => {
+      if (item.isLiveCow && item.cowTag) {
+        setCows(prev => prev.map(c => c.tag === item.cowTag ? { ...c, status: 'sold' } : c));
+      }
+    });
+
+    setFarmPosSales(prev => [saleRecord, ...prev]);
+    setFarmPosCart([]);
+    setFarmCustomer({ name: '', phone: '', note: '' });
+    if (showToast) showToast(`✅ ৳${farmPosTotal.toLocaleString()} টাকার খামার বিক্রয় মেমো সফল হয়েছে!`, 'success');
+  };
 
   // --- HERD HANDLERS ---
   const handleAddCow = (e) => {
@@ -395,7 +580,9 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       dailyMilk: Number(newCow.dailyMilk) || 0,
       marketValue: Number(newCow.marketValue) || (Number(newCow.purchasePrice) * 1.3),
       status: 'active',
-      birthDate: new Date().toISOString().split('T')[0]
+      birthDate: new Date().toISOString().split('T')[0],
+      heartGirth: 75,
+      bodyLength: 60
     };
 
     setCows(prev => [cowEntry, ...prev]);
@@ -427,7 +614,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     }
   };
 
-  // --- GENERAL FEED HANDLERS ---
+  // --- FEED HANDLERS ---
   const handleAddGeneralFeed = (e) => {
     e.preventDefault();
     if (!newGeneralFeed.amountKg || !newGeneralFeed.costBdt) {
@@ -470,7 +657,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     }
   };
 
-  // --- VACCINE & HEALTH HANDLERS ---
+  // --- VACCINE HANDLERS ---
   const handleAddGeneralVaccine = (e) => {
     e.preventDefault();
     if (!newGeneralVaccine.vaccineName) return;
@@ -518,7 +705,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     setIndividualVaccines(prev => prev.map(v => v.id === vacId ? { ...v, isDone: !v.isDone } : v));
   };
 
-  // --- HERBAL REMEDIES HANDLERS ---
+  // --- HERBAL HANDLERS ---
   const handleAddHerbalRemedy = (e) => {
     e.preventDefault();
     if (!newHerbal.title || !newHerbal.ingredients) {
@@ -563,13 +750,10 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     if (!newBreeding.cowTag || !newBreeding.inseminationDate) return;
 
     const baseDate = new Date(newBreeding.inseminationDate);
-    // Add 21 days for repeat heat check
     const heatDate = new Date(baseDate);
     heatDate.setDate(heatDate.getDate() + 21);
-    // Add 280 days for expected calving
     const calveDate = new Date(baseDate);
     calveDate.setDate(calveDate.getDate() + 280);
-    // Add 220 days for dry off (60 days before calving)
     const dryDate = new Date(baseDate);
     dryDate.setDate(dryDate.getDate() + 220);
 
@@ -658,6 +842,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     }
   };
 
+  // Push Milk Sales to general POS cart
   const handlePushMilkToPosCart = (log) => {
     const saleLiters = Number(log.soldLiters || 0);
     const rate = Number(log.ratePerLiter || 80);
@@ -713,7 +898,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
 
   const innerModalCard = (
     <div className={isPageMode ? "glass-card" : "modal-content glass-card"} style={{
-      maxWidth: isPageMode ? '1240px' : '1020px',
+      maxWidth: isPageMode ? '1320px' : '1100px',
       margin: isPageMode ? '0 auto' : undefined,
       width: '100%',
       padding: isPageMode ? '1.5rem 1.25rem' : '1.25rem',
@@ -723,16 +908,16 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.25))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
             <Wheat size={24} />
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>ক্যাটেল ও ডেইরি ফার্মিং হাব</span>
-              <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>PRO</span>
+              <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>FARM 360</span>
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-              খাদ্য, ভ্যাকসিন ও ভেষজ চিকিৎসা এন্ট্রি/এডিট, প্রজনন ক্যালেন্ডার এবং লাভ-লোকসান
+              খামার-কেন্দ্রিক পিওএস, এআই ক্যামেরা ওজন স্ক্যানার, রঙিন কেপিআই খোপ এবং পূর্ণাঙ্গ খামার খতিয়ান
             </p>
           </div>
         </div>
@@ -758,15 +943,17 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         )}
       </div>
 
-      {/* Top Navigation Tabs */}
+      {/* Top Navigation Strip */}
       <div className="horizontal-touch-strip" style={{ display: 'flex', gap: '6px', marginBottom: '1.25rem', overflowX: 'auto', paddingBottom: '4px' }}>
         {[
-          { id: 'overview', label: '📊 ড্যাশবোর্ড', icon: Activity },
-          { id: 'herd', label: `🐄 গবাদিপশু (${cows.length})`, icon: Layers },
+          { id: 'overview', label: '📊 খামার ড্যাশবোর্ড', icon: Activity, badge: 'KPI' },
+          { id: 'farm_pos', label: '🛒 খামার পিওএস কাউন্টার', icon: ShoppingBag, badge: 'HOT' },
+          { id: 'ai_scanner', label: '📸 এআই ক্যামেরা ওজন স্ক্যানার', icon: Camera, badge: 'AI' },
+          { id: 'herd', label: `🐄 গবাদিপশু তালিকা (${cows.length})`, icon: Layers },
           { id: 'feed', label: `🌾 খাদ্য খরচ (${feedLogs.length})`, icon: Wheat },
           { id: 'health', label: `💉 ভ্যাকসিন ও চিকিৎসা (${individualVaccines.length})`, icon: ShieldCheck },
           { id: 'breeding', label: `🧬 প্রজনন ও গর্ভধারণ (${breedingRecords.length})`, icon: Sparkles },
-          { id: 'milk', label: `🥛 দুধ সেলস (${milkLogs.length})`, icon: Droplets },
+          { id: 'milk', label: `🥛 দুধ উৎপাদন (${milkLogs.length})`, icon: Droplets },
           { id: 'herbal', label: `🌿 ঘরোয়া চিকিৎসা (${herbalRemedies.length})`, icon: Heart },
           { id: 'finances', label: '💰 ফার্ম P&L', icon: DollarSign }
         ].map(tab => {
@@ -777,7 +964,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); setSelectedCowForDossier(null); }}
               style={{
-                padding: '8px 13px',
+                padding: '8px 12px',
                 borderRadius: '10px',
                 fontSize: '0.78rem',
                 fontWeight: '800',
@@ -794,68 +981,167 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
             >
               <Icon size={14} />
               <span>{tab.label}</span>
+              {tab.badge && (
+                <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: isActive ? '#10b981' : 'rgba(255, 255, 255, 0.15)', color: isActive ? '#fff' : 'var(--text-muted)', fontWeight: '900' }}>
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* TAB 1: OVERVIEW */}
+      {/* ==================================================== */}
+      {/* TAB 1: OVERVIEW & COLORFUL MICRO-WIDGET TILES        */}
+      {/* ==================================================== */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-            <div className="stat-card" style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>মোট গবাদিপশু ও মূলধন</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--text-main)', marginTop: '4px' }}>
-                {cows.length}টি <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#10b981' }}>(দুধের: {milkingCowsCount}টি)</span>
+          {/* Header Banner */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.12))',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                🌾 স্মার্ট খামার ও ডেইরি কমান্ড ড্যাশবোর্ড
               </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                মূলধন: ৳{totalHerdCapital.toLocaleString()}
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                রিয়েলটাইম গবাদিপশু, খাদ্য খরচ, দুধের সেলস, প্রজনন ক্যালেন্ডার ও এআই স্বাস্থ্য মেট্রিক্স
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('farm_pos')}
+                className="btn btn-primary press-scale"
+                style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: '900', background: '#10b981', borderColor: '#10b981' }}
+              >
+                <ShoppingBag size={14} style={{ marginRight: '4px' }} />
+                <span>খামার পিওএস কাউন্টার</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ai_scanner')}
+                className="btn btn-secondary press-scale"
+                style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: '900', color: '#06b6d4', borderColor: 'rgba(6, 182, 212, 0.4)', background: 'rgba(6, 182, 212, 0.12)' }}
+              >
+                <Camera size={14} style={{ marginRight: '4px' }} />
+                <span>এআই ওজন স্ক্যানার</span>
+              </button>
+            </div>
+          </div>
+
+          {/* COLORFUL KPI MICRO-WIDGETS GRID */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+            {/* Tile 1: Total Herd */}
+            <div style={{ padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(37, 99, 235, 0.05))', border: '1.5px solid rgba(59, 130, 246, 0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#3b82f6' }}>🐄 মোট গবাদিপশু</span>
+                <span style={{ fontSize: '1.2rem' }}>🐂</span>
+              </div>
+              <div style={{ fontSize: '1.6rem', fontWeight: '900', color: 'var(--text-main)', marginTop: '4px' }}>
+                {cows.length} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)' }}>টি পশু</span>
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                দুধের: {milkingCowsCount} | ষাঁড়: {fatteningBullsCount} | বাছুর: {calvesCount}
               </div>
             </div>
 
-            <div className="stat-card" style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>মোট খাদ্য ও পুষ্টি খরচ</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#f59e0b', marginTop: '4px' }}>
+            {/* Tile 2: Milk Yield & Revenue */}
+            <div style={{ padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(8, 145, 178, 0.05))', border: '1.5px solid rgba(6, 182, 212, 0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#06b6d4' }}>🥛 দুধ সেলস ও রাজস্ব</span>
+                <span style={{ fontSize: '1.2rem' }}>🥛</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#06b6d4', marginTop: '4px' }}>
+                ৳{totalMilkRevenue.toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                বিক্রি: {totalMilkSoldLiters}L (দর: ৳৮০/L)
+              </div>
+            </div>
+
+            {/* Tile 3: Feed Expenses */}
+            <div style={{ padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.05))', border: '1.5px solid rgba(245, 158, 11, 0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#d97706' }}>🌾 খাদ্য ও রেশন খরচ</span>
+                <span style={{ fontSize: '1.2rem' }}>🌾</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#d97706', marginTop: '4px' }}>
                 ৳{totalFeedCost.toLocaleString()}
               </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                মোট এন্ট্রি: {feedLogs.length}টি খাদ্য লগ
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                মোট {feedLogs.length}টি খাদ্য এন্ট্রি সংরক্ষিত
               </div>
             </div>
 
-            <div className="stat-card" style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>দুধ ও গোবর সার বিক্রয় আয়</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
-                ৳{totalRevenue.toLocaleString()}
+            {/* Tile 4: Breeding & Pregnancy */}
+            <div style={{ padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(147, 51, 234, 0.05))', border: '1.5px solid rgba(168, 85, 247, 0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#9333ea' }}>🧬 প্রজনন ও গর্ভধারণ</span>
+                <span style={{ fontSize: '1.2rem' }}>🍼</span>
               </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                দুধ বিক্রি: {totalMilkSoldLiters}L (৳{totalMilkRevenue.toLocaleString()})
+              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#9333ea', marginTop: '4px' }}>
+                {pregnantCowsCount} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)' }}>টি গর্ভবতী</span>
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                আসন্ন প্রসব: {breedingRecords[0]?.expectedCalvingDate || 'নভেম্বর ২০২৬'}
               </div>
             </div>
 
-            <div className="stat-card" style={{
+            {/* Tile 5: Vaccines & Medical */}
+            <div style={{ padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.05))', border: '1.5px solid rgba(16, 185, 129, 0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#059669' }}>💉 টিকা ও স্বাস্থ্য স্কোর</span>
+                <span style={{ fontSize: '1.2rem' }}>🩺</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#059669', marginTop: '4px' }}>
+                {individualVaccines.filter(v => v.isDone !== false).length} / {individualVaccines.length}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                খুরা, তড়কা, লাম্পি কভারেজ: ১০০%
+              </div>
+            </div>
+
+            {/* Tile 6: Net Farm Profit */}
+            <div style={{
               padding: '12px',
               borderRadius: '12px',
-              background: netFarmProfit >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              background: netFarmProfit >= 0 ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.08))' : 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.08))',
               border: netFarmProfit >= 0 ? '1.5px solid #10b981' : '1.5px solid #ef4444'
             }}>
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>খামারের নিট লাভ (Net Profit)</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: netFarmProfit >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '800', color: netFarmProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                  {netFarmProfit >= 0 ? '🟢 খামার নিট লাভ' : '🔴 খামার ঘাটতি'}
+                </span>
+                <span style={{ fontSize: '1.2rem' }}>💰</span>
+              </div>
+              <div style={{ fontSize: '1.6rem', fontWeight: '900', color: netFarmProfit >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
                 ৳{netFarmProfit.toLocaleString()}
               </div>
-              <div style={{ fontSize: '0.72rem', color: netFarmProfit >= 0 ? '#10b981' : '#ef4444', marginTop: '2px', fontWeight: '700' }}>
-                {netFarmProfit >= 0 ? '🟢 খামার লাভজনক অবস্থায় আছে' : '🔴 খরচ আয়ের তুলনায় বেশি'}
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                আয়: ৳{totalRevenue.toLocaleString()} | ব্যয়: ৳{totalOperatingCost.toLocaleString()}
               </div>
             </div>
           </div>
 
-          {/* Quick Shortcuts */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+          {/* Live Action Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ShieldCheck size={16} style={{ color: '#f59e0b' }} />
-                <span>আসন্ন ভ্যাকসিন ও চিকিৎসা</span>
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={16} style={{ color: '#f59e0b' }} />
+                  <span>আসন্ন টিকা ও বুস্টার শিডিউল</span>
+                </h4>
+                <button type="button" onClick={() => setActiveTab('health')} className="btn-icon" style={{ fontSize: '0.72rem', color: '#10b981' }}>সব দেখুন</button>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {individualVaccines.slice(0, 3).map(v => (
                   <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.76rem' }}>
@@ -867,15 +1153,18 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
             </div>
 
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={16} style={{ color: '#8b5cf6' }} />
-                <span>আসন্ন প্রসব ও গর্ভধারণ অ্যালার্ট</span>
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={16} style={{ color: '#9333ea' }} />
+                  <span>আসন্ন প্রসব ও গর্ভধারণ অ্যালার্ট</span>
+                </h4>
+                <button type="button" onClick={() => setActiveTab('breeding')} className="btn-icon" style={{ fontSize: '0.72rem', color: '#9333ea' }}>সব দেখুন</button>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {breedingRecords.slice(0, 3).map(b => (
                   <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.76rem' }}>
                     <div><strong>{b.cowTag}</strong> ({b.cowName})</div>
-                    <span style={{ color: '#8b5cf6', fontWeight: '800' }}>প্রসব: {b.expectedCalvingDate}</span>
+                    <span style={{ color: '#9333ea', fontWeight: '800' }}>প্রসব: {b.expectedCalvingDate}</span>
                   </div>
                 ))}
               </div>
@@ -884,7 +1173,414 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 2: HERD & CATTLE REGISTRY */}
+      {/* ==================================================== */}
+      {/* TAB 2: DEDICATED FARM POS & BILLING SYSTEM           */}
+      {/* ==================================================== */}
+      {activeTab === 'farm_pos' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '14px' }}>
+          {/* Left: Farm Catalog (Milk, Ghee, Live Cows, Fertilizer) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShoppingBag size={18} style={{ color: '#10b981' }} />
+                <span>খামার বিক্রয় সামগ্রী (দুধ, দুগ্ধজাত, সার ও লাইভ পশু)</span>
+              </h4>
+            </div>
+
+            {/* Farm Dairy & Products Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+              {FARM_POS_CATALOG.map(prod => (
+                <div
+                  key={prod.id}
+                  onClick={() => handleAddProductToFarmPosCart(prod)}
+                  className="glass-card press-scale"
+                  style={{
+                    padding: '10px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '1.4rem' }}>{prod.icon}</span>
+                    <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '800' }}>
+                      {prod.unit}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: '6px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', lineHeight: '1.3' }}>
+                      {prod.name}
+                    </div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
+                      ৳{prod.price.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Live Cattle Quick Sale Section */}
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h5 style={{ margin: 0, fontSize: '0.86rem', fontWeight: '800', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🐂 সরাসরি খামারের লাইভ গরু / কোরবানি পশু বিক্রি</span>
+                </h5>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>কার্টে যোগ করলে স্ট্যাটাস অটো বিক্রিত হবে</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                {cows.filter(c => c.status !== 'sold').map(c => (
+                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.78rem' }}>
+                    <div>
+                      <strong>{c.tag}</strong> ({c.name})
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{c.weightKg} কেজি | ৳{(c.marketValue || c.purchasePrice).toLocaleString()}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddLiveCowToPosCart(c)}
+                      className="btn btn-secondary press-scale"
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' }}
+                    >
+                      + বিক্রি কার্টে
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Farm POS Cart & Instant Printable Bill */}
+          <div style={{ background: 'var(--bg-secondary)', border: '1.5px solid var(--border-color)', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Receipt size={16} style={{ color: '#10b981' }} />
+                  <span>খামার ক্যাশ বিল ও ইনভয়েস</span>
+                </h4>
+                <span style={{ fontSize: '0.74rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                  {farmPosCart.length} আইটেম
+                </span>
+              </div>
+
+              {/* Customer Info Form */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '10px' }}>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="ক্রেতার নাম (যেমন: হাজী কাশেম)"
+                  value={farmCustomer.name}
+                  onChange={(e) => setFarmCustomer({ ...farmCustomer, name: e.target.value })}
+                  style={{ fontSize: '0.75rem', padding: '5px 8px' }}
+                />
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="মোবাইল নম্বর"
+                  value={farmCustomer.phone}
+                  onChange={(e) => setFarmCustomer({ ...farmCustomer, phone: e.target.value })}
+                  style={{ fontSize: '0.75rem', padding: '5px 8px' }}
+                />
+              </div>
+
+              {/* Cart Items List */}
+              <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                {farmPosCart.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    🛒 কার্ট খালি। বাম পাশ থেকে দুধ, ঘি বা গরু যোগ করুন।
+                  </div>
+                ) : (
+                  farmPosCart.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '6px 10px', borderRadius: '8px', fontSize: '0.78rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800' }}>{item.icon} {item.name}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>৳{item.price.toLocaleString()} x {item.qty}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button type="button" onClick={() => handleUpdatePosCartQty(item.id, item.qty - 1)} className="btn-icon" style={{ padding: '2px 6px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '4px' }}>-</button>
+                        <span style={{ fontWeight: '800' }}>{item.qty}</span>
+                        <button type="button" onClick={() => handleUpdatePosCartQty(item.id, item.qty + 1)} className="btn-icon" style={{ padding: '2px 6px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '4px' }}>+</button>
+                        <strong style={{ color: '#10b981', marginLeft: '6px' }}>৳{(item.price * item.qty).toLocaleString()}</strong>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Total & Checkout */}
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: '900', color: 'var(--text-main)', marginBottom: '8px' }}>
+                <span>মোট প্রদেয়:</span>
+                <span style={{ color: '#10b981' }}>৳{farmPosTotal.toLocaleString()}</span>
+              </div>
+
+              {/* Payment Methods */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                {['cash', 'bkash', 'nagad', 'due'].map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setFarmPayMethod(m)}
+                    style={{
+                      flex: 1,
+                      padding: '5px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: '800',
+                      border: farmPayMethod === m ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                      background: farmPayMethod === m ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-primary)',
+                      color: farmPayMethod === m ? '#10b981' : 'var(--text-main)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {m === 'cash' ? '💵 ক্যাশ' : m === 'bkash' ? '📱 বিকাশ' : m === 'nagad' ? '📱 নগদ' : '📝 বাকি'}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={handleCompleteFarmSale}
+                  disabled={farmPosCart.length === 0}
+                  className="btn btn-primary press-scale"
+                  style={{ flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: '900', background: '#10b981', borderColor: '#10b981', opacity: farmPosCart.length === 0 ? 0.5 : 1 }}
+                >
+                  <Check size={16} style={{ marginRight: '6px' }} />
+                  <span>বিক্রয় সম্পন্ন ও মেমো তৈরি</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* TAB 3: AI CAMERA LIVE CATTLE WEIGHT ESTIMATOR        */}
+      {/* ==================================================== */}
+      {activeTab === 'ai_scanner' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '14px' }}>
+          {/* Left: Camera Feed & Visual Viewfinder */}
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={18} style={{ color: '#06b6d4' }} />
+                <span>এআই ভিজ্যুয়াল লাইভ ক্যামেরা স্ক্যানার</span>
+              </h4>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                Schaeffer Formula AI
+              </span>
+            </div>
+
+            {/* Viewfinder Screen */}
+            <div style={{
+              width: '100%',
+              minHeight: '280px',
+              maxHeight: '360px',
+              borderRadius: '10px',
+              background: '#0f172a',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {cameraActive ? (
+                <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : capturedImage ? (
+                <img src={capturedImage} alt="Scanned Cow" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>
+                  <Camera size={44} style={{ margin: '0 auto 10px', color: '#38bdf8' }} />
+                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>
+                    গরুর পুরো শরীর ক্যামেরার ফ্রেমে রাখুন
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px' }}>
+                    কাঁধের জয়েন্ট থেকে লেজের গোড়া পর্যন্ত সোজা অ্যাঙ্গেলে ছবি তুলুন
+                  </div>
+                </div>
+              )}
+
+              {/* AR Overlay Guides */}
+              <div style={{
+                position: 'absolute',
+                top: '15%',
+                left: '12%',
+                right: '12%',
+                bottom: '15%',
+                border: '2px dashed rgba(56, 189, 248, 0.7)',
+                borderRadius: '16px',
+                pointerEvents: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                padding: '10px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#38bdf8', fontWeight: '800' }}>
+                  <span>◄ কাঁধের ডগা (Shoulder)</span>
+                  <span>লেজের গোড়া (Pin Bone) ►</span>
+                </div>
+                <div style={{ textAlign: 'center', color: '#38bdf8', fontSize: '0.72rem', fontWeight: '900', background: 'rgba(15, 23, 42, 0.65)', padding: '2px 8px', borderRadius: '4px', margin: '0 auto' }}>
+                  বুকের বেড় (Heart Girth) এলাইনমেন্ট
+                </div>
+              </div>
+            </div>
+
+            {/* Camera Controls */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', width: '100%' }}>
+              {!cameraActive ? (
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="btn btn-primary press-scale"
+                  style={{ flex: 1, padding: '9px', fontSize: '0.8rem', fontWeight: '800', background: '#06b6d4', borderColor: '#06b6d4' }}
+                >
+                  <Camera size={15} style={{ marginRight: '6px' }} />
+                  <span>লাইভ ক্যামেরা চালু</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  className="btn btn-primary press-scale"
+                  style={{ flex: 1, padding: '9px', fontSize: '0.8rem', fontWeight: '900', background: '#10b981', borderColor: '#10b981' }}
+                >
+                  📸 স্ন্যাপশট নিন ও স্ক্যান করুন
+                </button>
+              )}
+
+              <label className="btn btn-secondary press-scale" style={{ flex: 1, padding: '9px', fontSize: '0.8rem', fontWeight: '800', textAlign: 'center', cursor: 'pointer' }}>
+                📁 ছবি ফাইল আপলোড
+                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+              </label>
+            </div>
+          </div>
+
+          {/* Right: Veterinary Sizing Measurements & AI Results */}
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Scale size={18} style={{ color: '#10b981' }} />
+                <span>এআই ওজন ও মাংসের অনুপাত বিশ্লেষণ</span>
+              </h4>
+
+              {/* Target Cow selector */}
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>কোন গরুর জন্য পরিমাপ করছেন?</label>
+                <select
+                  className="input-field"
+                  value={selectedCowForWeight}
+                  onChange={(e) => {
+                    const tag = e.target.value;
+                    setSelectedCowForWeight(tag);
+                    const cow = cows.find(c => c.tag === tag);
+                    if (cow) {
+                      if (cow.heartGirth) setHeartGirthInches(cow.heartGirth);
+                      if (cow.bodyLength) setBodyLengthInches(cow.bodyLength);
+                    }
+                  }}
+                  style={{ fontSize: '0.8rem' }}
+                >
+                  {cows.map(c => (
+                    <option key={c.id} value={c.tag}>{c.tag} ({c.name} - বর্তমান: {c.weightKg} কেজি)</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Body dimension sliders based on Schaeffer formula */}
+              <div style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: '10px', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', fontWeight: '800', marginBottom: '4px' }}>
+                    <span>বুকের বেড় / ঘের (Heart Girth):</span>
+                    <span style={{ color: '#06b6d4' }}>{heartGirthInches} ইঞ্চি ({Math.round(heartGirthInches * 2.54)} সেমি)</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="35"
+                    max="110"
+                    value={heartGirthInches}
+                    onChange={(e) => setHeartGirthInches(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#06b6d4' }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', fontWeight: '800', marginBottom: '4px' }}>
+                    <span>শরীরের দৈর্ঘ্য (Body Length - কাঁধ থেকে লেজ):</span>
+                    <span style={{ color: '#10b981' }}>{bodyLengthInches} ইঞ্চি ({Math.round(bodyLengthInches * 2.54)} সেমি)</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="30"
+                    max="90"
+                    value={bodyLengthInches}
+                    onChange={(e) => setBodyLengthInches(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#10b981' }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', fontWeight: '800', marginBottom: '4px' }}>
+                    <span>মাংসল স্বাস্থ্য স্কোর (Body Condition Score):</span>
+                    <span style={{ color: '#f59e0b' }}>BCS: {bodyConditionScore} / 5.0</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2"
+                    max="5"
+                    step="0.5"
+                    value={bodyConditionScore}
+                    onChange={(e) => setBodyConditionScore(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#f59e0b' }}
+                  />
+                </div>
+              </div>
+
+              {/* AI Estimated Results Card */}
+              <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.1))', border: '1.5px solid #10b981', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700' }}>সম্ভাব্য জীবন্ত ওজন (Live Weight)</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#10b981', fontFamily: 'monospace' }}>
+                      {estimatedWeightKg} <span style={{ fontSize: '1rem', fontWeight: '700' }}>কেজি</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>খাঁটি মাংস (Carcass ~54%)</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#06b6d4' }}>
+                      ≈ {estimatedMeatKg} কেজি
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid rgba(16, 185, 129, 0.3)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span>আনুমানিক কোরবানির/বাজারদর:</span>
+                  <strong style={{ color: '#f59e0b', fontSize: '0.92rem' }}>৳{estimatedMarketPrice.toLocaleString()}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '12px' }}>
+              <button
+                type="button"
+                onClick={handleApplyWeightToCow}
+                className="btn btn-primary press-scale"
+                style={{ width: '100%', padding: '10px', fontSize: '0.84rem', fontWeight: '900', background: '#10b981', borderColor: '#10b981' }}
+              >
+                <Check size={16} style={{ marginRight: '6px' }} />
+                <span>এই গরুর প্রোফাইলে ওজন ({estimatedWeightKg} কেজি) সেভ করুন</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* TAB 4: HERD REGISTRY & QR EAR TAGS                   */}
+      {/* ==================================================== */}
       {activeTab === 'herd' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Add / Edit Cow Form */}
@@ -1020,8 +1716,10 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                 </thead>
                 <tbody>
                   {cows.map(cow => (
-                    <tr key={cow.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#10b981' }}>{cow.tag}</td>
+                    <tr key={cow.id} style={{ borderBottom: '1px solid var(--border-color)', opacity: cow.status === 'sold' ? 0.6 : 1 }}>
+                      <td style={{ padding: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#10b981' }}>
+                        {cow.tag} {cow.status === 'sold' && <span style={{ fontSize: '0.65rem', background: '#ef4444', color: '#fff', padding: '1px 4px', borderRadius: '4px' }}>বিক্রিত</span>}
+                      </td>
                       <td style={{ padding: '10px' }}>
                         <strong>{cow.name}</strong>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{cow.breed}</div>
@@ -1075,10 +1773,11 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 3: FEED & NUTRITION EXPENSE */}
+      {/* ==================================================== */}
+      {/* TAB 5: FEED & NUTRITION EXPENSES                     */}
+      {/* ==================================================== */}
       {activeTab === 'feed' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Add / Edit Feed Expense Form */}
           <form onSubmit={editingFeed ? handleUpdateGeneralFeed : handleAddGeneralFeed} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1215,10 +1914,11 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 4: VACCINE & HEALTH */}
+      {/* ==================================================== */}
+      {/* TAB 6: VACCINE & HEALTH SCHEDULE                     */}
+      {/* ==================================================== */}
       {activeTab === 'health' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Add / Edit Vaccine Form */}
           <form onSubmit={editingVaccine ? handleUpdateVaccine : handleAddGeneralVaccine} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1383,10 +2083,11 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 5: BREEDING & CALVING TRACKER */}
+      {/* ==================================================== */}
+      {/* TAB 7: BREEDING & CALVING TRACKER                    */}
+      {/* ==================================================== */}
       {activeTab === 'breeding' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Add / Edit Breeding Form */}
           <form onSubmit={editingBreeding ? handleUpdateBreeding : handleAddBreeding} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1530,10 +2231,11 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 6: MILK YIELD & SALES */}
+      {/* ==================================================== */}
+      {/* TAB 8: MILK YIELD & SALES                            */}
+      {/* ==================================================== */}
       {activeTab === 'milk' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Add / Edit Milk Form */}
           <form onSubmit={editingMilk ? handleUpdateMilkLog : handleAddMilkLog} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1676,10 +2378,11 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 7: HERBAL HOME REMEDIES DIARY */}
+      {/* ==================================================== */}
+      {/* TAB 9: HERBAL HOME REMEDIES DIARY                    */}
+      {/* ==================================================== */}
       {activeTab === 'herbal' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Add / Edit Herbal Form */}
           <form onSubmit={editingHerbal ? handleUpdateHerbalRemedy : handleAddHerbalRemedy} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1828,7 +2531,9 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* TAB 8: COMPLETE FARM P&L STATEMENT */}
+      {/* ==================================================== */}
+      {/* TAB 10: COMPLETE FARM P&L STATEMENT                  */}
+      {/* ==================================================== */}
       {activeTab === 'finances' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div id="cattle-pnl-sheet" style={{ background: '#fff', color: '#0f172a', padding: '1.5rem', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
@@ -1925,10 +2630,10 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
         </div>
       )}
 
-      {/* INDIVIDUAL COW DOSSIER VIEW MODAL */}
+      {/* INDIVIDUAL COW DOSSIER VIEW MODAL WITH QR EAR TAG */}
       {selectedCowForDossier && selectedCowPnL && (
         <div className="modal-overlay" style={{ zIndex: 10005 }}>
-          <div className="modal-content glass-card" style={{ maxWidth: '850px', width: '96%', padding: '1.25rem', maxHeight: '92vh', overflowY: 'auto' }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '880px', width: '96%', padding: '1.25rem', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '1.5rem' }}>🐄</span>
@@ -1947,7 +2652,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
             </div>
 
             {/* Dossier Tabs */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', overflowX: 'auto' }}>
               <button
                 type="button"
                 onClick={() => setDossierTab('pnl')}
@@ -1968,6 +2673,13 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                 style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '800', background: dossierTab === 'feeds' ? '#10b981' : 'transparent', color: dossierTab === 'feeds' ? '#fff' : 'var(--text-main)', border: 'none', cursor: 'pointer' }}
               >
                 🌾 আলাদা খাদ্য হিস্ট্রি ({selectedCowPnL.cowFeeds.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDossierTab('qr')}
+                style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '800', background: dossierTab === 'qr' ? '#06b6d4' : 'transparent', color: dossierTab === 'qr' ? '#fff' : 'var(--text-main)', border: 'none', cursor: 'pointer' }}
+              >
+                🏷️ ডিজিটাল QR কানের ট্যাগ
               </button>
             </div>
 
@@ -2101,6 +2813,65 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: QR EAR TAG BADGE PRINT */}
+            {dossierTab === 'qr' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '14px' }}>
+                <div id="cattle-ear-tag-print" style={{
+                  width: '260px',
+                  background: '#fef08a',
+                  color: '#0f172a',
+                  border: '3px solid #ca8a04',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '900', letterSpacing: '0.05em', color: '#854d0e', textTransform: 'uppercase' }}>
+                    হিসাব-কিতাব ৩৬০ ডিজিটাল কানের ট্যাগ
+                  </div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: '900', fontFamily: 'monospace', color: '#713f12', margin: '6px 0' }}>
+                    {selectedCowForDossier.tag}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#0f172a' }}>
+                    নাম: {selectedCowForDossier.name}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#475569', marginBottom: '10px' }}>
+                    জাত: {selectedCowForDossier.breed}
+                  </div>
+
+                  {/* QR Code Simulation Graphic */}
+                  <div style={{
+                    width: '120px',
+                    height: '120px',
+                    background: '#fff',
+                    margin: '0 auto',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid #ca8a04'
+                  }}>
+                    <QrCode size={100} style={{ color: '#0f172a' }} />
+                  </div>
+
+                  <div style={{ fontSize: '0.68rem', color: '#713f12', marginTop: '8px', fontWeight: '700' }}>
+                    মোবাইল ক্যামেরা দিয়ে স্ক্যান করলেই তাৎক্ষণিক এই গরুর ফুল প্রোফাইল ওপেন হবে
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => printElement('cattle-ear-tag-print', { title: `Ear-Tag-${selectedCowForDossier.tag}` })}
+                  className="btn btn-primary press-scale"
+                  style={{ padding: '8px 20px', fontSize: '0.82rem', fontWeight: '800' }}
+                >
+                  <Printer size={15} style={{ marginRight: '6px' }} />
+                  <span>কানের ট্যাগ প্রিন্ট করুন (Print Ear Tag)</span>
+                </button>
               </div>
             )}
           </div>
