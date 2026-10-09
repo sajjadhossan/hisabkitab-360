@@ -975,7 +975,7 @@ export const MobilePOSView = ({
       {/* TAB 2: CART BILLING & CHECKOUT (১০০% ক্লিন মোবাইল কার্ট)  */}
       {/* ========================================================= */}
       {activeTab === 'cart' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '140px' }}>
           {/* Cart Top Control: Back to Products + Clear Cart */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button
@@ -1527,7 +1527,8 @@ export const MobilePOSView = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  marginBottom: '20px'
                 }}
               >
                 <CheckCircle2 size={22} />

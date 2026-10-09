@@ -1180,9 +1180,12 @@ input:checked+.slider:before {
 .pos-cart-col {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 190px);
+  height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
   position: sticky;
-  top: 130px;
+  top: 95px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 /* Mobile & Tablet Tab Switcher (Desktop: hidden, Tablet/Mobile: flex) */
@@ -1642,10 +1645,10 @@ input:checked+.slider:before {
   .pos-cart-col {
     display: none;
     height: auto !important;
-    min-height: calc(100vh - 240px);
+    min-height: calc(100vh - 180px);
     position: static !important;
     margin-bottom: 2rem;
-    padding-bottom: 120px !important;
+    padding-bottom: 140px !important;
   }
 
   .pos-cart-col.active {

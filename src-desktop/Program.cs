@@ -31,8 +31,13 @@ namespace HisabKitab360
                 }
                 else
                 {
-                    if (!Directory.Exists(webRoot) || !File.Exists(Path.Combine(webRoot, "index.html")))
+                    string markerFile = Path.Combine(webRoot, ".version");
+                    string exeTime = "";
+                    try { exeTime = File.GetLastWriteTimeUtc(Assembly.GetExecutingAssembly().Location).Ticks.ToString(); } catch { }
+                    bool needsExtract = !Directory.Exists(webRoot) || !File.Exists(Path.Combine(webRoot, "index.html")) || !File.Exists(markerFile) || (exeTime != "" && File.ReadAllText(markerFile).Trim() != exeTime);
+                    if (needsExtract)
                     {
+                        try { if (Directory.Exists(webRoot)) Directory.Delete(webRoot, true); } catch { }
                         Directory.CreateDirectory(webRoot);
                         Assembly assembly = Assembly.GetExecutingAssembly();
                         using (Stream stream = assembly.GetManifestResourceStream("app.zip"))
@@ -46,6 +51,7 @@ namespace HisabKitab360
                                 }
                                 ZipFile.ExtractToDirectory(tempZip, webRoot);
                                 try { File.Delete(tempZip); } catch { }
+                                try { if (!string.IsNullOrEmpty(exeTime)) File.WriteAllText(markerFile, exeTime); } catch { }
                             }
                         }
                     }

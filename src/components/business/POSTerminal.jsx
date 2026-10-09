@@ -2948,8 +2948,10 @@ export const POSTerminal = () => {
           </select>
         </div>
 
-        {/* Cart Items List - Full Itemized Detail Breakdown */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {/* Middle Scrollable Body: Cart Items + Calculation Details */}
+        <div style={{ flex: '1 1 auto', overflowY: 'auto', minHeight: 0, paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Cart Items List - Full Itemized Detail Breakdown */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {cart.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
               <ShoppingCart size={38} style={{ marginBottom: '8px', opacity: 0.35, color: 'var(--business-primary)' }} />
@@ -3092,10 +3094,10 @@ export const POSTerminal = () => {
               </div>
             ))
           )}
-        </div>
+          </div>
 
-        {/* Calculation & Payment Area */}
-        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
+          {/* Calculation & Payment Area */}
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px', color: 'var(--text-muted)' }}>
             <span>{t.business.subtotal}</span>
@@ -3398,13 +3400,44 @@ export const POSTerminal = () => {
               )}
             </div>
           )}
+          </div>
+        </div>
+
+        {/* Pinned Bottom Sticky Checkout Section (Always 100% visible & accessible) */}
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: '2px solid var(--border-color)',
+            paddingTop: '8px',
+            marginTop: 'auto',
+            background: 'var(--bg-card)',
+            boxShadow: '0 -4px 14px rgba(0, 0, 0, 0.18)'
+          }}
+        >
+          {/* Prominent Grand Total Display */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '1.15rem', fontWeight: '800', marginBottom: '8px', padding: '0 4px' }}>
+            <span style={{ color: 'var(--text-main)' }}>{t.business.grandTotal}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--business-primary)', fontSize: '1.25rem' }}>৳{grandTotal.toLocaleString()}</span>
+          </div>
 
           {/* Checkout Button */}
           <button
-            className="btn btn-primary"
+            className="btn btn-primary press-scale"
             disabled={cart.length === 0}
             onClick={handleCheckout}
-            style={{ width: '100%', padding: '10px', fontSize: '0.95rem' }}
+            style={{
+              width: '100%',
+              padding: '11px',
+              fontSize: '0.98rem',
+              fontWeight: '800',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+              boxShadow: cart.length > 0 ? '0 4px 14px rgba(79, 70, 229, 0.35)' : 'none'
+            }}
           >
             <CheckCircle2 size={18} />
             <span>{t.business.completeSale}</span>

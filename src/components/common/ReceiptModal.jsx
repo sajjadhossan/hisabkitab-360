@@ -123,7 +123,7 @@ export const ReceiptModal = () => {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '440px', padding: '1.25rem' }}>
+      <div className="modal-content" style={{ maxWidth: '440px', maxHeight: '92vh', overflowY: 'auto', padding: '1.25rem' }}>
         {/* Modal Controls (Not printed) */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
