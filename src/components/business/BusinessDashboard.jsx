@@ -323,6 +323,106 @@ export const BusinessDashboard = () => {
         </div>
       </div>
 
+      {/* 🚀 MODERN MEGA POS LAUNCHPAD HERO CARD */}
+      <div
+        className="glass-card card-interactive press-scale"
+        onClick={() => {
+          hapticFeedback.medium();
+          setActiveTab('pos');
+        }}
+        style={{
+          padding: '1.25rem 1.5rem',
+          borderRadius: '20px',
+          marginBottom: '1.25rem',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(99, 102, 241, 0.14) 100%)',
+          border: '1.5px solid rgba(16, 185, 129, 0.45)',
+          boxShadow: '0 8px 28px rgba(16, 185, 129, 0.18)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
+          transition: 'all 0.22s ease'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '260px' }}>
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.4)',
+              flexShrink: 0
+            }}
+          >
+            <ScanLine size={28} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+              <h2 style={{ fontSize: '1.22rem', fontWeight: '900', margin: 0, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
+                {lang === 'bn' ? '⚡ পিওএস সেলস কাউন্টার ও ক্যাশিয়ার' : '⚡ POS Sales Counter & Cashier'}
+              </h2>
+              <span
+                style={{
+                  background: '#10b981',
+                  color: '#ffffff',
+                  fontSize: '0.65rem',
+                  fontWeight: '900',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                LIVE
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn'
+                ? 'বারকোড স্ক্যান, দ্রুত খুচরা মেমো তৈরি ও থার্মাল রসিদ প্রিন্ট করুন (শর্টকাট: F1)'
+                : 'Instant barcode billing, fast invoicing & thermal receipt print (Shortcut: F1)'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+              {lang === 'bn' ? 'আজকের বিক্রয় মেমো' : 'Today Orders'}
+            </span>
+            <span style={{ fontSize: '1.05rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+              {todaySalesList.length} {lang === 'bn' ? 'টি' : ''} • ৳{todaySalesTotal.toLocaleString()}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{
+              padding: '10px 22px',
+              borderRadius: '12px',
+              fontSize: '0.92rem',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#10b981',
+              borderColor: '#10b981',
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+              cursor: 'pointer'
+            }}
+          >
+            <span>{lang === 'bn' ? 'কাউন্টার খুলুন' : 'Open Counter'}</span>
+            <ArrowRight size={17} />
+          </button>
+        </div>
+      </div>
+
       {/* 1. LIVE FLOATING SUMMARY TICKER BANNER */}
       <div
         className="glass-card"

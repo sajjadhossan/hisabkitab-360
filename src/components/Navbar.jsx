@@ -1162,861 +1162,10 @@ export const Navbar = () => {
                 </div>
               )}
             </div>
-
-            {/* THREE-DOT MENU (ব্যাকআপ ও প্রয়োজনীয় প্রোগ্রাম মেনু - ALWAYS VISIBLE) */}
-            <div style={{ position: 'relative', flexShrink: 0 }} ref={menuRef}>
-
-              <button
-                className="btn-icon navbar-3dot-btn"
-                onClick={() => setShowMoreMenu(!showMoreMenu)}
-                title={lang === 'bn' ? 'আরও অপশন, ব্যাকআপ ও টুলস মেনু' : 'More Options & Backup Menu'}
-                style={{
-                  background: showMoreMenu ? 'var(--mode-color)' : undefined,
-                  color: showMoreMenu ? '#ffffff' : undefined,
-                  border: showMoreMenu ? 'none' : undefined,
-                  position: 'relative'
-                }}
-              >
-                <MoreVertical size={18} />
-                {/* Cloud indicator dot */}
-                {businessSettings.googleDriveWebhookUrl && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '4px',
-                      right: '4px',
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      background: '#10b981',
-                      border: '1.5px solid var(--bg-secondary)'
-                    }}
-                    title={lang === 'bn' ? 'গুগল ড্রাইভ সক্রিয়' : 'Google Drive Active'}
-                  />
-                )}
-              </button>
-
-              {/* DROPDOWN MENU */}
-              {showMoreMenu && (
-                <div
-                  className="navbar-more-dropdown animate-fade-in"
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    right: 0,
-                    width: '320px',
-                    maxHeight: 'calc(100dvh - 140px)',
-                    overflowY: 'auto',
-                    WebkitOverflowScrolling: 'touch',
-                    overscrollBehavior: 'contain',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '14px',
-                    boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
-                    padding: '8px 8px 40px 8px',
-                    zIndex: 1000,
-                    backdropFilter: 'blur(16px)'
-                  }}
-                >
-                  {/* HEADER */}
-                  <div style={{
-                    position: 'sticky',
-                    top: '-8px',
-                    background: 'var(--bg-secondary)',
-                    zIndex: 10,
-                    padding: '8px 10px 6px',
-                    borderBottom: '1px solid var(--border-color)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderTopLeftRadius: '12px',
-                    borderTopRightRadius: '12px'
-                  }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-                      {lang === 'bn' ? 'টুলস ও ব্যাকআপ হাব' : 'TOOLS & BACKUP HUB'}
-                    </span>
-                    <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '600' }}>
-                      v2.4.0
-                    </span>
-                  </div>
-
-                  {/* OPERATING MODE SELECTOR (1-Click Switch: Dual / Business / Personal) */}
-                  <div style={{ padding: '8px 10px', background: 'var(--bg-primary)', borderRadius: '10px', margin: '6px 0', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>{lang === 'bn' ? '⚡ সিস্টেম মোড (Operating Mode):' : 'Operating Mode:'}</span>
-                      <span style={{ color: 'var(--mode-color)', fontWeight: '800' }}>
-                        {operatingMode === 'dual' ? (lang === 'bn' ? '🔄 ডুয়েল' : 'Dual') : operatingMode === 'business_only' ? (lang === 'bn' ? '🏢 ব্যবসা' : 'Business') : (lang === 'bn' ? '👤 পার্সোনাল' : 'Personal')}
-                      </span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-                      <button
-                        type="button"
-                        onClick={() => { setOperatingMode('dual'); setShowMoreMenu(false); }}
-                        style={{
-                          padding: '5px 2px',
-                          fontSize: '0.72rem',
-                          fontWeight: '800',
-                          borderRadius: '6px',
-                          border: operatingMode === 'dual' ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-                          background: operatingMode === 'dual' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                          color: operatingMode === 'dual' ? '#10b981' : 'var(--text-muted)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        🔄 ডুয়েল
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setOperatingMode('business_only'); setShowMoreMenu(false); }}
-                        style={{
-                          padding: '5px 2px',
-                          fontSize: '0.72rem',
-                          fontWeight: '800',
-                          borderRadius: '6px',
-                          border: operatingMode === 'business_only' ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
-                          background: operatingMode === 'business_only' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                          color: operatingMode === 'business_only' ? '#6366f1' : 'var(--text-muted)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        🏢 ব্যবসা
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setOperatingMode('personal_only'); setShowMoreMenu(false); }}
-                        style={{
-                          padding: '5px 2px',
-                          fontSize: '0.72rem',
-                          fontWeight: '800',
-                          borderRadius: '6px',
-                          border: operatingMode === 'personal_only' ? '1.5px solid #06b6d4' : '1px solid var(--border-color)',
-                          background: operatingMode === 'personal_only' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-                          color: operatingMode === 'personal_only' ? '#06b6d4' : 'var(--text-muted)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        👤 পার্সোনাল
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* DIRECT SUPER ADMIN BUTTON (Only visible to Master Super Admin) */}
-                  {isSuperAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        setActiveTab('super_admin');
-                        showToast(lang === 'bn' ? '🛡️ সুপার অ্যাডমিন প্যানেল খোলা হয়েছে' : 'Super Admin opened');
-                      }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(239, 68, 68, 0.35)',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        color: '#ef4444',
-                        fontSize: '0.84rem',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        marginBottom: '6px',
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                    >
-                      <ShieldCheck size={16} style={{ color: '#ef4444' }} />
-                      <div style={{ flex: 1 }}>
-                        <div>{lang === 'bn' ? '🛡️ সুপার অ্যাডমিন প্যানেল' : '🛡️ Super Admin Panel'}</div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-                          {lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম লাইসেন্স' : 'Master PIN & License'}
-                        </div>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* SECTION: APP PERMISSIONS & HARDWARE ACCESS MANAGER */}
-                  <div style={{ padding: '6px 0 4px', borderBottom: '1px solid var(--border-color)' }}>
-                    <button
-                      type="button"
-                      onClick={() => { setShowPermissionModal(true); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(99, 102, 241, 0.35)',
-                        background: 'rgba(99, 102, 241, 0.12)',
-                        color: 'var(--business-primary)',
-                        fontSize: '0.84rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.22)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)'}
-                    >
-                      <Camera size={18} style={{ color: 'var(--business-primary)' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800' }}>{lang === 'bn' ? '🔐 পারমিশন ও এক্সেস সেন্টার' : 'Device Permissions Center'}</div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'ক্যামেরা স্ক্যানার, ভয়েস ও ফাইল অনুমতি' : 'Camera, Mic, Storage Access'}</div>
-                      </div>
-                      <span style={{ fontSize: '0.65rem', background: 'var(--business-primary)', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
-                        ALLOW
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* SECTION 0: SYSTEM HEALTH & DIAGNOSTICS */}
-                  <div style={{ padding: '6px 0 4px', borderBottom: '1px solid var(--border-color)' }}>
-                    <button
-                      onClick={() => { setShowDiagnosticsModal(true); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        color: '#10b981',
-                        fontSize: '0.84rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.18)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'}
-                    >
-                      <Activity size={18} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '800' }}>{lang === 'bn' ? '🩺 সিস্টেম ডায়াগনোসিস ও SOS' : 'System Diagnostics & SOS'}</div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'প্রিন্টার, ডাটাবেজ টেস্ট ও সাপোর্ট টিকিট' : 'Printer & storage health'}</div>
-                      </div>
-                      <span style={{ fontSize: '0.65rem', background: '#10b981', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
-                        SCAN
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* SECTION 1: CLOUD & BACKUP (গুগল ড্রাইভ ও ব্যাকআপ সিস্টেম) */}
-                  <div style={{ padding: '4px 0' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--mode-color)', fontWeight: '700', padding: '4px 10px', textTransform: 'uppercase' }}>
-                      ☁️ {lang === 'bn' ? 'ক্লাউড ও ব্যাকআপ সিস্টেম' : 'Cloud & Backup System'}
-                    </div>
-
-                    {/* 1-Click WhatsApp Instant Self-Backup */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        const success = triggerWhatsAppSelfBackup({
-                          businessSettings,
-                          productsCount: products?.length || 0,
-                          customersCount: customers?.length || 0,
-                          salesCount: salesHistory?.length || 0,
-                          lang,
-                          exportDataJson: exportAllData()
-                        });
-                        if (success && showToast) {
-                          showToast(lang === 'bn' ? '📲 হোয়াটসঅ্যাপ ব্যাকআপ ও ফাইল ডাউনলোড শুরু হয়েছে!' : 'WhatsApp backup created!', 'success');
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '10px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(37, 211, 102, 0.35)',
-                        background: 'rgba(37, 211, 102, 0.12)',
-                        color: '#25D366',
-                        fontSize: '0.85rem',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        marginBottom: '6px',
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(37, 211, 102, 0.22)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(37, 211, 102, 0.12)'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <MessageCircle size={17} style={{ color: '#25D366' }} />
-                        <div>
-                          <div style={{ fontWeight: '800' }}>{lang === 'bn' ? '📲 হোয়াটসঅ্যাপ সেলফ ব্যাকআপ' : '1-Click WhatsApp Backup'}</div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'JSON ফাইল সেভ + নিজস্ব নম্বরে লগ' : 'Save JSON + Share log to WA'}</div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '0.65rem', background: '#25D366', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
-                        FAST
-                      </span>
-                    </button>
-
-                    {/* Google Drive Sync Now */}
-                    <button
-                      onClick={handleQuickDriveSync}
-
-                      disabled={isDriveSyncing}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '10px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Cloud size={16} style={{ color: '#3b82f6' }} />
-                        <div>
-                          <div style={{ fontWeight: '600' }}>
-                            {lang === 'bn' ? 'গুগল ড্রাইভে সিঙ্ক করুন' : 'Sync to Google Drive'}
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            {isDriveConnected
-                              ? (businessSettings.googleDriveLastSync ? `শেষ: ${businessSettings.googleDriveLastSync.split(' ')[1]}` : (lang === 'bn' ? 'ড্রাইভ সংযুক্ত' : 'Drive Connected'))
-                              : (businessSettings.googleDriveWebhookUrl
-                                ? (businessSettings.googleDriveLastSync ? `শেষ: ${businessSettings.googleDriveLastSync.split(' ')[1]}` : 'ওয়েবহুক সংযুক্ত')
-                                : (lang === 'bn' ? 'সেটআপ প্রয়োজন' : 'Needs Setup'))}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="badge" style={{ fontSize: '0.65rem', background: (isDriveConnected || businessSettings.googleDriveWebhookUrl) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: (isDriveConnected || businessSettings.googleDriveWebhookUrl) ? '#10b981' : '#f59e0b' }}>
-                        {(isDriveConnected || businessSettings.googleDriveWebhookUrl) ? 'Live' : 'Setup'}
-                      </span>
-                    </button>
-
-                    {/* Quick Snapshot */}
-                    <button
-                      onClick={handleQuickSnapshot}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Camera size={16} style={{ color: '#10b981' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'ইনস্ট্যান্ট স্ন্যাপশট ব্যাকআপ' : 'Instant Snapshot Backup'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? '১-ক্লিকে পূর্বের অবস্থায় ফেরা' : '1-click local rollback'}</div>
-                      </div>
-                    </button>
-
-                    {/* Manual JSON Download */}
-                    <button
-                      onClick={() => { exportAllData(); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Download size={16} style={{ color: 'var(--text-dim)' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'ব্যাকআপ ডাউনলোড (.json)' : 'Download Backup (.json)'}</div>
-                      </div>
-                    </button>
-
-                    {/* Manual JSON Restore */}
-                    <button
-                      onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Upload size={16} style={{ color: 'var(--text-dim)' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'ব্যাকআপ ফাইল রিস্টোর...' : 'Restore Backup File...'}</div>
-                      </div>
-                    </button>
-
-                    {/* Excel & PDF Export/Import Hub */}
-                    <button
-                      onClick={() => { setShowExportImportHub(true); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <FileSpreadsheet size={16} style={{ color: '#0f766e' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'এক্সেল ও পিডিএফ ডেটা হাব' : 'Excel & PDF Data Hub'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'Excel ও PDF এক্সপোর্ট ও স্মার্ট ইমপোর্ট' : 'Excel/PDF Export & Import'}</div>
-                      </div>
-                    </button>
-
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept=".json"
-                      style={{ display: 'none' }}
-                      onChange={handleFileRestore}
-                    />
-                  </div>
-
-                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
-
-                  {/* SECTION 2: SMART UTILITIES (প্রয়োজনীয় স্মার্ট টুলস ও প্রোগ্রাম) */}
-                  <div style={{ padding: '4px 0' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--mode-color)', fontWeight: '700', padding: '4px 10px', textTransform: 'uppercase' }}>
-                      🛠️ {lang === 'bn' ? 'প্রয়োজনীয় স্মার্ট টুলস' : 'Smart Utilities'}
-                    </div>
-
-                    {/* Quick POS Screen Lock */}
-                    <button
-                      onClick={() => { setShowMoreMenu(false); lockScreen(); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(245, 158, 11, 0.08)',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.18)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.08)'}
-                    >
-                      <Lock size={16} style={{ color: '#f59e0b' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', color: '#f59e0b' }}>{lang === 'bn' ? '🔒 কাউন্টার ও পর্দা লক (Quick Lock)' : '🔒 Lock POS Screen'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'ক্যাশিয়ার সাময়িক দূরে গেলে পিন লক' : 'Lock screen with 4-digit PIN'}</div>
-                      </div>
-                    </button>
-
-                    {/* Quick Calculator */}
-                    <button
-                      onClick={() => { setActiveTool('calculator'); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Calculator size={16} style={{ color: '#a855f7' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'দ্রুত ক্যালকুলেটর (Calculator)' : 'Quick Calculator'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'হিসাব ও যোগ-বিয়োগের পপআপ' : 'Popup digital calculator'}</div>
-                      </div>
-                    </button>
-
-                    {/* Daily Cash & Drawer Balance */}
-                    <button
-                      onClick={() => { setActiveTool('cash'); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Wallet size={16} style={{ color: '#10b981' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'আজকের নগদ ক্যাশ ও ড্রয়ার' : 'Daily Cash & Drawer'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'দৈনিক ক্যাশ ইন-আউট ব্যালেন্স' : 'Today cash inflow & outflow'}</div>
-                      </div>
-                    </button>
-
-                    {/* Scratchpad & Notes */}
-                    <button
-                      onClick={() => { setActiveTool('notes'); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <FileText size={16} style={{ color: '#f59e0b' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'চিরকুট ও দ্রুত নোটপ্যাড' : 'Quick Sticky Notes'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'জরুরি চিরকুট ও মেমো সংরক্ষণ' : 'Autosaved scratchpad'}</div>
-                      </div>
-                    </button>
-
-                    {/* Category Hub (Add / Rename / Delete) */}
-                    <button
-                      onClick={() => { setActiveTool('categories'); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Tag size={16} style={{ color: '#06b6d4' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? '🏷️ ক্যাটাগরি হাব (ম্যানেজার)' : '🏷️ Categories Hub'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'সব ধরনের ক্যাটাগরি রিনেম, যোগ ও মুছুন' : 'Add, rename, delete all categories'}</div>
-                      </div>
-                    </button>
-
-                    {/* Fullscreen Toggle */}
-                    <button
-                      onClick={toggleFullscreen}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      {isFullscreen ? <Minimize2 size={16} style={{ color: '#6366f1' }} /> : <Maximize2 size={16} style={{ color: '#6366f1' }} />}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>
-                          {isFullscreen ? (lang === 'bn' ? 'ফুলস্ক্রিন থেকে প্রস্থান' : 'Exit Fullscreen') : (lang === 'bn' ? 'ফুলস্ক্রিন ডিসপ্লে মোড' : 'Fullscreen Display Mode')}
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Shortcuts Guide */}
-                    <button
-                      onClick={() => { setActiveTool('shortcuts'); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <Keyboard size={16} style={{ color: 'var(--text-dim)' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>{lang === 'bn' ? 'কীবোর্ড শর্টকাট গাইড' : 'Keyboard Shortcuts'}</div>
-                      </div>
-                    </button>
-
-                    {/* Customer Support & Helpdesk */}
-                    <button
-                      onClick={() => { openHelpSupport(); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(16, 185, 129, 0.08)',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        marginTop: '3px'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.18)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)'}
-                    >
-                      <HelpCircle size={16} style={{ color: '#10b981' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', color: '#10b981' }}>{lang === 'bn' ? '📞 গ্রাহক সেবা ও হেল্পডেস্ক' : 'Customer Support & Helpdesk'}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'WhatsApp, FB, Telegram ও কল' : 'WhatsApp, FB, Telegram & Hotline'}</div>
-                      </div>
-                    </button>
-                  </div>
-
-                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
-
-                  {/* SECTION 3: SUPABASE & AUTH */}
-                  <div style={{ padding: '4px 0' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#3ecf8e', fontWeight: '700', padding: '4px 10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Database size={12} />
-                      <span>{lang === 'bn' ? 'সুপাবেস ও একাউন্ট' : 'Supabase & Account'}</span>
-                    </div>
-
-                    {/* Operating Mode Selector (Dual vs Business Only vs Personal Only) */}
-                    <div style={{ padding: '8px 10px', background: 'var(--bg-primary)', borderRadius: '8px', margin: '4px 0', border: '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>
-                          {lang === 'bn' ? '⚡ অপারেটিং মোড (সুপারফাস্ট স্পিড):' : '⚡ Operating Mode:'}
-                        </span>
-                        <span style={{ fontSize: '0.65rem', background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
-                          SPEED
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-                        {[
-                          { id: 'dual', label: lang === 'bn' ? '🔄 ডুয়েল' : 'Dual', desc: 'উভয় মোড' },
-                          { id: 'business_only', label: lang === 'bn' ? '🏢 ব্যবসা' : 'Business', desc: 'শুধু ইআরপি' },
-                          { id: 'personal_only', label: lang === 'bn' ? '👤 পার্সোনাল' : 'Personal', desc: 'শুধু পার্সোনাল' }
-                        ].map(m => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => { setOperatingMode(m.id); setShowMoreMenu(false); }}
-                            style={{
-                              padding: '5px 2px',
-                              fontSize: '0.68rem',
-                              fontWeight: '700',
-                              borderRadius: '6px',
-                              border: operatingMode === m.id ? '1.5px solid var(--mode-color)' : '1px solid var(--border-color)',
-                              background: operatingMode === m.id ? 'var(--mode-color)' : 'transparent',
-                              color: operatingMode === m.id ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              textAlign: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                            title={m.desc}
-                          >
-                            {m.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Auth Modal Switcher */}
-                    <button
-                      onClick={() => { openAuthModal('login'); setShowMoreMenu(false); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <ShieldCheck size={16} style={{ color: '#6366f1' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600' }}>
-                          {user ? (lang === 'bn' ? 'ব্যবহারকারী অ্যাকাউন্ট / পিন' : 'User Account / PIN') : (lang === 'bn' ? 'লগইন / সাইন আপ' : 'Login / Register')}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          {user ? `${user.email} (${user.role})` : (lang === 'bn' ? 'মালিক ও ক্যাশিয়ার প্যানেল' : 'Owner & Staff Panel')}
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Quick Role Switcher for Owner & Staff Testing */}
-                    <div style={{ padding: '6px 10px', background: 'var(--bg-primary)', borderRadius: '8px', margin: '6px 0', border: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '5px' }}>
-                        {lang === 'bn' ? 'অ্যাক্টিভ রোল পরিবর্তন (টেস্টিং ভিউ):' : 'Switch Role (Test View):'}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
-                        {[
-                          { id: 'owner', label: 'মালিক', color: '#6366f1' },
-                          { id: 'cashier', label: 'ক্যাশিয়ার', color: '#10b981' },
-                          { id: 'salesman', label: 'সেলসম্যান', color: '#f59e0b' },
-                          { id: 'sr', label: 'এসআর', color: '#3b82f6' }
-                        ].map(r => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => { switchRole(r.id); setShowMoreMenu(false); }}
-                            style={{
-                              padding: '4px 2px',
-                              fontSize: '0.7rem',
-                              fontWeight: '700',
-                              borderRadius: '4px',
-                              border: role === r.id ? `1.5px solid ${r.color}` : '1px solid var(--border-color)',
-                              background: role === r.id ? r.color : 'transparent',
-                              color: role === r.id ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            {r.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Logout Button if logged in */}
-                    {user && (
-                      <button
-                        onClick={() => { logout(); setShowMoreMenu(false); }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 10px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          color: '#ef4444',
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          marginTop: '4px'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
-                      >
-                        <LogOut size={16} style={{ color: '#ef4444' }} />
-                        <div style={{ flex: 1, fontWeight: '700' }}>
-                          {lang === 'bn' ? 'লগআউট (Sign Out)' : 'Sign Out'}
-                        </div>
-                      </button>
-                    )}
-                  </div>
-
-                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
-
-                  {/* SECTION 4: SYSTEM & DATABASE */}
-                  <div style={{ padding: '6px 10px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <HardDrive size={13} />
-                      <span>{lang === 'bn' ? 'স্টোরেজ:' : 'Storage:'} ~{getStorageSizeKb()} KB</span>
-                    </div>
-
-                    <button
-                      onClick={() => { resetToDemo(); setShowMoreMenu(false); }}
-                      style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-                    >
-                      <RefreshCw size={12} />
-                      <span>{lang === 'bn' ? 'ডেমো রিসেট' : 'Reset Demo'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* Streamlined Focused Navigation Bar (Only Dashboard, POS & Hamburger Mega Menu) */}
+        {/* Streamlined Focused Navigation Bar (Only Dashboard & Single Large Three-Dot / Hamburger Menu) */}
         <div className="subnav-scroll-container" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
           <div
             style={{
@@ -2029,201 +1178,68 @@ export const Navbar = () => {
               gap: '12px'
             }}
           >
-            {/* Primary Action Tabs (Direct Fast Buttons) */}
+            {/* Primary Action Tabs (Only Dashboard) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {profile === 'business' ? (
-                <>
-                  {/* 1. Dashboard Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      React.startTransition(() => {
-                        setActiveTab('dashboard');
-                      });
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '7px',
-                      padding: '7px 15px',
-                      borderRadius: '10px',
-                      background: activeTab === 'dashboard' ? 'var(--business-primary)' : 'rgba(255, 255, 255, 0.04)',
-                      border: activeTab === 'dashboard' ? '1.5px solid var(--business-primary)' : '1px solid var(--border-color)',
-                      color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-main)',
-                      fontWeight: activeTab === 'dashboard' ? '800' : '600',
-                      fontSize: '0.84rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: activeTab === 'dashboard' ? '0 3px 12px rgba(99, 102, 241, 0.35)' : 'none'
-                    }}
-                    title={lang === 'bn' ? 'ব্যবসায়িক ড্যাশবোর্ড ও ওভারভিউ (F2)' : 'Business Dashboard (F2)'}
-                  >
-                    <LayoutDashboard size={16} style={{ color: activeTab === 'dashboard' ? '#ffffff' : 'var(--business-primary)' }} />
-                    <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
-                  </button>
+              {/* Dashboard Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  React.startTransition(() => {
+                    setActiveTab('dashboard');
+                  });
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 18px',
+                  borderRadius: '11px',
+                  background: activeTab === 'dashboard' ? 'var(--mode-color)' : 'rgba(255, 255, 255, 0.05)',
+                  border: activeTab === 'dashboard' ? '1.5px solid var(--mode-color)' : '1px solid var(--border-color)',
+                  color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-main)',
+                  fontWeight: activeTab === 'dashboard' ? '800' : '600',
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: activeTab === 'dashboard' ? '0 3px 12px var(--mode-glow)' : 'none'
+                }}
+                title={lang === 'bn' ? 'সেন্ট্রাল ড্যাশবোর্ড ও ওভারভিউ (F2)' : 'Main Dashboard (F2)'}
+              >
+                <LayoutDashboard size={17} style={{ color: activeTab === 'dashboard' ? '#ffffff' : 'var(--mode-color)' }} />
+                <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
+              </button>
 
-                  {/* 2. POS Sales Button (Prominent & Eye-Catching) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      React.startTransition(() => {
-                        setActiveTab('pos');
-                      });
-                    }}
+              {/* Current Active Module Pill if outside Dashboard */}
+              {activeTab !== 'dashboard' && (() => {
+                const currentActiveItem = (profile === 'business' ? businessNavItems : personalNavItems).find(i => i.id === activeTab);
+                if (!currentActiveItem) return null;
+                const CurrIcon = currentActiveItem.icon;
+                return (
+                  <div
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '7px',
-                      padding: '7px 17px',
-                      borderRadius: '10px',
-                      background: activeTab === 'pos' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
-                      border: activeTab === 'pos' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.35)',
-                      color: activeTab === 'pos' ? '#ffffff' : '#10b981',
-                      fontWeight: '800',
+                      padding: '7px 14px',
+                      borderRadius: '11px',
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      border: '1.5px solid rgba(99, 102, 241, 0.45)',
+                      color: 'var(--business-primary)',
                       fontSize: '0.84rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: activeTab === 'pos' ? '0 3px 14px rgba(16, 185, 129, 0.4)' : 'none'
+                      fontWeight: '800'
                     }}
-                    title={lang === 'bn' ? 'খুচরা বিক্রয় ও বিলিং টার্মিনাল (F1)' : 'POS Retail Terminal (F1)'}
                   >
-                    <ScanLine size={16} />
-                    <span>{lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'}</span>
-                    <span
-                      style={{
-                        background: activeTab === 'pos' ? 'rgba(255, 255, 255, 0.25)' : '#10b981',
-                        color: '#ffffff',
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        fontSize: '0.62rem',
-                        fontWeight: '900',
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      HOT
+                    <CurrIcon size={16} />
+                    <span>{currentActiveItem.label}</span>
+                    <span style={{ fontSize: '0.68rem', opacity: 0.9, background: 'var(--business-primary)', color: '#ffffff', padding: '1px 6px', borderRadius: '10px' }}>
+                      {lang === 'bn' ? 'চলমান পৃষ্ঠা' : 'Active View'}
                     </span>
-                  </button>
-
-                  {/* Current Active Module Pill if outside Dashboard/POS */}
-                  {activeTab !== 'dashboard' && activeTab !== 'pos' && (() => {
-                    const currentActiveItem = businessNavItems.find(i => i.id === activeTab);
-                    if (!currentActiveItem) return null;
-                    const CurrIcon = currentActiveItem.icon;
-                    return (
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '10px',
-                          background: 'rgba(99, 102, 241, 0.15)',
-                          border: '1px solid rgba(99, 102, 241, 0.4)',
-                          color: 'var(--business-primary)',
-                          fontSize: '0.82rem',
-                          fontWeight: '700'
-                        }}
-                      >
-                        <CurrIcon size={15} />
-                        <span>{currentActiveItem.label}</span>
-                        <span style={{ fontSize: '0.68rem', opacity: 0.8, background: 'var(--business-primary)', color: '#ffffff', padding: '1px 6px', borderRadius: '10px' }}>
-                          {lang === 'bn' ? 'চলমান' : 'Active'}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </>
-              ) : (
-                <>
-                  {/* Personal Mode: Dashboard Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      React.startTransition(() => {
-                        setActiveTab('dashboard');
-                      });
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '7px',
-                      padding: '7px 15px',
-                      borderRadius: '10px',
-                      background: activeTab === 'dashboard' ? 'var(--personal-primary)' : 'rgba(255, 255, 255, 0.04)',
-                      border: activeTab === 'dashboard' ? '1.5px solid var(--personal-primary)' : '1px solid var(--border-color)',
-                      color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-main)',
-                      fontWeight: activeTab === 'dashboard' ? '800' : '600',
-                      fontSize: '0.84rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: activeTab === 'dashboard' ? '0 3px 12px rgba(16, 185, 129, 0.35)' : 'none'
-                    }}
-                  >
-                    <LayoutDashboard size={16} />
-                    <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
-                  </button>
-
-                  {/* Personal Mode: Daily Expenses Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      React.startTransition(() => {
-                        setActiveTab('daily');
-                      });
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '7px',
-                      padding: '7px 15px',
-                      borderRadius: '10px',
-                      background: activeTab === 'daily' ? 'var(--personal-primary)' : 'rgba(16, 185, 129, 0.08)',
-                      border: activeTab === 'daily' ? '1.5px solid var(--personal-primary)' : '1px solid rgba(16, 185, 129, 0.3)',
-                      color: activeTab === 'daily' ? '#ffffff' : 'var(--personal-primary)',
-                      fontWeight: '800',
-                      fontSize: '0.84rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: activeTab === 'daily' ? '0 3px 12px rgba(16, 185, 129, 0.35)' : 'none'
-                    }}
-                  >
-                    <ShoppingCart size={16} />
-                    <span>{lang === 'bn' ? '💸 দৈনিক খরচ' : '💸 Daily Expense'}</span>
-                  </button>
-
-                  {/* Current Active Module Pill if outside Dashboard/Daily */}
-                  {activeTab !== 'dashboard' && activeTab !== 'daily' && (() => {
-                    const currentActiveItem = personalNavItems.find(i => i.id === activeTab);
-                    if (!currentActiveItem) return null;
-                    const CurrIcon = currentActiveItem.icon;
-                    return (
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '10px',
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          border: '1px solid rgba(16, 185, 129, 0.4)',
-                          color: 'var(--personal-primary)',
-                          fontSize: '0.82rem',
-                          fontWeight: '700'
-                        }}
-                      >
-                        <CurrIcon size={15} />
-                        <span>{currentActiveItem.label}</span>
-                        <span style={{ fontSize: '0.68rem', opacity: 0.8, background: 'var(--personal-primary)', color: '#ffffff', padding: '1px 6px', borderRadius: '10px' }}>
-                          {lang === 'bn' ? 'চলমান' : 'Active'}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* 3. Universal Three-Dot / Hamburger Mega Menu Button */}
+            {/* ONE SINGLE LARGE THREE-DOT / HAMBURGER MENU BUTTON */}
             <button
               type="button"
               onClick={() => {
@@ -2233,33 +1249,33 @@ export const Navbar = () => {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '7px 15px',
-                borderRadius: '10px',
-                background: showMobileDrawer ? 'var(--mode-color)' : 'rgba(99, 102, 241, 0.1)',
-                border: showMobileDrawer ? '1.5px solid var(--mode-color)' : '1px solid rgba(99, 102, 241, 0.35)',
+                gap: '9px',
+                padding: '8px 18px',
+                borderRadius: '12px',
+                background: showMobileDrawer ? 'var(--mode-color)' : 'rgba(99, 102, 241, 0.12)',
+                border: showMobileDrawer ? '2px solid var(--mode-color)' : '1.5px solid rgba(99, 102, 241, 0.4)',
                 color: showMobileDrawer ? '#ffffff' : 'var(--mode-color)',
                 fontWeight: '800',
-                fontSize: '0.84rem',
+                fontSize: '0.92rem',
                 cursor: 'pointer',
                 transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: showMobileDrawer ? '0 3px 12px var(--mode-glow)' : '0 2px 6px rgba(0, 0, 0, 0.08)',
+                boxShadow: showMobileDrawer ? '0 4px 16px var(--mode-glow)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
                 marginLeft: 'auto'
               }}
-              title={lang === 'bn' ? 'সকল ফিচার, খাতা ও সেটিংস ড্রয়ার খুলুন (Alt+M / F4)' : 'Open All Features Drawer (Alt+M / F4)'}
+              title={lang === 'bn' ? 'সকল ফিচার, খাতা ও সেটিংস মেনু (Alt+M / F4)' : 'Open All Features Menu (Alt+M / F4)'}
               onMouseEnter={(e) => {
-                if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.18)';
+                if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
               }}
               onMouseLeave={(e) => {
-                if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
               }}
             >
-              <Menu size={17} />
-              <span>{lang === 'bn' ? '☰ সকল ফিচার ও মেনু' : '☰ All Features'}</span>
+              <Menu size={19} strokeWidth={2.4} />
+              <span>{lang === 'bn' ? '☰ মেনু ও ফিচারস' : '☰ All Menu'}</span>
               <span
                 style={{
-                  fontSize: '0.68rem',
-                  fontWeight: '800',
+                  fontSize: '0.7rem',
+                  fontWeight: '900',
                   padding: '2px 7px',
                   borderRadius: '12px',
                   background: showMobileDrawer ? '#ffffff' : 'var(--mode-color)',
@@ -2271,7 +1287,7 @@ export const Navbar = () => {
             </button>
           </div>
         </div>
-      </header>
+</header>
 
       {/* QUICK TOOLS MODAL DIALOGS */}
       <QuickToolsModal activeTool={activeTool} onClose={() => setActiveTool(null)} />
@@ -2628,6 +1644,102 @@ export const Navbar = () => {
                   </div>
                 );
               })}
+
+              {/* Account, Role Switcher & System Section inside Single Mega Drawer */}
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <User size={16} style={{ color: 'var(--mode-color)' }} />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      {user ? (user.email || 'ব্যবহারকারী') : (lang === 'bn' ? 'মালিক ও স্টাফ অ্যাকাউন্ট' : 'Staff Account')}
+                    </span>
+                    {user && (
+                      <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--business-primary)', fontWeight: '800' }}>
+                        {user.role}
+                      </span>
+                    )}
+                  </div>
+
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={() => { logout(); setShowMobileDrawer(false); }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#ef4444',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <LogOut size={13} />
+                      <span>{lang === 'bn' ? 'লগআউট' : 'Logout'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { openAuthModal(); setShowMobileDrawer(false); }}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: 'var(--mode-color)',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <LogIn size={13} />
+                      <span>{lang === 'bn' ? 'লগইন / সাইন আপ' : 'Login'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Role Switcher Test View */}
+                {profile === 'business' && (
+                  <div style={{ padding: '6px 8px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '4px' }}>
+                      {lang === 'bn' ? 'রোল পরিবর্তন (টেস্টিং ভিউ):' : 'Switch Role:'}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                      {[
+                        { id: 'owner', label: 'মালিক', color: '#6366f1' },
+                        { id: 'cashier', label: 'ক্যাশিয়ার', color: '#10b981' },
+                        { id: 'salesman', label: 'সেলসম্যান', color: '#f59e0b' },
+                        { id: 'sr', label: 'এসআর', color: '#3b82f6' }
+                      ].map(r => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => { switchRole(r.id); setShowMobileDrawer(false); }}
+                          style={{
+                            padding: '4px 2px',
+                            fontSize: '0.68rem',
+                            fontWeight: '700',
+                            borderRadius: '4px',
+                            border: role === r.id ? '1.5px solid ' + r.color : '1px solid var(--border-color)',
+                            background: role === r.id ? r.color : 'transparent',
+                            color: role === r.id ? '#ffffff' : 'var(--text-muted)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
