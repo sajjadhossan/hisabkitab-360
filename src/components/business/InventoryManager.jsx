@@ -29,7 +29,9 @@ import {
   Sparkles,
   Image as ImageIcon,
   FolderOpen,
-  MessageCircle
+  MessageCircle,
+  Camera,
+  Scan
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -38,7 +40,7 @@ import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { useAuth } from '../../context/AuthContext';
 import { BarcodeStickerModal } from '../common/BarcodeStickerModal';
-import { compressImageToWebP, hapticFeedback } from '../../services/nativeAppService';
+import { compressImageToWebP, optimizeProductImageAI, hapticFeedback } from '../../services/nativeAppService';
 import { OptimizedImage } from '../common/OptimizedImage';
 
 const PRESET_PRODUCT_IMAGES = [
@@ -248,19 +250,48 @@ export const InventoryManager = () => {
     });
   }, [damagedGoods, deferredDamageSearch, damageReasonFilter]);
 
-  // Product Actions: WebP Image Auto-Compressor
+  // Image Compression Stats state for AI feedback
+  const [newImageStats, setNewImageStats] = useState(null);
+  const [editImageStats, setEditImageStats] = useState(null);
+
+  // 1-Click Barcode Camera Scanner for Product Add / Edit
+  const handleScanBarcodeForProduct = (target = 'new') => {
+    hapticFeedback.light();
+    if (!openScanner) return;
+    openScanner((scannedCode) => {
+      if (scannedCode) {
+        if (target === 'edit') {
+          setEditProductForm(prev => ({ ...prev, barcode: scannedCode }));
+        } else {
+          setNewProductForm(prev => ({ ...prev, barcode: scannedCode }));
+        }
+        showToast(lang === 'bn' ? `✓ বারকোড স্ক্যান সফল: ${scannedCode}` : `Barcode scanned: ${scannedCode}`, 'success');
+      }
+    }, 'inventory', 'barcode');
+  };
+
+  // Product Actions: WebP & AI Smart Image Auto-Compressor
   const handleImageFileUpload = async (e, target = 'new') => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       hapticFeedback.light();
-      const compressedWebP = await compressImageToWebP(file, 640, 0.75);
-      if (target === 'edit') {
-        setEditProductForm(prev => ({ ...prev, image: compressedWebP }));
-      } else {
-        setNewProductForm(prev => ({ ...prev, image: compressedWebP }));
+      const res = await optimizeProductImageAI(file, 500, 0.76);
+      if (res && res.dataUrl) {
+        if (target === 'edit') {
+          setEditImageStats(res);
+          setEditProductForm(prev => ({ ...prev, image: res.dataUrl }));
+        } else {
+          setNewImageStats(res);
+          setNewProductForm(prev => ({ ...prev, image: res.dataUrl }));
+        }
+        showToast(
+          lang === 'bn'
+            ? `⚡ এআই অপ্টিমাইজড: ${res.compressedKb} KB (${res.savedPct}% সাইজ কমানো হয়েছে)`
+            : `AI Optimized: ${res.compressedKb} KB (${res.savedPct}% smaller)`,
+          'success'
+        );
       }
-      showToast(lang === 'bn' ? 'ছবি সফলভাবে অপ্টিমাইজড (WebP) করা হয়েছে!' : 'Image optimized to WebP!', 'success');
     } catch {
       const reader = new FileReader();
       reader.onload = (loadEvt) => {
@@ -1705,40 +1736,63 @@ export const InventoryManager = () => {
 
               {/* Barcode & Auto Barcode Generator (Item 79) */}
               <div style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
                   <label className="field-label" style={{ margin: 0 }}>
                     {lang === 'bn' ? 'বারকোড (Barcode / EAN-13):' : 'Barcode / EAN-13:'}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const autoCode = '894' + Math.floor(1000000000 + Math.random() * 9000000000);
-                      setNewProductForm(prev => ({ ...prev, barcode: autoCode }));
-                      if (showToast) showToast(lang === 'bn' ? 'ইউনিক বারকোড তৈরি হয়েছে!' : 'Unique barcode generated!');
-                    }}
-                    style={{
-                      background: 'rgba(99, 102, 241, 0.15)',
-                      border: '1px solid rgba(99, 102, 241, 0.4)',
-                      color: '#818cf8',
-                      borderRadius: '6px',
-                      fontSize: '0.74rem',
-                      fontWeight: '800',
-                      cursor: 'pointer',
-                      padding: '2px 8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                    title={lang === 'bn' ? 'ইন-হাউস ইউনিক বারকোড তৈরি করুন' : 'Auto Generate Unique Barcode'}
-                  >
-                    <Sparkles size={12} />
-                    <span>{lang === 'bn' ? '⚡ অটো বারকোড তৈরি' : '⚡ Auto Barcode'}</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleScanBarcodeForProduct('new')}
+                      style={{
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.45)',
+                        color: '#10b981',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        padding: '2px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title={lang === 'bn' ? 'ক্যামেরা দিয়ে পণ্যের প্যাকেটের বারকোড সরাসরি স্ক্যান করুন' : 'Scan product barcode via camera'}
+                    >
+                      <Camera size={13} />
+                      <span>{lang === 'bn' ? '📷 ক্যামেরা স্ক্যান' : '📷 Scan Barcode'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const autoCode = '894' + Math.floor(1000000000 + Math.random() * 9000000000);
+                        setNewProductForm(prev => ({ ...prev, barcode: autoCode }));
+                        if (showToast) showToast(lang === 'bn' ? 'ইউনিক বারকোড তৈরি হয়েছে!' : 'Unique barcode generated!');
+                      }}
+                      style={{
+                        background: 'rgba(99, 102, 241, 0.15)',
+                        border: '1px solid rgba(99, 102, 241, 0.4)',
+                        color: '#818cf8',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        padding: '2px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title={lang === 'bn' ? 'ইন-হাউস ইউনিক বারকোড তৈরি করুন' : 'Auto Generate Unique Barcode'}
+                    >
+                      <Sparkles size={12} />
+                      <span>{lang === 'bn' ? '⚡ অটো কোড' : '⚡ Auto Code'}</span>
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder={lang === 'bn' ? 'বারকোড লিখুন বা স্ক্যান করুন...' : 'Barcode or scan...'}
+                  placeholder={lang === 'bn' ? 'বারকোড লিখুন বা ক্যামেরা দিয়ে স্ক্যান করুন...' : 'Barcode or scan via camera...'}
                   value={newProductForm.barcode}
                   onChange={(e) => setNewProductForm({ ...newProductForm, barcode: e.target.value })}
                 />
@@ -1834,11 +1888,40 @@ export const InventoryManager = () => {
                     style={{ flex: 1, fontSize: '0.82rem' }}
                   />
                   
+                  {/* Camera Snap Button */}
+                  <label
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '7px 11px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      whiteSpace: 'nowrap',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      borderColor: 'rgba(16, 185, 129, 0.35)',
+                      color: '#10b981'
+                    }}
+                    title={lang === 'bn' ? 'ক্যামেরা দিয়ে সরাসরি পণ্যের ছবি তুলুন' : 'Snap photo with camera'}
+                  >
+                    <Camera size={14} />
+                    <span>{lang === 'bn' ? 'ছবি তুলুন' : 'Camera'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleImageFileUpload(e, 'new')}
+                    />
+                  </label>
+
                   {/* File Upload Button */}
                   <label
                     className="btn btn-secondary"
                     style={{
-                      padding: '7px 12px',
+                      padding: '7px 11px',
                       fontSize: '0.78rem',
                       fontWeight: '700',
                       cursor: 'pointer',
@@ -1864,7 +1947,10 @@ export const InventoryManager = () => {
                       <img src={newProductForm.image} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <button
                         type="button"
-                        onClick={() => setNewProductForm({ ...newProductForm, image: '' })}
+                        onClick={() => {
+                          setNewProductForm({ ...newProductForm, image: '' });
+                          setNewImageStats(null);
+                        }}
                         style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: '#fff', border: 'none', width: '16px', height: '16px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="রিমুভ"
                       >
@@ -1873,6 +1959,14 @@ export const InventoryManager = () => {
                     </div>
                   )}
                 </div>
+
+                {/* AI Compression Stats Badge */}
+                {newImageStats && (
+                  <div style={{ marginTop: '6px', marginBottom: '6px', padding: '5px 10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', fontSize: '0.74rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800' }}>
+                    <Sparkles size={13} />
+                    <span>{lang === 'bn' ? `⚡ AI অপ্টিমাইজড: ${newImageStats.compressedKb} KB (${newImageStats.savedPct}% সাইজ কমানো হয়েছে)` : `⚡ AI Optimized: ${newImageStats.compressedKb} KB (${newImageStats.savedPct}% compressed)`}</span>
+                  </div>
+                )}
 
                 {/* Quick Royalty-Free Preset Images */}
                 <div style={{ marginTop: '6px' }}>
@@ -1976,40 +2070,63 @@ export const InventoryManager = () => {
 
               {/* Barcode & Auto Barcode Generator (Item 79) */}
               <div style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
                   <label className="field-label" style={{ margin: 0 }}>
                     {lang === 'bn' ? 'বারকোড (Barcode / EAN-13):' : 'Barcode / EAN-13:'}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const autoCode = '894' + Math.floor(1000000000 + Math.random() * 9000000000);
-                      setEditProductForm(prev => ({ ...prev, barcode: autoCode }));
-                      if (showToast) showToast(lang === 'bn' ? 'নতুন বারকোড তৈরি হয়েছে!' : 'New barcode generated!');
-                    }}
-                    style={{
-                      background: 'rgba(99, 102, 241, 0.15)',
-                      border: '1px solid rgba(99, 102, 241, 0.4)',
-                      color: '#818cf8',
-                      borderRadius: '6px',
-                      fontSize: '0.74rem',
-                      fontWeight: '800',
-                      cursor: 'pointer',
-                      padding: '2px 8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                    title={lang === 'bn' ? 'ইন-হাউস ইউনিক বারকোড তৈরি করুন' : 'Auto Generate Unique Barcode'}
-                  >
-                    <Sparkles size={12} />
-                    <span>{lang === 'bn' ? '⚡ অটো বারকোড তৈরি' : '⚡ Auto Barcode'}</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleScanBarcodeForProduct('edit')}
+                      style={{
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.45)',
+                        color: '#10b981',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        padding: '2px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title={lang === 'bn' ? 'ক্যামেরা দিয়ে পণ্যের প্যাকেটের বারকোড সরাসরি স্ক্যান করুন' : 'Scan product barcode via camera'}
+                    >
+                      <Camera size={13} />
+                      <span>{lang === 'bn' ? '📷 ক্যামেরা স্ক্যান' : '📷 Scan Barcode'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const autoCode = '894' + Math.floor(1000000000 + Math.random() * 9000000000);
+                        setEditProductForm(prev => ({ ...prev, barcode: autoCode }));
+                        if (showToast) showToast(lang === 'bn' ? 'নতুন বারকোড তৈরি হয়েছে!' : 'New barcode generated!');
+                      }}
+                      style={{
+                        background: 'rgba(99, 102, 241, 0.15)',
+                        border: '1px solid rgba(99, 102, 241, 0.4)',
+                        color: '#818cf8',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        padding: '2px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title={lang === 'bn' ? 'ইন-হাউস ইউনিক বারকোড তৈরি করুন' : 'Auto Generate Unique Barcode'}
+                    >
+                      <Sparkles size={12} />
+                      <span>{lang === 'bn' ? '⚡ অটো কোড' : '⚡ Auto Code'}</span>
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder={lang === 'bn' ? 'বারকোড লিখুন বা স্ক্যান করুন...' : 'Barcode or scan...'}
+                  placeholder={lang === 'bn' ? 'বারকোড লিখুন বা ক্যামেরা দিয়ে স্ক্যান করুন...' : 'Barcode or scan via camera...'}
                   value={editProductForm.barcode}
                   onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })}
                 />
@@ -2101,11 +2218,40 @@ export const InventoryManager = () => {
                     style={{ flex: 1, fontSize: '0.82rem' }}
                   />
                   
+                  {/* Camera Snap Button */}
+                  <label
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '7px 11px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      whiteSpace: 'nowrap',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      borderColor: 'rgba(16, 185, 129, 0.35)',
+                      color: '#10b981'
+                    }}
+                    title={lang === 'bn' ? 'ক্যামেরা দিয়ে সরাসরি পণ্যের ছবি তুলুন' : 'Snap photo with camera'}
+                  >
+                    <Camera size={14} />
+                    <span>{lang === 'bn' ? 'ছবি তুলুন' : 'Camera'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleImageFileUpload(e, 'edit')}
+                    />
+                  </label>
+
                   {/* File Upload Button */}
                   <label
                     className="btn btn-secondary"
                     style={{
-                      padding: '7px 12px',
+                      padding: '7px 11px',
                       fontSize: '0.78rem',
                       fontWeight: '700',
                       cursor: 'pointer',
@@ -2131,7 +2277,10 @@ export const InventoryManager = () => {
                       <img src={editProductForm.image} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <button
                         type="button"
-                        onClick={() => setEditProductForm({ ...editProductForm, image: '' })}
+                        onClick={() => {
+                          setEditProductForm({ ...editProductForm, image: '' });
+                          setEditImageStats(null);
+                        }}
                         style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: '#fff', border: 'none', width: '16px', height: '16px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="রিমুভ"
                       >
@@ -2140,6 +2289,14 @@ export const InventoryManager = () => {
                     </div>
                   )}
                 </div>
+
+                {/* AI Compression Stats Badge */}
+                {editImageStats && (
+                  <div style={{ marginTop: '6px', marginBottom: '6px', padding: '5px 10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', fontSize: '0.74rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800' }}>
+                    <Sparkles size={13} />
+                    <span>{lang === 'bn' ? `⚡ AI অপ্টিমাইজড: ${editImageStats.compressedKb} KB (${editImageStats.savedPct}% সাইজ কমানো হয়েছে)` : `⚡ AI Optimized: ${editImageStats.compressedKb} KB (${editImageStats.savedPct}% compressed)`}</span>
+                  </div>
+                )}
 
                 {/* Quick Royalty-Free Preset Images */}
                 <div style={{ marginTop: '6px' }}>

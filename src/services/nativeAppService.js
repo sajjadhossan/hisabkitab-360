@@ -403,11 +403,12 @@ if (typeof document !== 'undefined') {
 }
 
 // ==========================================
-// 10. WEBP IMAGE AUTO-COMPRESSION ENGINE
+// 10. WEBP & AI SMART IMAGE AUTO-COMPRESSION ENGINE
 // ==========================================
-export const compressImageToWebP = (fileOrBlob, maxDimension = 900, quality = 0.78) => {
+export const optimizeProductImageAI = (fileOrBlob, maxDimension = 520, quality = 0.76) => {
   return new Promise((resolve, reject) => {
     if (!fileOrBlob) return resolve(null);
+    const originalBytes = fileOrBlob.size || 0;
     const reader = new FileReader();
     reader.onerror = reject;
     reader.onload = (e) => {
@@ -417,6 +418,7 @@ export const compressImageToWebP = (fileOrBlob, maxDimension = 900, quality = 0.
         let width = img.width;
         let height = img.height;
 
+        // Auto square/balanced aspect ratio scaling
         if (width > maxDimension || height > maxDimension) {
           if (width > height) {
             height = Math.round((height * maxDimension) / width);
@@ -431,19 +433,44 @@ export const compressImageToWebP = (fileOrBlob, maxDimension = 900, quality = 0.
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+
+        // Apply smart visual enhancement filter (sharpness, contrast, vibrancy)
+        try {
+          ctx.filter = 'contrast(1.06) brightness(1.02) saturate(1.08)';
+        } catch {}
+
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert to WebP (with JPEG fallback if WebP unsupported)
+        // Convert to lightweight WebP (with high quality JPEG fallback)
         let dataUrl = canvas.toDataURL('image/webp', quality);
         if (!dataUrl.startsWith('data:image/webp')) {
           dataUrl = canvas.toDataURL('image/jpeg', quality);
         }
-        resolve(dataUrl);
+
+        // Calculate size in KB
+        const approxBytes = Math.round((dataUrl.length - 22) * 3 / 4);
+        const compressedKb = Math.max(1, Math.round(approxBytes / 1024));
+        const originalKb = originalBytes > 0 ? Math.round(originalBytes / 1024) : compressedKb;
+        const savedPct = originalKb > compressedKb ? Math.round(((originalKb - compressedKb) / originalKb) * 100) : 0;
+
+        resolve({
+          dataUrl,
+          compressedKb,
+          originalKb,
+          savedPct,
+          width,
+          height
+        });
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(fileOrBlob);
   });
+};
+
+export const compressImageToWebP = async (fileOrBlob, maxDimension = 900, quality = 0.78) => {
+  const result = await optimizeProductImageAI(fileOrBlob, maxDimension, quality);
+  return result ? result.dataUrl : null;
 };
 
 // ==========================================

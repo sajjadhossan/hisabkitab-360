@@ -4,6 +4,7 @@ import { hapticFeedback } from '../../services/nativeAppService';
 import { useApp } from '../../context/AppContext';
 import { CashDenominationModal } from './CashDenominationModal';
 import { SystemDiagnosticsModal } from './SystemDiagnosticsModal';
+import { useDraggableWidget } from '../../utils/useDraggableWidget';
 
 export const FloatingQuickPad = () => {
   const { lang, showToast } = useApp();
@@ -11,6 +12,11 @@ export const FloatingQuickPad = () => {
   const [tab, setTab] = useState('calc'); // 'calc' | 'notes'
   const [showDenomModal, setShowDenomModal] = useState(false);
   const [showDiagModal, setShowDiagModal] = useState(false);
+
+  const { ref: dragRef, isDragging, hasMoved, pos, style: dragStyle, bind } = useDraggableWidget(
+    'hk360_quickpad_pos',
+    { right: 16, bottom: 144 }
+  );
 
   // Calculator State
   const [calcDisplay, setCalcDisplay] = useState('0');
@@ -87,16 +93,18 @@ export const FloatingQuickPad = () => {
     <>
       {/* Floating Action Trigger Button */}
       <button
+        ref={dragRef}
+        {...bind}
         type="button"
         onClick={() => {
+          if (hasMoved) return;
           hapticFeedback.light();
           setIsOpen(!isOpen);
         }}
         aria-label="Quick Calculator"
+        title={lang === 'bn' ? 'ক্যালকুলেটর (টেনে যেকোনো জায়গায় রাখুন)' : 'Calculator (Draggable)'}
         style={{
-          position: 'fixed',
-          bottom: '144px',
-          right: '16px',
+          ...dragStyle,
           width: '48px',
           height: '48px',
           borderRadius: '50%',
@@ -107,9 +115,8 @@ export const FloatingQuickPad = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 1090,
-          transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          cursor: isDragging ? 'grabbing' : 'pointer',
+          zIndex: 1090
         }}
         className="press-scale"
       >
@@ -122,8 +129,10 @@ export const FloatingQuickPad = () => {
           className="animate-slide-up"
           style={{
             position: 'fixed',
-            bottom: '140px',
-            right: '16px',
+            left: pos ? `${Math.max(12, Math.min(window.innerWidth - 322, pos.x - 260 > 10 ? pos.x - 260 : pos.x))}px` : undefined,
+            top: pos ? `${Math.max(70, Math.min(window.innerHeight - 480, pos.y - 380 > 70 ? pos.y - 380 : pos.y + 55))}px` : undefined,
+            bottom: pos ? undefined : '140px',
+            right: pos ? undefined : '16px',
             width: '310px',
             maxWidth: 'calc(100vw - 32px)',
             background: 'var(--bg-card)',

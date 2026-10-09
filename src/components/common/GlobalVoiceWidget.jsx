@@ -44,8 +44,6 @@ export const GlobalVoiceWidget = () => {
   // Movable / Draggable Voice Button State with Safe Boundary Clamping
   const [btnPos, setBtnPos] = useState(() => {
     try {
-      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
-      if (isMobile) return null; // Safe fixed dock on mobile bottom-right
       const saved = localStorage.getItem('hisabkitab_voice_pos');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -360,7 +358,7 @@ export const GlobalVoiceWidget = () => {
           left: btnPos ? `${btnPos.x}px` : undefined,
           top: btnPos ? `${btnPos.y}px` : undefined,
           right: btnPos ? undefined : '16px',
-          bottom: btnPos ? undefined : '84px',
+          bottom: btnPos ? undefined : '204px',
           width: '56px',
           height: '56px',
           borderRadius: '50%',

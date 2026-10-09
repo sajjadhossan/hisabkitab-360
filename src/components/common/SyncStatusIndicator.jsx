@@ -3,6 +3,7 @@ import { Wifi, WifiOff, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { getPendingSyncCount, subscribeToQueueChanges, flushOfflineQueue } from '../../utils/syncQueue';
+import { useDraggableWidget } from '../../utils/useDraggableWidget';
 
 export const SyncStatusIndicator = () => {
   const { lang, showToast, syncToGoogleDrive } = useApp();
@@ -11,6 +12,11 @@ export const SyncStatusIndicator = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => getPendingSyncCount());
   const [showReconnectedToast, setShowReconnectedToast] = useState(false);
+
+  const { ref: dragRef, isDragging, hasMoved, style: dragStyle, bind } = useDraggableWidget(
+    'hk360_sync_indicator_pos',
+    { right: 140, bottom: 84 }
+  );
 
   useEffect(() => {
     const unsub = subscribeToQueueChanges((cnt) => {
@@ -150,16 +156,19 @@ export const SyncStatusIndicator = () => {
         </div>
       )}
 
-      {/* 3. Floating Bottom-Right Sync Status Pill */}
+      {/* 3. Floating Movable Sync Status Pill */}
       <div
+        ref={dragRef}
+        {...bind}
         className="sync-status-indicator no-print"
-        onClick={handleManualSync}
+        onClick={() => {
+          if (hasMoved) return;
+          handleManualSync();
+        }}
         onMouseEnter={() => setIsExpanded(true)}
         onMouseLeave={() => setIsExpanded(false)}
         style={{
-          position: 'fixed',
-          bottom: '80px',
-          right: '14px',
+          ...dragStyle,
           zIndex: 920,
           display: 'inline-flex',
           alignItems: 'center',
@@ -169,9 +178,8 @@ export const SyncStatusIndicator = () => {
           fontSize: '0.74rem',
           fontWeight: '700',
           backdropFilter: 'blur(12px)',
-          cursor: 'pointer',
+          cursor: isDragging ? 'grabbing' : 'pointer',
           boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-          transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           background: !isOnline
             ? 'rgba(245, 158, 11, 0.9)'
             : isSyncing
@@ -180,7 +188,7 @@ export const SyncStatusIndicator = () => {
           color: '#ffffff',
           border: '1px solid rgba(255, 255, 255, 0.25)'
         }}
-        title={lang === 'bn' ? 'ক্লাউড সিঙ্ক স্ট্যাটাস (ক্লিক করে রিফ্রেশ করুন)' : 'Cloud Sync Status (Click to refresh)'}
+        title={lang === 'bn' ? 'অনলাইন / ক্লাউড সিঙ্ক স্ট্যাটাস (টেনে যেকোনো জায়গায় রাখুন)' : 'Online / Cloud Sync Status (Draggable)'}
       >
         {!isOnline ? (
           <>

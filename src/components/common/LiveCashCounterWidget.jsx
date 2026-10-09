@@ -4,12 +4,14 @@ import { useApp } from '../../context/AppContext';
 import { BottomSheet } from './BottomSheet';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { isLiveSyncConnected } from '../../services/liveSyncService';
+import { useDraggableWidget } from '../../utils/useDraggableWidget';
 
 /**
  * Live Floating Cash Counter & Drawer Widget
  * -------------------------------------------
  * Provides real-time instant visibility into the physical cash drawer.
  * Updates dynamically on every sale, refund, or cash expense.
+ * Fully movable / draggable across the screen on both Desktop and Mobile.
  * Tap opens a sleek bottom sheet breakdown.
  */
 export const LiveCashCounterWidget = () => {
@@ -24,6 +26,11 @@ export const LiveCashCounterWidget = () => {
 
   const [isOpen, setIsOpen] = useState(false);
   const isLive = isLiveSyncConnected();
+
+  const { ref: dragRef, isDragging, hasMoved, style: dragStyle, bind } = useDraggableWidget(
+    'hk360_live_cash_widget_pos',
+    { right: 16, bottom: 84 }
+  );
 
   // Calculate Today's Live Cash Metrics
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -46,13 +53,20 @@ export const LiveCashCounterWidget = () => {
   return (
     <>
       <aside
+        ref={dragRef}
+        {...bind}
         aria-label={lang === 'bn' ? 'লাইভ ক্যাশ কাউন্টার' : 'Live Cash Counter'}
         className="live-cash-widget"
+        style={{
+          ...dragStyle,
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
         onClick={() => {
+          if (hasMoved) return;
           hapticFeedback.light();
           setIsOpen(true);
         }}
-        title={lang === 'bn' ? 'লাইভ ক্যাশ ড্রয়ার ট্র্যাকার' : 'Live Cash Drawer Tracker'}
+        title={lang === 'bn' ? 'লাইভ ক্যাশ ড্রয়ার ট্র্যাকার (টেনে যেকোনো জায়গায় রাখুন)' : 'Live Cash Drawer Tracker (Draggable)'}
       >
         <span className="live-pulse-dot" style={{ backgroundColor: isLive ? '#10b981' : '#f59e0b' }} />
         <Wallet size={15} style={{ color: 'var(--personal-primary)' }} />
