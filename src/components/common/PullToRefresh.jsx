@@ -17,9 +17,9 @@ export const PullToRefresh = ({ onRefresh, children }) => {
 
   useEffect(() => {
     const handleTouchStart = (e) => {
-      // Ignore if touching form controls, modals, or POS interactive surfaces
+      // Ignore if touching form controls, modals, camera streams, or POS interactive surfaces
       if (e.target && e.target.closest && e.target.closest(
-        'input, textarea, select, button, .modal-backdrop, .modal-content, .mobile-pos-view, .product-card-grid, .no-pull-refresh, [role="dialog"]'
+        'input, textarea, select, button, video, canvas, .modal-backdrop, .modal-overlay, .modal-content, .cattle-farm-modal, .cattle-farm-view, .mobile-pos-view, .product-card-grid, .no-pull-refresh, [role="dialog"]'
       )) {
         isPullingRef.current = false;
         return;

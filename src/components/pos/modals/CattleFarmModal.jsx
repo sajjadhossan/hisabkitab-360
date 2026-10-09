@@ -136,7 +136,7 @@ const INITIAL_BREEDINGS = [
 ];
 
 // Farm Products Catalog for Dedicated Cattle POS
-const FARM_POS_CATALOG = [
+export const FARM_POS_CATALOG = [
   { id: 'fp-1', name: 'খাঁটি কাঁচা দুধ (সকাল/বিকাল)', unit: 'লিটার', price: 80, icon: '🥛', category: 'দুধ ও দুগ্ধজাত' },
   { id: 'fp-2', name: 'গাভীর খাঁটি গাওয়া ঘি (৫০০ গ্রাম জার)', unit: 'জার', price: 950, icon: '🧈', category: 'দুধ ও দুগ্ধজাত' },
   { id: 'fp-3', name: 'তাজা ননীযুক্ত ছানা / পনির', unit: 'কেজি', price: 850, icon: '🧀', category: 'দুধ ও দুগ্ধজাত' },
@@ -2880,16 +2880,20 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     </div>
   );
 
+  if (!isOpen && !isPageMode) {
+    return null;
+  }
+
   if (isPageMode) {
     return (
-      <div style={{ padding: '0.75rem', width: '100%', minHeight: '80vh' }}>
+      <div className="cattle-farm-view no-pull-refresh" style={{ padding: '0.75rem', width: '100%', minHeight: '80vh' }}>
         {innerModalCard}
       </div>
     );
   }
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 9999 }}>
+    <div className="modal-overlay cattle-farm-modal no-pull-refresh" style={{ zIndex: 9999 }}>
       {innerModalCard}
     </div>
   );

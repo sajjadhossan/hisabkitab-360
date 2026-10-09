@@ -63,7 +63,7 @@ import { VoiceBillingModal } from '../pos/VoiceBillingModal';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { IndustryVariationsBar } from '../pos/IndustryVariationsBar';
-import { CattleFarmModal } from '../pos/modals/CattleFarmModal';
+import { CattleFarmModal, FARM_POS_CATALOG } from '../pos/modals/CattleFarmModal';
 import { HoldCartManagerModal } from '../pos/HoldCartManagerModal';
 import { DenominationCalculatorModal } from '../pos/DenominationCalculatorModal';
 import { SplitPaymentModal } from '../pos/SplitPaymentModal';
@@ -280,6 +280,93 @@ export const POSTerminal = () => {
   const [useLoyaltyPoints, setUseLoyaltyPoints] = useState(false);
   const [showCattleModal, setShowCattleModal] = useState(false);
   const [cattleModalInitialTab, setCattleModalInitialTab] = useState('overview');
+
+  const isCattleMode = activeIndustryId?.includes('cattle') || activeIndustryId?.includes('dairy') || activeIndustryId?.includes('milk') || activeIndustryId?.includes('agro') || activeIndustryId?.includes('cow');
+  const [cattlePosSubTab, setCattlePosSubTab] = useState('milk'); // 'milk' | 'live' | 'compost_feed' | 'custom_milk'
+  const [customMilkLiters, setCustomMilkLiters] = useState('10');
+  const [customMilkRate, setCustomMilkRate] = useState('80');
+  const [customMilkFat, setCustomMilkFat] = useState('4.2');
+
+  // Load live cows for quick sale in POS
+  const liveCattleHerd = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('hk360_cattle_herd_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.filter(c => c.status !== 'sold');
+      }
+    } catch {}
+    return [
+      { id: 'cow-1', tag: 'COW-101', name: 'রানি', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: 185000, weightKg: 420, marketValue: 245000, status: 'active' },
+      { id: 'cow-2', tag: 'COW-102', name: 'শোভা', breed: 'শাহীওয়াল', category: 'গর্ভবতী গাভী', purchasePrice: 165000, weightKg: 380, marketValue: 210000, status: 'pregnant' },
+      { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, marketValue: 220000, status: 'fattening' },
+      { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, marketValue: 75000, status: 'calf' }
+    ];
+  }, [showCattleModal]);
+
+  const handleAddLiveCowToCart = (cow) => {
+    const cowItem = {
+      id: `live_cow_${cow.id}`,
+      name: `গরু [${cow.tag} - ${cow.name} (${cow.breed})]`,
+      sellPrice: cow.marketValue || cow.purchasePrice || 150000,
+      costPrice: cow.purchasePrice || 100000,
+      stock: 1,
+      unit: 'টি',
+      category: 'লাইভ গবাদিপশু',
+      cowId: cow.id,
+      cowTag: cow.tag,
+      isLiveCow: true,
+      image: null
+    };
+    addToCart(cowItem);
+    if (showToast) showToast(`🐂 গরু (${cow.tag} - ${cow.name}) বিলে যোগ হয়েছে!`, 'success');
+  };
+
+  const handleQuickAddMilk = (liters, rate = 80) => {
+    const milkItem = {
+      id: `farm_raw_milk_${rate}`,
+      name: `খামারের খাঁটি কাঁচা দুধ (${liters} লিটার)`,
+      sellPrice: rate * liters,
+      costPrice: 60 * liters,
+      stock: 500,
+      unit: 'লিটার',
+      category: 'দুধ ও ডেইরি',
+      image: null
+    };
+    addToCart(milkItem);
+    if (showToast) showToast(`🥛 ${liters} লিটার দুধ (৳${(liters * rate).toLocaleString()}) বিলে যোগ হয়েছে!`, 'success');
+  };
+
+  const handleAddFarmProductToCart = (prod) => {
+    const item = {
+      id: `farm_item_${prod.id}`,
+      name: prod.name,
+      sellPrice: prod.price,
+      costPrice: Math.round(prod.price * 0.75),
+      stock: 100,
+      unit: prod.unit,
+      category: prod.category
+    };
+    addToCart(item);
+    if (showToast) showToast(`🛒 ${prod.name} বিলে যোগ হয়েছে`, 'success');
+  };
+
+  const handleAddFatMilkToCart = () => {
+    const ltr = Number(customMilkLiters) || 1;
+    const fat = Number(customMilkFat) || 4.0;
+    const rate = Number(customMilkRate) || 80;
+    const item = {
+      id: `farm_fat_milk_${Date.now()}`,
+      name: `খাঁটি দুধ (${ltr}L, ফ্যাট ${fat}%)`,
+      sellPrice: rate * ltr,
+      costPrice: (rate - 20) * ltr,
+      stock: 100,
+      unit: 'লট',
+      category: 'দুধ ও ডেইরি'
+    };
+    addToCart(item);
+    if (showToast) showToast(`🥛 ${ltr} লিটার দুধ (ফ্যাট ${fat}%) বিলে যোগ হয়েছে!`, 'success');
+  };
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [isShiftActive, setIsShiftActive] = useState(() => {
@@ -907,6 +994,27 @@ export const POSTerminal = () => {
     if (saleRecord) {
       setLastCompletedSale(saleRecord);
       setShowSuccessModal(true);
+
+      // Auto-update status of any live cattle sold in this invoice
+      try {
+        const soldLiveCows = cart.filter(it => it.isLiveCow || it.cowId);
+        if (soldLiveCows.length > 0) {
+          const savedHerd = localStorage.getItem('hk360_cattle_herd_data');
+          if (savedHerd) {
+            const herd = JSON.parse(savedHerd);
+            const updated = herd.map(c => {
+              const match = soldLiveCows.find(sc => sc.cowId === c.id);
+              if (match) {
+                return { ...c, status: 'sold', soldPrice: match.sellPrice || match.price, soldDate: new Date().toISOString().split('T')[0] };
+              }
+              return c;
+            });
+            localStorage.setItem('hk360_cattle_herd_data', JSON.stringify(updated));
+          }
+        }
+      } catch (err) {
+        console.warn('Error marking live cattle as sold:', err);
+      }
 
       // Trigger Smart Digital Voice Soundbox announcement
       triggerSoundboxPayment({
@@ -2396,142 +2504,406 @@ export const POSTerminal = () => {
             onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
           />
 
-          {/* Quick Cattle, Feed & Farm Expense Access Ribbon */}
+          {/* DEDICATED CATTLE & DAIRY FARM POS SYSTEM */}
           <div
+            className="cattle-pos-terminal-bar"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              padding: '8px 12px',
-              marginBottom: '10px',
-              borderRadius: '10px',
-              background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(245, 158, 11, 0.12))',
-              border: '1.5px solid rgba(16, 185, 129, 0.4)',
-              flexWrap: 'wrap'
+              padding: '12px 14px',
+              marginBottom: '12px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.08), rgba(245, 158, 11, 0.08))',
+              border: '1.5px solid rgba(16, 185, 129, 0.45)',
+              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.08)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.25rem' }}>🐄</span>
-              <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>{lang === 'bn' ? 'গরুর খামার, খাদ্য ও চিকিৎসা হাব' : 'Cattle & Dairy Farm Hub'}</span>
-                  <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '6px', background: '#10b981', color: '#fff', fontWeight: '800' }}>হিসাব ও খরচ</span>
+            {/* Farm POS Header Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)' }}>
+                  🐄
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  {lang === 'bn' ? 'ভুসি-খৈল খাদ্য খরচ, টিকার তারিখ ও আলাদা লাভ-লোকসান' : 'Feed expense, vaccines & cow ROI'}
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{lang === 'bn' ? 'খামার ও ডেইরি পিওএস কাউন্টার' : 'Cattle & Dairy Dedicated POS'}</span>
+                    <span style={{ fontSize: '0.66rem', padding: '2px 7px', borderRadius: '6px', background: '#10b981', color: '#fff', fontWeight: '800' }}>
+                      FARM POS
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'দুধ, লাইভ পশু বিক্রয়, জৈব সার ও এআই ক্যামেরা ওজন পরিমাপ' : 'Live Cattle, Raw Milk, Ghee, Compost & AI Weight'}
+                  </div>
                 </div>
+              </div>
+
+              {/* Action Buttons for AI Scanner, Herd & Dashboard */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => { setCattleModalInitialTab('ai_scanner'); setShowCattleModal(true); }}
+                  className="press-scale"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+                    border: 'none',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    boxShadow: '0 2px 8px rgba(6, 182, 212, 0.3)'
+                  }}
+                  title="ক্যামেরা দিয়ে গরুর সম্ভাব্য ওজন মাপুন"
+                >
+                  <span>📸</span>
+                  <span>{lang === 'bn' ? 'এআই ক্যামেরা ওজন মাপক' : 'Camera AI Weight'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setCattleModalInitialTab('overview'); setShowCattleModal(true); }}
+                  className="press-scale"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    border: 'none',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                  }}
+                  title="খামার ড্যাশবোর্ড ও খতিয়ান খুলুন"
+                >
+                  <span>📊</span>
+                  <span>{lang === 'bn' ? 'খামার ড্যাশবোর্ড' : 'Farm Dashboard'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setCattleModalInitialTab('feed'); setShowCattleModal(true); }}
+                  className="press-scale"
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '0.73rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    color: '#d97706',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🌾 {lang === 'bn' ? 'খাদ্য খরচ' : 'Feed'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setCattleModalInitialTab('health'); setShowCattleModal(true); }}
+                  className="press-scale"
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '0.73rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                    color: '#7c3aed',
+                    cursor: 'pointer'
+                  }}
+                >
+                  💉 {lang === 'bn' ? 'টিকা' : 'Vaccine'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setCattleModalInitialTab('finances'); setShowCattleModal(true); }}
+                  className="press-scale"
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '0.73rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    color: '#059669',
+                    cursor: 'pointer'
+                  }}
+                >
+                  💰 {lang === 'bn' ? 'P&L লাভ-ক্ষতি' : 'P&L'}
+                </button>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => { setCattleModalInitialTab('feed'); setShowCattleModal(true); }}
-                className="btn press-scale"
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '0.74rem',
-                  fontWeight: '800',
-                  borderRadius: '8px',
-                  background: 'rgba(245, 158, 11, 0.18)',
-                  border: '1px solid rgba(245, 158, 11, 0.5)',
-                  color: '#d97706',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="খাদ্য ও পুষ্টি খরচ"
-              >
-                <span>🌾 খাদ্য খরচ</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setCattleModalInitialTab('health'); setShowCattleModal(true); }}
-                className="btn press-scale"
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '0.74rem',
-                  fontWeight: '800',
-                  borderRadius: '8px',
-                  background: 'rgba(6, 182, 212, 0.18)',
-                  border: '1px solid rgba(6, 182, 212, 0.5)',
-                  color: '#0891b2',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="টিকা ও চিকিৎসা"
-              >
-                <span>💉 টিকা ও চিকিৎসা</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setCattleModalInitialTab('herd'); setShowCattleModal(true); }}
-                className="btn press-scale"
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '0.74rem',
-                  fontWeight: '800',
-                  borderRadius: '8px',
-                  background: 'rgba(16, 185, 129, 0.18)',
-                  border: '1px solid rgba(16, 185, 129, 0.5)',
-                  color: '#059669',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="গরুর তালিকা ও পাসপোর্ট"
-              >
-                <span>📋 গরুর তালিকা</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setCattleModalInitialTab('finances'); setShowCattleModal(true); }}
-                className="btn press-scale"
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '0.74rem',
-                  fontWeight: '800',
-                  borderRadius: '8px',
-                  background: 'rgba(139, 92, 246, 0.18)',
-                  border: '1px solid rgba(139, 92, 246, 0.5)',
-                  color: '#7c3aed',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="খামারের লাভ-ক্ষতি ও খরচ"
-              >
-                <span>💰 খামার লাভ-ক্ষতি</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setCattleModalInitialTab('overview'); setShowCattleModal(true); }}
-                className="btn btn-primary press-scale"
-                style={{
-                  padding: '5px 12px',
-                  fontSize: '0.76rem',
-                  fontWeight: '900',
-                  borderRadius: '8px',
-                  background: '#10b981',
-                  borderColor: '#10b981',
-                  color: '#fff',
-                  cursor: 'pointer'
-                }}
-                title="ক্যাটেল ও ডেইরি হাব ওপেন করুন"
-              >
-                <span>🚀 ওপেন খামার হাব</span>
-              </button>
+            {/* Farm POS Quick Selling Sub-tabs */}
+            <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid rgba(16, 185, 129, 0.25)', paddingBottom: '8px', marginBottom: '10px', overflowX: 'auto' }}>
+              {[
+                { id: 'milk', label: '🥛 কাঁচা দুধ ও ডেইরি পণ্য', icon: '🥛' },
+                { id: 'live', label: `🐂 সরাসরি লাইভ গরু বিক্রয় (${liveCattleHerd.length}টি)`, icon: '🐂' },
+                { id: 'compost_feed', label: '🌱 গোবর সার ও ঘাস/ফিড', icon: '🌱' },
+                { id: 'custom_milk', label: '🔬 ফ্যাট/SNF স্পেশাল ক্যালকুলেটর', icon: '🔬' }
+              ].map(sub => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setCattlePosSubTab(sub.id)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.76rem',
+                    fontWeight: '800',
+                    border: cattlePosSubTab === sub.id ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                    background: cattlePosSubTab === sub.id ? '#10b981' : 'var(--bg-secondary)',
+                    color: cattlePosSubTab === sub.id ? '#fff' : 'var(--text-main)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {sub.label}
+                </button>
+              ))}
             </div>
+
+            {/* SUB-VIEW 1: RAW MILK & DAIRY */}
+            {cattlePosSubTab === 'milk' && (
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  ⚡ দ্রুত কাঁচা দুধ যোগ করুন (লিটার ভিত্তিক):
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                  {[
+                    { ltr: 1, rate: 80 },
+                    { ltr: 2, rate: 80 },
+                    { ltr: 5, rate: 80 },
+                    { ltr: 10, rate: 80 },
+                    { ltr: 20, rate: 80 },
+                    { ltr: 50, rate: 80 }
+                  ].map(m => (
+                    <button
+                      key={m.ltr}
+                      type="button"
+                      onClick={() => handleQuickAddMilk(m.ltr, m.rate)}
+                      className="press-scale"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        color: '#10b981',
+                        fontSize: '0.76rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🥛 +{m.ltr} লিটার (৳{(m.ltr * m.rate).toLocaleString()})
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  🧈 খামারের দুগ্ধজাত পণ্য:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+                  {(FARM_POS_CATALOG || []).filter(p => p.category === 'দুধ ও দুগ্ধজাত').map(prod => (
+                    <button
+                      key={prod.id}
+                      type="button"
+                      onClick={() => handleAddFarmProductToCart(prod)}
+                      className="press-scale"
+                      style={{
+                        padding: '8px',
+                        borderRadius: '10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px'
+                      }}
+                    >
+                      <div style={{ fontSize: '1.1rem' }}>{prod.icon}</div>
+                      <div style={{ fontSize: '0.76rem', fontWeight: '800', color: 'var(--text-main)' }}>{prod.name}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '800' }}>৳{prod.price} / {prod.unit}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SUB-VIEW 2: LIVE CATTLE SALES */}
+            {cattlePosSubTab === 'live' && (
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  🐂 খামারের নিবন্ধিত জীবন্ত পশু তালিকা (ক্লিক করলেই সরাসরি বিক্রয় বিলে যোগ হবে):
+                </div>
+                {liveCattleHerd.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    সব পশু ইতিমধ্যে বিক্রি হয়েছে অথবা নতুন কোনো পশু রেজিস্টার নেই।
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                    {liveCattleHerd.map(cow => {
+                      const estMeat = Math.round((cow.weightKg || 350) * 0.54);
+                      return (
+                        <div
+                          key={cow.id}
+                          style={{
+                            padding: '10px',
+                            borderRadius: '10px',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '5px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                              🏷️ {cow.tag} - {cow.name}
+                            </span>
+                            <span style={{ fontSize: '0.64rem', padding: '2px 6px', borderRadius: '4px', background: '#10b981', color: '#fff', fontWeight: '800' }}>
+                              {cow.category}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            জাত: {cow.breed} | ওজন: <strong>{cow.weightKg} কেজি</strong>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#06b6d4' }}>
+                            মাংসের ফলন: ~{estMeat} কেজি
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.88rem', fontWeight: '900', color: '#10b981' }}>
+                              ৳{(cow.marketValue || cow.purchasePrice || 150000).toLocaleString()}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAddLiveCowToCart(cow)}
+                              className="press-scale"
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                background: '#10b981',
+                                border: 'none',
+                                color: '#fff',
+                                fontSize: '0.72rem',
+                                fontWeight: '800',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🛒 বিক্রি করুন
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB-VIEW 3: COMPOST & FEED */}
+            {cattlePosSubTab === 'compost_feed' && (
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  🌱 গোবর জৈব সার ও পশুখাদ্য বিক্রয়:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
+                  {(FARM_POS_CATALOG || []).filter(p => p.category !== 'দুধ ও দুগ্ধজাত').map(prod => (
+                    <button
+                      key={prod.id}
+                      type="button"
+                      onClick={() => handleAddFarmProductToCart(prod)}
+                      className="press-scale"
+                      style={{
+                        padding: '8px',
+                        borderRadius: '10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px'
+                      }}
+                    >
+                      <div style={{ fontSize: '1.1rem' }}>{prod.icon}</div>
+                      <div style={{ fontSize: '0.76rem', fontWeight: '800', color: 'var(--text-main)' }}>{prod.name}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '800' }}>৳{prod.price} / {prod.unit}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SUB-VIEW 4: FAT & SNF CUSTOM CALCULATOR */}
+            {cattlePosSubTab === 'custom_milk' && (
+              <div style={{ background: 'var(--bg-secondary)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
+                  🔬 দুধের ফ্যাট (Fat%) ও পরিমাণ অনুযায়ী স্পেশাল দর হিসাব:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px', marginBottom: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>দুধের পরিমাণ (লিটার)</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                      value={customMilkLiters}
+                      onChange={(e) => setCustomMilkLiters(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ফ্যাট হার (Fat %)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="input-field"
+                      style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                      value={customMilkFat}
+                      onChange={(e) => setCustomMilkFat(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>দর প্রতি লিটার (৳)</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                      value={customMilkRate}
+                      onChange={(e) => setCustomMilkRate(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={handleAddFatMilkToCart}
+                      className="press-scale"
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: '#10b981',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '0.76rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        height: '32px'
+                      }}
+                    >
+                      ➕ বিলে যোগ করুন (৳{(Number(customMilkLiters) * Number(customMilkRate)).toLocaleString()})
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ======================================================== */}
