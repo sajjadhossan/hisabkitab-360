@@ -1417,6 +1417,33 @@ input:checked+.slider:before {
   animation: slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@media (min-width: 768px) {
+  .mobile-drawer-overlay {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1.5rem !important;
+    z-index: 2000 !important;
+  }
+
+  .mobile-drawer-sheet {
+    max-width: 860px !important;
+    max-height: 82vh !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65) !important;
+    animation: fadeIn 0.2s ease !important;
+  }
+
+  .mobile-drawer-handle-bar {
+    display: none !important;
+  }
+
+  .mobile-drawer-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
 @keyframes slideUpSheet {
   from {
     transform: translateY(100%);

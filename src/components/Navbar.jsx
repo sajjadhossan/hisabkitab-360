@@ -209,7 +209,7 @@ export const Navbar = () => {
     }
   }, [showDiagnosticsModal]);
 
-  // Listen to keyboard shortcut for Super Admin (Ctrl+Shift+S or Alt+S)
+  // Listen to keyboard shortcut for Super Admin (Ctrl+Shift+S or Alt+S) & All Menus Drawer (Alt+M or F4)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') || (e.altKey && e.key.toLowerCase() === 's')) {
@@ -220,6 +220,10 @@ export const Navbar = () => {
         } else {
           setShowMasterPinModal(true);
         }
+      }
+      if ((e.altKey && e.key.toLowerCase() === 'm') || e.key === 'F4') {
+        e.preventDefault();
+        setShowMobileDrawer(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -902,37 +906,7 @@ export const Navbar = () => {
               </span>
             </button>
 
-            {/* Direct Multi-Branch & Cash Control Hub Quick Button (Always Visible in Business Mode) */}
-            {profile === 'business' && (
-              <button
-                type="button"
-                onClick={() => {
-                  React.startTransition(() => {
-                    setActiveTab('branch_control');
-                  });
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 13px',
-                  borderRadius: '8px',
-                  border: activeTab === 'branch_control' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.45)',
-                  background: activeTab === 'branch_control' ? '#10b981' : 'rgba(16, 185, 129, 0.15)',
-                  color: activeTab === 'branch_control' ? '#ffffff' : '#10b981',
-                  fontSize: '0.8rem',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: activeTab === 'branch_control' ? '0 2px 10px rgba(16, 185, 129, 0.4)' : 'none',
-                  whiteSpace: 'nowrap'
-                }}
-                title={lang === 'bn' ? 'সেন্ট্রাল ব্রাঞ্চ, কাউন্টার ও ক্যাশ কন্ট্রোল হাব' : 'Central Cash & Branch Control'}
-              >
-                <Building2 size={15} />
-                <span>{lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল' : '🏢 Branch & Cash'}</span>
-              </button>
-            )}
+
 
             {/* Language Switch */}
             <button
@@ -2042,99 +2016,258 @@ export const Navbar = () => {
           </div>
         </div>
 
-        {/* Sub Navigation Bar for Selected Profile (Auto-wraps neatly within screen) */}
-        <div className="subnav-scroll-container">
+        {/* Streamlined Focused Navigation Bar (Only Dashboard, POS & Hamburger Mega Menu) */}
+        <div className="subnav-scroll-container" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
           <div
             style={{
               maxWidth: '1440px',
               margin: '0 auto',
-              padding: '4px 0.75rem',
+              padding: '6px 1rem',
               display: 'flex',
-              flexWrap: 'wrap',
               alignItems: 'center',
-              gap: '6px'
+              justifyContent: 'space-between',
+              gap: '12px'
             }}
           >
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    React.startTransition(() => {
-                      setActiveTab(item.id);
-                    });
-                  }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 11px',
-                    borderRadius: '8px',
-                    background: isActive ? 'var(--mode-color)' : 'rgba(255, 255, 255, 0.04)',
-                    border: isActive ? '1px solid var(--mode-color)' : '1px solid var(--border-color)',
-                    color: isActive ? '#ffffff' : 'var(--text-main)',
-                    fontWeight: isActive ? '700' : '600',
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: isActive ? '0 2px 8px var(--mode-glow)' : 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'var(--bg-secondary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                  }}
-                >
-                  <Icon size={14} style={{ color: isActive ? '#ffffff' : 'var(--mode-color)' }} />
-                  <span>{item.label}</span>
-                  {item.highlight && (
+            {/* Primary Action Tabs (Direct Fast Buttons) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {profile === 'business' ? (
+                <>
+                  {/* 1. Dashboard Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      React.startTransition(() => {
+                        setActiveTab('dashboard');
+                      });
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '7px 15px',
+                      borderRadius: '10px',
+                      background: activeTab === 'dashboard' ? 'var(--business-primary)' : 'rgba(255, 255, 255, 0.04)',
+                      border: activeTab === 'dashboard' ? '1.5px solid var(--business-primary)' : '1px solid var(--border-color)',
+                      color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-main)',
+                      fontWeight: activeTab === 'dashboard' ? '800' : '600',
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: activeTab === 'dashboard' ? '0 3px 12px rgba(99, 102, 241, 0.35)' : 'none'
+                    }}
+                    title={lang === 'bn' ? 'ব্যবসায়িক ড্যাশবোর্ড ও ওভারভিউ (F2)' : 'Business Dashboard (F2)'}
+                  >
+                    <LayoutDashboard size={16} style={{ color: activeTab === 'dashboard' ? '#ffffff' : 'var(--business-primary)' }} />
+                    <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
+                  </button>
+
+                  {/* 2. POS Sales Button (Prominent & Eye-Catching) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      React.startTransition(() => {
+                        setActiveTab('pos');
+                      });
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '7px 17px',
+                      borderRadius: '10px',
+                      background: activeTab === 'pos' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
+                      border: activeTab === 'pos' ? '1.5px solid #10b981' : '1px solid rgba(16, 185, 129, 0.35)',
+                      color: activeTab === 'pos' ? '#ffffff' : '#10b981',
+                      fontWeight: '800',
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: activeTab === 'pos' ? '0 3px 14px rgba(16, 185, 129, 0.4)' : 'none'
+                    }}
+                    title={lang === 'bn' ? 'খুচরা বিক্রয় ও বিলিং টার্মিনাল (F1)' : 'POS Retail Terminal (F1)'}
+                  >
+                    <ScanLine size={16} />
+                    <span>{lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'}</span>
                     <span
                       style={{
-                        background: isActive ? 'rgba(255, 255, 255, 0.25)' : 'rgba(239, 68, 68, 0.15)',
-                        color: isActive ? '#ffffff' : '#ef4444',
+                        background: activeTab === 'pos' ? 'rgba(255, 255, 255, 0.25)' : '#10b981',
+                        color: '#ffffff',
                         padding: '1px 5px',
                         borderRadius: '4px',
                         fontSize: '0.62rem',
-                        fontWeight: '800'
+                        fontWeight: '900',
+                        letterSpacing: '0.5px'
                       }}
                     >
                       HOT
                     </span>
-                  )}
-                </button>
-              );
-            })}
+                  </button>
 
-            {/* Quick All-Modules Drawer Launcher for Desktop */}
+                  {/* Current Active Module Pill if outside Dashboard/POS */}
+                  {activeTab !== 'dashboard' && activeTab !== 'pos' && (() => {
+                    const currentActiveItem = businessNavItems.find(i => i.id === activeTab);
+                    if (!currentActiveItem) return null;
+                    const CurrIcon = currentActiveItem.icon;
+                    return (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid rgba(99, 102, 241, 0.4)',
+                          color: 'var(--business-primary)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700'
+                        }}
+                      >
+                        <CurrIcon size={15} />
+                        <span>{currentActiveItem.label}</span>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.8, background: 'var(--business-primary)', color: '#ffffff', padding: '1px 6px', borderRadius: '10px' }}>
+                          {lang === 'bn' ? 'চলমান' : 'Active'}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <>
+                  {/* Personal Mode: Dashboard Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      React.startTransition(() => {
+                        setActiveTab('dashboard');
+                      });
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '7px 15px',
+                      borderRadius: '10px',
+                      background: activeTab === 'dashboard' ? 'var(--personal-primary)' : 'rgba(255, 255, 255, 0.04)',
+                      border: activeTab === 'dashboard' ? '1.5px solid var(--personal-primary)' : '1px solid var(--border-color)',
+                      color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-main)',
+                      fontWeight: activeTab === 'dashboard' ? '800' : '600',
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: activeTab === 'dashboard' ? '0 3px 12px rgba(16, 185, 129, 0.35)' : 'none'
+                    }}
+                  >
+                    <LayoutDashboard size={16} />
+                    <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
+                  </button>
+
+                  {/* Personal Mode: Daily Expenses Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      React.startTransition(() => {
+                        setActiveTab('daily');
+                      });
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '7px 15px',
+                      borderRadius: '10px',
+                      background: activeTab === 'daily' ? 'var(--personal-primary)' : 'rgba(16, 185, 129, 0.08)',
+                      border: activeTab === 'daily' ? '1.5px solid var(--personal-primary)' : '1px solid rgba(16, 185, 129, 0.3)',
+                      color: activeTab === 'daily' ? '#ffffff' : 'var(--personal-primary)',
+                      fontWeight: '800',
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: activeTab === 'daily' ? '0 3px 12px rgba(16, 185, 129, 0.35)' : 'none'
+                    }}
+                  >
+                    <ShoppingCart size={16} />
+                    <span>{lang === 'bn' ? '💸 দৈনিক খরচ' : '💸 Daily Expense'}</span>
+                  </button>
+
+                  {/* Current Active Module Pill if outside Dashboard/Daily */}
+                  {activeTab !== 'dashboard' && activeTab !== 'daily' && (() => {
+                    const currentActiveItem = personalNavItems.find(i => i.id === activeTab);
+                    if (!currentActiveItem) return null;
+                    const CurrIcon = currentActiveItem.icon;
+                    return (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.4)',
+                          color: 'var(--personal-primary)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700'
+                        }}
+                      >
+                        <CurrIcon size={15} />
+                        <span>{currentActiveItem.label}</span>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.8, background: 'var(--personal-primary)', color: '#ffffff', padding: '1px 6px', borderRadius: '10px' }}>
+                          {lang === 'bn' ? 'চলমান' : 'Active'}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+
+            {/* 3. Universal Three-Dot / Hamburger Mega Menu Button */}
             <button
               type="button"
-              onClick={() => setShowMobileDrawer(true)}
+              onClick={() => {
+                playButtonClick();
+                setShowMobileDrawer(true);
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                background: 'rgba(99, 102, 241, 0.08)',
-                border: '1px dashed #6366f1',
-                color: '#6366f1',
-                fontWeight: '700',
-                fontSize: '0.78rem',
+                gap: '8px',
+                padding: '7px 15px',
+                borderRadius: '10px',
+                background: showMobileDrawer ? 'var(--mode-color)' : 'rgba(99, 102, 241, 0.1)',
+                border: showMobileDrawer ? '1.5px solid var(--mode-color)' : '1px solid rgba(99, 102, 241, 0.35)',
+                color: showMobileDrawer ? '#ffffff' : 'var(--mode-color)',
+                fontWeight: '800',
+                fontSize: '0.84rem',
                 cursor: 'pointer',
-                marginLeft: 'auto',
-                transition: 'all 0.15s ease'
+                transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: showMobileDrawer ? '0 3px 12px var(--mode-glow)' : '0 2px 6px rgba(0, 0, 0, 0.08)',
+                marginLeft: 'auto'
               }}
-              title={lang === 'bn' ? 'সকল মডিউল ও মেনু হাব এক নজরে খুলুন' : 'Open All Modules Drawer Hub'}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.18)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.08)'}
+              title={lang === 'bn' ? 'সকল ফিচার, খাতা ও সেটিংস ড্রয়ার খুলুন (Alt+M / F4)' : 'Open All Features Drawer (Alt+M / F4)'}
+              onMouseEnter={(e) => {
+                if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.18)';
+              }}
+              onMouseLeave={(e) => {
+                if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+              }}
             >
-              <Menu size={14} />
-              <span>{lang === 'bn' ? '☰ মেনু হাব' : '☰ All Modules'}</span>
+              <Menu size={17} />
+              <span>{lang === 'bn' ? '☰ সকল ফিচার ও মেনু' : '☰ All Features'}</span>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: '800',
+                  padding: '2px 7px',
+                  borderRadius: '12px',
+                  background: showMobileDrawer ? '#ffffff' : 'var(--mode-color)',
+                  color: showMobileDrawer ? 'var(--mode-color)' : '#ffffff'
+                }}
+              >
+                {profile === 'business' ? '12+' : '7+'}
+              </span>
             </button>
           </div>
         </div>
