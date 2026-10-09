@@ -44,7 +44,7 @@ export const IndustryVariationsBar = ({
   cart,
   onOpenTemplateManager
 }) => {
-  const { activeIndustryId, lang, MASTER_INDUSTRY_TEMPLATES } = useApp();
+  const { activeIndustryId, setActiveIndustryId, lang, MASTER_INDUSTRY_TEMPLATES, showToast } = useApp();
 
   // Modals
   const [showGoldModal, setShowGoldModal] = useState(false);
@@ -124,6 +124,35 @@ export const IndustryVariationsBar = ({
             <Sliders size={12} />
             <span>{lang === 'bn' ? 'ফিচার কাস্টমাইজ' : 'Customizer'}</span>
           </button>
+
+          {activeIndustryId !== 'agro_cattle_farm' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (setActiveIndustryId) {
+                  setActiveIndustryId('agro_cattle_farm');
+                  if (showToast) showToast(lang === 'bn' ? 'গরুর খামার ও ডেইরি মোড চালু হয়েছে!' : 'Cattle & Dairy mode activated!', 'success');
+                }
+              }}
+              className="press-scale"
+              style={{
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                color: '#10b981',
+                borderRadius: '6px',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                padding: '3px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="গরুর খামার টেমপ্লেট সক্রিয় করুন"
+            >
+              <span>🐄 খামার মোড অন</span>
+            </button>
+          )}
         </div>
 
         {/* Right: Specialized Industry Actions */}
@@ -293,28 +322,27 @@ export const IndustryVariationsBar = ({
             </button>
           )}
 
-          {/* 6. CATTLE & DAIRY FARM */}
-          {isCattle && (
-            <button
-              type="button"
-              onClick={() => setShowCattleModal(true)}
-              className="btn btn-secondary press-scale"
-              style={{
-                padding: '5px 10px',
-                fontSize: '0.76rem',
-                fontWeight: '800',
-                color: '#10b981',
-                borderColor: 'rgba(16, 185, 129, 0.4)',
-                background: 'rgba(16, 185, 129, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <Wheat size={14} />
-              <span>🐄 ক্যাটেল ও ডেইরি হাব</span>
-            </button>
-          )}
+          {/* 6. CATTLE & DAIRY FARM (ALWAYS VISIBLE FOR INSTANT ACCESS) */}
+          <button
+            type="button"
+            onClick={() => setShowCattleModal(true)}
+            className="btn btn-secondary press-scale"
+            style={{
+              padding: '5px 11px',
+              fontSize: '0.76rem',
+              fontWeight: '800',
+              color: '#10b981',
+              borderColor: isCattle ? 'rgba(16, 185, 129, 0.6)' : 'rgba(16, 185, 129, 0.4)',
+              background: isCattle ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            title="গরুর খামার, খাদ্য ও চিকিৎসা খরচ এবং লাভ-ক্ষতি"
+          >
+            <Wheat size={14} />
+            <span>🐄 ক্যাটেল ও ডেইরি হাব</span>
+          </button>
 
           {/* Generic fallback: All customizers button if none matched */}
           {!isGold && !isBus && !isFood && !isConstruction && !isPharmacy && !isCattle && (

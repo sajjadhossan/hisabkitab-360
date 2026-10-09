@@ -55,7 +55,8 @@ import {
   AlertTriangle,
   TrendingDown,
   MessageCircle,
-  Truck
+  Truck,
+  Wheat
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -428,6 +429,12 @@ export const Navbar = () => {
       ]
     },
     {
+      title: lang === 'bn' ? '🐄 কৃষি, খামার ও ডেইরি অপারেশনস' : '🐄 Cattle & Dairy Farm Hub',
+      items: [
+        { id: 'cattle', label: lang === 'bn' ? 'গরুর খামার ও ডেইরি হাব' : 'Cattle & Dairy Hub', desc: lang === 'bn' ? 'গরুর পাল, খাদ্য হিস্ট্রি, টিকা, দুধ ও লাভ-ক্ষতি' : 'Herd, Feed Log, Vaccine, Milk & P&L', icon: Wheat, color: '#10b981', badge: 'PRO' }
+      ]
+    },
+    {
       title: lang === 'bn' ? '🏥 হেলথকেয়ার ও ক্লিনিক অপারেশনস' : '🏥 Healthcare & Clinic Operations',
       items: [
         { id: 'healthcare', label: lang === 'bn' ? 'হেলথকেয়ার ইআরপি হাব' : 'Healthcare ERP Hub', desc: lang === 'bn' ? 'রোগী, প্রেসক্রিপশন, ডায়াগনস্টিক ল্যাব ও ফার্মেসি' : 'Patient, Rx, LIMS & Pharmacy', icon: Activity, color: '#0d9488', badge: 'PRO' }
@@ -512,6 +519,7 @@ export const Navbar = () => {
       items: group.items.filter(item => {
         if (item.isAction || item.isTool) return true;
         if (item.id === 'healthcare') return isModEnabled('healthcare');
+        if (item.id === 'cattle') return true;
         return isModEnabled(item.id);
       })
     })).filter(group => group.items && group.items.length > 0);

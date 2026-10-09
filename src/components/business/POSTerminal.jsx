@@ -63,6 +63,7 @@ import { VoiceBillingModal } from '../pos/VoiceBillingModal';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { IndustryVariationsBar } from '../pos/IndustryVariationsBar';
+import { CattleFarmModal } from '../pos/modals/CattleFarmModal';
 import { HoldCartManagerModal } from '../pos/HoldCartManagerModal';
 import { DenominationCalculatorModal } from '../pos/DenominationCalculatorModal';
 import { SplitPaymentModal } from '../pos/SplitPaymentModal';
@@ -277,6 +278,8 @@ export const POSTerminal = () => {
   const [showSalesReturnModal, setShowSalesReturnModal] = useState(false);
   const [showLiveProfit, setShowLiveProfit] = useState(false);
   const [useLoyaltyPoints, setUseLoyaltyPoints] = useState(false);
+  const [showCattleModal, setShowCattleModal] = useState(false);
+  const [cattleModalInitialTab, setCattleModalInitialTab] = useState('overview');
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [isShiftActive, setIsShiftActive] = useState(() => {
@@ -2393,6 +2396,144 @@ export const POSTerminal = () => {
             onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
           />
 
+          {/* Quick Cattle, Feed & Farm Expense Access Ribbon */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              padding: '8px 12px',
+              marginBottom: '10px',
+              borderRadius: '10px',
+              background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(245, 158, 11, 0.12))',
+              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.25rem' }}>🐄</span>
+              <div>
+                <div style={{ fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{lang === 'bn' ? 'গরুর খামার, খাদ্য ও চিকিৎসা হাব' : 'Cattle & Dairy Farm Hub'}</span>
+                  <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '6px', background: '#10b981', color: '#fff', fontWeight: '800' }}>হিসাব ও খরচ</span>
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? 'ভুসি-খৈল খাদ্য খরচ, টিকার তারিখ ও আলাদা লাভ-লোকসান' : 'Feed expense, vaccines & cow ROI'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => { setCattleModalInitialTab('feed'); setShowCattleModal(true); }}
+                className="btn press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  borderRadius: '8px',
+                  background: 'rgba(245, 158, 11, 0.18)',
+                  border: '1px solid rgba(245, 158, 11, 0.5)',
+                  color: '#d97706',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="খাদ্য ও পুষ্টি খরচ"
+              >
+                <span>🌾 খাদ্য খরচ</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setCattleModalInitialTab('health'); setShowCattleModal(true); }}
+                className="btn press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  borderRadius: '8px',
+                  background: 'rgba(6, 182, 212, 0.18)',
+                  border: '1px solid rgba(6, 182, 212, 0.5)',
+                  color: '#0891b2',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="টিকা ও চিকিৎসা"
+              >
+                <span>💉 টিকা ও চিকিৎসা</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setCattleModalInitialTab('herd'); setShowCattleModal(true); }}
+                className="btn press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  borderRadius: '8px',
+                  background: 'rgba(16, 185, 129, 0.18)',
+                  border: '1px solid rgba(16, 185, 129, 0.5)',
+                  color: '#059669',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="গরুর তালিকা ও পাসপোর্ট"
+              >
+                <span>📋 গরুর তালিকা</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setCattleModalInitialTab('finances'); setShowCattleModal(true); }}
+                className="btn press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  borderRadius: '8px',
+                  background: 'rgba(139, 92, 246, 0.18)',
+                  border: '1px solid rgba(139, 92, 246, 0.5)',
+                  color: '#7c3aed',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="খামারের লাভ-ক্ষতি ও খরচ"
+              >
+                <span>💰 খামার লাভ-ক্ষতি</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setCattleModalInitialTab('overview'); setShowCattleModal(true); }}
+                className="btn btn-primary press-scale"
+                style={{
+                  padding: '5px 12px',
+                  fontSize: '0.76rem',
+                  fontWeight: '900',
+                  borderRadius: '8px',
+                  background: '#10b981',
+                  borderColor: '#10b981',
+                  color: '#fff',
+                  cursor: 'pointer'
+                }}
+                title="ক্যাটেল ও ডেইরি হাব ওপেন করুন"
+              >
+                <span>🚀 ওপেন খামার হাব</span>
+              </button>
+            </div>
+          </div>
+
           {/* ======================================================== */}
           {/* MULTI-LAYER QUICK SHORTCUT & FILTER SYSTEM               */}
           {/* ======================================================== */}
@@ -3785,6 +3926,13 @@ export const POSTerminal = () => {
           onClose={() => setShowTemplateReviewModal(false)}
         />
       )}
+
+      {/* CATTLE & DAIRY FARM MODAL */}
+      <CattleFarmModal
+        isOpen={showCattleModal}
+        initialTab={cattleModalInitialTab}
+        onClose={() => setShowCattleModal(false)}
+      />
 
       {/* FLOATING ACTIVE UNDO BANNER */}
       {undoState && (

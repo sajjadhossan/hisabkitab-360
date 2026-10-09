@@ -57,6 +57,7 @@ const SRFieldManager = lazyNamed(() => import('./components/business/SRFieldMana
 const SalesmanOrderBooking = lazyNamed(() => import('./components/business/SalesmanOrderBooking'), 'SalesmanOrderBooking');
 const SRDeliveryHub = lazyNamed(() => import('./components/business/SRDeliveryHub'), 'SRDeliveryHub');
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
+import { CattleFarmHubView } from './components/pos/modals/CattleFarmModal';
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
 
 // On-Demand Modals & Widgets (Code-split to keep initial bundle ultra-lightweight)
@@ -582,6 +583,8 @@ const AppContent = () => {
           return <BranchCashControlCenter />;
         case 'settings':
           return <BusinessSettings />;
+        case 'cattle':
+          return <CattleFarmHubView onClose={() => setActiveTab('pos')} />;
         case 'healthcare':
           return <HealthcareHub />;
         case 'master_hub':

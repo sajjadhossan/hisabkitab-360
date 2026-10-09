@@ -65,10 +65,16 @@ const INITIAL_INDIVIDUAL_FEEDS = [
   { id: 'if-5', cowTag: 'COW-103', date: '2026-10-08', time: 'সকাল ও বিকাল', feedType: 'মোটাতাজাকরণ স্পেশাল সাইলেজ ও খড়', amountKg: 8, costBdt: 320, note: 'দ্রুত মাংস বৃদ্ধির হাই-প্রোটিন রেশন' }
 ];
 
-export const CattleFarmModal = ({ isOpen, onClose }) => {
+export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview', isPageMode = false }) => {
   const { lang, showToast, addToCart, addExpense } = useApp();
 
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'herd' | 'milk' | 'feed' | 'health' | 'herbal' | 'finances'
+  const [activeTab, setActiveTab] = useState(initialTab || 'overview');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, isOpen]);
 
   // Selected cow for Individual Dossier View
   const [selectedCowForDossier, setSelectedCowForDossier] = useState(null);
@@ -388,29 +394,54 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
 
   const selectedCowPnL = selectedCowForDossier ? getCowPnL(selectedCowForDossier) : null;
 
-  return (
-    <div className="modal-overlay" style={{ zIndex: 9999 }}>
-      <div className="modal-content glass-card" style={{ maxWidth: '980px', width: '96%', padding: '1.25rem', maxHeight: '95vh', overflowY: 'auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-              <Wheat size={24} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>ক্যাটেল ও ডেইরি ফার্মিং হাব</span>
-                <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>PRO</span>
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                গরুর খামার, প্রতি গরুর আলাদা খাদ্য ও ভ্যাকসিন খতিয়ান এবং সম্পূর্ণ লাভ-লোকসান
-              </p>
-            </div>
+  if (!isOpen && !isPageMode) return null;
+
+  const innerModalCard = (
+    <div className={isPageMode ? "glass-card" : "modal-content glass-card"} style={{
+      maxWidth: isPageMode ? '1200px' : '980px',
+      margin: isPageMode ? '0 auto' : undefined,
+      width: '100%',
+      padding: isPageMode ? '1.5rem 1.25rem' : '1.25rem',
+      maxHeight: isPageMode ? 'none' : '95vh',
+      overflowY: 'auto'
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+            <Wheat size={24} />
           </div>
-          <button onClick={onClose} className="btn-icon" style={{ cursor: 'pointer', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}>
-            <X size={20} />
-          </button>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>ক্যাটেল ও ডেইরি ফার্মিং হাব</span>
+              <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>PRO</span>
+            </h3>
+            <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              গরুর খামার, প্রতি গরুর আলাদা খাদ্য ও ভ্যাকসিন খতিয়ান এবং সম্পূর্ণ লাভ-লোকসান
+            </p>
+          </div>
         </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="btn btn-secondary press-scale"
+            style={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              padding: '6px 12px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+              color: '#ef4444'
+            }}
+          >
+            {isPageMode ? <span>⬅️ ফিরে যান (Back)</span> : <><X size={18} /><span>বন্ধ করুন</span></>}
+          </button>
+        )}
+      </div>
 
         {/* Top Navigation Tabs */}
         <div className="horizontal-touch-strip" style={{ display: 'flex', gap: '6px', marginBottom: '1.25rem', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -1357,6 +1388,21 @@ export const CattleFarmModal = ({ isOpen, onClose }) => {
           </div>
         )}
       </div>
+  );
+
+  if (isPageMode) {
+    return (
+      <div style={{ padding: '0.75rem', width: '100%', minHeight: '80vh' }}>
+        {innerModalCard}
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 9999 }}>
+      {innerModalCard}
     </div>
   );
 };
+
+export const CattleFarmHubView = (props) => <CattleFarmModal isPageMode={true} {...props} />;
