@@ -364,6 +364,24 @@ export const POSTerminal = () => {
     };
   }, []);
 
+  // Graceful Crash Recovery: Notify cashier of recovered draft cart
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem('hk360_pos_draft_cart');
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && parsed.length > 0) {
+          showToast(
+            lang === 'bn'
+              ? `🛡️ ক্র্যাশ রিকভারি: পূর্বের সেশনের ড্রাফট কার্ট উদ্ধার করা হয়েছে (${parsed.length} টি পণ্য)`
+              : `Crash recovery: Restored ${parsed.length} items from previous session`,
+            'info'
+          );
+        }
+      }
+    } catch {}
+  }, []);
+
   // Multi-Layer Filter States (Layer 1, Layer 2, Brand & Custom Manager)
   const [quickFilters, setQuickFilters] = useState(() => {
     try {

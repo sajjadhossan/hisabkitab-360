@@ -36,6 +36,7 @@ import {
   subscribeLocalTerminalSync
 } from '../services/lanSyncProtocol';
 import { exportUniversalBackupAsync, validateUniversalBackup } from '../services/fastExportService';
+import { auditService, AUDIT_ACTIONS } from '../services/auditService';
 
 const AppContext = createContext();
 
@@ -595,7 +596,27 @@ export const AppProvider = ({ children }) => {
     }
   });
 
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      const savedDraft = localStorage.getItem('hk360_pos_draft_cart');
+      return savedDraft ? JSON.parse(savedDraft) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Crash Recovery: Auto-persist active POS cart so refresh/crash loses zero data
+  useEffect(() => {
+    try {
+      if (cart && cart.length > 0) {
+        localStorage.setItem('hk360_pos_draft_cart', JSON.stringify(cart));
+      } else {
+        localStorage.removeItem('hk360_pos_draft_cart');
+      }
+    } catch (e) {
+      console.warn('[CrashRecovery] Failed to save draft cart:', e);
+    }
+  }, [cart]);
 
   const [salesHistory, setSalesHistory] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_SALES);

@@ -74,6 +74,8 @@ const ScreenLockModal = lazyNamed(() => import('./components/common/ScreenLockMo
 const CustomerMirrorDisplay = lazyNamed(() => import('./components/pos/CustomerMirrorDisplay'), 'CustomerMirrorDisplay');
 const FloatingQuickPad = lazyNamed(() => import('./components/common/FloatingQuickPad'), 'FloatingQuickPad');
 const LiveCashCounterWidget = lazyNamed(() => import('./components/common/LiveCashCounterWidget'), 'LiveCashCounterWidget');
+const AuditTrailModal = lazyNamed(() => import('./components/admin/AuditTrailModal'), 'AuditTrailModal');
+import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -129,6 +131,14 @@ const AppContent = () => {
   const { user, openAuthModal, isAuthModalOpen, closeAuthModal, isSuperAdmin } = useAuth();
 
   const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
+  const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
+
+  React.useEffect(() => {
+    window.__openAuditTrail = () => setShowAuditTrailModal(true);
+    return () => {
+      delete window.__openAuditTrail;
+    };
+  }, []);
 
   const appStateRef = React.useRef({});
   appStateRef.current = {
@@ -766,6 +776,16 @@ const AppContent = () => {
           businessSettings={businessSettings}
           lang={lang}
         />
+
+        {/* Enterprise Security Audit Trail Modal */}
+        <AuditTrailModal
+          isOpen={showAuditTrailModal}
+          onClose={() => setShowAuditTrailModal(false)}
+          lang={lang}
+        />
+
+        {/* PWA & ServiceWorker Seamless Auto-Updater */}
+        <AutoUpdateToast lang={lang} />
       </Suspense>
     </div>
   );

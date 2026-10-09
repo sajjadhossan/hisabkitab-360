@@ -19,7 +19,10 @@ import {
   Trash2,
   Layers,
   ArrowRight,
-  Filter
+  Filter,
+  Lock,
+  Key,
+  ShieldCheck
 } from 'lucide-react';
 import {
   exportFamilyExpensesExcel,
@@ -30,6 +33,8 @@ import {
   parseExcelFile,
   parsePdfFile
 } from '../../services/exportImportService';
+import { encryptData, decryptData, downloadEncryptedBackupFile } from '../../services/cryptoService';
+import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 
 export const DataExportImportModal = ({
   isOpen,
@@ -95,6 +100,114 @@ export const DataExportImportModal = ({
     'গৃহস্থালি ও নিত্য কেনাকাটা',
     'অন্যান্য পারিবারিক খরচ'
   ];
+
+  // AES-256 Encrypted Backup State
+  const [encryptPassphrase, setEncryptPassphrase] = useState('');
+  const [confirmEncryptPassphrase, setConfirmEncryptPassphrase] = useState('');
+  const [isEncrypting, setIsEncrypting] = useState(false);
+  const [decryptPassphrase, setDecryptPassphrase] = useState('');
+  const [encryptedFileToRestore, setEncryptedFileToRestore] = useState(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+
+  const handleExecuteEncryptedExport = async () => {
+    if (!encryptPassphrase || encryptPassphrase.length < 4) {
+      showToast(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।' : 'Password must be at least 4 characters.', 'warning');
+      return;
+    }
+    if (encryptPassphrase !== confirmEncryptPassphrase) {
+      showToast(lang === 'bn' ? 'দুটি পাসওয়ার্ডের মিল নেই!' : 'Passwords do not match!', 'danger');
+      return;
+    }
+
+    try {
+      setIsEncrypting(true);
+      const backupPayload = {
+        meta: {
+          app: 'HisabKitab-360',
+          exportedAt: new Date().toISOString(),
+          version: '2.8.4'
+        },
+        data: {
+          products,
+          salesHistory,
+          customers,
+          businessExpenses,
+          personalExpenses,
+          personalEvents,
+          categories
+        }
+      };
+
+      const encrypted = await encryptData(backupPayload, encryptPassphrase);
+      downloadEncryptedBackupFile(encrypted);
+      logAuditEvent({
+        action: AUDIT_ACTIONS.BACKUP_EXPORT,
+        title: 'AES-256 এনক্রিপ্টেড ব্যাকআপ এক্সপোর্ট করা হয়েছে',
+        entityType: 'SecurityBackup',
+        note: `রপ্তানি সাইজ: ${Math.round(JSON.stringify(encrypted).length / 1024)} KB`
+      });
+      showToast(lang === 'bn' ? '🔒 মিলিটারী-গ্রেড AES-256 এনক্রিপ্টেড ব্যাকআপ ফাইল ডাউনলোড সম্পন্ন!' : 'Encrypted backup downloaded successfully!', 'success');
+      setEncryptPassphrase('');
+      setConfirmEncryptPassphrase('');
+    } catch (err) {
+      console.error('Encrypted export error:', err);
+      showToast(err.message || 'এনক্রিপশন ব্যর্থ হয়েছে', 'danger');
+    } finally {
+      setIsEncrypting(false);
+    }
+  };
+
+  const handleExecuteEncryptedImport = async () => {
+    if (!encryptedFileToRestore) {
+      showToast(lang === 'bn' ? 'অনুগ্রহ করে .hk360enc বা ব্যাকআপ ফাইল নির্বাচন করুন' : 'Please select backup file', 'warning');
+      return;
+    }
+    if (!decryptPassphrase) {
+      showToast(lang === 'bn' ? 'ফাইলটি ডিক্রিপ্ট করতে পাসওয়ার্ড প্রদান করুন' : 'Please provide password', 'warning');
+      return;
+    }
+
+    try {
+      setIsDecrypting(true);
+      const text = await encryptedFileToRestore.text();
+      const bundle = JSON.parse(text);
+      const decrypted = await decryptData(bundle, decryptPassphrase);
+
+      if (!decrypted || !decrypted.data) {
+        throw new Error('অবৈধ ব্যাকআপ ফাইল কাঠামো!');
+      }
+
+      if (decrypted.data.products && Array.isArray(decrypted.data.products)) {
+        localStorage.setItem('hk360_biz_products', JSON.stringify(decrypted.data.products));
+      }
+      if (decrypted.data.salesHistory && Array.isArray(decrypted.data.salesHistory)) {
+        localStorage.setItem('hk360_biz_sales', JSON.stringify(decrypted.data.salesHistory));
+      }
+      if (decrypted.data.customers && Array.isArray(decrypted.data.customers)) {
+        localStorage.setItem('hk360_biz_customers', JSON.stringify(decrypted.data.customers));
+      }
+      if (decrypted.data.personalExpenses && Array.isArray(decrypted.data.personalExpenses)) {
+        localStorage.setItem('hk360_personal_expenses', JSON.stringify(decrypted.data.personalExpenses));
+      }
+
+      logAuditEvent({
+        action: AUDIT_ACTIONS.DATA_RESTORE,
+        title: 'AES-256 এনক্রিপ্টেড ব্যাকআপ থেকে ডেটা রিস্টোর সম্পন্ন',
+        entityType: 'SecurityRestore',
+        note: `ফাইলের নাম: ${encryptedFileToRestore.name}`
+      });
+
+      showToast(lang === 'bn' ? '🎉 ডেটা সফলভাবে রিস্টোর হয়েছে! সিস্টেম রিফ্রেশ হচ্ছে...' : 'Data restored successfully! Refreshing...', 'success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (err) {
+      console.error('Encrypted restore error:', err);
+      showToast(err.message || 'ডিক্রিপশন ব্যর্থ হয়েছে! ভুল পাসওয়ার্ড।', 'danger');
+    } finally {
+      setIsDecrypting(false);
+    }
+  };
 
   // ----------------------------------------------------
   // EXPORT EXECUTION
@@ -579,6 +692,29 @@ export const DataExportImportModal = ({
           >
             <Upload size={16} style={{ color: '#ec4899' }} />
             <span>{lang === 'bn' ? '📥 স্মার্ট ইমপোর্ট (Excel / PDF)' : 'Intelligent Import'}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('encrypted_backup')}
+            style={{
+              flex: 1,
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'encrypted_backup' ? 'var(--bg-card)' : 'transparent',
+              color: activeTab === 'encrypted_backup' ? 'var(--text-main)' : 'var(--text-muted)',
+              fontWeight: '700',
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: activeTab === 'encrypted_backup' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+            }}
+          >
+            <ShieldCheck size={16} style={{ color: '#059669' }} />
+            <span>{lang === 'bn' ? '🔐 AES-256 এনক্রিপ্টেড ব্যাকআপ' : 'Encrypted Backup'}</span>
           </button>
         </div>
 
@@ -1246,6 +1382,204 @@ export const DataExportImportModal = ({
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 3: AES-256 ENCRYPTED BACKUP & RESTORE                */}
+        {/* ======================================================== */}
+        {activeTab === 'encrypted_backup' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{
+              padding: '14px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(16, 185, 129, 0.08))',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px'
+            }}>
+              <ShieldCheck size={24} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'মিলিটারী-গ্রেড AES-256-GCM এন্ড-টু-এন্ড এনক্রিপশন' : 'Military-Grade AES-256-GCM E2EE Backup'}
+                </h4>
+                <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn'
+                    ? 'আপনার হিসাবের সকল তথ্য আপনার নিজস্ব পাসওয়ার্ড দ্বারা ক্রিপ্টোগ্রাফিকভাবে লক হয়ে .hk360enc ফাইল হিসেবে ডাউনলোড হবে। আপনার পাসওয়ার্ড ছাড়া কেউ এই ব্যাকআপ খুলতে পারবে না।'
+                    : 'Your entire business & personal ledger is securely encrypted with AES-256-GCM before saving. Nobody can open your data without your password.'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {/* Encrypted Export Card */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-main)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Lock size={18} style={{ color: '#059669' }} />
+                  <h5 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? '১. সুরক্ষিত ব্যাকআপ এক্সপোর্ট (.hk360enc)' : '1. Export Encrypted Backup'}
+                  </h5>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'ব্যাকআপের জন্য পাসওয়ার্ড সেট করুন:' : 'Set Backup Password:'}
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="কমপক্ষে ৪ অক্ষরের পাসওয়ার্ড"
+                    value={encryptPassphrase}
+                    onChange={(e) => setEncryptPassphrase(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'পাসওয়ার্ড নিশ্চিত করুন:' : 'Confirm Password:'}
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="পুনরায় পাসওয়ার্ড লিখুন"
+                    value={confirmEncryptPassphrase}
+                    onChange={(e) => setConfirmEncryptPassphrase(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExecuteEncryptedExport}
+                  disabled={isEncrypting}
+                  style={{
+                    marginTop: 'auto',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #059669, #047857)',
+                    color: '#fff',
+                    fontWeight: '800',
+                    fontSize: '0.85rem',
+                    cursor: isEncrypting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <Download size={16} />
+                  <span>{isEncrypting ? 'এনক্রিপ্ট হচ্ছে...' : 'এনক্রিপ্টেড ব্যাকআপ ডাউনলোড করুন'}</span>
+                </button>
+              </div>
+
+              {/* Encrypted Restore Card */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-main)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Key size={18} style={{ color: '#2563eb' }} />
+                  <h5 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? '২. এনক্রিপ্টেড ব্যাকআপ রিস্টোর' : '2. Restore Encrypted Backup'}
+                  </h5>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? '.hk360enc ব্যাকআপ ফাইল সিলেক্ট করুন:' : 'Select .hk360enc File:'}
+                  </label>
+                  <input
+                    type="file"
+                    accept=".hk360enc,.json"
+                    onChange={(e) => setEncryptedFileToRestore(e.target.files?.[0] || null)}
+                    style={{
+                      width: '100%',
+                      padding: '6px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.8rem'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'ডিক্রিপশন পাসওয়ার্ড লিখুন:' : 'Enter Decryption Password:'}
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="ব্যাকআপের পাসওয়ার্ড দিন"
+                    value={decryptPassphrase}
+                    onChange={(e) => setDecryptPassphrase(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExecuteEncryptedImport}
+                  disabled={isDecrypting}
+                  style={{
+                    marginTop: 'auto',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                    color: '#fff',
+                    fontWeight: '800',
+                    fontSize: '0.85rem',
+                    cursor: isDecrypting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <Upload size={16} />
+                  <span>{isDecrypting ? 'ডিক্রিপ্ট হচ্ছে...' : 'ডিক্রিপ্ট ও ডেটা রিস্টোর করুন'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { Lock, Unlock, ShieldCheck, KeyRound, AlertCircle, RefreshCw, Fingerprin
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { registerBackAction, hapticFeedback } from '../../services/nativeAppService';
 import { authenticateWithDeviceBiometrics } from '../../services/biometricAuthService';
+import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 
 export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang = 'bn' }) => {
   const [enteredPin, setEnteredPin] = useState('');
@@ -31,6 +32,12 @@ export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang =
         playSuccessChime();
         setEnteredPin('');
         setErrorMsg('');
+        logAuditEvent({
+          action: AUDIT_ACTIONS.BIOMETRIC_AUTH,
+          title: 'বায়োমেট্রিক ফিঙ্গারপ্রিন্ট দিয়ে স্ক্রিন আনলক সম্পন্ন',
+          operatorName: 'কাউন্টার অপারেটর',
+          note: 'WebAuthn বায়োমেট্রিক সফল'
+        });
         onClose();
       } else {
         hapticFeedback.heavy();
@@ -73,6 +80,12 @@ export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang =
         playSuccessChime();
         setEnteredPin('');
         setErrorMsg('');
+        logAuditEvent({
+          action: AUDIT_ACTIONS.BIOMETRIC_AUTH,
+          title: 'মাস্টার কুইক পিন (Quick PIN) দিয়ে স্ক্রিন আনলক সম্পন্ন',
+          operatorName: 'কাউন্টার অপারেটর',
+          note: 'সঠিক পিন যাচাই সফল'
+        });
         onClose();
       } else {
         hapticFeedback.heavy();

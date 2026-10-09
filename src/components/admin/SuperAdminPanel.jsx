@@ -1078,7 +1078,30 @@ export const SuperAdminPanel = () => {
               title="ক্লায়েন্ট অ্যাপের প্রিভিউ দেখুন"
             >
               <Store size={16} />
-              {lang === 'bn' ? 'দোকান ভিউ (POS)' : 'Store View'}
+              <span>{lang === 'bn' ? 'দোকান ভিউ (POS)' : 'Store View'}</span>
+            </button>
+            <button
+              onClick={() => {
+                if (window.__openAuditTrail) window.__openAuditTrail();
+              }}
+              className="btn"
+              style={{
+                background: 'rgba(15, 118, 110, 0.4)',
+                border: '1px solid #14b8a6',
+                color: '#2dd4bf',
+                padding: '9px 16px',
+                borderRadius: '12px',
+                fontWeight: '700',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer'
+              }}
+              title="নিরাপত্তা ও অ্যাক্টিভিটি অডিট ট্রেইল দেখুন"
+            >
+              <ShieldCheck size={16} />
+              <span>নিরাপত্তা অডিট লগ</span>
             </button>
 
             <button

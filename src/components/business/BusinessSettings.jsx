@@ -321,6 +321,29 @@ export const BusinessSettings = () => {
 
           <button
             type="button"
+            onClick={() => {
+              if (window.__openAuditTrail) window.__openAuditTrail();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(20, 184, 166, 0.15)',
+              color: '#0d9488',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>{lang === 'bn' ? 'অডিট ট্রেইল লগ' : 'Audit Logs'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSubTab('commercial')}
             style={{
               padding: '6px 14px',
