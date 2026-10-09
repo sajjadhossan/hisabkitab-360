@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import HealthcareHub from '../healthcare/HealthcareHub';
+const HealthcareHub = React.lazy(() => import('../healthcare/HealthcareHub'));
 import {
   FolderOpen,
   Boxes,
@@ -560,7 +560,9 @@ export const MasterHub = ({ onNavigateToPos, onNavigateToInventory }) => {
       {/* VIEW: HEALTHCARE MASTER 3-IN-1 TEMPLATE TAB */}
       {activeTab === 'healthcare_template' && (
         <div style={{ marginTop: '0.5rem' }}>
-          <HealthcareHub embeddedMode={true} />
+          <React.Suspense fallback={<div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>লোড হচ্ছে...</div>}>
+            <HealthcareHub embeddedMode={true} />
+          </React.Suspense>
         </div>
       )}
 
