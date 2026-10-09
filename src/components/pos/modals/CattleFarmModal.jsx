@@ -1756,7 +1756,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       {activeTab === 'herd' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Add / Edit Cow Form */}
-          <form onSubmit={editingCow ? handleUpdateCow : handleAddCow} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
+          <form id="cattle-herd-form" onSubmit={editingCow ? handleUpdateCow : handleAddCow} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>
                 {editingCow ? `✏️ গরুর তথ্য পরিবর্তন (${editingCow.tag})` : '➕ নতুন গরু বা বাছুর যুক্ত করুন'}
@@ -1980,15 +1980,52 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
             </div>
 
             {/* Bottom Action Bar below table */}
-            <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                মোট নিবন্ধিত পশু: <strong style={{ color: '#10b981' }}>{cows.length}টি</strong> | সুস্থ ও সক্রিয়: <strong style={{ color: '#06b6d4' }}>{cows.filter(c => c.status !== 'sold').length}টি</strong>
+            <div style={{ padding: '14px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  মোট নিবন্ধিত পশু: <strong style={{ color: '#10b981' }}>{cows.length}টি</strong> | সুস্থ ও সক্রিয়: <strong style={{ color: '#06b6d4' }}>{cows.filter(c => c.status !== 'sold').length}টি</strong>
+                </div>
+                {/* Quick Breed Presets directly at bottom */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত জাত সিলেক্ট করুন:</span>
+                  {[
+                    { label: '🐄 হলস্টাইন ফ্রিজিয়ান', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', cat: 'দুগ্ধবতী গাভী', wt: 450, milk: 20 },
+                    { label: '🐂 শাহীওয়াল গরু', breed: 'শাহীওয়াল জাত', cat: 'দুগ্ধবতী গাভী', wt: 380, milk: 14 },
+                    { label: '🥩 ব্রাহমা মোটাতাজাকরণ', breed: 'ব্রাহমা মিট ক্রস', cat: 'মোটাতাজাকরণ ষাঁড়', wt: 520, milk: 0 },
+                    { label: '🔴 রেড চিটাগাং (RCG)', breed: 'রেড চিটাগাং ক্যাটেল (RCC)', cat: 'দুগ্ধবতী গাভী', wt: 310, milk: 9 },
+                    { label: '🍼 বকনা বাছুর', breed: 'ফ্রিজিয়ান বকনা বাছুর', cat: 'বকনা গরু', wt: 160, milk: 0 },
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setEditingCow(null);
+                        setNewCow({
+                          tag: `COW-${Math.floor(100 + Math.random() * 900)}`,
+                          name: item.breed.split(' ')[0],
+                          breed: item.breed,
+                          category: item.cat,
+                          purchasePrice: '',
+                          weightKg: item.wt,
+                          dailyMilk: item.milk,
+                          marketValue: ''
+                        });
+                        document.getElementById('cattle-herd-form')?.scrollIntoView({ behavior: 'smooth' });
+                        if (showToast) showToast(`🐄 "${item.breed}" যুক্ত করার জন্য ফর্ম প্রস্তুত`, 'info');
+                      }}
+                      className="press-scale"
+                      style={{ padding: '4px 9px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#059669', cursor: 'pointer' }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setEditingCow(null);
-                  setNewCow(prev => ({
+                  setNewCow({
                     tag: `COW-${Math.floor(100 + Math.random() * 900)}`,
                     name: '',
                     breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস',
@@ -1997,13 +2034,14 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                     weightKg: '420',
                     dailyMilk: '16',
                     marketValue: ''
-                  }));
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  });
+                  document.getElementById('cattle-herd-form')?.scrollIntoView({ behavior: 'smooth' });
                   if (showToast) showToast('➕ নতুন গরু এন্ট্রি করার ফর্ম প্রস্তুত', 'info');
                 }}
                 className="btn btn-primary press-scale"
-                style={{ padding: '8px 18px', fontSize: '0.82rem', fontWeight: '900', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{ padding: '9px 18px', fontSize: '0.82rem', fontWeight: '900', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
+                <Plus size={16} />
                 <span>➕ নতুন গরু / গবাদিপশু যুক্ত করুন (Add Animal)</span>
               </button>
             </div>
@@ -2016,7 +2054,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       {/* ==================================================== */}
       {activeTab === 'feed' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <form onSubmit={editingFeed ? handleUpdateGeneralFeed : handleAddGeneralFeed} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
+          <form id="cattle-feed-form" onSubmit={editingFeed ? handleUpdateGeneralFeed : handleAddGeneralFeed} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Wheat size={16} style={{ color: '#f59e0b' }} />
@@ -2027,6 +2065,37 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                   বাতিল
                 </button>
               )}
+            </div>
+
+            {/* Quick Feed Presets */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত খাবার সিলেক্ট করুন:</span>
+              {[
+                { label: '🌾 গম ভুসি ও ভুট্টা ভাঙা', type: 'গম ভুসি ও ভুট্টা ভাঙা', kg: 50, cost: 2100 },
+                { label: '🍂 শুকনো খড় (কুটা)', type: 'শুকনো খড় (কুটা)', kg: 60, cost: 750 },
+                { label: '💊 DBB মিনারেল মিক্স', type: 'DBB / DCP মিনারেল মিক্স', kg: 10, cost: 850 },
+                { label: '🐂 মোটাতাজাকরণ ক্যাটেল ফিড', type: 'মোটাতাজাকরণ ক্যাটেল ফিড', kg: 50, cost: 2400 },
+                { label: '🌱 সয়াবিন মিল / খৈল', type: 'সরিষার খৈল / সয়াবিন মিল', kg: 25, cost: 1650 },
+                { label: '🌿 নেপিয়ার ঘাস ও সাইলেজ', type: 'কাঁচা নেপিয়ার ঘাস ও সাইলেজ', kg: 100, cost: 800 },
+                { label: '🍶 চিটাগুড় ও ইউরিয়া (UMS)', type: 'চিটাগুড় ও ইউরিয়া মোলাসেস ব্লক (UMS)', kg: 20, cost: 600 }
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    if (editingFeed) {
+                      setEditingFeed(prev => ({ ...prev, feedType: item.type, amountKg: prev.amountKg || String(item.kg), costBdt: prev.costBdt || String(item.cost) }));
+                    } else {
+                      setNewGeneralFeed(prev => ({ ...prev, feedType: item.type, amountKg: prev.amountKg || String(item.kg), costBdt: prev.costBdt || String(item.cost) }));
+                    }
+                    if (showToast) showToast(`🌾 "${item.type}" সিলেক্ট হয়েছে`, 'info');
+                  }}
+                  className="press-scale"
+                  style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', color: '#d97706', cursor: 'pointer' }}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '10px' }}>
@@ -2048,11 +2117,13 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                   onChange={(e) => editingFeed ? setEditingFeed({ ...editingFeed, feedType: e.target.value }) : setNewGeneralFeed({ ...newGeneralFeed, feedType: e.target.value })}
                 >
                   <option value="গম ভুসি ও ভুট্টা ভাঙা">গম ভুসি ও ভুট্টা ভাঙা</option>
+                  <option value="শুকনো খড় (কুটা)">শুকনো খড় (কুটা)</option>
+                  <option value="DBB / DCP মিনারেল মিক্স">DBB / DCP মিনারেল মিক্স</option>
+                  <option value="মোটাতাজাকরণ ক্যাটেল ফিড">মোটাতাজাকরণ ক্যাটেল ফিড</option>
                   <option value="সরিষার খৈল / সয়াবিন মিল">সরিষার খৈল / সয়াবিন মিল</option>
                   <option value="কাঁচা নেপিয়ার ঘাস ও সাইলেজ">কাঁচা নেপিয়ার ঘাস ও সাইলেজ</option>
-                  <option value="শুকনো খড় (কুটা)">শুকনো খড় (কুটা)</option>
-                  <option value="ডিবিপি ও মিনারেল মিক্সচার">ডিবিপি ও মিনারেল মিক্সচার</option>
-                  <option value="মোটাতাজাকরণ ক্যাটেল ফিড">মোটাতাজাকরণ ক্যাটেল ফিড</option>
+                  <option value="চিটাগুড় ও ইউরিয়া মোলাসেস ব্লক (UMS)">চিটাগুড় ও ইউরিয়া মোলাসেস ব্লক (UMS)</option>
+                  <option value="ভিটামিন ও ক্যালসিয়াম মিক্স">ভিটামিন ও ক্যালসিয়াম মিক্স</option>
                   <option value="অন্যান্য খাদ্য">অন্যান্য খাদ্য</option>
                 </select>
               </div>
@@ -2148,6 +2219,67 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                 </tbody>
               </table>
             </div>
+
+            {/* Bottom Action Bar below Feed Table */}
+            <div style={{ padding: '14px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  সর্বমোট খাবার খরচ: <strong style={{ color: '#ef4444' }}>৳{totalFeedCost.toLocaleString()}</strong> | মোট এন্ট্রি: <strong style={{ color: '#f59e0b' }}>{feedLogs.length}টি</strong>
+                </div>
+                {/* Quick feed preset shortcuts at bottom */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত খাদ্য সিলেক্ট:</span>
+                  {[
+                    { label: '🌾 গম ও ভুট্টা ভাঙা', type: 'গম ভুসি ও ভুট্টা ভাঙা', kg: 50, cost: 2100 },
+                    { label: '🍂 শুকনো খড়', type: 'শুকনো খড় (কুটা)', kg: 60, cost: 750 },
+                    { label: '💊 DBB মিনারেল মিক্স', type: 'DBB / DCP মিনারেল মিক্স', kg: 10, cost: 850 },
+                    { label: '🐂 মোটাতাজাকরণ ফিড', type: 'মোটাতাজাকরণ ক্যাটেল ফিড', kg: 50, cost: 2400 },
+                    { label: '🌱 সয়াবিন মিল/খৈল', type: 'সরিষার খৈল / সয়াবিন মিল', kg: 25, cost: 1650 },
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setEditingFeed(null);
+                        setNewGeneralFeed({
+                          date: new Date().toISOString().split('T')[0],
+                          feedType: item.type,
+                          amountKg: String(item.kg),
+                          costBdt: String(item.cost),
+                          note: 'দ্রুত প্রিসেট এন্ট্রি'
+                        });
+                        document.getElementById('cattle-feed-form')?.scrollIntoView({ behavior: 'smooth' });
+                        if (showToast) showToast(`🌾 "${item.type}" সিলেক্ট হয়েছে - ফর্ম পূরণ করুন`, 'info');
+                      }}
+                      className="press-scale"
+                      style={{ padding: '4px 9px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', color: '#d97706', cursor: 'pointer' }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingFeed(null);
+                  setNewGeneralFeed({
+                    date: new Date().toISOString().split('T')[0],
+                    feedType: 'গম ভুসি ও ভুট্টা ভাঙা',
+                    amountKg: '',
+                    costBdt: '',
+                    note: ''
+                  });
+                  document.getElementById('cattle-feed-form')?.scrollIntoView({ behavior: 'smooth' });
+                  if (showToast) showToast('➕ নতুন খাদ্য খরচের ফর্ম সক্রিয় করা হয়েছে', 'info');
+                }}
+                className="btn btn-primary press-scale"
+                style={{ padding: '9px 18px', fontSize: '0.82rem', fontWeight: '900', background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} />
+                <span>➕ নতুন খাদ্য খরচ / উপাদান যোগ করুন (Add Feed)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2157,7 +2289,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       {/* ==================================================== */}
       {activeTab === 'health' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <form onSubmit={editingVaccine ? handleUpdateVaccine : handleAddGeneralVaccine} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
+          <form id="cattle-health-form" onSubmit={editingVaccine ? handleUpdateVaccine : handleAddGeneralVaccine} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <ShieldCheck size={16} style={{ color: '#10b981' }} />
@@ -2168,6 +2300,36 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                   বাতিল
                 </button>
               )}
+            </div>
+
+            {/* Quick Vaccine & Disease Presets */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত রোগ ও ভ্যাকসিন সিলেক্ট:</span>
+              {[
+                { label: '💉 খুরা রোগ (FMD)', name: 'খুরা রোগ (FMD) ভ্যাকসিন', cost: '500' },
+                { label: '💉 বাদলা (Blackleg BQ)', name: 'বাদলা (Blackleg BQ) ভ্যাকসিন', cost: '350' },
+                { label: '💉 অ্যানথ্রাক্স (তড়কা)', name: 'অ্যানথ্রাক্স / তড়কা ভ্যাকসিন', cost: '350' },
+                { label: '💉 লাম্পি স্কিন ডিজিজ (LSD)', name: 'লাম্পি স্কিন ডিজিজ (LSD)', cost: '450' },
+                { label: '🩺 ওলান ফোলা / ম্যাসটাইটিস', name: 'ওলান ফোলা / ম্যাসটাইটিস চিকিৎসা', cost: '850' },
+                { label: '💊 কৃমিনাশক ডোজ (Deworming)', name: 'কৃমিনাশক ডোজ (Deworming)', cost: '250' }
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    if (editingVaccine) {
+                      setEditingVaccine(prev => ({ ...prev, vaccineName: item.name, costBdt: prev.costBdt || item.cost }));
+                    } else {
+                      setNewGeneralVaccine(prev => ({ ...prev, vaccineName: item.name, costBdt: prev.costBdt || item.cost }));
+                    }
+                    if (showToast) showToast(`💉 "${item.name}" সিলেক্ট হয়েছে`, 'info');
+                  }}
+                  className="press-scale"
+                  style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#059669', cursor: 'pointer' }}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '10px' }}>
@@ -2317,6 +2479,72 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                 </tbody>
               </table>
             </div>
+
+            {/* Bottom Action Bar below Vaccines Table */}
+            <div style={{ padding: '14px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  মোট ভ্যাকসিন ও চিকিৎসা রেকর্ড: <strong style={{ color: '#10b981' }}>{individualVaccines.length}টি</strong> | সুস্থ সম্পন্ন: <strong style={{ color: '#06b6d4' }}>{individualVaccines.filter(v => v.isDone !== false).length}টি</strong>
+                </div>
+                {/* Quick disease/vaccine shortcuts */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত রোগ/ভ্যাকসিন:</span>
+                  {[
+                    { label: '💉 খুরা রোগ (FMD)', name: 'খুরা রোগ (FMD) ভ্যাকসিন', cost: '500' },
+                    { label: '💉 বাদলা (BQ)', name: 'বাদলা (Blackleg BQ) ভ্যাকসিন', cost: '350' },
+                    { label: '💉 তড়কা (Anthrax)', name: 'অ্যানথ্রাক্স / তড়কা ভ্যাকসিন', cost: '350' },
+                    { label: '💉 লাম্পি স্কিন (LSD)', name: 'লাম্পি স্কিন ডিজিজ (LSD)', cost: '450' },
+                    { label: '🩺 ওলান ফোলা/ম্যাসটাইটিস', name: 'ওলান ফোলা / ম্যাসটাইটিস চিকিৎসা', cost: '850' },
+                    { label: '💊 কৃমিনাশক', name: 'কৃমিনাশক ডোজ (Deworming)', cost: '250' }
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setEditingVaccine(null);
+                        setNewGeneralVaccine(prev => ({
+                          ...prev,
+                          vaccineName: item.name,
+                          costBdt: item.cost,
+                          date: new Date().toISOString().split('T')[0]
+                        }));
+                        document.getElementById('cattle-health-form')?.scrollIntoView({ behavior: 'smooth' });
+                        if (showToast) showToast(`💉 "${item.name}" সিলেক্ট হয়েছে - ফর্ম প্রস্তুত`, 'info');
+                      }}
+                      className="press-scale"
+                      style={{ padding: '4px 9px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#059669', cursor: 'pointer' }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingVaccine(null);
+                  setNewGeneralVaccine({
+                    cowTag: cows[0]?.tag || 'COW-101',
+                    vaccineName: 'খুরা রোগ (FMD) ভ্যাকসিন',
+                    date: new Date().toISOString().split('T')[0],
+                    time: '10:00 AM',
+                    nextDueDate: '',
+                    doctorName: 'ডাঃ রফিকুল ইসলাম',
+                    medicine: '',
+                    costBdt: '450',
+                    isDone: true,
+                    note: ''
+                  });
+                  document.getElementById('cattle-health-form')?.scrollIntoView({ behavior: 'smooth' });
+                  if (showToast) showToast('➕ নতুন ভ্যাকসিন ও চিকিৎসা এন্ট্রি ফর্ম প্রস্তুত', 'info');
+                }}
+                className="btn btn-primary press-scale"
+                style={{ padding: '9px 18px', fontSize: '0.82rem', fontWeight: '900', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} />
+                <span>➕ নতুন ভ্যাকসিন ও চিকিৎসা রেকর্ড যোগ করুন (Add Health)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2326,7 +2554,7 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       {/* ==================================================== */}
       {activeTab === 'breeding' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <form onSubmit={editingBreeding ? handleUpdateBreeding : handleAddBreeding} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
+          <form id="cattle-breeding-form" onSubmit={editingBreeding ? handleUpdateBreeding : handleAddBreeding} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Sparkles size={16} style={{ color: '#8b5cf6' }} />
@@ -2337,6 +2565,36 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                   বাতিল
                 </button>
               )}
+            </div>
+
+            {/* Quick Semen Breed Presets */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত বুলের জাত (Semen Breed):</span>
+              {[
+                { label: '🧬 ১০০% হলস্টাইন ফ্রিজিয়ান', breed: '১০০% হলস্টাইন ফ্রিজিয়ান HF-89' },
+                { label: '🧬 শাহীওয়াল বুল', breed: 'শাহীওয়াল জাতের সিমেন (Sahiwal)' },
+                { label: '🧬 ব্রাহমা মাংসের জাত', breed: 'ব্রাহমা মিট জাতের সিমেন (Brahman)' },
+                { label: '🧬 রেড চিটাগাং (RCG)', breed: 'রেড চিটাগাং ক্যাটেল (RCG)' },
+                { label: '🧬 সিন্ধি সংকর', breed: 'সিন্ধি উন্নত সংকর জাত' },
+                { label: '🧬 জার্সি জাত', breed: 'জার্সি ডেইরি ব্রিড' }
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    if (editingBreeding) {
+                      setEditingBreeding(prev => ({ ...prev, semenBreed: item.breed }));
+                    } else {
+                      setNewBreeding(prev => ({ ...prev, semenBreed: item.breed }));
+                    }
+                    if (showToast) showToast(`🧬 "${item.breed}" জাত সিলেক্ট হয়েছে`, 'info');
+                  }}
+                  className="press-scale"
+                  style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.35)', color: '#7c3aed', cursor: 'pointer' }}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '10px' }}>
@@ -2464,6 +2722,67 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Bottom Action Bar below Breeding Table */}
+            <div style={{ padding: '14px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  মোট প্রজনন রেকর্ড: <strong style={{ color: '#8b5cf6' }}>{breedingRecords.length}টি</strong> | কনফার্ম গর্ভবতী: <strong style={{ color: '#10b981' }}>{breedingRecords.filter(b => b.status === 'pregnant').length}টি</strong>
+                </div>
+                {/* Quick breed semen shortcuts */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)' }}>⚡ দ্রুত বুলের জাত (Semen):</span>
+                  {[
+                    { label: '🧬 ১০০% হলস্টাইন ফ্রিজিয়ান', breed: '১০০% হলস্টাইন ফ্রিজিয়ান HF-89' },
+                    { label: '🧬 শাহীওয়াল বুল', breed: 'শাহীওয়াল জাতের সিমেন (Sahiwal)' },
+                    { label: '🧬 ব্রাহমা মাংসের জাত', breed: 'ব্রাহমা মিট জাতের সিমেন (Brahman)' },
+                    { label: '🧬 রেড চিটাগাং (RCG)', breed: 'রেড চিটাগাং ক্যাটেল (RCG)' },
+                    { label: '🧬 সিন্ধি সংকর', breed: 'সিন্ধি উন্নত সংকর জাত' },
+                    { label: '🧬 জার্সি জাত', breed: 'জার্সি ডেইরি ব্রিড' }
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setEditingBreeding(null);
+                        setNewBreeding(prev => ({
+                          ...prev,
+                          semenBreed: item.breed,
+                          inseminationDate: new Date().toISOString().split('T')[0]
+                        }));
+                        document.getElementById('cattle-breeding-form')?.scrollIntoView({ behavior: 'smooth' });
+                        if (showToast) showToast(`🧬 "${item.breed}" জাত সিলেক্ট হয়েছে - ফর্ম প্রস্তুত`, 'info');
+                      }}
+                      className="press-scale"
+                      style={{ padding: '4px 9px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.35)', color: '#7c3aed', cursor: 'pointer' }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingBreeding(null);
+                  setNewBreeding({
+                    cowTag: cows[0]?.tag || 'COW-101',
+                    inseminationDate: new Date().toISOString().split('T')[0],
+                    semenBreed: '১০০% হলস্টাইন ফ্রিজিয়ান HF-89',
+                    technicianName: 'মোঃ আব্দুল মান্নান',
+                    isPregnant: true,
+                    note: ''
+                  });
+                  document.getElementById('cattle-breeding-form')?.scrollIntoView({ behavior: 'smooth' });
+                  if (showToast) showToast('➕ নতুন প্রজনন ও কৃত্রিম প্রজনন (AI) ফর্ম প্রস্তুত', 'info');
+                }}
+                className="btn btn-primary press-scale"
+                style={{ padding: '9px 18px', fontSize: '0.82rem', fontWeight: '900', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={16} />
+                <span>➕ নতুন প্রজনন ও গর্ভধারণ রেকর্ড যোগ করুন (Add Breeding)</span>
+              </button>
             </div>
           </div>
         </div>
