@@ -163,7 +163,7 @@ export const MobilePOSView = ({
 
   const todayCashSales = useMemo(() => {
     return (salesHistory || []).filter(s => {
-      const matchDate = s.date && s.date.startsWith(todayStr);
+      const matchDate = String(s?.date || '').startsWith(todayStr);
       const isCash = !s.paymentMethod || s.paymentMethod === 'cash';
       return matchDate && isCash;
     }).reduce((sum, s) => sum + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
@@ -288,12 +288,12 @@ export const MobilePOSView = ({
   // Live Sales Ticker Totals
   const todaySalesTotal = useMemo(() => {
     return (salesHistory || []).filter(s => {
-      return s.date && s.date.startsWith(todayStr);
+      return String(s?.date || '').startsWith(todayStr);
     }).reduce((sum, s) => sum + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
   }, [salesHistory, todayStr]);
 
   const todaySalesCount = useMemo(() => {
-    return (salesHistory || []).filter(s => s.date && s.date.startsWith(todayStr)).length;
+    return (salesHistory || []).filter(s => String(s?.date || '').startsWith(todayStr)).length;
   }, [salesHistory, todayStr]);
 
   // Favorites Fast Matrix (Top 8 items for 1-tap addition)
@@ -1027,7 +1027,7 @@ export const MobilePOSView = ({
               onClick={() => setActiveTab('cart')}
               style={{
                 position: 'fixed',
-                bottom: '16px',
+                bottom: '76px',
                 left: '12px',
                 right: '12px',
                 zIndex: 900,
@@ -1874,23 +1874,25 @@ export const MobilePOSView = ({
       )}
 
       {/* Digital Memo Share Modal (WhatsApp & SMS) */}
-      <DigitalMemoShareModal
-        isOpen={showDigitalMemoModal}
-        onClose={() => setShowDigitalMemoModal(false)}
-        saleData={{
-          cart,
-          subtotal,
-          discount,
-          grandTotal,
-          paidAmount: grandTotal,
-          customerPhone: activeCustomer?.phone
-        }}
-        businessSettings={{
-          shopName: activeBranch?.name || 'হিসাবকিতাব ৩৬০'
-        }}
-        customer={activeCustomer}
-        lang={lang}
-      />
+      {showDigitalMemoModal && (
+        <DigitalMemoShareModal
+          isOpen={showDigitalMemoModal}
+          onClose={() => setShowDigitalMemoModal(false)}
+          saleData={{
+            cart,
+            subtotal,
+            discount,
+            grandTotal,
+            paidAmount: grandTotal,
+            customerPhone: activeCustomer?.phone
+          }}
+          businessSettings={{
+            shopName: activeBranch?.name || 'হিসাবকিতাব ৩৬০'
+          }}
+          customer={activeCustomer}
+          lang={lang}
+        />
+      )}
     </div>
   );
 };

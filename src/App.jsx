@@ -76,6 +76,7 @@ const FloatingQuickPad = lazyNamed(() => import('./components/common/FloatingQui
 const LiveCashCounterWidget = lazyNamed(() => import('./components/common/LiveCashCounterWidget'), 'LiveCashCounterWidget');
 const AuditTrailModal = lazyNamed(() => import('./components/admin/AuditTrailModal'), 'AuditTrailModal');
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -552,7 +553,11 @@ const AppContent = () => {
         case 'dashboard':
           return <BusinessDashboard />;
         case 'pos':
-          return <POSTerminal />;
+          return (
+            <ErrorBoundary>
+              <POSTerminal />
+            </ErrorBoundary>
+          );
         case 'debts':
           return <DebtKhataManager profile="business" />;
         case 'invoices':

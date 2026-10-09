@@ -1274,7 +1274,7 @@ input:checked+.slider:before {
   height: 64px;
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
-  z-index: 950;
+  z-index: 1100;
   padding: 0 0.5rem;
   padding-bottom: max(6px, env(safe-area-inset-bottom));
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);

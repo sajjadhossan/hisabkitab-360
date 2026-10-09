@@ -47,7 +47,7 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
 
   // Calculate today's sales for this counter
   const todayCounterSales = salesHistory.filter(s => 
-    s.counterId === currentCounterId && s.date.startsWith(today)
+    s.counterId === currentCounterId && String(s?.date || '').startsWith(today)
   );
 
   const totalCashSales = todayCounterSales

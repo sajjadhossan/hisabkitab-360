@@ -537,7 +537,7 @@ export const Navbar = () => {
 
   return (
     <>
-      <header className="no-print" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 100 }}>
+      <header className="no-print" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 1100 }}>
         {/* Top Bar: Brand, Switcher, Controls */}
         <div className="navbar-top-bar" style={{ maxWidth: '1440px', margin: '0 auto' }}>
           

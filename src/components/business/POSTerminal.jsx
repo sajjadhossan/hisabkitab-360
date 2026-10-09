@@ -288,7 +288,7 @@ export const POSTerminal = () => {
   const todayCounterSales = useMemo(() => {
     return (salesHistory || []).filter(s => 
       (s.counterId === activeCounterId || !s.counterId) &&
-      (s.date && s.date.startsWith(todayStr))
+      (String(s?.date || '').startsWith(todayStr))
     );
   }, [salesHistory, activeCounterId, todayStr]);
 
@@ -629,19 +629,21 @@ export const POSTerminal = () => {
 
   // Seamless auto-load on scroll near bottom (Zero scroll freeze / trap)
   const loadMoreRef = useRef(null);
+  const totalFilteredLen = filteredProducts.length;
+
   useEffect(() => {
     if (!loadMoreRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && filteredProducts.length > visibleCount) {
-          setVisibleCount((prev) => Math.min(prev + 30, filteredProducts.length));
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => (prev < totalFilteredLen ? Math.min(prev + 30, totalFilteredLen) : prev));
         }
       },
-      { threshold: 0.1, rootMargin: '300px' }
+      { threshold: 0.1, rootMargin: '100px' }
     );
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [filteredProducts.length, visibleCount]);
+  }, [totalFilteredLen]);
 
   // Handle enter key in search (e.g. from USB barcode scanner gun)
   const handleSearchKeyDown = (e) => {
@@ -978,17 +980,21 @@ export const POSTerminal = () => {
         />
 
         {/* Counter Shift Closing Modal */}
-        <CounterShiftClosingModal
-          isOpen={showClosingModal}
-          onClose={() => setShowClosingModal(false)}
-        />
+        {showClosingModal && (
+          <CounterShiftClosingModal
+            isOpen={showClosingModal}
+            onClose={() => setShowClosingModal(false)}
+          />
+        )}
 
         {/* Counter Shift Opening Modal (Morning Cash Register Open) */}
-        <CounterShiftOpeningModal
-          isOpen={showOpeningModal}
-          onClose={() => setShowOpeningModal(false)}
-          onShiftOpened={() => setIsShiftActive(true)}
-        />
+        {showOpeningModal && (
+          <CounterShiftOpeningModal
+            isOpen={showOpeningModal}
+            onClose={() => setShowOpeningModal(false)}
+            onShiftOpened={() => setIsShiftActive(true)}
+          />
+        )}
 
         {/* MODAL: INSTANT SALE SUCCESS CONFIRMATION */}
         {showSuccessModal && lastCompletedSale && (
@@ -3845,17 +3851,21 @@ export const POSTerminal = () => {
       </div>
 
       {/* Counter Shift Closing Modal */}
-      <CounterShiftClosingModal
-        isOpen={showClosingModal}
-        onClose={() => setShowClosingModal(false)}
-      />
+      {showClosingModal && (
+        <CounterShiftClosingModal
+          isOpen={showClosingModal}
+          onClose={() => setShowClosingModal(false)}
+        />
+      )}
 
       {/* Counter Shift Opening Modal (Morning Cash Register Open) */}
-      <CounterShiftOpeningModal
-        isOpen={showOpeningModal}
-        onClose={() => setShowOpeningModal(false)}
-        onShiftOpened={() => setIsShiftActive(true)}
-      />
+      {showOpeningModal && (
+        <CounterShiftOpeningModal
+          isOpen={showOpeningModal}
+          onClose={() => setShowOpeningModal(false)}
+          onShiftOpened={() => setIsShiftActive(true)}
+        />
+      )}
 
       {/* ========================================================= */}
       {/* MODAL: INSTANT SALE SUCCESS CONFIRMATION */}
@@ -4060,133 +4070,155 @@ export const POSTerminal = () => {
       )}
 
       {/* Quick Filter & Shortcut Manager Modal */}
-      <QuickFilterManagerModal
-        isOpen={showFilterManagerModal}
-        onClose={() => setShowFilterManagerModal(false)}
-        quickFilters={quickFilters}
-        onSaveFilters={handleSaveQuickFilters}
-        onResetDefaults={handleResetDefaultFilters}
-        lang={lang}
-      />
+      {showFilterManagerModal && (
+        <QuickFilterManagerModal
+          isOpen={showFilterManagerModal}
+          onClose={() => setShowFilterManagerModal(false)}
+          quickFilters={quickFilters}
+          onSaveFilters={handleSaveQuickFilters}
+          onResetDefaults={handleResetDefaultFilters}
+          lang={lang}
+        />
+      )}
 
       {/* Centralized Master Setup & Folder Hub Modal */}
-      <MasterHubModal
-        isOpen={showMasterHubModal}
-        onClose={handleCloseMasterHub}
-      />
+      {showMasterHubModal && (
+        <MasterHubModal
+          isOpen={showMasterHubModal}
+          onClose={handleCloseMasterHub}
+        />
+      )}
 
       {/* BENGALI AI VOICE BILLING MODAL */}
-      <VoiceBillingModal
-        isOpen={showVoiceBillingModal}
-        onClose={() => setShowVoiceBillingModal(false)}
-        onAddToCart={addToCart}
-        onPOSAction={(action) => {
-          if (action.type === 'discount') {
-            setDiscountAmount(String(action.amount));
-          } else if (action.type === 'clear_cart') {
-            clearCart();
-          } else if (action.type === 'open_drawer') {
-            openCashDrawer('manual');
-          } else if (action.type === 'checkout') {
-            handleCheckout();
-          } else if (action.type === 'payment_method') {
-            setPaymentMethod(action.method);
-          }
-        }}
-      />
+      {showVoiceBillingModal && (
+        <VoiceBillingModal
+          isOpen={showVoiceBillingModal}
+          onClose={() => setShowVoiceBillingModal(false)}
+          onAddToCart={addToCart}
+          onPOSAction={(action) => {
+            if (action.type === 'discount') {
+              setDiscountAmount(String(action.amount));
+            } else if (action.type === 'clear_cart') {
+              clearCart();
+            } else if (action.type === 'open_drawer') {
+              openCashDrawer('manual');
+            } else if (action.type === 'checkout') {
+              handleCheckout();
+            } else if (action.type === 'payment_method') {
+              setPaymentMethod(action.method);
+            }
+          }}
+        />
+      )}
 
       {/* INDUSTRY TEMPLATE REVIEW & CUSTOMIZER MODAL */}
-      <TemplateReviewModal
-        isOpen={showTemplateReviewModal}
-        onClose={() => setShowTemplateReviewModal(false)}
-      />
+      {showTemplateReviewModal && (
+        <TemplateReviewModal
+          isOpen={showTemplateReviewModal}
+          onClose={() => setShowTemplateReviewModal(false)}
+        />
+      )}
 
       {/* HOLD CART & BILL SPLIT MODAL (ITEM 56) */}
-      <HoldCartManagerModal
-        isOpen={showHoldModal}
-        onClose={() => {
-          setShowHoldModal(false);
-          refreshHeldCount();
-        }}
-        currentCart={cart}
-        onRestoreCart={(restoredCart) => {
-          clearCart();
-          restoredCart.forEach(item => addToCart(item, item.qty || 1));
-          refreshHeldCount();
-        }}
-        onHoldCurrentCart={() => {
-          clearCart();
-          refreshHeldCount();
-        }}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showHoldModal && (
+        <HoldCartManagerModal
+          isOpen={showHoldModal}
+          onClose={() => {
+            setShowHoldModal(false);
+            refreshHeldCount();
+          }}
+          currentCart={cart}
+          onRestoreCart={(restoredCart) => {
+            clearCart();
+            restoredCart.forEach(item => addToCart(item, item.qty || 1));
+            refreshHeldCount();
+          }}
+          onHoldCurrentCart={() => {
+            clearCart();
+            refreshHeldCount();
+          }}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* CASH DENOMINATION COUNTER MODAL (ITEM 57) */}
-      <DenominationCalculatorModal
-        isOpen={showDenominationModal}
-        onClose={() => setShowDenominationModal(false)}
-        targetAmount={grandTotal}
-        onApplyCountedAmount={(countedSum) => {
-          setIsPartialPayment(true);
-          setPartialPaidInput(String(countedSum));
-        }}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showDenominationModal && (
+        <DenominationCalculatorModal
+          isOpen={showDenominationModal}
+          onClose={() => setShowDenominationModal(false)}
+          targetAmount={grandTotal}
+          onApplyCountedAmount={(countedSum) => {
+            setIsPartialPayment(true);
+            setPartialPaidInput(String(countedSum));
+          }}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* MULTI-PAYMENT SPLIT CHECKOUT MODAL (ITEM 59) */}
-      <SplitPaymentModal
-        isOpen={showSplitPaymentModal}
-        onClose={() => setShowSplitPaymentModal(false)}
-        grandTotal={grandTotal}
-        onConfirmSplitPayment={(splitList, totalAllocated) => {
-          setPendingSplitPayments(splitList);
-          setPaymentMethod('split');
-          handleCheckout(splitList);
-        }}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showSplitPaymentModal && (
+        <SplitPaymentModal
+          isOpen={showSplitPaymentModal}
+          onClose={() => setShowSplitPaymentModal(false)}
+          grandTotal={grandTotal}
+          onConfirmSplitPayment={(splitList, totalAllocated) => {
+            setPendingSplitPayments(splitList);
+            setPaymentMethod('split');
+            handleCheckout(splitList);
+          }}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* DIRECT THERMAL LABEL & BARCODE PRINTER MODAL (ITEM 60) */}
-      <ThermalLabelPrinterModal
-        isOpen={showThermalLabelModal}
-        onClose={() => setShowThermalLabelModal(false)}
-        products={products}
-        businessSettings={businessSettings}
-        initialProduct={cart[0] || products[0]}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showThermalLabelModal && (
+        <ThermalLabelPrinterModal
+          isOpen={showThermalLabelModal}
+          onClose={() => setShowThermalLabelModal(false)}
+          products={products}
+          businessSettings={businessSettings}
+          initialProduct={cart[0] || products[0]}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* DIGITAL WEIGHING SCALE TERMINAL MODAL (ITEM 55) */}
-      <DigitalScaleModal
-        isOpen={showScaleModal}
-        onClose={() => setShowScaleModal(false)}
-        cart={cart}
-        onApplyWeightToCartItem={(itemId, measuredWeight) => {
-          updateCartQty(itemId, measuredWeight);
-        }}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showScaleModal && (
+        <DigitalScaleModal
+          isOpen={showScaleModal}
+          onClose={() => setShowScaleModal(false)}
+          cart={cart}
+          onApplyWeightToCartItem={(itemId, measuredWeight) => {
+            updateCartQty(itemId, measuredWeight);
+          }}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* SUPPLIER PURCHASE ORDER MODAL (ITEM 74) */}
-      <SupplierPurchaseOrderModal
-        isOpen={showPOModal}
-        onClose={() => setShowPOModal(false)}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showPOModal && (
+        <SupplierPurchaseOrderModal
+          isOpen={showPOModal}
+          onClose={() => setShowPOModal(false)}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* SALES RETURN & DAMAGE MANAGEMENT MODAL (ITEM 80) */}
-      <SalesReturnModal
-        isOpen={showSalesReturnModal}
-        onClose={() => setShowSalesReturnModal(false)}
-        lang={lang}
-        showToast={showToast}
-      />
+      {showSalesReturnModal && (
+        <SalesReturnModal
+          isOpen={showSalesReturnModal}
+          onClose={() => setShowSalesReturnModal(false)}
+          lang={lang}
+          showToast={showToast}
+        />
+      )}
 
       {/* FLOATING ACTIVE UNDO BANNER */}
       {undoState && (
