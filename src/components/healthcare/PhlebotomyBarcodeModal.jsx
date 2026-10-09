@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Barcode, Printer, X, Check, Droplet, User, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { generateBarcodeSVG } from '../../services/barcodeService';
 
 export const PhlebotomyBarcodeModal = ({ isOpen, onClose, order }) => {
   const printRef = useRef(null);
@@ -95,6 +96,7 @@ export const PhlebotomyBarcodeModal = ({ isOpen, onClose, order }) => {
         <div ref={printRef} className="space-y-4">
           {tubesNeeded.map((tube, index) => {
             const barcodeNumber = `${order.lab_order_id}-${tube.barcodeSuffix}`;
+            const barcodeSvg = generateBarcodeSVG(barcodeNumber, { width: 240, height: 46 });
 
             return (
               <div
@@ -120,18 +122,18 @@ export const PhlebotomyBarcodeModal = ({ isOpen, onClose, order }) => {
                   </span>
                 </div>
 
-                {/* Barcode Visual Representation */}
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col items-center justify-center space-y-1">
-                  {/* Simulated High-Res Vector Barcode Lines */}
-                  <div className="flex items-center justify-center gap-[2px] h-11 w-64 bg-white p-1 rounded border border-slate-200 overflow-hidden">
-                    {[1, 3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 1, 2, 3, 1, 4, 2, 1, 3, 2, 1, 4, 1, 2, 3, 1, 2, 4, 1, 3].map((w, i) => (
-                      <span
-                        key={i}
-                        className="bg-slate-900 h-full inline-block"
-                        style={{ width: `${w * 1.5}px` }}
-                      />
-                    ))}
-                  </div>
+                {/* Real 100% Scannable Code128 Vector Barcode Representation */}
+                <div className="bg-white p-3 rounded-lg border border-slate-200 flex flex-col items-center justify-center space-y-1">
+                  {barcodeSvg ? (
+                    <div
+                      className="barcode-container flex items-center justify-center"
+                      dangerouslySetInnerHTML={{ __html: barcodeSvg }}
+                    />
+                  ) : (
+                    <div className="font-mono text-sm font-bold text-slate-800">
+                      {barcodeNumber}
+                    </div>
+                  )}
 
                   <div className="font-mono text-xs font-bold text-slate-800 tracking-wider">
                     *{barcodeNumber}*

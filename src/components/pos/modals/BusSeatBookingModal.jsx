@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
-import { X, Bus, Check, Users, MapPin, Clock, ShoppingCart, User, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bus, Check, Users, ShoppingCart, Clock, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 
 /**
  * BusSeatBookingModal
  * -------------------
- * Visual 40-Seat Interactive Matrix & Passenger Ticket Booking:
- * - Layout: 2x2 luxury/standard coach (A1, A2, A3, A4 ... J1, J2, J3, J4)
- * - Click to select/deselect seats in real-time
- * - Route selection with fare calculation
- * - Passenger name & mobile number
- * - Pushes tickets directly into POS Cart for billing & SMS ticket!
+ * Real-time 40-Seat Bus Layout Matrix & Ticket Booking Engine.
+ * Dynamically binds booked seats to local storage per route,
+ * records real passenger tickets directly into the POS cart,
+ * and maintains actual persistent seating availability with trip reset capability.
  */
 export const BusSeatBookingModal = ({ isOpen, onClose }) => {
   const { addToCart, showToast } = useApp();
@@ -28,8 +26,30 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
   const [passengerPhone, setPassengerPhone] = useState('');
   const [selectedSeats, setSelectedSeats] = useState(['A1']);
 
-  // Pre-booked demo seats
-  const [bookedSeats] = useState(['B1', 'B2', 'D3', 'F4']);
+  // Load genuine booked seats per route from persistent storage
+  const getStoredBookedSeats = (routeId) => {
+    try {
+      const data = localStorage.getItem('hk360_bus_booked_seats_' + routeId);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [bookedSeats, setBookedSeats] = useState(() => getStoredBookedSeats(ROUTES[0].id));
+
+  // Sync booked seats when route changes
+  useEffect(() => {
+    const seats = getStoredBookedSeats(selectedRoute.id);
+    setBookedSeats(seats);
+
+    const allSeats = [];
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].forEach(r => {
+      [1, 2, 3, 4].forEach(c => allSeats.push(`${r}${c}`));
+    });
+    const firstAvail = allSeats.find(s => !seats.includes(s));
+    setSelectedSeats(firstAvail ? [firstAvail] : []);
+  }, [selectedRoute]);
 
   if (!isOpen) return null;
 
@@ -56,6 +76,12 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
       return;
     }
 
+    // Persist real booked seats for this route
+    const currentBooked = getStoredBookedSeats(selectedRoute.id);
+    const updatedBooked = Array.from(new Set([...currentBooked, ...selectedSeats]));
+    localStorage.setItem('hk360_bus_booked_seats_' + selectedRoute.id, JSON.stringify(updatedBooked));
+    setBookedSeats(updatedBooked);
+
     const ticketProduct = {
       id: `bus_${Date.now()}`,
       name: `বাস টিকেট [${selectedRoute.name}]`,
@@ -63,7 +89,7 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
       costPrice: Math.round(totalFare * 0.8),
       sellPrice: totalFare,
       unit: `${selectedSeats.length} সিট`,
-      stock: 40,
+      stock: 40 - updatedBooked.length,
       isBusTicket: true,
       ticketDetails: {
         route: selectedRoute.name,
@@ -79,9 +105,18 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
 
     addToCart(ticketProduct);
     if (showToast) {
-      showToast(`🚌 সিট (${selectedSeats.join(', ')}) কার্টে যুক্ত হয়েছে!`, 'success');
+      showToast(`🚌 সিট (${selectedSeats.join(', ')}) কার্টে সফলভাবে যুক্ত হয়েছে!`, 'success');
     }
     onClose();
+  };
+
+  const handleResetTripSeats = () => {
+    if (window.confirm(`আপনি কি "${selectedRoute.name}" রুটের সকল বুকড সিট ক্লিয়ার করে নতুন ট্রিপের জন্য বাস খালি করতে চান?`)) {
+      localStorage.removeItem('hk360_bus_booked_seats_' + selectedRoute.id);
+      setBookedSeats([]);
+      setSelectedSeats(['A1']);
+      if (showToast) showToast('✅ বাসের সিট সফলভাবে খালি/রিসেট করা হয়েছে!', 'success');
+    }
   };
 
   return (
@@ -120,18 +155,18 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
                   key={r.id}
                   onClick={() => setSelectedRoute(r)}
                   style={{
-                    padding: '8px 10px',
+                    padding: '8px 12px',
                     borderRadius: '8px',
                     border: isSelected ? '2px solid #06b6d4' : '1px solid var(--border-color)',
-                    background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                    background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-secondary)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <div style={{ fontSize: '0.82rem', fontWeight: '800', color: isSelected ? '#06b6d4' : 'var(--text-main)' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: isSelected ? '#06b6d4' : 'var(--text-main)' }}>
                     {r.name}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
                     <span>ভাড়া: ৳{r.fare}</span>
                     <span>{r.departure}</span>
                   </div>
@@ -174,7 +209,29 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
           {/* Driver & Cabin */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-color)', paddingBottom: '8px', marginBottom: '10px' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)' }}>🚪 প্রবেশপথ</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)' }}>💺 ড্রাইভার কেবিন</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={handleResetTripSeats}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#ef4444',
+                  fontSize: '0.68rem',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="নতুন ট্রিপ শুরু করতে সকল বুকড সিট খালি করুন"
+              >
+                <RefreshCw size={11} />
+                <span>নতুন ট্রিপ (সিট খালি করুন)</span>
+              </button>
+              <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)' }}>💺 ড্রাইভার কেবিন</span>
+            </div>
           </div>
 
           {/* Seat Grid */}
@@ -201,7 +258,7 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
                           fontSize: '0.78rem',
                           fontWeight: '800',
                           border: isSelected ? '2px solid #06b6d4' : isBooked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
-                          background: isSelected ? '#06b6d4' : isBooked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                          background: isSelected ? '#06b6d4' : isBooked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                           color: isSelected ? '#000' : isBooked ? '#ef4444' : 'var(--text-main)',
                           cursor: isBooked ? 'not-allowed' : 'pointer',
                           display: 'flex',
@@ -239,7 +296,7 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
                           fontSize: '0.78rem',
                           fontWeight: '800',
                           border: isSelected ? '2px solid #06b6d4' : isBooked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
-                          background: isSelected ? '#06b6d4' : isBooked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                          background: isSelected ? '#06b6d4' : isBooked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                           color: isSelected ? '#000' : isBooked ? '#ef4444' : 'var(--text-main)',
                           cursor: isBooked ? 'not-allowed' : 'pointer',
                           display: 'flex',
@@ -261,7 +318,7 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '12px', fontSize: '0.72rem' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ width: '12px', height: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '3px', display: 'inline-block' }}></span>
-              খালি
+              খালি ({40 - bookedSeats.length} সিট)
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ width: '12px', height: '12px', background: '#06b6d4', borderRadius: '3px', display: 'inline-block' }}></span>
@@ -269,7 +326,7 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ width: '12px', height: '12px', background: 'rgba(239, 68, 68, 0.4)', borderRadius: '3px', display: 'inline-block' }}></span>
-              বুকড
+              বুকড ({bookedSeats.length})
             </span>
           </div>
         </div>
