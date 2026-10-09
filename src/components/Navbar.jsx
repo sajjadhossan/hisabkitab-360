@@ -303,48 +303,59 @@ export const Navbar = () => {
     }
   };
 
-  const personalNavItems = [
-    { id: 'dashboard', label: t.personalNav.dashboard, icon: LayoutDashboard },
-    { id: 'daily', label: t.personalNav.daily, icon: ShoppingCart },
-    { id: 'family', label: t.personalNav.family, icon: Home },
-    { id: 'events', label: t.personalNav.events || (lang === 'bn' ? 'ইভেন্ট ও অনুষ্ঠান' : 'Events & Occasions'), icon: Sparkles },
-    { id: 'debts', label: t.personalNav.debts || (lang === 'bn' ? 'দেনা-পাওনা খাতা' : 'Debt Ledger'), icon: HandCoins },
-    { id: 'income', label: t.personalNav.income, icon: Wallet },
-    { id: 'analytics', label: t.personalNav.analytics, icon: PieChart }
-  ];
+  const personalNavItems = useMemo(() => [
+    { id: 'dashboard', label: t.personalNav?.dashboard || 'ড্যাশবোর্ড', icon: LayoutDashboard },
+    { id: 'daily', label: t.personalNav?.daily || 'দৈনন্দিন খরচ', icon: ShoppingCart },
+    { id: 'family', label: t.personalNav?.family || 'পারিবারিক বাজেট', icon: Home },
+    { id: 'events', label: t.personalNav?.events || (lang === 'bn' ? 'ইভেন্ট ও অনুষ্ঠান' : 'Events & Occasions'), icon: Sparkles },
+    { id: 'debts', label: t.personalNav?.debts || (lang === 'bn' ? 'দেনা-পাওনা খাতা' : 'Debt Ledger'), icon: HandCoins },
+    { id: 'income', label: t.personalNav?.income || 'আয় ও সঞ্চয়', icon: Wallet },
+    { id: 'analytics', label: t.personalNav?.analytics || 'বিশ্লেষণ', icon: PieChart }
+  ], [t.personalNav, lang]);
 
-  const isModEnabled = (modId) => {
+  const isModEnabled = useCallback((modId) => {
+    // Core retail and management hubs are permanently active and fast-loaded
+    if (['dashboard', 'branch_control', 'pos', 'debts', 'invoices', 'quotations', 'inventory', 'master_hub', 'erp', 'crm', 'hr', 'sr', 'settings', 'super_admin'].includes(modId)) {
+      return true;
+    }
     if (!licenseInfo?.modules) return true;
     return licenseInfo.modules[modId] !== false;
-  };
+  }, [licenseInfo]);
 
-  const businessNavItems = [
-    ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav.dashboard, icon: LayoutDashboard }] : []),
-    ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ কন্ট্রোল' : '🏢 Branch & Cash Hub', icon: Building2, highlight: true }] : []),
-    ...(isModEnabled('pos') ? [{ id: 'pos', label: t.businessNav.pos, icon: ScanLine, highlight: true }] : []),
-    ...(isModEnabled('debts') ? [{ id: 'debts', label: t.businessNav.debts || (lang === 'bn' ? 'নগদ দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
-    ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t.businessNav.invoices, icon: FileText }] : []),
-    ...(isModEnabled('quotations') ? [{ id: 'quotations', label: t.businessNav.quotations, icon: FileCheck }] : []),
-    ...(isModEnabled('inventory') ? [{ id: 'inventory', label: t.businessNav.inventory, icon: Boxes }] : []),
-    ...(isModEnabled('master_hub') ? [{ id: 'master_hub', label: lang === 'bn' ? '📁 ফোল্ডার ও মাস্টার ডাটা' : '📁 Master Setup Hub', icon: FolderOpen, highlight: true }] : []),
-    ...(isModEnabled('erp') ? [{ id: 'erp', label: t.businessNav.erp, icon: Calculator }] : []),
-    ...(isModEnabled('crm') ? [{ id: 'crm', label: t.businessNav.crm, icon: Users }] : []),
-    ...(isModEnabled('hr') ? [{ id: 'hr', label: t.businessNav.hr, icon: BadgeDollarSign }] : []),
-    ...(isModEnabled('sr') ? [{ id: 'sr', label: lang === 'bn' ? 'এসআর ফিল্ড' : 'SR Field', icon: Users }] : []),
-    { id: 'settings', label: t.businessNav.settings, icon: Settings },
+  const businessNavItems = useMemo(() => [
+    ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav?.dashboard || '📊 ড্যাশবোর্ড', icon: LayoutDashboard }] : []),
+    ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ' : '🏢 Branch & Cash Hub', icon: Building2, highlight: true }] : []),
+    ...(isModEnabled('pos') ? [{ id: 'pos', label: t.businessNav?.pos || '⚡ পিওএস সেলস', icon: ScanLine, highlight: true }] : []),
+    ...(isModEnabled('debts') ? [{ id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
+    ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t.businessNav?.invoices || '🧾 বিক্রয় মেমো', icon: FileText }] : []),
+    ...(isModEnabled('quotations') ? [{ id: 'quotations', label: t.businessNav?.quotations || '📑 কোটেশন', icon: FileCheck }] : []),
+    ...(isModEnabled('inventory') ? [{ id: 'inventory', label: t.businessNav?.inventory || '📦 ইনভেন্টরি স্টক', icon: Boxes }] : []),
+    ...(isModEnabled('master_hub') ? [{ id: 'master_hub', label: lang === 'bn' ? '📁 মাস্টার ডাটা' : '📁 Master Setup Hub', icon: FolderOpen, highlight: true }] : []),
+    ...(isModEnabled('erp') ? [{ id: 'erp', label: t.businessNav?.erp || '💹 হিসাব ও লাভ-ক্ষতি', icon: Calculator }] : []),
+    ...(isModEnabled('crm') ? [{ id: 'crm', label: t.businessNav?.crm || '👥 কাস্টমার ডিরেক্টরি', icon: Users }] : []),
+    ...(isModEnabled('hr') ? [{ id: 'hr', label: t.businessNav?.hr || '👔 স্টাফ ও বেতন', icon: BadgeDollarSign }] : []),
+    ...(isModEnabled('sr') ? [{ id: 'sr', label: lang === 'bn' ? '🛵 এসআর ফিল্ড' : 'SR Field', icon: Users }] : []),
+    { id: 'settings', label: t.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
     ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
-  ];
+  ], [isModEnabled, t.businessNav, lang, isSuperAdmin]);
 
-  let filteredBusinessNavItems = businessNavItems;
-  if (role === 'cashier') {
-    filteredBusinessNavItems = businessNavItems.filter(i => ['pos', 'invoices', 'debts', 'master_hub'].includes(i.id));
-  } else if (role === 'salesman') {
-    filteredBusinessNavItems = businessNavItems.filter(i => ['pos', 'inventory', 'crm', 'master_hub'].includes(i.id));
-  } else if (role === 'sr') {
-    filteredBusinessNavItems = businessNavItems.filter(i => ['sr', 'crm', 'debts', 'inventory'].includes(i.id));
-  }
+  const filteredBusinessNavItems = useMemo(() => {
+    if (isOwner || isSuperAdmin || !isAuthenticated || !role || role === 'owner' || role === 'admin') {
+      return businessNavItems;
+    }
+    if (role === 'cashier') {
+      return businessNavItems.filter(i => ['pos', 'invoices', 'debts', 'master_hub', 'branch_control'].includes(i.id));
+    } else if (role === 'salesman') {
+      return businessNavItems.filter(i => ['pos', 'inventory', 'crm', 'master_hub'].includes(i.id));
+    } else if (role === 'sr') {
+      return businessNavItems.filter(i => ['sr', 'crm', 'debts', 'inventory'].includes(i.id));
+    }
+    return businessNavItems;
+  }, [businessNavItems, isOwner, isSuperAdmin, isAuthenticated, role]);
 
-  const navItems = profile === 'personal' ? personalNavItems : filteredBusinessNavItems;
+  const navItems = useMemo(() => {
+    return profile === 'personal' ? personalNavItems : filteredBusinessNavItems;
+  }, [profile, personalNavItems, filteredBusinessNavItems]);
 
   // Mobile Categorized Drawer Groups
   const businessDrawerGroups = [
@@ -881,7 +892,11 @@ export const Navbar = () => {
             {profile === 'business' && (
               <button
                 type="button"
-                onClick={() => setActiveTab('branch_control')}
+                onClick={() => {
+                  React.startTransition(() => {
+                    setActiveTab('branch_control');
+                  });
+                }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -2032,7 +2047,12 @@ export const Navbar = () => {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  type="button"
+                  onClick={() => {
+                    React.startTransition(() => {
+                      setActiveTab(item.id);
+                    });
+                  }}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',

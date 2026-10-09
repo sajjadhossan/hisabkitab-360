@@ -30,9 +30,15 @@ import { initGlobalShortcuts } from './services/shortcutService';
 // Helper for code-splitting named exports
 const lazyNamed = (importFn, name) => lazy(() => importFn().then(m => ({ default: m[name] })));
 
-// Common Components (Code-split)
-const DebtKhataManager = lazyNamed(() => import('./components/common/DebtKhataManager'), 'DebtKhataManager');
-const MasterHub = lazyNamed(() => import('./components/common/MasterHub'), 'MasterHub');
+// Core Retail & ERP Hubs (Preloaded for 0ms Instant Zero-Lag Tab Switching)
+import { DebtKhataManager } from './components/common/DebtKhataManager';
+import { MasterHub } from './components/common/MasterHub';
+import { BusinessDashboard } from './components/business/BusinessDashboard';
+import { POSTerminal } from './components/business/POSTerminal';
+import { InventoryManager } from './components/business/InventoryManager';
+import { InvoicesManager } from './components/business/InvoicesManager';
+import { BranchCashControlCenter } from './components/business/BranchCashControlCenter';
+import { BusinessSettings } from './components/business/BusinessSettings';
 
 // Personal Components (Code-split)
 const PersonalDashboard = lazyNamed(() => import('./components/personal/PersonalDashboard'), 'PersonalDashboard');
@@ -42,20 +48,14 @@ const PersonalEventsManager = lazyNamed(() => import('./components/personal/Pers
 const PersonalIncome = lazyNamed(() => import('./components/personal/PersonalIncome'), 'PersonalIncome');
 const PersonalAnalytics = lazyNamed(() => import('./components/personal/PersonalAnalytics'), 'PersonalAnalytics');
 
-// Business Components (Code-split)
-const BusinessDashboard = lazyNamed(() => import('./components/business/BusinessDashboard'), 'BusinessDashboard');
-const POSTerminal = lazyNamed(() => import('./components/business/POSTerminal'), 'POSTerminal');
-const InvoicesManager = lazyNamed(() => import('./components/business/InvoicesManager'), 'InvoicesManager');
+// Specialized Secondary Business Components (Code-split)
 const QuotationsManager = lazyNamed(() => import('./components/business/QuotationsManager'), 'QuotationsManager');
-const InventoryManager = lazyNamed(() => import('./components/business/InventoryManager'), 'InventoryManager');
 const ERPAcounts = lazyNamed(() => import('./components/business/ERPAcounts'), 'ERPAcounts');
 const CRMCustomers = lazyNamed(() => import('./components/business/CRMCustomers'), 'CRMCustomers');
 const HRPayroll = lazyNamed(() => import('./components/business/HRPayroll'), 'HRPayroll');
-const BusinessSettings = lazyNamed(() => import('./components/business/BusinessSettings'), 'BusinessSettings');
 const SRFieldManager = lazyNamed(() => import('./components/business/SRFieldManager'), 'SRFieldManager');
 const SalesmanOrderBooking = lazyNamed(() => import('./components/business/SalesmanOrderBooking'), 'SalesmanOrderBooking');
 const SRDeliveryHub = lazyNamed(() => import('./components/business/SRDeliveryHub'), 'SRDeliveryHub');
-const BranchCashControlCenter = lazyNamed(() => import('./components/business/BranchCashControlCenter'), 'BranchCashControlCenter');
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
 
