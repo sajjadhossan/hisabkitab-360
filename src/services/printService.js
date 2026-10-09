@@ -3,6 +3,7 @@
 // Quotations, Barcodes, Labels & Salary Slips with Zero-Failure Architecture.
 
 import { generateQrDataUrl, generateInvoiceQrPayload } from './qrService';
+import { triggerCashDrawerHardware, printEscPosReceiptDirect } from './hardwareService';
 
 /**
  * Universal print runner that prints any HTML string using a reliable,
@@ -570,12 +571,20 @@ export const printReceiptDirectly = async (receipt, businessSettings, lang = 'bn
   });
 };
 
+
 /**
  * Sends an ESC/POS drawer kick pulse (ESC p 0 25 250)
  * to open the connected cash drawer via thermal printer RJ11/RJ12 port.
  */
-export const kickCashDrawer = () => {
+export const kickCashDrawer = async () => {
   try {
+    // 1. Attempt raw hardware pulse via Serial, Bluetooth, or Electron first
+    const hwResult = await triggerCashDrawerHardware();
+    if (hwResult.success) {
+      return;
+    }
+
+    // 2. Fallback to off-screen frame print
     const iframe = document.createElement('iframe');
     iframe.setAttribute('title', 'Cash Drawer Pulse');
     iframe.style.position = 'fixed';

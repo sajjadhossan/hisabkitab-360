@@ -1594,7 +1594,18 @@ export const AppProvider = ({ children }) => {
   };
 
   // Complete POS Sale (with Full or Partial Payment support)
-  const completeSale = ({ customerId, customerName, customerPhone, paymentMethod, discount = 0, paidAmount = null, cashierName = '', table = null, orderType = null }) => {
+  const completeSale = ({
+    customerId,
+    customerName,
+    customerPhone,
+    paymentMethod,
+    discount = 0,
+    paidAmount = null,
+    cashierName = '',
+    table = null,
+    orderType = null,
+    splitPayments = null
+  }) => {
     if (cart.length === 0) return null;
 
     const subtotal = cart.reduce((acc, item) => acc + (item.sellPrice * item.qty), 0);
@@ -1611,6 +1622,25 @@ export const AppProvider = ({ children }) => {
     const invoiceId = `INV-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const activeBr = branches.find(b => b.id === activeBranchId) || branches[0] || null;
     const activeCnt = activeBr?.counters?.find(c => c.id === activeCounterId) || activeBr?.counters?.[0] || null;
+
+    let paymentHistoryList = [];
+    if (Array.isArray(splitPayments) && splitPayments.length > 0) {
+      paymentHistoryList = splitPayments.map((sp, idx) => ({
+        id: `pay-${Date.now()}-${idx}`,
+        date: now.toISOString().split('T')[0],
+        amount: Number(sp.amount) || 0,
+        method: sp.method,
+        note: lang === 'bn' ? `স্প্লিট পেমেন্ট (${sp.method.toUpperCase()})` : `Split Payment (${sp.method})`
+      }));
+    } else if (actualPaid > 0) {
+      paymentHistoryList = [{
+        id: `pay-${Date.now()}`,
+        date: now.toISOString().split('T')[0],
+        amount: actualPaid,
+        method: paymentMethod,
+        note: lang === 'bn' ? (actualPaid === grandTotal ? 'সম্পূর্ণ নগদ/ডিজিটাল পেমেন্ট' : 'বিক্রয়কালীন আংশিক পেমেন্ট') : 'POS Checkout Payment'
+      }];
+    }
 
     const saleRecord = {
       id: invoiceId,
@@ -1640,13 +1670,8 @@ export const AppProvider = ({ children }) => {
       paidAmount: actualPaid,
       dueAmount,
       paymentMethod,
-      paymentHistory: actualPaid > 0 ? [{
-        id: `pay-${Date.now()}`,
-        date: now.toISOString().split('T')[0],
-        amount: actualPaid,
-        method: paymentMethod,
-        note: lang === 'bn' ? (actualPaid === grandTotal ? 'সম্পূর্ণ নগদ/ডিজিটাল পেমেন্ট' : 'বিক্রয়কালীন আংশিক পেমেন্ট') : 'POS Checkout Payment'
-      }] : [],
+      splitPayments: Array.isArray(splitPayments) && splitPayments.length > 0 ? splitPayments : null,
+      paymentHistory: paymentHistoryList,
       status: saleStatus
     };
 

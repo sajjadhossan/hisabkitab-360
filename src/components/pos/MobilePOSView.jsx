@@ -275,11 +275,15 @@ export const MobilePOSView = ({
       cart,
       subtotal,
       discount,
+      vat: 0,
       grandTotal,
+      paidAmount: isPartialPayment ? (Number(partialPaidInput) || 0) : (paymentMethod === 'due' ? 0 : grandTotal),
+      changeAmount: 0,
+      paymentMethod,
       storeName: activeBranch?.name || 'হিসাবকিতাব ৩৬০',
       customerName: activeCustomer?.name || ''
     });
-  }, [cart, subtotal, discount, grandTotal, activeBranch?.name, activeCustomer?.name]);
+  }, [cart, subtotal, discount, grandTotal, activeBranch?.name, activeCustomer?.name, isPartialPayment, partialPaidInput, paymentMethod]);
 
   // Live Sales Ticker Totals
   const todaySalesTotal = useMemo(() => {

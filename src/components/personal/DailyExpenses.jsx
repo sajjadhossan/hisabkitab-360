@@ -21,13 +21,24 @@ import {
   Compass,
   Check,
   FolderOpen,
-  MoreVertical
+  MoreVertical,
+  Mic,
+  MicOff,
+  AlertTriangle,
+  Zap,
+  Coins,
+  Target as TargetIcon
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { DataExportImportModal } from '../common/DataExportImportModal';
 import { BazaarShoppingListModal } from './BazaarShoppingListModal';
 import { MasterHubModal } from '../common/MasterHubModal';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
+import { CashflowCalendarModal } from './CashflowCalendarModal';
+import { FamilyBudgetAllocationModal } from './FamilyBudgetAllocationModal';
+import { RecurringBillsManagerModal } from './RecurringBillsManagerModal';
+import { SavingsGoalManagerModal } from './SavingsGoalManagerModal';
+import { ZakatCalculatorModal } from './ZakatCalculatorModal';
 
 const DEFAULT_CATEGORY_SUB_MAP = {
   transport: ['বাস ভাড়া', 'অটো / সিএনজি ভাড়া', 'রিকশা ভাড়া', 'উবার / পাঠাও রাইড', 'মেট্রোরেল ভাড়া', 'মোটরসাইকেল তেল', 'ট্রেন / লঞ্চ ভাড়া'],
@@ -66,8 +77,144 @@ export const DailyExpenses = () => {
   const [showExportImportModal, setShowExportImportModal] = useState(false);
   const [showShoppingListModal, setShowShoppingListModal] = useState(false);
   const [showMasterHubModal, setShowMasterHubModal] = useState(false);
+  const [showCashflowModal, setShowCashflowModal] = useState(false);
+  const [showFamilyBudgetModal, setShowFamilyBudgetModal] = useState(false);
+  const [showRecurringBillsModal, setShowRecurringBillsModal] = useState(false);
+  const [showSavingsGoalModal, setShowSavingsGoalModal] = useState(false);
+  const [showZakatModal, setShowZakatModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+
+  // Daily Expense Limit State (Item 69)
+  const [dailyLimit, setDailyLimit] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_daily_expense_limit');
+      return saved ? Number(saved) : 2500;
+    } catch {
+      return 2500;
+    }
+  });
+  const [isEditingLimit, setIsEditingLimit] = useState(false);
+  const [tempLimit, setTempLimit] = useState('');
+
+  // Voice Expense Logging State (Item 70)
+  const [isListening, setIsListening] = useState(false);
+  const [voiceFeedback, setVoiceFeedback] = useState('');
+
+  const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  const todayTotal = useMemo(() => {
+    return (personalExpenses || [])
+      .filter(e => e.type === 'daily' && e.date === todayIso)
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [personalExpenses, todayIso]);
+
+  const isLimitExceeded = todayTotal > dailyLimit;
+
+  // Voice NLP Parser
+  const parseVoiceInput = (text) => {
+    const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+    const normalized = text.replace(/[০-৯]/g, d => bnToEnMap[d]);
+
+    const amountMatch = normalized.match(/(\d+)\s*(?:টাকা|tk|taka)?/i);
+    const parsedAmount = amountMatch ? Number(amountMatch[1]) : '';
+
+    let detectedCat = 'other';
+    let detectedSub = 'সাধারণ খরচ';
+    let itemName = text.replace(/(\d+|[০-৯]+)\s*(?:টাকা|tk|taka)?/gi, '').trim();
+
+    const lower = text.toLowerCase();
+    if (lower.includes('বাজার') || lower.includes('চাল') || lower.includes('ডাল') || lower.includes('তেল') || lower.includes('মাছ') || lower.includes('মাংস') || lower.includes('সবজি') || lower.includes('ডিম') || lower.includes('ফল')) {
+      detectedCat = 'bazaar';
+      detectedSub = 'কাঁচা শাকসবজি';
+    } else if (lower.includes('রিকশা') || lower.includes('বাস') || lower.includes('ভাড়া') || lower.includes('সিএনজি') || lower.includes('উবার') || lower.includes('মেট্রো') || lower.includes('তেল')) {
+      detectedCat = 'transport';
+      detectedSub = 'রিকশা ভাড়া';
+    } else if (lower.includes('ওষুধ') || lower.includes('ডাক্তার') || lower.includes('মেডিসিন') || lower.includes('টেস্ট')) {
+      detectedCat = 'medical';
+      detectedSub = 'প্রেসক্রিপশনের ওষুধ';
+    } else if (lower.includes('বিদ্যুৎ') || lower.includes('গ্যাস') || lower.includes('পানি') || lower.includes('ওয়াইফাই') || lower.includes('বিল')) {
+      detectedCat = 'utility';
+      detectedSub = 'বিদ্যুৎ বিল (ডেসকো/ডিপিডিসি)';
+    } else if (lower.includes('নাস্তা') || lower.includes('চা') || lower.includes('খাবার') || lower.includes('রেস্টুরেন্ট')) {
+      detectedCat = 'food';
+      detectedSub = 'ফাস্টফুড ও স্ন্যাক্স';
+    } else if (lower.includes('স্কুল') || lower.includes('বই') || lower.includes('খাতা') || lower.includes('টিউশন')) {
+      detectedCat = 'education';
+      detectedSub = 'বই ও খাতা কেনা';
+    }
+
+    if (!itemName) itemName = 'দৈনিক খরচ';
+
+    return {
+      type: 'daily',
+      title: itemName,
+      item: itemName,
+      amount: parsedAmount,
+      category: detectedCat,
+      subCategory: detectedSub,
+      date: todayIso,
+      unit: 'পিস (Pcs)',
+      quantity: 1,
+      familyMember: 'পুরো পরিবার (সবার জন্য)',
+      note: `ভয়েস এন্ট্রি: "${text}"`
+    };
+  };
+
+  const handleStartVoice = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('আপনার ব্রাউজারে স্পিচ রিকগনিশন সমর্থিত নয়। অনুগ্রহ করে গুগল ক্রোম ব্রাউজার ব্যবহার করুন।');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setVoiceFeedback('শুনছি... যেমন বলুন: "আলু ও পেঁয়াজ ১২০ টাকা" বা "রিকশা ভাড়া ৩০ টাকা"');
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setVoiceFeedback(`শনাক্ত হয়েছে: "${transcript}"`);
+        setIsListening(false);
+        const parsed = parseVoiceInput(transcript);
+        setEditingExpense(parsed);
+        setShowModal(true);
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+        setVoiceFeedback('ভয়েস বুঝতে সমস্যা হয়েছে, আবার চেষ্টা করুন।');
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error(err);
+      setIsListening(false);
+    }
+  };
+
+  const handleSaveDailyLimit = (e) => {
+    e.preventDefault();
+    const val = Number(tempLimit);
+    if (!isNaN(val) && val > 0) {
+      setDailyLimit(val);
+      try {
+        localStorage.setItem('hk360_daily_expense_limit', String(val));
+      } catch { }
+    }
+    setIsEditingLimit(false);
+  };
 
   const availableMembers = categories.familyMembers || [
     'নিজে (Self)',
@@ -220,6 +367,31 @@ export const DailyExpenses = () => {
             )}
           </button>
 
+          {/* Voice Expense Button (Item 70) */}
+          <button
+            onClick={handleStartVoice}
+            title={lang === 'bn' ? 'মুখে বলে খরচ লিখুন (যেমন: আলু পেঁয়াজ ১২০ টাকা)' : 'Voice Expense Input'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: isListening ? '#ef4444' : 'rgba(99, 102, 241, 0.15)',
+              color: isListening ? '#ffffff' : '#6366f1',
+              border: isListening ? 'none' : '1px solid rgba(99, 102, 241, 0.3)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease',
+              animation: isListening ? 'pulse 1s infinite' : 'none'
+            }}
+          >
+            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            <span>{isListening ? (lang === 'bn' ? 'শুনছি...' : 'Listening...') : (lang === 'bn' ? 'মুখে বলুন' : 'Voice')}</span>
+          </button>
+
           {/* Add Daily Expense Button */}
           <button
             onClick={handleOpenAddModal}
@@ -275,7 +447,7 @@ export const DailyExpenses = () => {
                   borderRadius: '12px',
                   padding: '6px',
                   boxShadow: '0 12px 28px rgba(0,0,0,0.25)',
-                  minWidth: '200px',
+                  minWidth: '220px',
                   zIndex: 200,
                   display: 'flex',
                   flexDirection: 'column',
@@ -283,72 +455,66 @@ export const DailyExpenses = () => {
                 }}
               >
                 <button
-                  onClick={() => {
-                    setShowUnitModal(true);
-                    setShowToolsMenu(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--text-main)',
-                    fontSize: '0.84rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
+                  onClick={() => { setShowCashflowModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <Calendar size={15} style={{ color: '#06b6d4' }} />
+                  <span>{lang === 'bn' ? 'ক্যাশফ্লো ক্যালেন্ডার' : 'Cashflow Calendar'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowFamilyBudgetModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <Users size={15} style={{ color: '#8b5cf6' }} />
+                  <span>{lang === 'bn' ? 'পারিবারিক বাজেট বণ্টন' : 'Family Budget'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowRecurringBillsModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <Zap size={15} style={{ color: '#f59e0b' }} />
+                  <span>{lang === 'bn' ? 'রিকারিং বিল ও ইউটিলিটি' : 'Recurring Bills'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowSavingsGoalModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <TargetIcon size={15} style={{ color: '#10b981' }} />
+                  <span>{lang === 'bn' ? 'সঞ্চয় লক্ষ্যমাত্রা পোর্টফোলিও' : 'Savings Goals'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowZakatModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <Coins size={15} style={{ color: '#ec4899' }} />
+                  <span>{lang === 'bn' ? 'যাকাত ও সদকা ক্যালকুলেটর' : 'Zakat Calculator'}</span>
+                </button>
+
+                <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
+
+                <button
+                  onClick={() => { setShowUnitModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
                 >
                   <Scale size={15} style={{ color: '#06b6d4' }} />
                   <span>{lang === 'bn' ? 'পরিমাপক একক তালিকা' : 'Manage Units'}</span>
                 </button>
 
                 <button
-                  onClick={() => {
-                    setShowMasterHubModal(true);
-                    setShowToolsMenu(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--text-main)',
-                    fontSize: '0.84rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
+                  onClick={() => { setShowMasterHubModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
                 >
                   <FolderOpen size={15} style={{ color: '#f97316' }} />
                   <span>{lang === 'bn' ? 'মাস্টার ডাটা হাব' : 'Master Data Hub'}</span>
                 </button>
 
                 <button
-                  onClick={() => {
-                    setShowExportImportModal(true);
-                    setShowToolsMenu(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--text-main)',
-                    fontSize: '0.84rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
+                  onClick={() => { setShowExportImportModal(true); setShowToolsMenu(false); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-main)', fontSize: '0.84rem', fontWeight: '600', cursor: 'pointer', textAlign: 'left' }}
                 >
                   <FileSpreadsheet size={15} style={{ color: '#0f766e' }} />
                   <span>{lang === 'bn' ? 'এক্সপোর্ট / ইমপোর্ট' : 'Export / Import'}</span>
@@ -356,6 +522,132 @@ export const DailyExpenses = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Quick Feature Chips Row */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '1.25rem', scrollbarWidth: 'none' }}>
+        <button
+          onClick={() => setShowCashflowModal(true)}
+          className="badge"
+          style={{ padding: '6px 12px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Calendar size={14} /> ক্যাশফ্লো ক্যালেন্ডার
+        </button>
+
+        <button
+          onClick={() => setShowFamilyBudgetModal(true)}
+          className="badge"
+          style={{ padding: '6px 12px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Users size={14} /> পারিবারিক বাজেট
+        </button>
+
+        <button
+          onClick={() => setShowRecurringBillsModal(true)}
+          className="badge"
+          style={{ padding: '6px 12px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Zap size={14} /> রিকারিং বিল ট্র্যাকার
+        </button>
+
+        <button
+          onClick={() => setShowSavingsGoalModal(true)}
+          className="badge"
+          style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <TargetIcon size={14} /> সঞ্চয় লক্ষ্যমাত্রা
+        </button>
+
+        <button
+          onClick={() => setShowZakatModal(true)}
+          className="badge"
+          style={{ padding: '6px 12px', background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', border: '1px solid rgba(236, 72, 153, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Coins size={14} /> যাকাত ক্যালকুলেটর
+        </button>
+      </div>
+
+      {/* Voice Recognition Feedback Toast */}
+      {voiceFeedback && (
+        <div style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#6366f1', padding: '8px 14px', borderRadius: '10px', fontSize: '0.84rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>🎙️ {voiceFeedback}</span>
+          <button onClick={() => setVoiceFeedback('')} style={{ background: 'transparent', border: 'none', color: '#6366f1', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
+        </div>
+      )}
+
+      {/* Daily Expense Limit Alert Banner (Item 69) */}
+      <div
+        style={{
+          background: isLimitExceeded
+            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.08))'
+            : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05))',
+          border: `1.5px solid ${isLimitExceeded ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.25)'}`,
+          borderRadius: '14px',
+          padding: '10px 16px',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '10px',
+              background: isLimitExceeded ? '#ef4444' : '#10b981',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: isLimitExceeded ? '0 2px 8px rgba(239, 68, 68, 0.35)' : '0 2px 8px rgba(16, 185, 129, 0.35)'
+            }}
+          >
+            {isLimitExceeded ? <AlertTriangle size={17} /> : <Zap size={17} />}
+          </div>
+          <div>
+            <div style={{ fontSize: '0.88rem', fontWeight: '800', color: isLimitExceeded ? '#ef4444' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>{isLimitExceeded ? '⚠️ আজকের খরচের সীমা অতিক্রম করেছে!' : '📊 আজকের খরচ ও বাজেট সীমা:'}</span>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                (আজকের খরচ: ৳{todayTotal.toLocaleString()} / সীমা: ৳{dailyLimit.toLocaleString()})
+              </span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: isLimitExceeded ? '#ef4444' : 'var(--text-muted)', marginTop: '2px' }}>
+              {isLimitExceeded
+                ? `নির্ধারিত দৈনিক সীমার চেয়ে ৳${(todayTotal - dailyLimit).toLocaleString()} বেশি খরচ হয়েছে। অপচয় কমাতে নজর দিন!`
+                : `আজকের অবশিষ্ট বাজেট: ৳${Math.max(0, dailyLimit - todayTotal).toLocaleString()}`}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isEditingLimit ? (
+            <form onSubmit={handleSaveDailyLimit} style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="number"
+                className="form-control"
+                placeholder="নতুন সীমা"
+                value={tempLimit}
+                onChange={e => setTempLimit(e.target.value)}
+                style={{ width: '100px', height: '32px', fontSize: '0.82rem' }}
+                autoFocus
+              />
+              <button type="submit" className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>সংরক্ষণ</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsEditingLimit(false)} style={{ padding: '4px 8px', fontSize: '0.78rem' }}>বাতিল</button>
+            </form>
+          ) : (
+            <button
+              onClick={() => { setTempLimit(String(dailyLimit)); setIsEditingLimit(true); }}
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Edit2 size={12} /> সীমা পরিবর্তন
+            </button>
+          )}
         </div>
       </div>
 
@@ -813,6 +1105,36 @@ export const DailyExpenses = () => {
         isOpen={showMasterHubModal}
         onClose={() => setShowMasterHubModal(false)}
         defaultTab="units"
+      />
+
+      {/* Cashflow Calendar Modal (Item 62) */}
+      <CashflowCalendarModal
+        isOpen={showCashflowModal}
+        onClose={() => setShowCashflowModal(false)}
+      />
+
+      {/* Family Budget Allocation Modal (Item 63) */}
+      <FamilyBudgetAllocationModal
+        isOpen={showFamilyBudgetModal}
+        onClose={() => setShowFamilyBudgetModal(false)}
+      />
+
+      {/* Recurring Bills Manager Modal (Item 64) */}
+      <RecurringBillsManagerModal
+        isOpen={showRecurringBillsModal}
+        onClose={() => setShowRecurringBillsModal(false)}
+      />
+
+      {/* Savings Goal Manager Modal (Item 65) */}
+      <SavingsGoalManagerModal
+        isOpen={showSavingsGoalModal}
+        onClose={() => setShowSavingsGoalModal(false)}
+      />
+
+      {/* Zakat & Sadaqah Calculator Modal (Item 68) */}
+      <ZakatCalculatorModal
+        isOpen={showZakatModal}
+        onClose={() => setShowZakatModal(false)}
       />
     </div>
   );

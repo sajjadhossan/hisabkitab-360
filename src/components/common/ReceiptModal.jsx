@@ -333,9 +333,19 @@ export const ReceiptModal = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '11px', color: '#475569' }}>
                   <span>{t.business.paymentMethod}:</span>
                   <span style={{ fontWeight: '700', textTransform: 'uppercase' }}>
-                    {paymentLabels[activeReceipt.paymentMethod] || activeReceipt.paymentMethod}
+                    {activeReceipt.splitPayments ? (lang === 'bn' ? 'স্প্লিট পেমেন্ট' : 'Split Payment') : (paymentLabels[activeReceipt.paymentMethod] || activeReceipt.paymentMethod)}
                   </span>
                 </div>
+                {Array.isArray(activeReceipt.splitPayments) && activeReceipt.splitPayments.length > 0 && (
+                  <div style={{ marginTop: '4px', padding: '4px 6px', background: '#f8fafc', borderRadius: '4px', fontSize: '10px', color: '#334155', border: '1px solid #e2e8f0' }}>
+                    {activeReceipt.splitPayments.map((sp, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+                        <span>• {paymentLabels[sp.method] || sp.method.toUpperCase()}:</span>
+                        <span style={{ fontWeight: '700' }}>৳{Number(sp.amount).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Return Policy Notice */}

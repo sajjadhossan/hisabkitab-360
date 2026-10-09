@@ -1,7 +1,7 @@
 /**
  * Live Customer-Facing Mirror Display Sync Service
  * --------------------------------------------------
- * Synchronizes cart changes in real-time across devices/windows using BroadcastChannel.
+ * Synchronizes cart changes in real-time across secondary monitors/windows using BroadcastChannel.
  */
 
 const CHANNEL_NAME = 'hk360_pos_mirror';
@@ -25,7 +25,12 @@ export const broadcastCartToCustomerDisplay = (cartData) => {
       cart: cartData.cart || [],
       subtotal: cartData.subtotal || 0,
       discount: cartData.discount || 0,
+      vat: cartData.vat || 0,
       grandTotal: cartData.grandTotal || 0,
+      paidAmount: cartData.paidAmount || 0,
+      changeAmount: cartData.changeAmount || 0,
+      paymentMethod: cartData.paymentMethod || 'cash',
+      isCompleted: !!cartData.isCompleted,
       storeName: cartData.storeName || 'হিসাবকিতাব ৩৬০',
       customerName: cartData.customerName || '',
       updatedAt: Date.now()
@@ -42,6 +47,16 @@ export const broadcastCartToCustomerDisplay = (cartData) => {
   } catch (err) {
     console.warn('broadcastCartToCustomerDisplay error:', err);
   }
+};
+
+export const openCustomerMirrorWindow = () => {
+  if (typeof window === 'undefined') return null;
+  const url = `${window.location.origin}${window.location.pathname}?view=customer_mirror`;
+  return window.open(
+    url,
+    'HK360_CustomerMirror',
+    'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
+  );
 };
 
 export const subscribeToCustomerDisplay = (onUpdate) => {

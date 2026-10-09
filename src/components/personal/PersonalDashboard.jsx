@@ -12,9 +12,19 @@ import {
   Target,
   Home,
   ShoppingBag,
-  Edit2
+  Edit2,
+  Users,
+  Zap,
+  Coins,
+  ShoppingCart
 } from 'lucide-react';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
+import { CashflowCalendarModal } from './CashflowCalendarModal';
+import { FamilyBudgetAllocationModal } from './FamilyBudgetAllocationModal';
+import { RecurringBillsManagerModal } from './RecurringBillsManagerModal';
+import { SavingsGoalManagerModal } from './SavingsGoalManagerModal';
+import { ZakatCalculatorModal } from './ZakatCalculatorModal';
+import { BazaarShoppingListModal } from './BazaarShoppingListModal';
 
 export const PersonalDashboard = () => {
   const {
@@ -30,6 +40,14 @@ export const PersonalDashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [modalType, setModalType] = useState('daily'); // 'daily' | 'family'
+
+  // Category 7 Modals
+  const [showCashflowModal, setShowCashflowModal] = useState(false);
+  const [showFamilyBudgetModal, setShowFamilyBudgetModal] = useState(false);
+  const [showRecurringBillsModal, setShowRecurringBillsModal] = useState(false);
+  const [showSavingsGoalModal, setShowSavingsGoalModal] = useState(false);
+  const [showZakatModal, setShowZakatModal] = useState(false);
+  const [showShoppingListModal, setShowShoppingListModal] = useState(false);
 
   // Calculate totals (Memoized)
   const totalIncome = useMemo(() => personalIncomes.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0), [personalIncomes]);
@@ -104,6 +122,57 @@ export const PersonalDashboard = () => {
             <span>{t.personal.addFamilyExpense}</span>
           </button>
         </div>
+      </div>
+
+      {/* Quick Smart Finance Suite Chips Row */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '1.5rem', scrollbarWidth: 'none' }}>
+        <button
+          onClick={() => setShowCashflowModal(true)}
+          className="badge"
+          style={{ padding: '7px 14px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Calendar size={14} /> ক্যাশফ্লো ক্যালেন্ডার
+        </button>
+
+        <button
+          onClick={() => setShowFamilyBudgetModal(true)}
+          className="badge"
+          style={{ padding: '7px 14px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Users size={14} /> পারিবারিক বাজেট বণ্টন
+        </button>
+
+        <button
+          onClick={() => setShowRecurringBillsModal(true)}
+          className="badge"
+          style={{ padding: '7px 14px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Zap size={14} /> রিকারিং বিল ও ইউটিলিটি
+        </button>
+
+        <button
+          onClick={() => setShowSavingsGoalModal(true)}
+          className="badge"
+          style={{ padding: '7px 14px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Target size={14} /> সঞ্চয় লক্ষ্যমাত্রা পোর্টফোলিও
+        </button>
+
+        <button
+          onClick={() => setShowZakatModal(true)}
+          className="badge"
+          style={{ padding: '7px 14px', background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', border: '1px solid rgba(236, 72, 153, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <Coins size={14} /> যাকাত ক্যালকুলেটর
+        </button>
+
+        <button
+          onClick={() => setShowShoppingListModal(true)}
+          className="badge"
+          style={{ padding: '7px 14px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        >
+          <ShoppingCart size={14} /> বাজারের ফর্দ
+        </button>
       </div>
 
       {/* KPI Stats Grid */}
@@ -326,6 +395,43 @@ export const PersonalDashboard = () => {
         }}
         editingExpense={editingExpense}
         initialType={modalType}
+      />
+
+      {/* Cashflow Calendar Modal (Item 62) */}
+      <CashflowCalendarModal
+        isOpen={showCashflowModal}
+        onClose={() => setShowCashflowModal(false)}
+      />
+
+      {/* Family Budget Allocation Modal (Item 63) */}
+      <FamilyBudgetAllocationModal
+        isOpen={showFamilyBudgetModal}
+        onClose={() => setShowFamilyBudgetModal(false)}
+      />
+
+      {/* Recurring Bills Manager Modal (Item 64) */}
+      <RecurringBillsManagerModal
+        isOpen={showRecurringBillsModal}
+        onClose={() => setShowRecurringBillsModal(false)}
+      />
+
+      {/* Savings Goal Manager Modal (Item 65) */}
+      <SavingsGoalManagerModal
+        isOpen={showSavingsGoalModal}
+        onClose={() => setShowSavingsGoalModal(false)}
+      />
+
+      {/* Zakat & Sadaqah Calculator Modal (Item 68) */}
+      <ZakatCalculatorModal
+        isOpen={showZakatModal}
+        onClose={() => setShowZakatModal(false)}
+      />
+
+      {/* Bazaar Shopping List Modal (Item 61) */}
+      <BazaarShoppingListModal
+        isOpen={showShoppingListModal}
+        onClose={() => setShowShoppingListModal(false)}
+        onOpenExpenseModal={() => handleOpenModal('daily')}
       />
     </div>
   );

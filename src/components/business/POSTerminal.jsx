@@ -45,13 +45,35 @@ import {
   Keyboard,
   RotateCcw,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Scale,
+  PauseCircle,
+  Divide,
+  Printer,
+  Coins,
+  Tv
 } from 'lucide-react';
 import { QuickFilterManagerModal } from '../pos/QuickFilterManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
 import { VoiceBillingModal } from '../pos/VoiceBillingModal';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
+import { HoldCartManagerModal } from '../pos/HoldCartManagerModal';
+import { DenominationCalculatorModal } from '../pos/DenominationCalculatorModal';
+import { SplitPaymentModal } from '../pos/SplitPaymentModal';
+import { ThermalLabelPrinterModal } from '../pos/ThermalLabelPrinterModal';
+import { DigitalScaleModal } from '../pos/DigitalScaleModal';
+import { broadcastCartToCustomerDisplay, openCustomerMirrorWindow } from '../../services/customerMirrorService';
+import {
+  connectSerialPrinter,
+  disconnectSerialPrinter,
+  connectBluetoothPrinter,
+  disconnectBluetoothPrinter,
+  subscribeHardwareStatus,
+  triggerCashDrawerHardware,
+  printEscPosReceiptDirect,
+  getHardwareStatus
+} from '../../services/hardwareService';
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled, playSoundboxChime } from '../../services/soundboxService';
 import {
   playCartPop,
@@ -352,6 +374,45 @@ export const POSTerminal = () => {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [lastAddedItem, setLastAddedItem] = useState(null);
 
+  // Batch 6: POS Hardware & Supercharge Modal States (Items 51-60)
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showDenominationModal, setShowDenominationModal] = useState(false);
+  const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
+  const [showThermalLabelModal, setShowThermalLabelModal] = useState(false);
+  const [showScaleModal, setShowScaleModal] = useState(false);
+  const [pendingSplitPayments, setPendingSplitPayments] = useState(null);
+
+  const [heldCartsCount, setHeldCartsCount] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_held_carts');
+      return saved ? JSON.parse(saved).length : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [hwStatus, setHwStatus] = useState(() => (typeof getHardwareStatus === 'function' ? getHardwareStatus() : {
+    serialPrinter: false,
+    bluetoothPrinter: false,
+    weightScale: false
+  }));
+
+  const refreshHeldCount = () => {
+    try {
+      const saved = localStorage.getItem('hk360_held_carts');
+      setHeldCartsCount(saved ? JSON.parse(saved).length : 0);
+    } catch {
+      setHeldCartsCount(0);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = subscribeHardwareStatus((status) => {
+      setHwStatus(status);
+    });
+    return unsub;
+  }, []);
+
   // Mobile Progressive Loading (renders initial chunk to guarantee smooth 60fps and zero WebView freezing)
   const [visibleCount, setVisibleCount] = useState(24);
 
@@ -610,6 +671,20 @@ export const POSTerminal = () => {
         return;
       }
 
+      // F6: Hold Cart Manager
+      if (e.key === 'F6') {
+        e.preventDefault();
+        setShowHoldModal(prev => !prev);
+        return;
+      }
+
+      // F7: Digital Weight Scale Terminal
+      if (e.key === 'F7') {
+        e.preventDefault();
+        setShowScaleModal(prev => !prev);
+        return;
+      }
+
       // F8: Instant Cash Checkout Trigger
       if (e.key === 'F8') {
         e.preventDefault();
@@ -622,17 +697,31 @@ export const POSTerminal = () => {
         return;
       }
 
-      // Alt+C: Quick Clear Cart with Undo
-      if (e.altKey && e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        handleClearCartWithUndo();
-        return;
-      }
-
       // F9 Shortcut: Quick Open Cash Drawer
       if (e.key === 'F9') {
         e.preventDefault();
         openCashDrawer('manual');
+        return;
+      }
+
+      // F10: Cash Denomination Calculator
+      if (e.key === 'F10') {
+        e.preventDefault();
+        setShowDenominationModal(prev => !prev);
+        return;
+      }
+
+      // F11 / Alt+D: Customer Mirror Display Window
+      if (e.key === 'F11' || (e.altKey && e.key.toLowerCase() === 'd')) {
+        e.preventDefault();
+        openCustomerMirrorWindow();
+        return;
+      }
+
+      // Alt+C: Quick Clear Cart with Undo
+      if (e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        handleClearCartWithUndo();
         return;
       }
 
@@ -707,7 +796,7 @@ export const POSTerminal = () => {
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [products, businessSettings.enableGlobalScanner, lang, addToCart, playScannerBeep, openCashDrawer, showToast]);
+  }, [products, businessSettings.enableGlobalScanner, lang, addToCart, playScannerBeep, openCashDrawer, showToast, cart]);
 
   // Calculate totals
   const subtotal = cart.reduce((acc, item) => acc + (item.sellPrice * item.qty), 0);
@@ -721,7 +810,23 @@ export const POSTerminal = () => {
     : (paymentMethod === 'due' ? 0 : grandTotal);
   const remainingDue = Math.max(0, grandTotal - actualPaid);
 
-  const handleCheckout = () => {
+  // Synchronize cart with Secondary Customer Display in real-time
+  useEffect(() => {
+    broadcastCartToCustomerDisplay({
+      cart,
+      subtotal,
+      discount,
+      vat,
+      grandTotal,
+      paidAmount: actualPaid,
+      changeAmount: Math.max(0, actualPaid - grandTotal),
+      paymentMethod,
+      storeName: businessSettings.companyName || 'হিসাবকিতাব ৩৬০',
+      customerName: customers.find(c => c.id === selectedCustomerId)?.name || ''
+    });
+  }, [cart, subtotal, discount, vat, grandTotal, actualPaid, paymentMethod, businessSettings.companyName, selectedCustomerId, customers]);
+
+  const handleCheckout = (splitList = null) => {
     if (cart.length === 0) return;
 
     // Confetti effect & Success Chime
@@ -732,22 +837,22 @@ export const POSTerminal = () => {
         spread: 60,
         origin: { y: 0.7 }
       });
-    } catch {
-      // ignore
-    }
+    } catch {}
 
     const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    const activeSplit = splitList || pendingSplitPayments;
 
     const saleRecord = completeSale({
       customerId: selectedCustomer ? selectedCustomer.id : null,
       customerName: selectedCustomer ? selectedCustomer.name : (lang === 'bn' ? 'সাধারণ ক্রেতা (Walk-in)' : 'Walk-in Customer'),
       customerPhone: selectedCustomer ? selectedCustomer.phone : '',
-      paymentMethod,
+      paymentMethod: activeSplit ? 'split' : paymentMethod,
       discount,
       paidAmount: actualPaid,
       cashierName: user?.name || (user?.email ? user.email.split('@')[0] : 'কাউন্টার ক্যাশিয়ার'),
       table: orderType === 'dine_in' ? selectedTable : (lang === 'bn' ? 'পার্সেল' : 'Parcel/Takeaway'),
-      orderType
+      orderType,
+      splitPayments: activeSplit
     });
 
     if (saleRecord) {
@@ -757,15 +862,42 @@ export const POSTerminal = () => {
       // Trigger Smart Digital Voice Soundbox announcement
       triggerSoundboxPayment({
         amount: actualPaid > 0 ? actualPaid : grandTotal,
-        method: paymentMethod,
+        method: activeSplit ? 'split' : paymentMethod,
         customerName: selectedCustomer ? selectedCustomer.name : '',
         type: 'sale'
+      });
+
+      // Direct Raw ESC/POS Thermal Printing if USB/Bluetooth Printer Connected (Item 51)
+      if (hwStatus.serialPrinter || hwStatus.bluetoothPrinter) {
+        printEscPosReceiptDirect(saleRecord, businessSettings)
+          .then(res => {
+            if (res.success && showToast) {
+              showToast(lang === 'bn' ? '⚡ সরাসরি থার্মাল প্রিন্টারে রসিদ পাঠানো হয়েছে!' : '⚡ Sent direct ESC/POS print!', 'success');
+            }
+          })
+          .catch(() => {});
+      }
+
+      // Customer display sale completion event
+      broadcastCartToCustomerDisplay({
+        cart: [],
+        subtotal: 0,
+        discount: 0,
+        vat: 0,
+        grandTotal: 0,
+        paidAmount: actualPaid,
+        changeAmount: Math.max(0, actualPaid - grandTotal),
+        paymentMethod: activeSplit ? 'split' : paymentMethod,
+        isCompleted: true,
+        storeName: businessSettings.companyName || 'হিসাবকিতাব ৩৬০',
+        customerName: selectedCustomer ? selectedCustomer.name : ''
       });
     }
 
     setDiscountAmount('');
     setIsPartialPayment(false);
     setPartialPaidInput('');
+    setPendingSplitPayments(null);
   };
 
   // Dedicated Mobile-First POS View for Android & Mobile Phones
@@ -1279,6 +1411,150 @@ export const POSTerminal = () => {
           >
             {soundboxActive ? <Volume2 size={15} /> : <VolumeX size={15} />}
             <span>{soundboxActive ? (lang === 'bn' ? '🔊 সাউন্ডবক্স চালু' : 'Soundbox ON') : (lang === 'bn' ? '🔇 সাউন্ডবক্স' : 'Soundbox OFF')}</span>
+          </button>
+
+          {/* Dual Screen Customer Display Popout (Item 54) */}
+          <button
+            type="button"
+            onClick={openCustomerMirrorWindow}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: '1px solid #38bdf8',
+              background: 'rgba(56, 189, 248, 0.1)',
+              color: '#38bdf8'
+            }}
+            title={lang === 'bn' ? 'দ্বিতীয় গ্রাহক স্ক্রিন উইন্ডো খুলুন (F11)' : 'Open Customer Display Window (F11)'}
+          >
+            <Tv size={15} />
+            <span>{lang === 'bn' ? '🖥️ গ্রাহক স্ক্রিন' : 'Dual Screen'}</span>
+          </button>
+
+          {/* Hold Cart / Split Bill Manager (Item 56) */}
+          <button
+            type="button"
+            onClick={() => {
+              refreshHeldCount();
+              setShowHoldModal(true);
+            }}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: heldCartsCount > 0 ? '1.5px solid #f59e0b' : '1px solid var(--border-color)',
+              background: heldCartsCount > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+              color: heldCartsCount > 0 ? '#f59e0b' : 'var(--text-muted)'
+            }}
+            title={lang === 'bn' ? 'হোল্ড করা বিলের তালিকা দেখুন ও কার্ট হোল্ড করুন (F6)' : 'View & manage held carts (F6)'}
+          >
+            <PauseCircle size={15} />
+            <span>{lang === 'bn' ? `⏸️ হোল্ড (${heldCartsCount})` : `Hold (${heldCartsCount})`}</span>
+          </button>
+
+          {/* Digital Weight Scale Support (Item 55) */}
+          <button
+            type="button"
+            onClick={() => setShowScaleModal(true)}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: hwStatus.weightScale ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+              background: hwStatus.weightScale ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              color: hwStatus.weightScale ? '#10b981' : 'var(--text-muted)'
+            }}
+            title={lang === 'bn' ? 'ডিজিটাল ওজন স্কেল টার্মিনাল খুলুন (F7)' : 'Digital Weight Scale Terminal (F7)'}
+          >
+            <Scale size={15} />
+            <span>{hwStatus.weightScale ? '🟢 স্কেল যুক্ত' : (lang === 'bn' ? '⚖️ স্কেল' : 'Scale')}</span>
+          </button>
+
+          {/* Direct Thermal Label Printing (Item 60) */}
+          <button
+            type="button"
+            onClick={() => setShowThermalLabelModal(true)}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-muted)'
+            }}
+            title={lang === 'bn' ? '৫২x৩৮ থার্মাল স্টিকার ও বারকোড লেবেল প্রিন্টার' : 'Print Thermal Barcode Labels'}
+          >
+            <Printer size={15} />
+            <span>{lang === 'bn' ? '🏷️ স্টিকার' : 'Labels'}</span>
+          </button>
+
+          {/* Electronic Cash Drawer Kick Button (Item 52) */}
+          <button
+            type="button"
+            onClick={() => openCashDrawer('manual')}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-muted)'
+            }}
+            title={lang === 'bn' ? 'ক্যাশ ড্রয়ার খুলুন (F9)' : 'Kick Cash Drawer (F9)'}
+          >
+            <span>🗄️ {lang === 'bn' ? 'ড্রয়ার (F9)' : 'Drawer'}</span>
+          </button>
+
+          {/* Direct USB/Bluetooth ESC/POS Thermal Printer Connect (Item 51) */}
+          <button
+            type="button"
+            onClick={async () => {
+              if (hwStatus.serialPrinter) {
+                await disconnectSerialPrinter();
+                showToast(lang === 'bn' ? 'USB প্রিন্টার সংযোগ বিচ্ছিন্ন করা হয়েছে' : 'Serial printer disconnected', 'info');
+              } else {
+                try {
+                  await connectSerialPrinter();
+                  showToast(lang === 'bn' ? '✓ USB থার্মাল প্রিন্টার সরাসরি কানেক্ট হয়েছে!' : 'Serial printer connected!', 'success');
+                } catch (err) {
+                  showToast(err.message || 'Printer connect failed', 'warning');
+                }
+              }
+            }}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              border: hwStatus.serialPrinter ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+              background: hwStatus.serialPrinter ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+              color: hwStatus.serialPrinter ? '#10b981' : 'var(--text-muted)'
+            }}
+            title={hwStatus.serialPrinter ? 'সরাসরি USB প্রিন্টার সংযুক্ত (ক্লিক করে বিচ্ছিন্ন করুন)' : 'Web Serial দিয়ে USB থার্মাল প্রিন্টার সংযুক্ত করুন'}
+          >
+            <Printer size={15} />
+            <span>{hwStatus.serialPrinter ? '🟢 USB প্রিন্টার' : (lang === 'bn' ? '🔌 USB প্রিন্ট' : 'USB Print')}</span>
           </button>
 
           {/* Screen Zoom Control (Desktop & Tablet) */}
@@ -3121,6 +3397,40 @@ export const POSTerminal = () => {
             </div>
           </div>
 
+          {/* Multi-Rate Instant Discount Keys (Item 58) */}
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px', justifyContent: 'flex-end' }}>
+            {[
+              { label: '৫%', type: 'pct', val: 0.05 },
+              { label: '১০%', type: 'pct', val: 0.10 },
+              { label: '১৫%', type: 'pct', val: 0.15 },
+              { label: '৳৫০', type: 'flat', val: 50 },
+              { label: '৳১০০', type: 'flat', val: 100 },
+              { label: '০%', type: 'flat', val: 0 }
+            ].map((btn, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  playButtonClick();
+                  const amt = btn.type === 'pct' ? Math.round(subtotal * btn.val) : btn.val;
+                  setDiscountAmount(amt > 0 ? String(amt) : '');
+                }}
+                style={{
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.68rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>
             <span>{t.business.vatTax} ({businessSettings.vatRate}%)</span>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>+৳{vat.toLocaleString()}</span>
@@ -3131,98 +3441,134 @@ export const POSTerminal = () => {
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--business-primary)' }}>৳{grandTotal.toLocaleString()}</span>
           </div>
 
-          {/* Payment Method Selector */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '10px' }}>
+          {/* Payment Method Selector with Multi-Payment Split (Item 59) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', marginBottom: '10px' }}>
             <button
-              onClick={() => setPaymentMethod('cash')}
+              onClick={() => {
+                setPaymentMethod('cash');
+                setPendingSplitPayments(null);
+              }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                padding: '6px 4px',
+                padding: '6px 2px',
                 borderRadius: '8px',
                 border: '1px solid',
-                borderColor: paymentMethod === 'cash' ? 'var(--business-primary)' : 'var(--border-color)',
-                background: paymentMethod === 'cash' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                color: paymentMethod === 'cash' ? 'var(--business-primary)' : 'var(--text-muted)',
-                fontSize: '0.7rem',
+                borderColor: paymentMethod === 'cash' && !pendingSplitPayments ? 'var(--business-primary)' : 'var(--border-color)',
+                background: paymentMethod === 'cash' && !pendingSplitPayments ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                color: paymentMethod === 'cash' && !pendingSplitPayments ? 'var(--business-primary)' : 'var(--text-muted)',
+                fontSize: '0.68rem',
                 fontWeight: '600',
                 cursor: 'pointer'
               }}
             >
-              <Banknote size={15} />
+              <Banknote size={14} />
               <span>{t.business.cash}</span>
             </button>
 
             <button
-              onClick={() => setPaymentMethod('bkash')}
+              onClick={() => {
+                setPaymentMethod('bkash');
+                setPendingSplitPayments(null);
+              }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                padding: '6px 4px',
+                padding: '6px 2px',
                 borderRadius: '8px',
                 border: '1px solid',
-                borderColor: paymentMethod === 'bkash' ? '#e2136e' : 'var(--border-color)',
-                background: paymentMethod === 'bkash' ? 'rgba(226, 19, 110, 0.15)' : 'transparent',
-                color: paymentMethod === 'bkash' ? '#e2136e' : 'var(--text-muted)',
-                fontSize: '0.7rem',
+                borderColor: paymentMethod === 'bkash' && !pendingSplitPayments ? '#e2136e' : 'var(--border-color)',
+                background: paymentMethod === 'bkash' && !pendingSplitPayments ? 'rgba(226, 19, 110, 0.15)' : 'transparent',
+                color: paymentMethod === 'bkash' && !pendingSplitPayments ? '#e2136e' : 'var(--text-muted)',
+                fontSize: '0.68rem',
                 fontWeight: '600',
                 cursor: 'pointer'
               }}
             >
-              <Smartphone size={15} />
+              <Smartphone size={14} />
               <span>{t.business.bkash}</span>
             </button>
 
             <button
-              onClick={() => setPaymentMethod('card')}
+              onClick={() => {
+                setPaymentMethod('card');
+                setPendingSplitPayments(null);
+              }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                padding: '6px 4px',
+                padding: '6px 2px',
                 borderRadius: '8px',
                 border: '1px solid',
-                borderColor: paymentMethod === 'card' ? '#06b6d4' : 'var(--border-color)',
-                background: paymentMethod === 'card' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-                color: paymentMethod === 'card' ? '#06b6d4' : 'var(--text-muted)',
-                fontSize: '0.7rem',
+                borderColor: paymentMethod === 'card' && !pendingSplitPayments ? '#06b6d4' : 'var(--border-color)',
+                background: paymentMethod === 'card' && !pendingSplitPayments ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                color: paymentMethod === 'card' && !pendingSplitPayments ? '#06b6d4' : 'var(--text-muted)',
+                fontSize: '0.68rem',
                 fontWeight: '600',
                 cursor: 'pointer'
               }}
             >
-              <CreditCard size={15} />
+              <CreditCard size={14} />
               <span>{t.business.card}</span>
             </button>
 
             <button
-              onClick={() => setPaymentMethod('due')}
+              onClick={() => {
+                setPaymentMethod('due');
+                setPendingSplitPayments(null);
+              }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '2px',
-                padding: '6px 4px',
+                padding: '6px 2px',
                 borderRadius: '8px',
                 border: '1px solid',
-                borderColor: paymentMethod === 'due' ? '#f59e0b' : 'var(--border-color)',
-                background: paymentMethod === 'due' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                color: paymentMethod === 'due' ? '#f59e0b' : 'var(--text-muted)',
-                fontSize: '0.7rem',
+                borderColor: paymentMethod === 'due' && !pendingSplitPayments ? '#f59e0b' : 'var(--border-color)',
+                background: paymentMethod === 'due' && !pendingSplitPayments ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                color: paymentMethod === 'due' && !pendingSplitPayments ? '#f59e0b' : 'var(--text-muted)',
+                fontSize: '0.68rem',
                 fontWeight: '600',
                 cursor: 'pointer'
               }}
             >
-              <FileText size={15} />
+              <FileText size={14} />
               <span>{t.business.duePay}</span>
+            </button>
+
+            {/* Multi-Payment Split Button */}
+            <button
+              onClick={() => setShowSplitPaymentModal(true)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '2px',
+                padding: '6px 2px',
+                borderRadius: '8px',
+                border: '1px solid',
+                borderColor: pendingSplitPayments ? '#8b5cf6' : 'var(--border-color)',
+                background: pendingSplitPayments ? 'rgba(139, 92, 246, 0.18)' : 'transparent',
+                color: pendingSplitPayments ? '#8b5cf6' : 'var(--text-muted)',
+                fontSize: '0.68rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+              title="ক্যাশ, বিকাশ ও কার্ডে ভাগ করে পেমেন্ট নিন"
+            >
+              <Divide size={14} />
+              <span>{pendingSplitPayments ? '✓ স্প্লিট' : (lang === 'bn' ? 'স্প্লিট' : 'Split')}</span>
             </button>
           </div>
 
-          {/* Partial Payment Option */}
+          {/* Partial Payment Option & Denomination Counter (Item 57) */}
           {paymentMethod !== 'due' && (
             <div style={{ padding: '8px 10px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3239,12 +3585,38 @@ export const POSTerminal = () => {
                   />
                   <span>{lang === 'bn' ? 'আংশিক পেমেন্ট (বাকি খাতা)' : 'Partial Payment'}</span>
                 </label>
-                {isPartialPayment && (
+
+                {/* Quick BDT Note Counter Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowDenominationModal(true)}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    color: '#10b981',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="নোট গুনে ক্যাশ হিসাব করুন (F10)"
+                >
+                  <Coins size={12} />
+                  <span>{lang === 'bn' ? 'নোট কাউন্টার' : 'Cash Tally'}</span>
+                </button>
+              </div>
+
+              {isPartialPayment && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
                   <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: '800' }}>
                     {lang === 'bn' ? 'বাকি: ৳' : 'Due: ৳'}{remainingDue.toLocaleString()}
                   </span>
-                )}
-              </div>
+                </div>
+              )}
 
               {isPartialPayment && (
                 <div style={{ marginTop: '6px', display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -3557,6 +3929,77 @@ export const POSTerminal = () => {
       <TemplateReviewModal
         isOpen={showTemplateReviewModal}
         onClose={() => setShowTemplateReviewModal(false)}
+      />
+
+      {/* HOLD CART & BILL SPLIT MODAL (ITEM 56) */}
+      <HoldCartManagerModal
+        isOpen={showHoldModal}
+        onClose={() => {
+          setShowHoldModal(false);
+          refreshHeldCount();
+        }}
+        currentCart={cart}
+        onRestoreCart={(restoredCart) => {
+          clearCart();
+          restoredCart.forEach(item => addToCart(item, item.qty || 1));
+          refreshHeldCount();
+        }}
+        onHoldCurrentCart={() => {
+          clearCart();
+          refreshHeldCount();
+        }}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* CASH DENOMINATION COUNTER MODAL (ITEM 57) */}
+      <DenominationCalculatorModal
+        isOpen={showDenominationModal}
+        onClose={() => setShowDenominationModal(false)}
+        targetAmount={grandTotal}
+        onApplyCountedAmount={(countedSum) => {
+          setIsPartialPayment(true);
+          setPartialPaidInput(String(countedSum));
+        }}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* MULTI-PAYMENT SPLIT CHECKOUT MODAL (ITEM 59) */}
+      <SplitPaymentModal
+        isOpen={showSplitPaymentModal}
+        onClose={() => setShowSplitPaymentModal(false)}
+        grandTotal={grandTotal}
+        onConfirmSplitPayment={(splitList, totalAllocated) => {
+          setPendingSplitPayments(splitList);
+          setPaymentMethod('split');
+          handleCheckout(splitList);
+        }}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* DIRECT THERMAL LABEL & BARCODE PRINTER MODAL (ITEM 60) */}
+      <ThermalLabelPrinterModal
+        isOpen={showThermalLabelModal}
+        onClose={() => setShowThermalLabelModal(false)}
+        products={products}
+        businessSettings={businessSettings}
+        initialProduct={cart[0] || products[0]}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* DIGITAL WEIGHING SCALE TERMINAL MODAL (ITEM 55) */}
+      <DigitalScaleModal
+        isOpen={showScaleModal}
+        onClose={() => setShowScaleModal(false)}
+        cart={cart}
+        onApplyWeightToCartItem={(itemId, measuredWeight) => {
+          updateCartQty(itemId, measuredWeight);
+        }}
+        lang={lang}
+        showToast={showToast}
       />
 
       {/* FLOATING ACTIVE UNDO BANNER */}
