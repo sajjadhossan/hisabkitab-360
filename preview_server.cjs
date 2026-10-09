@@ -1,32 +1,40 @@
 /**
- * HisabKitab 360 - Host & Mobile Preview Server
+ * HisabKitab 360 - High-Speed Production Host & Mobile Preview Server
+ * -------------------------------------------------------------------
+ * Serves the pre-compiled, optimized production bundle (dist/) with
+ * zero lag, robust SPA routing, automatic port discovery, and mobile Wi-Fi access.
  */
-process.env.VITE_CONFIG_NATIVE_IGNORE_WARNING = 'true';
 
-const { createServer } = require('vite');
-const os = require('os');
-const { exec, execSync } = require('child_process');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { exec } = require('child_process');
 
-function freePort(port) {
-  try {
-    const out = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' });
-    const lines = out.trim().split('\n');
-    for (const line of lines) {
-      if (line.includes('LISTENING')) {
-        const parts = line.trim().split(/\s+/);
-        const pid = parts[parts.length - 1];
-        if (pid && pid !== String(process.pid)) {
-          try {
-            execSync(`taskkill /F /PID ${pid} >nul 2>nul`);
-          } catch {}
-        }
-      }
-    }
-  } catch {}
-}
+const DIST_DIR = path.join(__dirname, 'dist');
+const DEFAULT_PORT = 5173;
 
-function getLocalIp() {
+const MIME_TYPES = {
+  '.html': 'text/html; charset=UTF-8',
+  '.js': 'application/javascript; charset=UTF-8',
+  '.mjs': 'application/javascript; charset=UTF-8',
+  '.css': 'text/css; charset=UTF-8',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.map': 'application/json',
+  '.wasm': 'application/wasm'
+};
+
+function getLocalIpList() {
   const interfaces = os.networkInterfaces();
   const ips = [];
   for (const name of Object.keys(interfaces)) {
@@ -36,59 +44,106 @@ function getLocalIp() {
       }
     }
   }
-  const preferred = ips.find(ip => ip.startsWith('192.168.'));
-  return preferred || ips[0] || 'localhost';
+  return ips;
 }
 
-async function start() {
-  const port = 5173;
-  freePort(port);
+function serveStatic(req, res) {
+  // CORS Headers for seamless local LAN access
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
-  const localIp = getLocalIp();
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
-  console.log('===================================================================');
-  console.log('       HISABKITAB 360 - MOBILE AND LOCAL HOST PREVIEW SERVER       ');
-  console.log('===================================================================');
-  console.log('\n[1] সার্ভার লোড হচ্ছে...');
+  // Sanitize requested URL path
+  let reqPath = decodeURI(req.url.split('?')[0]);
+  if (reqPath === '/') reqPath = '/index.html';
 
-  try {
-    const server = await createServer({
-      root: __dirname,
-      server: {
-        host: '0.0.0.0',
-        port: port,
-        strictPort: true
+  let filePath = path.join(DIST_DIR, reqPath);
+
+  // Security check: prevent directory traversal
+  if (!filePath.startsWith(DIST_DIR)) {
+    res.writeHead(403);
+    res.end('Access Denied');
+    return;
+  }
+
+  // Check if file exists, else fallback to index.html (SPA routing)
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
+      filePath = path.join(DIST_DIR, 'index.html');
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (readErr, content) => {
+      if (readErr) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=UTF-8' });
+        res.end('Error loading ' + reqPath);
+        return;
       }
+
+      // Cache control: assets with hash cache for 1 day, HTML no-cache for instant updates
+      const cacheControl = ext === '.html' ? 'no-cache, must-revalidate' : 'public, max-age=86400';
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl,
+        'Content-Length': content.length
+      });
+      res.end(content);
     });
+  });
+}
 
-    await server.listen();
-
-    console.log('\n===================================================================');
-    console.log('🚀 সার্ভার সফলভাবে চালু হয়েছে!');
-    console.log('===================================================================');
-    console.log('\n💻 আপনার কম্পিউটারের ব্রাউজারে দেখতে:');
-    console.log(`      👉 http://localhost:${port}`);
-    console.log('\n📱 আপনার অ্যান্ড্রয়েড মোবাইল থেকে দেখতে:');
-    console.log('   ১. মোবাইল ও কম্পিউটার একই Wi-Fi বা মোবাইল হটস্পটে কানেক্ট করুন।');
-    console.log('   ২. মোবাইলের যেকোনো ব্রাউজার (Chrome) খুলে নিচের লিংকে যান:');
-    console.log(`\n      👉 http://${localIp}:${port}\n`);
-    console.log('💡 টিপস: যদি মোবাইল থেকে না ঢুকে:');
-    console.log('   - নিশ্চিত করুন মোবাইল ও ল্যাপটপ একই Wi-Fi নেটওয়ার্কে আছে।');
-    console.log('   - ল্যাপটপ থেকে "Mobile Hotspot" চালু করে ফোনে কানেক্ট করতে পারেন।');
-    console.log('===================================================================');
-    console.log('🛑 সার্ভার বন্ধ করতে কিবোর্ডে Ctrl + C চাপুন।\n');
-
-    // Automatically open in default browser on PC
-    setTimeout(() => {
-      try {
-        exec(`start http://localhost:${port}`);
-      } catch {}
-    }, 1200);
-
-  } catch (err) {
-    console.error('\n[ERROR] সার্ভার চালু করতে সমস্যা হয়েছে:', err.message || err);
+function startServer(port) {
+  if (!fs.existsSync(DIST_DIR) || !fs.existsSync(path.join(DIST_DIR, 'index.html'))) {
+    console.error('\n[ERROR] "dist" ফোল্ডার পাওয়া যায়নি! দয়া করে প্রথমে "npm run build" চালান।\n');
     process.exit(1);
   }
+
+  const server = http.createServer(serveStatic);
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`[INFO] পোর্ট ${port} ব্যবহৃত হচ্ছে, পরবর্তী পোর্ট ${port + 1} চেষ্টা করা হচ্ছে...`);
+      startServer(port + 1);
+    } else {
+      console.error('[ERROR] সার্ভার ত্রুটি:', err.message);
+      process.exit(1);
+    }
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    const localIps = getLocalIpList();
+    const primaryIp = localIps.find(ip => ip.startsWith('192.168.')) || localIps[0] || 'localhost';
+
+    console.log('\n===================================================================');
+    console.log('       হিসাব-কিতাব ৩৬০ - লাইভ হোস্ট প্রিভিউ সার্ভার (HisabKitab 360)      ');
+    console.log('===================================================================');
+    console.log('  স্ট্যাটাস: সার্ভার সফলভাবে চালু ও প্রস্তুত (Active & Ready)');
+    console.log('-------------------------------------------------------------------');
+    console.log('  💻 আপনার কম্পিউটারে দেখতে (PC Browser):');
+    console.log(`       👉 http://localhost:${port}`);
+    console.log('');
+    console.log('  📱 আপনার মোবাইল থেকে দেখতে (Mobile Wi-Fi):');
+    console.log('     ১. মোবাইল ও কম্পিউটার একই Wi-Fi / হটস্পটে কানেক্ট করুন।');
+    console.log(`     ২. মোবাইলের Chrome ব্রাউজারে নিচের লিংকে যান:`);
+    console.log(`       👉 http://${primaryIp}:${port}`);
+    console.log('-------------------------------------------------------------------');
+    console.log('  🛑 সার্ভার বন্ধ করতে এই উইন্ডোতে Ctrl + C চাপুন।');
+    console.log('===================================================================\n');
+
+    // Auto open in default browser on PC
+    setTimeout(() => {
+      try {
+        exec(`start "" "http://localhost:${port}"`);
+      } catch {}
+    }, 600);
+  });
 }
 
-start();
+startServer(DEFAULT_PORT);
