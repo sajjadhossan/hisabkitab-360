@@ -3456,7 +3456,7 @@ export const AppProvider = ({ children }) => {
     return licenseInfo.modules[moduleKey] !== false;
   }, [licenseInfo]);
 
-  const switchIndustryTemplate = (templateId, shouldLoadSampleProducts = false) => {
+  const switchIndustryTemplate = (templateId, customFeaturesOrLoadSample = false) => {
     const tpl = getTemplateById(templateId);
     if (!tpl) return;
 
@@ -3468,12 +3468,19 @@ export const AppProvider = ({ children }) => {
       localStorage.setItem('hk360_pos_display_mode', tpl.posViewMode);
     }
 
+    if (typeof customFeaturesOrLoadSample === 'object' && customFeaturesOrLoadSample !== null) {
+      try {
+        localStorage.setItem(`hk360_features_${templateId}`, JSON.stringify(customFeaturesOrLoadSample));
+      } catch {}
+    }
+
     setBusinessSettings(prev => ({
       ...prev,
       industryType: templateId,
       industryName: tpl.name
     }));
 
+    const shouldLoadSampleProducts = customFeaturesOrLoadSample === true;
     if (shouldLoadSampleProducts && tpl.sampleProducts && tpl.sampleProducts.length > 0) {
       const formatted = tpl.sampleProducts.map((p, idx) => ({
         id: `prod-${Date.now()}-${idx}`,

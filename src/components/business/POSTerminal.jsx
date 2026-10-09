@@ -62,6 +62,7 @@ import { MasterHubModal } from '../common/MasterHubModal';
 import { VoiceBillingModal } from '../pos/VoiceBillingModal';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
+import { IndustryVariationsBar } from '../pos/IndustryVariationsBar';
 import { HoldCartManagerModal } from '../pos/HoldCartManagerModal';
 import { DenominationCalculatorModal } from '../pos/DenominationCalculatorModal';
 import { SplitPaymentModal } from '../pos/SplitPaymentModal';
@@ -264,6 +265,7 @@ export const POSTerminal = () => {
 
   const [selectedTable, setSelectedTable] = useState('T-1');
   const [orderType, setOrderType] = useState('dine_in'); // 'dine_in' | 'parcel'
+  const [selectedWaiter, setSelectedWaiter] = useState('করিম');
 
   const { user, isOwner, isCashier, isSalesman, role } = useAuth();
   const [showClosingModal, setShowClosingModal] = useState(false);
@@ -978,6 +980,13 @@ export const POSTerminal = () => {
           setShowOpeningModal={setShowOpeningModal}
           onSwitchToDesktop={() => setForceDesktopMode(true)}
           quickFilters={quickFilters}
+          orderType={orderType}
+          setOrderType={setOrderType}
+          selectedTable={selectedTable}
+          setSelectedTable={setSelectedTable}
+          selectedWaiter={selectedWaiter}
+          setSelectedWaiter={setSelectedWaiter}
+          onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
         />
 
         {/* Counter Shift Closing Modal */}
@@ -2372,85 +2381,17 @@ export const POSTerminal = () => {
             </div>
           </div>
 
-          {/* Restaurant Dining & Table Selection Bar (Desktop Only) */}
-          {(activeIndustryId?.includes('restaurant') || activeIndustryId?.includes('food')) && (
-            <div className="hide-mobile" style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              borderRadius: '10px',
-              background: 'rgba(245, 158, 11, 0.1)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              marginBottom: '0.75rem',
-              flexWrap: 'wrap',
-              gap: '8px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Utensils size={16} color="#f59e0b" />
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                  {lang === 'bn' ? 'রেস্টুরেন্ট অর্ডার মোড:' : 'Order Mode:'}
-                </span>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('dine_in')}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      border: 'none',
-                      background: orderType === 'dine_in' ? '#f59e0b' : 'rgba(255,255,255,0.08)',
-                      color: orderType === 'dine_in' ? '#000' : 'var(--text-muted)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🍽️ ডাইন-ইন
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('parcel')}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      border: 'none',
-                      background: orderType === 'parcel' ? '#10b981' : 'rgba(255,255,255,0.08)',
-                      color: orderType === 'parcel' ? '#fff' : 'var(--text-muted)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🛍️ পার্সেল / Takeaway
-                  </button>
-                </div>
-              </div>
-
-              {orderType === 'dine_in' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700' }}>টেবিল নম্বর:</span>
-                  <select
-                    value={selectedTable}
-                    onChange={(e) => setSelectedTable(e.target.value)}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: '800',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-main)',
-                      border: '1px solid var(--border-color)'
-                    }}
-                  >
-                    {['T-1 (২ জন)', 'T-2 (৪ জন)', 'T-3 (৪ জন)', 'T-4 (৬ জন)', 'T-5 (পারিবারিক)', 'T-6 (ভিআইপি)', 'T-7 (ক্যাবানা)', 'T-8 (টেরাস)'].map(t => (
-                      <option key={t} value={t.split(' ')[0]}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Dynamic Industry Adaptive Bar (Gold, Bus, Food, Construction, Pharmacy, etc.) */}
+          <IndustryVariationsBar
+            orderType={orderType}
+            setOrderType={setOrderType}
+            selectedTable={selectedTable}
+            setSelectedTable={setSelectedTable}
+            selectedWaiter={selectedWaiter}
+            setSelectedWaiter={setSelectedWaiter}
+            cart={cart}
+            onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
+          />
 
           {/* ======================================================== */}
           {/* MULTI-LAYER QUICK SHORTCUT & FILTER SYSTEM               */}
@@ -3834,6 +3775,14 @@ export const POSTerminal = () => {
           onClose={() => setShowSalesReturnModal(false)}
           lang={lang}
           showToast={showToast}
+        />
+      )}
+
+      {/* INDUSTRY TEMPLATE REVIEW & FEATURE TOGGLE MODAL */}
+      {showTemplateReviewModal && (
+        <TemplateReviewModal
+          isOpen={showTemplateReviewModal}
+          onClose={() => setShowTemplateReviewModal(false)}
         />
       )}
 

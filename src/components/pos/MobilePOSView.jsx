@@ -39,6 +39,7 @@ import { ScreenWakeLockToggle } from './ScreenWakeLockToggle';
 import { NetworkQualityIndicator } from '../common/NetworkQualityIndicator';
 import { DigitalMemoShareModal } from './DigitalMemoShareModal';
 import { MobilePOSProductCard } from './MobilePOSProductCard';
+import { IndustryVariationsBar } from './IndustryVariationsBar';
 
 export const MobilePOSView = ({
   cart,
@@ -69,7 +70,14 @@ export const MobilePOSView = ({
   setShowClosingModal,
   setShowOpeningModal,
   onSwitchToDesktop,
-  quickFilters = []
+  quickFilters = [],
+  orderType = 'dine_in',
+  setOrderType,
+  selectedTable = 'T-1',
+  setSelectedTable,
+  selectedWaiter = 'করিম',
+  setSelectedWaiter,
+  onOpenTemplateManager
 }) => {
   const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {} } = useApp();
   const { user } = useAuth();
@@ -572,6 +580,18 @@ export const MobilePOSView = ({
           <span>{todaySalesCount} {lang === 'bn' ? 'টি মেমো' : 'Orders'}</span>
         </div>
       </div>
+
+      {/* ADAPTIVE INDUSTRY VARIATIONS BAR (GOLD, BUS, FOOD, CFT, PHARMA) */}
+      <IndustryVariationsBar
+        orderType={orderType}
+        setOrderType={setOrderType}
+        selectedTable={selectedTable}
+        setSelectedTable={setSelectedTable}
+        selectedWaiter={selectedWaiter}
+        setSelectedWaiter={setSelectedWaiter}
+        cart={cart}
+        onOpenTemplateManager={onOpenTemplateManager}
+      />
 
       {/* 2. TAB CONTROLLER: PRODUCTS (পণ্য) vs CART (কার্ট) */}
       <div

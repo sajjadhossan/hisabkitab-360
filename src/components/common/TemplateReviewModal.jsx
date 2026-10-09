@@ -97,7 +97,7 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
   // Activate & apply template to the whole app
   const handleApplyTemplate = () => {
     if (!selectedTemplate) return;
-    switchIndustryTemplate(selectedTemplate.id);
+    switchIndustryTemplate(selectedTemplate.id, activeFeatures);
     showToast(
       lang === 'bn'
         ? `🎉 "${selectedTemplate.name}" টেমপ্লেটটি সফলভাবে সক্রিয় করা হয়েছে!`
@@ -393,8 +393,12 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
                   {[
+                    { key: 'gold_calculator', label: 'সোনার ভরি-আনা-রতি ও ক্যারেট ক্যালকুলেটর', en: 'Gold & Bhori Calculator' },
+                    { key: 'bus_seats', label: 'বাসের ৪০-সিটের ইন্টারেক্টিভ ম্যাপ', en: 'Bus 40-Seat Matrix' },
+                    { key: 'cft_challan', label: 'বালু/পাথরের CFT ও ট্রাক চালান', en: 'Sand/Stone CFT & Truck Challan' },
+                    { key: 'strip_tablet', label: 'ফার্মেসির পাতা ➔ পিস কনভার্টার', en: 'Strip-to-Tablet Converter' },
                     { key: 'table_system', label: 'টেবিল ও ডাইন-ইন ট্র্যাকিং', en: 'Table & Dine-in' },
-                    { key: 'kot_kitchen', label: 'কেচেন অর্ডার টিকেট (KOT)', en: 'Kitchen Order Ticket' },
+                    { key: 'kot_kitchen', label: 'কিচেন অর্ডার টিকেট (KOT)', en: 'Kitchen Order Ticket' },
                     { key: 'variants_sizes', label: 'সাইজ ও ভ্যারিয়েন্ট (ফুল/হাফ/রং)', en: 'Variants & Sizes' },
                     { key: 'waiter_tracking', label: 'ওয়েটার ও স্টাফ অ্যাসাইনমেন্ট', en: 'Waiter Tracking' },
                     { key: 'batch_tracking', label: 'ব্যাচ নম্বর ও লট ট্র্যাকিং', en: 'Batch / Lot Tracking' },
