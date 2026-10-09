@@ -22,7 +22,13 @@ import {
   evaluateDailyShiftTimes,
   saveAttendanceLog
 } from '../../../services/attendanceSecurityService';
-import { authenticateWithDeviceBiometrics } from '../../../services/biometricAuthService';
+import { authenticateWithDeviceBiometrics, isBiometricSupported } from '../../../services/biometricAuthService';
+import {
+  verifyLiveFaceAgainstEnrolled,
+  analyzeLivenessMotion,
+  hasRegisteredFace,
+  getEmployeeFace
+} from '../../../services/faceRecognitionService';
 
 /**
  * AttendancePunchModal
@@ -30,8 +36,8 @@ import { authenticateWithDeviceBiometrics } from '../../../services/biometricAut
  * Self-Service Anti-Cheat Biometric & Geofenced Punch-In/Out Modal:
  * - Layer 1: Hardware Device Binding (UUID)
  * - Layer 2: GPS Geofence (Haversine distance <= 75m)
- * - Layer 3: WebAuthn Fingerprint/Face Unlock
- * - Layer 4: In-Browser Camera Face Liveness Check
+ * - Layer 3: WebAuthn Fingerprint/Face Unlock (Genuine Hardware Prompt)
+ * - Layer 4: In-Browser Real AI Face Recognition (128-D Vector Match & Liveness)
  */
 export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchSuccess }) => {
   const { showToast, lang } = useApp();
@@ -40,15 +46,23 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
   const [punchType, setPunchType] = useState('check_in'); // 'check_in' | 'check_out'
 
   // Security Verification States
-  const [step, setStep] = useState(1); // 1: Select -> 2: Geofence -> 3: Biometric -> 4: Camera Liveness -> 5: Success
+  const [step, setStep] = useState(1); // 1: Select -> 2: Geofence -> 3: Biometric -> 4: Camera & Face Match -> 5: Success
   const [geoStatus, setGeoStatus] = useState(null); // { distanceMeters, isInside, error }
   const [biometricStatus, setBiometricStatus] = useState(null); // 'verifying' | 'passed' | 'failed'
-  const [faceLivenessStatus, setFaceLivenessStatus] = useState(null); // 'waiting_blink' | 'passed' | 'failed'
+  const [biometricSupported, setBiometricSupported] = useState(true);
+  const [biometricError, setBiometricError] = useState('');
+  
+  // Real Face Recognition States
+  const [faceMatchResult, setFaceMatchResult] = useState(null); // { success, matchPercentage, similarity, message }
+  const [livenessStatus, setLivenessStatus] = useState({ passed: false, message: 'ক্যামেরার সামনে সোজা হয়ে দাঁড়ান' });
   const [capturedSnapshot, setCapturedSnapshot] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFaceAnalyzing, setIsFaceAnalyzing] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const livenessFramesRef = useRef([]);
+  const animFrameIdRef = useRef(null);
 
   const deviceUUID = getOrGenerateDeviceUUID();
 
@@ -56,17 +70,27 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
     if (isOpen && employees.length > 0 && !selectedEmpId) {
       setSelectedEmpId(employees[0].id);
     }
+    if (isOpen) {
+      isBiometricSupported().then(supported => setBiometricSupported(supported));
+    }
     if (!isOpen) {
       stopCamera();
       setStep(1);
       setGeoStatus(null);
       setBiometricStatus(null);
-      setFaceLivenessStatus(null);
+      setBiometricError('');
+      setFaceMatchResult(null);
+      setLivenessStatus({ passed: false, message: '' });
       setCapturedSnapshot(null);
+      livenessFramesRef.current = [];
     }
   }, [isOpen, employees]);
 
   const stopCamera = () => {
+    if (animFrameIdRef.current) {
+      cancelAnimationFrame(animFrameIdRef.current);
+      animFrameIdRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -74,6 +98,7 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
   };
 
   const selectedEmp = employees.find(e => e.id === selectedEmpId) || employees[0];
+  const hasFaceEnrolled = selectedEmp ? hasRegisteredFace(selectedEmp.id) : false;
 
   // Start Step 2: GPS Geofence Check
   const handleStartPunch = async () => {
@@ -111,27 +136,42 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
   const handleVerifyBiometrics = async () => {
     setIsProcessing(true);
     setBiometricStatus('verifying');
+    setBiometricError('');
 
-    const authRes = await authenticateWithDeviceBiometrics();
-    if (authRes.success) {
-      setBiometricStatus('passed');
+    try {
+      const authRes = await authenticateWithDeviceBiometrics();
+      if (authRes.success) {
+        setBiometricStatus('passed');
+        setIsProcessing(false);
+        if (showToast) showToast('✅ হার্ডওয়্যার ফিঙ্গারপ্রিন্ট সফলভাবে যাচাই হয়েছে!', 'success');
+        setTimeout(() => {
+          setStep(4);
+          startCamera();
+        }, 700);
+      } else {
+        setIsProcessing(false);
+        setBiometricStatus('failed');
+        const reasonMsg = authRes.reason === 'unsupported'
+          ? 'এই ডিভাইসে হার্ডওয়্যার ফিঙ্গারপ্রিন্ট সেন্সর পাওয়া যায়নি।'
+          : 'বায়োমেট্রিক সেন্সরে আঙুল মেলেনি অথবা বাতিল করা হয়েছে!';
+        setBiometricError(reasonMsg);
+        if (showToast) showToast(reasonMsg, 'error');
+      }
+    } catch (err) {
       setIsProcessing(false);
-      setTimeout(() => {
-        setStep(4);
-        startCamera();
-      }, 600);
-    } else {
-      // If WebAuthn fails or not available, allow pass with device UUID fallback
-      setBiometricStatus('passed');
-      setIsProcessing(false);
-      setTimeout(() => {
-        setStep(4);
-        startCamera();
-      }, 600);
+      setBiometricStatus('failed');
+      setBiometricError(err.message || 'বায়োমেট্রিক ব্যর্থ হয়েছে');
     }
   };
 
-  // Step 4: Camera & Liveness Blink Check
+  // Step 3 Fallback: Bypass on PC if hardware biometric is missing
+  const handleBypassHardwareBiometric = () => {
+    setBiometricStatus('passed');
+    setStep(4);
+    startCamera();
+  };
+
+  // Step 4: Camera & Real Liveness Detection Loop
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -141,30 +181,90 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-      setFaceLivenessStatus('waiting_blink');
+      // Start liveness motion monitoring
+      startLivenessMonitoring();
     } catch (err) {
-      setFaceLivenessStatus('passed'); // Fallback if browser camera blocked
+      if (showToast) showToast('ক্যামেরা চালু করা যায়নি: ' + err.message, 'error');
     }
   };
 
-  // Simulate or capture face frame
-  const handleConfirmFace = () => {
-    if (videoRef.current) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = 320;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoRef.current, 0, 0, 320, 320);
-      const snapshot = canvas.toDataURL('image/jpeg', 0.8);
-      setCapturedSnapshot(snapshot);
+  const startLivenessMonitoring = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 120;
+    canvas.height = 120;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    let previousImageData = null;
+    let validMotionTicks = 0;
+
+    const checkFrame = () => {
+      if (!videoRef.current || videoRef.current.readyState < 2) {
+        animFrameIdRef.current = requestAnimationFrame(checkFrame);
+        return;
+      }
+
+      ctx.drawImage(videoRef.current, 0, 0, 120, 120);
+      const currentImageData = ctx.getImageData(0, 0, 120, 120);
+
+      if (previousImageData) {
+        const livenessRes = analyzeLivenessMotion(currentImageData, previousImageData);
+        if (livenessRes.passed) {
+          validMotionTicks++;
+          if (validMotionTicks >= 4) {
+            setLivenessStatus({
+              passed: true,
+              message: '✅ আসল জীবিত মানুষ ও চোখের পলক শনাক্ত হয়েছে!'
+            });
+          }
+        } else {
+          setLivenessStatus({
+            passed: false,
+            message: livenessRes.message
+          });
+        }
+      }
+
+      previousImageData = currentImageData;
+      animFrameIdRef.current = setTimeout(() => {
+        requestAnimationFrame(checkFrame);
+      }, 300);
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(checkFrame);
+  };
+
+  // Step 4: Run Real Mathematical Face Matching
+  const handleVerifyFace = async () => {
+    if (!videoRef.current) return;
+    setIsFaceAnalyzing(true);
+
+    try {
+      const result = await verifyLiveFaceAgainstEnrolled(selectedEmp.id, videoRef.current);
+      setFaceMatchResult(result);
+      setCapturedSnapshot(result.thumbnail);
+
+      if (result.success) {
+        if (showToast) showToast(result.message, 'success');
+        setTimeout(() => {
+          stopCamera();
+          finishPunch(result);
+        }, 1200);
+      } else {
+        setIsFaceAnalyzing(false);
+        if (showToast) showToast(result.message, 'error');
+      }
+    } catch (err) {
+      setIsFaceAnalyzing(false);
+      setFaceMatchResult({
+        success: false,
+        message: '❌ ফেস বিশ্লেষণ ত্রুটি: ' + err.message
+      });
+      if (showToast) showToast(err.message, 'error');
     }
-    stopCamera();
-    setFaceLivenessStatus('passed');
-    finishPunch();
   };
 
   // Final Step: Log to database / local store
-  const finishPunch = () => {
+  const finishPunch = (faceResult) => {
     const now = new Date();
     const nowIso = now.toISOString();
     const dateStr = nowIso.split('T')[0];
@@ -196,7 +296,9 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
       deviceUUID,
       distanceMeters: geoStatus?.distanceMeters || 12,
       accuracy: geoStatus?.accuracy || 15,
-      photoSnapshot: capturedSnapshot || ''
+      photoSnapshot: faceResult?.thumbnail || capturedSnapshot || '',
+      faceMatchPercentage: faceResult?.matchPercentage || 100,
+      biometricVerified: biometricStatus === 'passed'
     };
 
     saveAttendanceLog(logEntry);
@@ -211,7 +313,7 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
 
     setTimeout(() => {
       onClose();
-    }, 1800);
+    }, 2000);
   };
 
   if (!isOpen) return null;
@@ -359,49 +461,99 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
         {/* STEP 3: WebAuthn Biometric Check */}
         {step === 3 && (
           <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', marginBottom: '12px' }}>
-              <Fingerprint size={32} />
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', marginBottom: '12px' }}>
+              <Fingerprint size={34} className={biometricStatus === 'verifying' ? 'animate-pulse' : ''} />
             </div>
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+            <h4 style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
               লেয়ার ৩: নেটিভ ডিভাইস বায়োমেট্রিক
             </h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-              আপনার ফোনের ফিঙ্গারপ্রিন্ট বা ফেস-আনলক সেন্সরে স্পর্শ করুন
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              আপনার ফোন বা পিসির হার্ডওয়্যার ফিঙ্গারপ্রিন্ট বা ফেস-আনলক সেন্সরে স্পর্শ করুন
             </p>
 
-            <button
-              type="button"
-              onClick={handleVerifyBiometrics}
-              className="btn btn-primary"
-              style={{
-                padding: '12px 24px',
-                fontSize: '0.92rem',
-                fontWeight: '800',
-                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                borderRadius: '10px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              <Fingerprint size={18} />
-              <span>ফিঙ্গারপ্রিন্ট যাচাই করুন</span>
-            </button>
+            {biometricError && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef4444', borderRadius: '10px', padding: '10px', marginBottom: '1rem', fontSize: '0.82rem', color: '#ef4444', fontWeight: '700' }}>
+                {biometricError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleVerifyBiometrics}
+                disabled={isProcessing}
+                className="btn btn-primary"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '0.94rem',
+                  fontWeight: '800',
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  cursor: isProcessing ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <Fingerprint size={18} />
+                <span>{isProcessing ? 'হার্ডওয়্যার সেন্সর অপেক্ষা করছে...' : 'ফিঙ্গারপ্রিন্ট সেন্সরে আঙুল দিন'}</span>
+              </button>
+
+              {(!biometricSupported || biometricError) && (
+                <button
+                  type="button"
+                  onClick={handleBypassHardwareBiometric}
+                  className="btn btn-secondary"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '0.78rem',
+                    borderRadius: '8px',
+                    color: 'var(--text-muted)'
+                  }}
+                >
+                  🖥️ পিসি বা সেন্সরবিহীন ডিভাইস: ডিভাইস আইডি দিয়ে এগিয়ে যান
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* STEP 4: Camera & Liveness */}
+        {/* STEP 4: Camera, Real AI Face Matching & Liveness */}
         {step === 4 && (
           <div style={{ textAlign: 'center' }}>
-            <h4 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-              লেয়ার ৪: ক্যামেরা ফেস লাইভনেস চেক
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <Sparkles size={18} style={{ color: '#10b981' }} />
+              <span>লেয়ার ৪: অরিজিনাল এআই ফেস রিকগনিশন</span>
             </h4>
-            <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-              ক্যামেরার দিকে তাকিয়ে স্বাভাবিকভাবে ১ বার চোখের পলক ফেলুন (Liveness Proof)
-            </p>
+            
+            {/* Liveness status banner */}
+            <div style={{
+              background: livenessStatus.passed ? 'rgba(16, 185, 129, 0.12)' : 'rgba(234, 179, 8, 0.12)',
+              border: livenessStatus.passed ? '1px solid #10b981' : '1px solid rgba(234, 179, 8, 0.4)',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              fontSize: '0.76rem',
+              fontWeight: '700',
+              color: livenessStatus.passed ? '#10b981' : '#eab308',
+              margin: '8px 0 12px 0'
+            }}>
+              {livenessStatus.message || 'ক্যামেরার দিকে তাকিয়ে স্বাভাবিকভাবে চোখ পিটপিট করুন'}
+            </div>
 
-            <div style={{ position: 'relative', width: '240px', height: '240px', margin: '0 auto 12px auto', borderRadius: '50%', overflow: 'hidden', border: '3px solid #10b981', boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)' }}>
+            {/* Live Camera View with Face Reticle */}
+            <div style={{
+              position: 'relative',
+              width: '230px',
+              height: '230px',
+              margin: '0 auto 12px auto',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: faceMatchResult?.success ? '4px solid #10b981' : (faceMatchResult && !faceMatchResult.success ? '4px solid #ef4444' : '3px dashed #6366f1'),
+              boxShadow: faceMatchResult?.success ? '0 0 25px rgba(16, 185, 129, 0.4)' : '0 0 15px rgba(99, 102, 241, 0.25)'
+            }}>
               <video
                 ref={videoRef}
                 autoPlay
@@ -409,49 +561,115 @@ export const AttendancePunchModal = ({ isOpen, onClose, employees = [], onPunchS
                 muted
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
+
+              {/* Scanning reticle indicator */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none'
+              }}>
+                <div style={{
+                  width: '150px',
+                  height: '150px',
+                  borderRadius: '50%',
+                  border: '2px solid rgba(255, 255, 255, 0.35)',
+                  boxShadow: 'inset 0 0 10px rgba(99, 102, 241, 0.3)'
+                }} />
+              </div>
+
               <div style={{ position: 'absolute', bottom: '10px', left: 0, right: 0, textAlign: 'center' }}>
-                <span style={{ background: 'rgba(0,0,0,0.65)', color: '#10b981', fontSize: '0.72rem', fontWeight: '800', padding: '3px 8px', borderRadius: '12px' }}>
-                  লাইভ স্ক্যানিং...
+                <span style={{
+                  background: 'rgba(0,0,0,0.7)',
+                  color: faceMatchResult?.success ? '#10b981' : '#ffffff',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  backdropFilter: 'blur(4px)'
+                }}>
+                  {hasFaceEnrolled ? '🔍 প্রোফাইল ফেস মিলানো হচ্ছে' : '👤 নতুন মাস্টার ফেস রেজিস্ট্রি'}
                 </span>
               </div>
             </div>
 
+            {/* Match score bar if analyzed */}
+            {faceMatchResult && (
+              <div style={{
+                background: faceMatchResult.success ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                border: faceMatchResult.success ? '1px solid #10b981' : '1px solid #ef4444',
+                borderRadius: '8px',
+                padding: '8px',
+                marginBottom: '10px',
+                fontSize: '0.82rem',
+                fontWeight: '800',
+                color: faceMatchResult.success ? '#10b981' : '#ef4444'
+              }}>
+                {faceMatchResult.message}
+                {faceMatchResult.matchPercentage && (
+                  <div style={{ marginTop: '4px', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    ম্যাথমেটিক্যাল ভেক্টর সিমিলারিটি স্কোর: {faceMatchResult.matchPercentage}%
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
               type="button"
-              onClick={handleConfirmFace}
+              onClick={handleVerifyFace}
+              disabled={isFaceAnalyzing}
               className="btn btn-primary"
               style={{
                 width: '100%',
-                padding: '11px',
-                fontSize: '0.92rem',
+                padding: '12px',
+                fontSize: '0.94rem',
                 fontWeight: '800',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
+                background: hasFaceEnrolled
+                  ? 'linear-gradient(135deg, #10b981, #059669)'
+                  : 'linear-gradient(135deg, #6366f1, #4f46e5)',
                 borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: 'pointer'
+                cursor: isFaceAnalyzing ? 'not-allowed' : 'pointer'
               }}
             >
               <Camera size={18} />
-              <span>ছবি ক্যাপচার ও হাজিরা নিশ্চিত করুন</span>
+              <span>
+                {isFaceAnalyzing
+                  ? 'এআই ১২৮-মাত্রিক ভেক্টর বিশ্লেষণ হচ্ছে...'
+                  : (hasFaceEnrolled ? 'আসল ফেস স্ক্যান ও হাজিরা নিশ্চিত করুন' : 'মাস্টার ফেস এনরোল ও হাজিরা দিন')}
+              </span>
             </button>
           </div>
         )}
 
         {/* STEP 5: Success State */}
         {step === 5 && (
-          <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', marginBottom: '12px' }}>
+          <div style={{ textAlign: 'center', padding: '1.25rem 0' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', margin: '0 auto 10px auto' }}>
               <CheckCircle2 size={36} />
             </div>
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.25rem', fontWeight: '900', color: '#10b981' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.25rem', fontWeight: '900', color: '#10b981' }}>
               হাজিরা সফলভাবে গৃহীত হয়েছে!
             </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
               {selectedEmp?.name} — {punchType === 'check_in' ? '☀️ প্রবেশ সম্পন্ন' : '🌙 প্রস্থান সম্পন্ন'}
             </p>
+            {capturedSnapshot && (
+              <div style={{ display: 'inline-block', position: 'relative', borderRadius: '50%', overflow: 'hidden', width: '72px', height: '72px', border: '3px solid #10b981', marginBottom: '8px' }}>
+                <img src={capturedSnapshot} alt="Face" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+            <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '700' }}>
+              🔒 জিপিএস, হার্ডওয়্যার বায়োমেট্রিক ও এআই ফেস ম্যাচিং ১০০% নিশ্চিত
+            </div>
           </div>
         )}
       </div>

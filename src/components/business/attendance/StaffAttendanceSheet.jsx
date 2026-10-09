@@ -25,6 +25,7 @@ import {
   evaluateDailyShiftTimes,
   DEFAULT_OFFICE_SETTINGS
 } from '../../../services/attendanceSecurityService';
+import { hasRegisteredFace, getEmployeeFace } from '../../../services/faceRecognitionService';
 import { AttendancePunchModal } from './AttendancePunchModal';
 
 /**
@@ -293,27 +294,48 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
               }}
             >
               {/* Employee Info */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: 'rgba(99, 102, 241, 0.15)',
-                    color: '#818cf8',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: '800',
-                    fontSize: '1rem',
-                    flexShrink: 0
-                  }}
-                >
-                  {emp.name.charAt(0)}
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '240px' }}>
+                {log?.photoSnapshot ? (
+                  <div
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      border: '2px solid #10b981',
+                      flexShrink: 0,
+                      position: 'relative'
+                    }}
+                  >
+                    <img src={log.photoSnapshot} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      color: '#818cf8',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '800',
+                      fontSize: '1rem',
+                      flexShrink: 0
+                    }}
+                  >
+                    {emp.name.charAt(0)}
+                  </div>
+                )}
                 <div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                    {emp.name}
+                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{emp.name}</span>
+                    {hasRegisteredFace(emp.id) && (
+                      <span title="ফেস আইডি এনরোল্ড" style={{ fontSize: '0.65rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                        ✓ ফেস আইডি
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     {emp.role} • <span style={{ color: '#818cf8' }}>{emp.section || 'কাউন্টার'}</span>
@@ -339,6 +361,12 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
                 {log?.overtimeHours > 0 && (
                   <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', fontSize: '0.7rem', fontWeight: '800' }}>
                     +{log.overtimeHours}ঘণ্টা OT
+                  </span>
+                )}
+
+                {log?.faceMatchPercentage && (
+                  <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.7rem', fontWeight: '800' }}>
+                    🛡️ {log.faceMatchPercentage}% ফেস ম্যাচ
                   </span>
                 )}
               </div>
