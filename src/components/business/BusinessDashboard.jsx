@@ -28,7 +28,14 @@ import {
   FileText,
   MessageCircle,
   Share2,
-  X
+  X,
+  Target,
+  Wallet,
+  CreditCard,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  Check
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { NLReportSearchModal } from './NLReportSearchModal';
@@ -58,6 +65,25 @@ export const BusinessDashboard = () => {
 
   const { isOwner, canViewNetProfit } = useAuth();
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
+
+  // Modern Interactive Time Horizon ('today' | 'yesterday' | 'week' | 'month' | 'all')
+  const [timeHorizon, setTimeHorizon] = useState('today');
+
+  // Daily Sales Target Goal State (Persisted in localStorage)
+  const [dailySalesTarget, setDailySalesTarget] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk_daily_sales_target');
+      return saved ? Math.max(1000, Number(saved)) : 50000;
+    } catch {
+      return 50000;
+    }
+  });
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [tempTargetInput, setTempTargetInput] = useState(dailySalesTarget.toString());
+
+  // Collapsible Sections for Ultra-Lightweight & Smooth Scrolling
+  const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(true);
+  const [isBranchMonitorOpen, setIsBranchMonitorOpen] = useState(false);
 
   // AI & Smart Modals states (Items 81, 82, 84, 90)
   const [showNLSearchModal, setShowNLSearchModal] = useState(false);
@@ -123,6 +149,108 @@ export const BusinessDashboard = () => {
       return acc + Math.max(0, grand - paid);
     }, 0);
   }, [todaySalesList]);
+
+  // Selected Time Horizon Metrics (Today / Yesterday / 7 Days / 30 Days / All)
+  const yesterdayDateStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const periodSalesList = useMemo(() => {
+    const now = new Date();
+    if (timeHorizon === 'today') {
+      return filteredSales.filter(s => (s.date || '').startsWith(todayDateStr));
+    }
+    if (timeHorizon === 'yesterday') {
+      return filteredSales.filter(s => (s.date || '').startsWith(yesterdayDateStr));
+    }
+    if (timeHorizon === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      const weekAgoStr = weekAgo.toISOString().split('T')[0];
+      return filteredSales.filter(s => (s.date || '').split('T')[0] >= weekAgoStr);
+    }
+    if (timeHorizon === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setDate(now.getDate() - 30);
+      const monthAgoStr = monthAgo.toISOString().split('T')[0];
+      return filteredSales.filter(s => (s.date || '').split('T')[0] >= monthAgoStr);
+    }
+    return filteredSales;
+  }, [filteredSales, timeHorizon, todayDateStr, yesterdayDateStr]);
+
+  const periodExpensesList = useMemo(() => {
+    const now = new Date();
+    if (timeHorizon === 'today') {
+      return businessExpenses.filter(e => (e.date || '').startsWith(todayDateStr));
+    }
+    if (timeHorizon === 'yesterday') {
+      return businessExpenses.filter(e => (e.date || '').startsWith(yesterdayDateStr));
+    }
+    if (timeHorizon === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      const weekAgoStr = weekAgo.toISOString().split('T')[0];
+      return businessExpenses.filter(e => (e.date || '').split('T')[0] >= weekAgoStr);
+    }
+    if (timeHorizon === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setDate(now.getDate() - 30);
+      const monthAgoStr = monthAgo.toISOString().split('T')[0];
+      return businessExpenses.filter(e => (e.date || '').split('T')[0] >= monthAgoStr);
+    }
+    return businessExpenses;
+  }, [businessExpenses, timeHorizon, todayDateStr, yesterdayDateStr]);
+
+  const periodSalesTotal = useMemo(() => periodSalesList.reduce((acc, s) => acc + (Number(s.grandTotal) || 0), 0), [periodSalesList]);
+  const periodExpensesTotal = useMemo(() => periodExpensesList.reduce((acc, e) => acc + (Number(e.amount) || 0), 0), [periodExpensesList]);
+  const periodCogs = useMemo(() => {
+    return periodSalesList.reduce((acc, sale) => {
+      const saleCost = (sale.items || []).reduce((itemAcc, item) => itemAcc + ((Number(item.costPrice) || 0) * (Number(item.qty) || 0)), 0);
+      return acc + saleCost;
+    }, 0);
+  }, [periodSalesList]);
+  const periodNetProfit = periodSalesTotal - periodCogs - periodExpensesTotal;
+
+  const periodCashSales = useMemo(() => {
+    return periodSalesList
+      .filter(s => !s.paymentMethod || s.paymentMethod === 'cash')
+      .reduce((acc, s) => acc + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
+  }, [periodSalesList]);
+
+  const periodDigitalSales = useMemo(() => {
+    return periodSalesList
+      .filter(s => s.paymentMethod && s.paymentMethod !== 'cash' && s.paymentMethod !== 'due')
+      .reduce((acc, s) => acc + (Number(s.paidAmount) || Number(s.grandTotal) || 0), 0);
+  }, [periodSalesList]);
+
+  const periodDueSales = useMemo(() => {
+    return periodSalesList.reduce((acc, s) => {
+      const grand = Number(s.grandTotal) || 0;
+      const paid = Number(s.paidAmount !== undefined ? s.paidAmount : grand);
+      return acc + Math.max(0, grand - paid);
+    }, 0);
+  }, [periodSalesList]);
+
+  // Cash in Drawer live estimate (Cash collections - Expenses)
+  const cashDrawerEstimate = Math.max(0, periodCashSales - periodExpensesTotal);
+  const totalPeriodVolume = (periodCashSales + periodDigitalSales + periodDueSales) || 1;
+  const cashPct = Math.round((periodCashSales / totalPeriodVolume) * 100);
+  const digitalPct = Math.round((periodDigitalSales / totalPeriodVolume) * 100);
+  const duePct = Math.round((periodDueSales / totalPeriodVolume) * 100);
+
+  // Daily target completion
+  const targetAchievedPct = Math.min(100, Math.round((todaySalesTotal / (dailySalesTarget || 1)) * 100));
+
+  const handleSaveTarget = () => {
+    const val = Math.max(1000, Number(tempTargetInput) || 50000);
+    setDailySalesTarget(val);
+    setIsEditingTarget(false);
+    try {
+      localStorage.setItem('hk_daily_sales_target', val.toString());
+    } catch {}
+  };
 
   const handleShareZReportWhatsApp = () => {
     hapticFeedback.medium();
@@ -423,69 +551,319 @@ export const BusinessDashboard = () => {
         </div>
       </div>
 
-      {/* 1. LIVE FLOATING SUMMARY TICKER BANNER */}
+      {/* 🧭 MODERN INTERACTIVE TIME HORIZON SWITCHER */}
       <div
-        className="glass-card"
         style={{
-          padding: '12px 16px',
-          borderRadius: '16px',
-          marginBottom: '1.25rem',
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
-          border: '1.5px solid rgba(16, 185, 129, 0.3)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '12px'
+          gap: '10px',
+          marginBottom: '1rem',
+          background: 'var(--bg-secondary)',
+          padding: '8px 12px',
+          borderRadius: '14px',
+          border: '1px solid var(--border-color)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div className="live-sales-ticker-badge" style={{ margin: 0 }}>
-            <span className="live-sales-ticker-pulse" />
-            <span style={{ fontSize: '0.78rem', fontWeight: '800' }}>{lang === 'bn' ? '⚡ আজকের লাইভ বিক্রয়:' : '⚡ Today Sales:'}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '900', color: '#10b981', fontSize: '0.95rem' }}>
-              ৳{todaySalesTotal.toLocaleString()}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Activity size={16} style={{ color: '#10b981' }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>
+            {lang === 'bn' ? 'টাইমলাইন ফিল্টার:' : 'Time Horizon:'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {[
+            { id: 'today', label: lang === 'bn' ? 'আজ (Today)' : 'Today' },
+            { id: 'yesterday', label: lang === 'bn' ? 'গতকাল' : 'Yesterday' },
+            { id: 'week', label: lang === 'bn' ? 'বিগত ৭ দিন' : 'Last 7 Days' },
+            { id: 'month', label: lang === 'bn' ? 'চলতি মাস (৩০ দিন)' : '30 Days' },
+            { id: 'all', label: lang === 'bn' ? 'সর্বমোট' : 'All Time' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                setTimeHorizon(tab.id);
+              }}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: timeHorizon === tab.id ? '800' : '600',
+                background: timeHorizon === tab.id ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-card)',
+                color: timeHorizon === tab.id ? '#ffffff' : 'var(--text-muted)',
+                border: timeHorizon === tab.id ? '1px solid #10b981' : '1px solid var(--border-color)',
+                boxShadow: timeHorizon === tab.id ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ⚡ ULTRA-MODERN DIGITAL BUSINESS COCKPIT (FINTECH HUD) */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '1.25rem',
+          borderRadius: '18px',
+          marginBottom: '1.25rem',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
+          border: '1.5px solid rgba(16, 185, 129, 0.35)',
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.25)',
+          color: '#ffffff',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Cockpit Top Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              style={{
+                display: 'inline-block',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 10px #10b981'
+              }}
+            />
+            <span style={{ fontSize: '0.85rem', fontWeight: '800', letterSpacing: '0.5px', color: '#10b981', textTransform: 'uppercase' }}>
+              {lang === 'bn' ? '⚡ লাইভ ডিজিটাল ককপিট ও ক্যাশ-ফ্লো' : '⚡ Live Digital Cockpit & Cashflow'}
             </span>
-            <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>({todaySalesList.length} {lang === 'bn' ? 'টি মেমো' : 'orders'})</span>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              {timeHorizon === 'today' ? (lang === 'bn' ? 'আজকের লাইভ' : 'Today Live') : `${timeHorizon.toUpperCase()} VIEW`}
+            </span>
           </div>
 
-          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>💸 {lang === 'bn' ? 'আজকের খরচ:' : 'Expenses:'}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: '#ef4444', fontWeight: '800' }}>৳{todayExpensesTotal.toLocaleString()}</span>
-          </div>
-
-          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>📈 {lang === 'bn' ? 'প্রাক্কলিত লাভ:' : 'Net Profit:'}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontWeight: '800' }}>
-              ৳{todayNetProfit.toLocaleString()}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowZReportModal(true);
+              }}
+              style={{
+                padding: '6px 13px',
+                borderRadius: '10px',
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                color: '#fbbf24',
+                fontWeight: '800',
+                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              <span>🌙</span>
+              <span>{lang === 'bn' ? 'দৈনিক Z-রিপোর্ট' : 'Z-Report'}</span>
+            </button>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            hapticFeedback.light();
-            setShowZReportModal(true);
-          }}
-          style={{
-            padding: '7px 14px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #1e293b, #0f172a)',
-            border: '1.5px solid rgba(245, 158, 11, 0.5)',
-            color: '#f59e0b',
-            fontWeight: '800',
-            fontSize: '0.82rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
-          }}
-        >
-          <span>🌙</span>
-          <span>{lang === 'bn' ? 'দৈনিক Z-রিপোর্ট' : 'Daily Z-Report'}</span>
-        </button>
+        {/* 4 Fintech HUD Grid Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+          {/* Tile 1: Cash in Drawer */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', padding: '12px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <Wallet size={15} style={{ color: '#10b981' }} />
+              <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>
+                {lang === 'bn' ? 'ক্যাশ ড্রয়ার স্থিতি (নগদ)' : 'Cash in Drawer:'}
+              </span>
+            </div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+              ৳{cashDrawerEstimate.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+              {lang === 'bn' ? `ক্যাশ আদায় ৳${periodCashSales.toLocaleString()} - খরচ ৳${periodExpensesTotal.toLocaleString()}` : `Cash In ৳${periodCashSales.toLocaleString()} - Out ৳${periodExpensesTotal.toLocaleString()}`}
+            </div>
+          </div>
+
+          {/* Tile 2: Digital Payments */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', padding: '12px', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <CreditCard size={15} style={{ color: '#60a5fa' }} />
+              <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>
+                {lang === 'bn' ? 'ডিজিটাল (বিকাশ/নগদ/কার্ড)' : 'Digital Collection:'}
+              </span>
+            </div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#60a5fa', fontFamily: 'var(--font-mono)' }}>
+              ৳{periodDigitalSales.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+              {digitalPct}% {lang === 'bn' ? 'অনলাইন ও কার্ড ট্রানজেকশন' : 'online & mfs share'}
+            </div>
+          </div>
+
+          {/* Tile 3: Due on Credit */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', padding: '12px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <Users size={15} style={{ color: '#fbbf24' }} />
+              <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>
+                {lang === 'bn' ? 'বকেয়া বিক্রয় (বাকিতে)' : 'Due on Credit:'}
+              </span>
+            </div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#fbbf24', fontFamily: 'var(--font-mono)' }}>
+              ৳{periodDueSales.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+              {duePct}% {lang === 'bn' ? 'ক্রেতাদের কাছে বাকি রইল' : 'unsettled credit memo'}
+            </div>
+          </div>
+
+          {/* Tile 4: Expenses */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', padding: '12px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              <AlertTriangle size={15} style={{ color: '#f87171' }} />
+              <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>
+                {lang === 'bn' ? 'দোকানের মোট খরচ' : 'Period Expenses:'}
+              </span>
+            </div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#f87171', fontFamily: 'var(--font-mono)' }}>
+              ৳{periodExpensesTotal.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+              {periodExpensesList.length} {lang === 'bn' ? 'টি খরচ ভাউচার রেকর্ড' : 'vouchers posted'}
+            </div>
+          </div>
+        </div>
+
+        {/* Cash-Flow Ratio Segmented Progress Strip */}
+        <div style={{ background: 'rgba(0, 0, 0, 0.25)', borderRadius: '12px', padding: '10px 14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.72rem', color: '#94a3b8' }}>
+            <span style={{ fontWeight: '700' }}>{lang === 'bn' ? '📊 পেমেন্ট মেথড অনুপাত (Cash Flow Breakdown):' : '📊 Payment Ratio Breakdown:'}</span>
+            <span>
+              <strong style={{ color: '#10b981' }}>{cashPct}% নগদ</strong> •{' '}
+              <strong style={{ color: '#60a5fa' }}>{digitalPct}% ডিজিটাল</strong> •{' '}
+              <strong style={{ color: '#fbbf24' }}>{duePct}% বাকি</strong>
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', height: '10px', borderRadius: '8px', overflow: 'hidden', background: '#334155' }}>
+            <div style={{ width: `${cashPct}%`, background: '#10b981', transition: 'width 0.4s ease' }} title={`Cash: ${cashPct}%`} />
+            <div style={{ width: `${digitalPct}%`, background: '#3b82f6', transition: 'width 0.4s ease' }} title={`Digital: ${digitalPct}%`} />
+            <div style={{ width: `${duePct}%`, background: '#f59e0b', transition: 'width 0.4s ease' }} title={`Due: ${duePct}%`} />
+          </div>
+        </div>
+      </div>
+
+      {/* 🎯 DAILY SALES TARGET & MOTIVATION PROGRESS METER */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '1rem 1.25rem',
+          borderRadius: '16px',
+          marginBottom: '1.25rem',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.08))',
+          border: '1.5px solid rgba(99, 102, 241, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '240px' }}>
+          <div
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+              flexShrink: 0
+            }}
+          >
+            <Target size={22} />
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <strong style={{ fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                {lang === 'bn' ? 'দৈনিক বিক্রয় লক্ষ্যমাত্রা (Sales Goal Meter)' : 'Daily Sales Target Meter'}
+              </strong>
+              {targetAchievedPct >= 100 && (
+                <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                  🎉 {lang === 'bn' ? 'অর্জিত!' : 'Goal Met!'}
+                </span>
+              )}
+            </div>
+
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {lang === 'bn' ? 'আজকের বিক্রয়:' : 'Today:'}{' '}
+              <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{todaySalesTotal.toLocaleString()}</strong> /{' '}
+              {lang === 'bn' ? 'টার্গেট:' : 'Goal:'}{' '}
+              <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{dailySalesTarget.toLocaleString()}</strong> ({targetAchievedPct}%)
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar & Target Adjustment */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px', maxWidth: '480px' }}>
+          <div style={{ flex: 1, background: 'var(--bg-secondary)', height: '12px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.min(100, targetAchievedPct)}%`,
+                background: targetAchievedPct >= 100 ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #6366f1, #10b981)',
+                borderRadius: '10px',
+                transition: 'width 0.5s ease'
+              }}
+            />
+          </div>
+
+          {isEditingTarget ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <input
+                type="number"
+                value={tempTargetInput}
+                onChange={e => setTempTargetInput(e.target.value)}
+                style={{
+                  width: '90px',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  fontSize: '0.78rem',
+                  border: '1px solid #6366f1',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-main)'
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveTarget}
+                style={{ padding: '4px 8px', fontSize: '0.72rem' }}
+              >
+                <Check size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setTempTargetInput(dailySalesTarget.toString());
+                setIsEditingTarget(true);
+              }}
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '0.72rem', whiteSpace: 'nowrap' }}
+            >
+              {lang === 'bn' ? 'টার্গেট পরিবর্তন' : 'Edit Goal'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Item 87: INTERACTIVE PURE SVG SALES TREND CHART */}
@@ -763,8 +1141,42 @@ export const BusinessDashboard = () => {
                 ))}
               </select>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setIsBranchMonitorOpen(!isBranchMonitorOpen)}
+              className="btn btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '0.78rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+            >
+              {isBranchMonitorOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              <span>{isBranchMonitorOpen ? (lang === 'bn' ? 'লুকান' : 'Collapse') : (lang === 'bn' ? 'মনিটর দেখুন' : 'Expand')}</span>
+            </button>
           </div>
         </div>
+
+        {!isBranchMonitorOpen ? (
+          <div
+            onClick={() => setIsBranchMonitorOpen(true)}
+            style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.06)',
+              border: '1px dashed rgba(99, 102, 241, 0.3)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+              🏢 {branches.length}টি শাখা ও কাউন্টারের রিয়েল-টাইম ক্যাশ ও বিক্রয় মনিটর — দেখতে এখানে ক্লিক করুন
+            </span>
+            <span style={{ fontSize: '0.8rem', color: '#6366f1', fontWeight: '700' }}>
+              শাখা ও কাউন্টার বিস্তারিত দেখুন ↓
+            </span>
+          </div>
+        ) : (
+          <>
 
         {/* Quick Management Short-Bar for Branches, Counters, Staff, HR & SR */}
         <div
@@ -948,6 +1360,8 @@ export const BusinessDashboard = () => {
               );
             })}
         </div>
+          </>
+        )}
       </div>
 
       {/* Today's Real-time Profit & Top Sellers Banner */}
@@ -1043,33 +1457,77 @@ export const BusinessDashboard = () => {
 
       {/* KPI Stats Grid */}
       <div className="stats-grid">
-        {/* Total Sales */}
+        {/* Total Sales (Dynamic with Time Horizon) */}
         <div className="glass-card stat-card glow-card">
           <div className="stat-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}>
             <TrendingUp size={24} />
           </div>
           <div className="stat-info">
-            <h3>{t.business.todaySales}</h3>
-            <div className="stat-value">৳{totalSales.toLocaleString()}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+              <h3 style={{ margin: 0 }}>
+                {timeHorizon === 'today'
+                  ? (lang === 'bn' ? 'আজকের বিক্রয়' : "Today's Sales")
+                  : timeHorizon === 'yesterday'
+                  ? (lang === 'bn' ? 'গতকালের বিক্রয়' : "Yesterday's Sales")
+                  : timeHorizon === 'week'
+                  ? (lang === 'bn' ? 'বিগত ৭ দিনের বিক্রয়' : '7 Days Sales')
+                  : timeHorizon === 'month'
+                  ? (lang === 'bn' ? 'চলতি মাসের বিক্রয়' : '30 Days Sales')
+                  : (lang === 'bn' ? 'সর্বমোট বিক্রয়' : 'All-Time Sales')}
+              </h3>
+              <span className="badge" style={{ fontSize: '0.62rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
+                {timeHorizon.toUpperCase()}
+              </span>
+            </div>
+            <div className="stat-value">
+              ৳{(timeHorizon === 'all' ? totalSales : periodSalesTotal).toLocaleString()}
+            </div>
             <div className="stat-trend" style={{ color: '#10b981' }}>
-              {filteredSales.length} {lang === 'bn' ? 'টি সফল বিক্রয়' : 'Completed Sales'}
+              {(timeHorizon === 'all' ? filteredSales : periodSalesList).length} {lang === 'bn' ? 'টি মেমো/অর্ডার' : 'Orders'}
             </div>
           </div>
         </div>
 
-        {/* Net Profit (Only visible to Owner, hidden from staff) */}
+        {/* Net Profit (Dynamic with Time Horizon - Owner only) */}
         {canViewNetProfit ? (
           <div className="glass-card stat-card glow-card">
             <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
               <DollarSign size={24} />
             </div>
             <div className="stat-info">
-              <h3>{t.business.netProfit}</h3>
-              <div className="stat-value" style={{ color: netProfit >= 0 ? '#10b981' : '#ef4444' }}>
-                ৳{netProfit.toLocaleString()}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <h3 style={{ margin: 0 }}>
+                  {timeHorizon === 'today'
+                    ? (lang === 'bn' ? 'আজকের নিট লাভ' : "Today's Net Profit")
+                    : timeHorizon === 'yesterday'
+                    ? (lang === 'bn' ? 'গতকালের নিট লাভ' : "Yesterday's Profit")
+                    : timeHorizon === 'week'
+                    ? (lang === 'bn' ? '৭ দিনের নিট লাভ' : '7 Days Profit')
+                    : timeHorizon === 'month'
+                    ? (lang === 'bn' ? 'চলতি মাসের নিট লাভ' : '30 Days Profit')
+                    : (lang === 'bn' ? 'সর্বমোট নিট লাভ' : 'All-Time Profit')}
+                </h3>
+                <span className="badge" style={{ fontSize: '0.62rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
+                  {timeHorizon.toUpperCase()}
+                </span>
               </div>
-              <div className="stat-trend" style={{ color: netProfit >= 0 ? '#10b981' : '#ef4444' }}>
-                {netProfit >= 0 ? (lang === 'bn' ? 'লাভজনক মার্জিন' : 'Profitable') : (lang === 'bn' ? 'ক্ষতিগ্রস্ত' : 'Negative Loss')}
+              <div
+                className="stat-value"
+                style={{
+                  color: (timeHorizon === 'all' ? netProfit : periodNetProfit) >= 0 ? '#10b981' : '#ef4444'
+                }}
+              >
+                ৳{(timeHorizon === 'all' ? netProfit : periodNetProfit).toLocaleString()}
+              </div>
+              <div
+                className="stat-trend"
+                style={{
+                  color: (timeHorizon === 'all' ? netProfit : periodNetProfit) >= 0 ? '#10b981' : '#ef4444'
+                }}
+              >
+                {(timeHorizon === 'all' ? netProfit : periodNetProfit) >= 0
+                  ? (lang === 'bn' ? 'লাভজনক মার্জিন' : 'Profitable')
+                  : (lang === 'bn' ? 'ক্ষতিগ্রস্ত' : 'Negative Loss')}
               </div>
             </div>
           </div>
@@ -1267,10 +1725,42 @@ export const BusinessDashboard = () => {
               </p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAiInsightsOpen(!isAiInsightsOpen)}
+            className="btn btn-secondary"
+            style={{ padding: '5px 12px', fontSize: '0.78rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+          >
+            {isAiInsightsOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            <span>{isAiInsightsOpen ? (lang === 'bn' ? 'লুকান' : 'Collapse') : (lang === 'bn' ? 'ইনসাইট দেখুন' : 'Expand')}</span>
+          </button>
         </div>
 
-        {/* 4 Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+        {!isAiInsightsOpen ? (
+          <div
+            onClick={() => setIsAiInsightsOpen(true)}
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              background: 'rgba(139, 92, 246, 0.08)',
+              border: '1px dashed rgba(139, 92, 246, 0.3)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+              🧠 মার্জিন বিজয়ী পণ্য, অলস পুঁজি ও বিক্রয় পূর্বাভাসের ৪টি স্মার্ট অ্যানালিটিক্স সংরক্ষিত
+            </span>
+            <span style={{ fontSize: '0.8rem', color: '#8b5cf6', fontWeight: '700' }}>
+              ইনসাইট কার্ডগুলো দেখুন ↓
+            </span>
+          </div>
+        ) : (
+          /* 4 Cards Grid */
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
           {/* Card 1: Top Profit Margin Winners */}
           <div
             style={{
@@ -1447,6 +1937,7 @@ export const BusinessDashboard = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Recent POS Sales Invoices */}
