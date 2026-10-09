@@ -25,11 +25,16 @@ import {
   Store,
   MapPin,
   ClipboardList,
-  Sparkles
+  Sparkles,
+  Fingerprint,
+  Send
 } from 'lucide-react';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { triggerSoundboxPayment } from '../../services/soundboxService';
+import { StaffAttendanceSheet } from './attendance/StaffAttendanceSheet';
+import { MonthlyAttendanceReport } from './attendance/MonthlyAttendanceReport';
+import { TelegramConfigModal } from './attendance/TelegramConfigModal';
 
 export const HRPayroll = () => {
   const {
@@ -49,8 +54,9 @@ export const HRPayroll = () => {
     activeBranch
   } = useApp();
 
-  // Primary sub-tab: 'delivery' (Product Delivery Tracking) or 'payroll' (Staff Roster & Payroll)
-  const [activeSubTab, setActiveSubTab] = useState('delivery');
+  // Primary sub-tab: 'attendance' | 'attendance_report' | 'payroll' | 'delivery'
+  const [activeSubTab, setActiveSubTab] = useState('attendance');
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
 
   // ----------------------------------------------------
   // PAYROLL STATE
@@ -281,31 +287,68 @@ export const HRPayroll = () => {
       </div>
 
       {/* Main Sub-Tab Switcher (Horizontal Touch Strip) */}
-      <div className="horizontal-touch-strip" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+      <div className="horizontal-touch-strip" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
         <button
-          onClick={() => setActiveSubTab('delivery')}
-          className={`btn ${activeSubTab === 'delivery' ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', fontWeight: '700' }}
+          onClick={() => setActiveSubTab('attendance')}
+          className={`btn ${activeSubTab === 'attendance' ? 'btn-primary' : 'btn-secondary'} press-scale`}
+          style={{ padding: '8px 16px', fontSize: '0.88rem', fontWeight: '800', whiteSpace: 'nowrap' }}
         >
-          <Truck size={17} />
-          <span>{lang === 'bn' ? '📦 ফিল্ড প্রোডাক্ট কাটিং ও ডেলিভারি ট্র্যাকিং' : 'Field Orders & Delivery'}</span>
-          <span className="badge" style={{ marginLeft: '6px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', fontSize: '0.75rem' }}>
-            {totalFieldOrders}
-          </span>
+          <Fingerprint size={17} />
+          <span>{lang === 'bn' ? '🕒 ডেইলি স্টাফ হাজিরা (Anti-Cheat)' : 'Daily Attendance'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('attendance_report')}
+          className={`btn ${activeSubTab === 'attendance_report' ? 'btn-primary' : 'btn-secondary'} press-scale`}
+          style={{ padding: '8px 16px', fontSize: '0.88rem', fontWeight: '800', whiteSpace: 'nowrap' }}
+        >
+          <Calendar size={17} />
+          <span>{lang === 'bn' ? '📊 মাসিক হাজিরা ও স্যালারি সামারি' : 'Attendance Register & Pay'}</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('payroll')}
-          className={`btn ${activeSubTab === 'payroll' ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', fontWeight: '700' }}
+          className={`btn ${activeSubTab === 'payroll' ? 'btn-primary' : 'btn-secondary'} press-scale`}
+          style={{ padding: '8px 16px', fontSize: '0.88rem', fontWeight: '800', whiteSpace: 'nowrap' }}
         >
           <Users size={17} />
-          <span>{lang === 'bn' ? '👥 কর্মচারী তালিকা ও বেতন প্রদান' : 'Staff & Payroll'}</span>
+          <span>{lang === 'bn' ? '👥 কর্মচারী তালিকা ও মূল বেতন' : 'Staff & Roster'}</span>
           <span className="badge" style={{ marginLeft: '6px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', fontSize: '0.75rem' }}>
             {employees.length}
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveSubTab('delivery')}
+          className={`btn ${activeSubTab === 'delivery' ? 'btn-primary' : 'btn-secondary'} press-scale`}
+          style={{ padding: '8px 16px', fontSize: '0.88rem', fontWeight: '800', whiteSpace: 'nowrap' }}
+        >
+          <Truck size={17} />
+          <span>{lang === 'bn' ? '📦 ফিল্ড কাটিং ও ডেলিভারি' : 'Field Orders'}</span>
+          <span className="badge" style={{ marginLeft: '6px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', fontSize: '0.75rem' }}>
+            {totalFieldOrders}
+          </span>
+        </button>
       </div>
+
+      {/* ==================================================== */}
+      {/* SUB-TAB: ATTENDANCE (DAILY ROLL CALL)                */}
+      {/* ==================================================== */}
+      {activeSubTab === 'attendance' && (
+        <StaffAttendanceSheet
+          employees={employees}
+          onOpenTelegramModal={() => setShowTelegramModal(true)}
+        />
+      )}
+
+      {/* ==================================================== */}
+      {/* SUB-TAB: ATTENDANCE REGISTER & MONTHLY PAYROLL       */}
+      {/* ==================================================== */}
+      {activeSubTab === 'attendance_report' && (
+        <MonthlyAttendanceReport
+          employees={employees}
+        />
+      )}
 
       {/* ==================================================== */}
       {/* SUB-TAB 1: PRODUCT CUTTING & DELIVERY TRACKING       */}
@@ -1493,6 +1536,15 @@ export const HRPayroll = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TELEGRAM BOT NOTIFICATION CONFIG MODAL */}
+      {showTelegramModal && (
+        <TelegramConfigModal
+          isOpen={showTelegramModal}
+          onClose={() => setShowTelegramModal(false)}
+          totalStaff={employees.length}
+        />
       )}
     </div>
   );
