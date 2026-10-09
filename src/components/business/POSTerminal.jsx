@@ -39,6 +39,7 @@ import {
   Filter,
   Tag,
   Eye,
+  EyeOff,
   Mic,
   Volume2,
   VolumeX,
@@ -51,7 +52,9 @@ import {
   Divide,
   Printer,
   Coins,
-  Tv
+  Tv,
+  Truck,
+  Gift
 } from 'lucide-react';
 import { QuickFilterManagerModal } from '../pos/QuickFilterManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -63,6 +66,8 @@ import { DenominationCalculatorModal } from '../pos/DenominationCalculatorModal'
 import { SplitPaymentModal } from '../pos/SplitPaymentModal';
 import { ThermalLabelPrinterModal } from '../pos/ThermalLabelPrinterModal';
 import { DigitalScaleModal } from '../pos/DigitalScaleModal';
+import { SupplierPurchaseOrderModal } from './SupplierPurchaseOrderModal';
+import { SalesReturnModal } from './SalesReturnModal';
 import { broadcastCartToCustomerDisplay, openCustomerMirrorWindow } from '../../services/customerMirrorService';
 import {
   connectSerialPrinter,
@@ -265,6 +270,10 @@ export const POSTerminal = () => {
   const [lastCompletedSale, setLastCompletedSale] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showVoiceBillingModal, setShowVoiceBillingModal] = useState(false);
+  const [showPOModal, setShowPOModal] = useState(false);
+  const [showSalesReturnModal, setShowSalesReturnModal] = useState(false);
+  const [showLiveProfit, setShowLiveProfit] = useState(false);
+  const [useLoyaltyPoints, setUseLoyaltyPoints] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [isShiftActive, setIsShiftActive] = useState(() => {
@@ -798,12 +807,25 @@ export const POSTerminal = () => {
     };
   }, [products, businessSettings.enableGlobalScanner, lang, addToCart, playScannerBeep, openCashDrawer, showToast, cart]);
 
+  // Customer Loyalty Points (1 point per ৳100 spent, 1 point = ৳1 discount)
+  const selectedCustomerObj = useMemo(() => customers.find(c => c.id === selectedCustomerId), [customers, selectedCustomerId]);
+  const availableLoyaltyPoints = selectedCustomerObj?.loyaltyPoints || 0;
+
   // Calculate totals
   const subtotal = cart.reduce((acc, item) => acc + (item.sellPrice * item.qty), 0);
-  const discount = Math.min(subtotal, Number(discountAmount) || 0);
+  const totalCartCost = useMemo(() => {
+    return cart.reduce((acc, item) => acc + ((Number(item.costPrice) || 0) * item.qty), 0);
+  }, [cart]);
+  const baseDiscount = Math.min(subtotal, Number(discountAmount) || 0);
+  const loyaltyDiscount = (useLoyaltyPoints && availableLoyaltyPoints > 0) ? Math.min(availableLoyaltyPoints, Math.max(0, subtotal - baseDiscount)) : 0;
+  const discount = Math.min(subtotal, baseDiscount + loyaltyDiscount);
   const taxableAmount = Math.max(0, subtotal - discount);
   const vat = Math.round(taxableAmount * (businessSettings.vatRate / 100));
   const grandTotal = taxableAmount + vat;
+
+  // Live Gross Profit & Margin (Item 73)
+  const liveGrossProfit = Math.max(0, taxableAmount - totalCartCost);
+  const liveProfitMarginPct = taxableAmount > 0 ? Math.round((liveGrossProfit / taxableAmount) * 100) : 0;
 
   const actualPaid = isPartialPayment
     ? Math.min(grandTotal, Math.max(0, Number(partialPaidInput) || 0))
@@ -852,7 +874,8 @@ export const POSTerminal = () => {
       cashierName: user?.name || (user?.email ? user.email.split('@')[0] : 'কাউন্টার ক্যাশিয়ার'),
       table: orderType === 'dine_in' ? selectedTable : (lang === 'bn' ? 'পার্সেল' : 'Parcel/Takeaway'),
       orderType,
-      splitPayments: activeSplit
+      splitPayments: activeSplit,
+      usedLoyaltyPoints: loyaltyDiscount
     });
 
     if (saleRecord) {
@@ -1949,6 +1972,52 @@ export const POSTerminal = () => {
                 <span>{lang === 'bn' ? '🗄️ ড্রয়ার (F9)' : '🗄️ Drawer (F9)'}</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => setShowPOModal(true)}
+                className="btn pos-action-btn hide-mobile-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  color: '#3b82f6',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+                title={lang === 'bn' ? 'সাপ্লায়ার অর্ডার ও চালান (PO to Stock)' : 'Supplier Purchase Order (PO)'}
+              >
+                <Truck size={16} />
+                <span>{lang === 'bn' ? '🚚 সাপ্লায়ার PO' : '🚚 Supplier PO'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSalesReturnModal(true)}
+                className="btn pos-action-btn hide-mobile-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+                title={lang === 'bn' ? 'বিক্রিত পণ্য ফেরত ও নষ্ট মালের হিসাব' : 'Sales Return & Damage'}
+              >
+                <RotateCcw size={16} />
+                <span>{lang === 'bn' ? '↩️ ফেরত/ড্যামেজ' : '↩️ Return'}</span>
+              </button>
+
               {/* POS View Mode Switcher (Photos / Hybrid / Compact) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--bg-secondary)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
                 <button
@@ -2113,6 +2182,50 @@ export const POSTerminal = () => {
                 title={lang === 'bn' ? 'ভয়েস বিলিং' : 'Voice POS'}
               >
                 <Mic size={19} />
+              </button>
+
+              {/* 4. PO Button (Blue) */}
+              <button
+                type="button"
+                onClick={() => setShowPOModal(true)}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: 'rgba(59, 130, 246, 0.18)',
+                  border: '1.5px solid rgba(59, 130, 246, 0.5)',
+                  color: '#60a5fa',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+                title={lang === 'bn' ? 'সাপ্লায়ার PO' : 'Supplier PO'}
+              >
+                <Truck size={19} />
+              </button>
+
+              {/* 5. Return & Damage Button (Red) */}
+              <button
+                type="button"
+                onClick={() => setShowSalesReturnModal(true)}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: 'rgba(239, 68, 68, 0.18)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                  color: '#f87171',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+                title={lang === 'bn' ? 'পণ্য ফেরত ও ড্যামেজ' : 'Return & Damage'}
+              >
+                <RotateCcw size={19} />
               </button>
             </div>
 
@@ -3431,6 +3544,45 @@ export const POSTerminal = () => {
             ))}
           </div>
 
+          {/* Customer Loyalty Points (Item 75) */}
+          {selectedCustomerObj && availableLoyaltyPoints > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', background: 'rgba(236, 72, 153, 0.08)', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.25)', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#ec4899', fontWeight: 600 }}>
+                <Gift size={14} />
+                <span>{lang === 'bn' ? `জমা পয়েন্ট: ${availableLoyaltyPoints}` : `Points: ${availableLoyaltyPoints}`}</span>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 700 }}>
+                <input
+                  type="checkbox"
+                  checked={useLoyaltyPoints}
+                  onChange={e => setUseLoyaltyPoints(e.target.checked)}
+                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                />
+                <span>{lang === 'bn' ? `ভাঙান (-৳${loyaltyDiscount})` : `Redeem (-৳${loyaltyDiscount})`}</span>
+              </label>
+            </div>
+          )}
+
+          {/* Real-time Profit Margin on Cart for Manager (Item 73) */}
+          {cart.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', border: '1px dashed rgba(16, 185, 129, 0.3)', marginBottom: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowLiveProfit(prev => !prev)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: '#10b981', fontWeight: 700 }}
+                title={lang === 'bn' ? 'মালিকের জন্য লাভ ও মার্জিন ভিউ (গোপন রাখুন)' : 'Owner Profit View'}
+              >
+                {showLiveProfit ? <EyeOff size={13} /> : <Eye size={13} />}
+                <span>{lang === 'bn' ? (showLiveProfit ? 'লাইভ লাভ: ' : 'লাইভ প্রফিট ভিউ') : 'Live Profit View'}</span>
+              </button>
+              {showLiveProfit && (
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#10b981' }}>
+                  ৳{liveGrossProfit.toLocaleString()} ({liveProfitMarginPct}%)
+                </span>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>
             <span>{t.business.vatTax} ({businessSettings.vatRate}%)</span>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>+৳{vat.toLocaleString()}</span>
@@ -3998,6 +4150,22 @@ export const POSTerminal = () => {
         onApplyWeightToCartItem={(itemId, measuredWeight) => {
           updateCartQty(itemId, measuredWeight);
         }}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* SUPPLIER PURCHASE ORDER MODAL (ITEM 74) */}
+      <SupplierPurchaseOrderModal
+        isOpen={showPOModal}
+        onClose={() => setShowPOModal(false)}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* SALES RETURN & DAMAGE MANAGEMENT MODAL (ITEM 80) */}
+      <SalesReturnModal
+        isOpen={showSalesReturnModal}
+        onClose={() => setShowSalesReturnModal(false)}
         lang={lang}
         showToast={showToast}
       />

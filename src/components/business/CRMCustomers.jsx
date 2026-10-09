@@ -184,6 +184,38 @@ export const CRMCustomers = () => {
     setCollectionAmount('');
   };
 
+  // Item 77: 1-Click WhatsApp Customer Ledger Statement Share
+  const handleShareStatementWhatsApp = (cust) => {
+    const storeName = businessSettings?.storeName || businessSettings?.companyName || (lang === 'bn' ? 'আমাদের প্রতিষ্ঠান' : 'Our Store');
+    const totalPurchased = Number(cust.totalPurchased || 0);
+    const due = Number(cust.outstandingDue || 0);
+    const paid = Math.max(0, totalPurchased - due);
+    const loyalty = cust.loyaltyPoints || 0;
+
+    const statementText =
+      `📋 *${storeName} - গ্রাহক হিসাব বিবরণী (Ledger Statement)*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 *গ্রাহক:* ${cust.name}\n` +
+      (cust.phone ? `📞 *মোবাইল:* ${cust.phone}\n` : '') +
+      (cust.companyName ? `🏢 *প্রতিষ্ঠান:* ${cust.companyName}\n` : '') +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `🛒 *সর্বমোট কেনাকাটা:* ৳${totalPurchased.toLocaleString()}\n` +
+      `✅ *মোট পরিশোধিত:* ৳${paid.toLocaleString()}\n` +
+      `⚠️ *বর্তমান বকেয়া:* ৳${due.toLocaleString()}\n` +
+      (loyalty > 0 ? `🎁 *লয়ালটি রিওয়ার্ড পয়েন্ট:* ${loyalty} pts\n` : '') +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📅 *তারিখ:* ${new Date().toLocaleDateString('bn-BD')}\n` +
+      `ধন্যবাদ। আপনার ব্যবসার সাফল্য কামনা করি।`;
+
+    const cleanPhone = (cust.phone || '').replace(/[^0-9]/g, '');
+    const phoneParam = cleanPhone ? (cleanPhone.startsWith('88') ? cleanPhone : (cleanPhone.startsWith('0') ? `88${cleanPhone}` : cleanPhone)) : '';
+    const url = phoneParam 
+      ? `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(statementText)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(statementText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    if (showToast) showToast(lang === 'bn' ? 'হোয়াটসঅ্যাপ স্টেটমেন্ট চালু হচ্ছে...' : 'Opening WhatsApp Statement...');
+  };
+
   const handleOpenDetailModal = (cust) => {
     setSelectedCustomer(cust);
     setShowDetailModal(true);
@@ -505,6 +537,26 @@ export const CRMCustomers = () => {
                             </button>
                           </>
                         )}
+
+                        {/* WhatsApp Statement Share Button (Item 77) */}
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => handleShareStatementWhatsApp(cust)}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
+                            color: '#25D366',
+                            borderColor: 'rgba(37, 211, 102, 0.35)',
+                            background: 'rgba(37, 211, 102, 0.08)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={lang === 'bn' ? 'হোয়াটসঅ্যাপে পূর্ণাঙ্গ গ্রাহক লেজার স্টেটমেন্ট পাঠান' : 'Share Customer Statement via WhatsApp'}
+                        >
+                          <MessageCircle size={13} />
+                          <span>{lang === 'bn' ? 'লেজার' : 'Statement'}</span>
+                        </button>
 
                         {/* Edit Button */}
                         <button
@@ -966,19 +1018,37 @@ export const CRMCustomers = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', gap: '8px' }}>
-              <button className="btn btn-secondary" onClick={() => setShowDetailModal(false)}>
-                {t.close}
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', flexWrap: 'wrap', gap: '8px' }}>
               <button
+                type="button"
                 className="btn btn-primary"
-                onClick={() => {
-                  setShowDetailModal(false);
-                  handleOpenEditModal(selectedCustomer);
+                onClick={() => handleShareStatementWhatsApp(selectedCustomer)}
+                style={{
+                  background: '#25D366',
+                  borderColor: '#25D366',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: '700'
                 }}
               >
-                {t.edit}
+                <MessageCircle size={15} />
+                <span>{lang === 'bn' ? '💬 হোয়াটসঅ্যাপে লেজার স্টেটমেন্ট পাঠান' : '💬 Share Ledger Statement on WhatsApp'}</span>
               </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setShowDetailModal(false)}>
+                  {t.close}
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    handleOpenEditModal(selectedCustomer);
+                  }}
+                >
+                  {t.edit}
+                </button>
+              </div>
             </div>
           </div>
         </div>

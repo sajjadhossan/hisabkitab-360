@@ -71,6 +71,7 @@ export const InventoryManager = () => {
     bulkAddProducts,
     categories = {},
     businessSettings = {},
+    salesHistory = [],
     showToast,
     t,
     lang
@@ -103,6 +104,8 @@ export const InventoryManager = () => {
     name: '',
     sku: '',
     barcode: '',
+    batchNumber: '',
+    expiryDate: '',
     category: 'খাদ্যপণ্য',
     costPrice: '',
     sellPrice: '',
@@ -121,6 +124,8 @@ export const InventoryManager = () => {
     name: '',
     sku: '',
     barcode: '',
+    batchNumber: '',
+    expiryDate: '',
     category: 'খাদ্যপণ্য',
     costPrice: '',
     sellPrice: '',
@@ -264,12 +269,61 @@ export const InventoryManager = () => {
     window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
+  // Item 71: Smart Low-Stock Forecasting based on 30-day sales velocity
+  const productForecastMap = useMemo(() => {
+    const velocityMap = {};
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+    (salesHistory || []).forEach(sale => {
+      if (sale.date && sale.date >= thirtyDaysStr && Array.isArray(sale.items)) {
+        sale.items.forEach(item => {
+          const pid = item.id || item.productId;
+          if (pid) {
+            velocityMap[pid] = (velocityMap[pid] || 0) + (Number(item.quantity) || 1);
+          }
+        });
+      }
+    });
+
+    const forecast = {};
+    products.forEach(p => {
+      const soldLast30Days = velocityMap[p.id] || 0;
+      const dailyVelocity = soldLast30Days / 30;
+      const currentStock = Number(p.stock) || 0;
+      let runwayDays = null;
+      if (dailyVelocity > 0) {
+        runwayDays = Math.max(0, Math.round(currentStock / dailyVelocity));
+      }
+      forecast[p.id] = {
+        soldLast30Days,
+        dailyVelocity,
+        runwayDays
+      };
+    });
+    return forecast;
+  }, [salesHistory, products]);
+
+  // Item 72: Expired / Expiring within 30 days list
+  const expiringProducts = useMemo(() => {
+    const now = new Date();
+    return products.filter(p => {
+      if (!p.expiryDate) return false;
+      const expDate = new Date(p.expiryDate);
+      const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
+      return diffDays <= 30;
+    });
+  }, [products]);
+
   const handleOpenEditModal = (product) => {
     setEditProductForm({
       id: product.id,
       name: product.name || '',
       sku: product.sku || '',
       barcode: product.barcode || '',
+      batchNumber: product.batchNumber || '',
+      expiryDate: product.expiryDate || '',
       category: product.category || 'খাদ্যপণ্য',
       costPrice: product.costPrice || 0,
       sellPrice: product.sellPrice || 0,
@@ -287,6 +341,8 @@ export const InventoryManager = () => {
       name: editProductForm.name,
       sku: editProductForm.sku,
       barcode: editProductForm.barcode,
+      batchNumber: editProductForm.batchNumber || '',
+      expiryDate: editProductForm.expiryDate || '',
       category: editProductForm.category,
       costPrice: Number(editProductForm.costPrice) || 0,
       sellPrice: Number(editProductForm.sellPrice) || 0,
@@ -302,6 +358,8 @@ export const InventoryManager = () => {
     if (!newProductForm.name || !newProductForm.sellPrice) return;
     addProduct({
       ...newProductForm,
+      batchNumber: newProductForm.batchNumber || '',
+      expiryDate: newProductForm.expiryDate || '',
       sku: newProductForm.sku || `SKU-${Date.now().toString().slice(-6)}`,
       barcode: newProductForm.barcode || Math.floor(1000000000 + Math.random() * 9000000000).toString(),
       image: newProductForm.image || ''
@@ -310,6 +368,8 @@ export const InventoryManager = () => {
       name: '',
       sku: '',
       barcode: '',
+      batchNumber: '',
+      expiryDate: '',
       category: 'খাদ্যপণ্য',
       costPrice: '',
       sellPrice: '',
@@ -786,6 +846,43 @@ export const InventoryManager = () => {
             </div>
           </div>
 
+          {/* Item 72: Expiry & Shelf Life Alert Banner */}
+          {expiringProducts.length > 0 && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              marginBottom: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', fontWeight: '800', fontSize: '0.9rem' }}>
+                <AlertTriangle size={20} />
+                <span>
+                  {lang === 'bn'
+                    ? `⚠️ মেয়াদ সতর্কতা: ${expiringProducts.length}টি পণ্যের মেয়াদ শেষ বা ৩০ দিনের মধ্যে শেষ হতে চলেছে!`
+                    : `⚠️ Expiry Alert: ${expiringProducts.length} products expired or expiring in <= 30 days!`}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {expiringProducts.slice(0, 4).map(ep => (
+                  <span key={ep.id} className="badge badge-danger" style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <strong>{ep.name}</strong> ({ep.expiryDate})
+                  </span>
+                ))}
+                {expiringProducts.length > 4 && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    +{expiringProducts.length - 4} {lang === 'bn' ? 'আরও পণ্য' : 'more'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Search & Filter Bar */}
           <div className="glass-card" style={{ padding: '0.875rem', marginBottom: '1.25rem', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
@@ -890,7 +987,40 @@ export const InventoryManager = () => {
                                 borderRadius="6px"
                               />
                             ) : null}
-                            <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.name}</div>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.name}</div>
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                {p.batchNumber && (
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '4px' }}>
+                                    🏷️ {p.batchNumber}
+                                  </span>
+                                )}
+                                {p.expiryDate && (
+                                  <span style={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: '700',
+                                    padding: '1px 5px',
+                                    borderRadius: '4px',
+                                    background: new Date(p.expiryDate) < new Date()
+                                      ? 'rgba(239, 68, 68, 0.2)'
+                                      : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
+                                        ? 'rgba(245, 158, 11, 0.2)'
+                                        : 'rgba(255, 255, 255, 0.06)'),
+                                    color: new Date(p.expiryDate) < new Date()
+                                      ? '#ef4444'
+                                      : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
+                                        ? '#f59e0b'
+                                        : 'var(--text-muted)')
+                                  }}>
+                                    {new Date(p.expiryDate) < new Date()
+                                      ? `🚫 মেয়াদ শেষ (${p.expiryDate})`
+                                      : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
+                                        ? `⚠️ মেয়াদ বাকি ${Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24))} দিন`
+                                        : `📅 মেয়াদ: ${p.expiryDate}`)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td>
@@ -926,6 +1056,16 @@ export const InventoryManager = () => {
                             {isLow && <AlertTriangle size={12} />}
                             <span style={{ fontWeight: '700' }}>{p.stock}</span>
                           </span>
+                          {productForecastMap[p.id]?.runwayDays !== null && productForecastMap[p.id]?.runwayDays !== undefined && (
+                            <div style={{
+                              fontSize: '0.7rem',
+                              marginTop: '3px',
+                              fontWeight: productForecastMap[p.id].runwayDays <= 5 ? '800' : '600',
+                              color: productForecastMap[p.id].runwayDays <= 5 ? '#ef4444' : 'var(--text-muted)'
+                            }}>
+                              ⏳ আর {productForecastMap[p.id].runwayDays} দিন চলবে
+                            </div>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
@@ -1505,6 +1645,70 @@ export const InventoryManager = () => {
                 </div>
               </div>
 
+              {/* Barcode & Auto Barcode Generator (Item 79) */}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="field-label" style={{ margin: 0 }}>
+                    {lang === 'bn' ? 'বারকোড (Barcode / EAN-13):' : 'Barcode / EAN-13:'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const autoCode = '894' + Math.floor(1000000000 + Math.random() * 9000000000);
+                      setNewProductForm(prev => ({ ...prev, barcode: autoCode }));
+                      if (showToast) showToast(lang === 'bn' ? 'ইউনিক বারকোড তৈরি হয়েছে!' : 'Unique barcode generated!');
+                    }}
+                    style={{
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      border: '1px solid rgba(99, 102, 241, 0.4)',
+                      color: '#818cf8',
+                      borderRadius: '6px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      padding: '2px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={lang === 'bn' ? 'ইন-হাউস ইউনিক বারকোড তৈরি করুন' : 'Auto Generate Unique Barcode'}
+                  >
+                    <Sparkles size={12} />
+                    <span>{lang === 'bn' ? '⚡ অটো বারকোড তৈরি' : '⚡ Auto Barcode'}</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder={lang === 'bn' ? 'বারকোড লিখুন বা স্ক্যান করুন...' : 'Barcode or scan...'}
+                  value={newProductForm.barcode}
+                  onChange={(e) => setNewProductForm({ ...newProductForm, barcode: e.target.value })}
+                />
+              </div>
+
+              {/* Batch Number & Expiry Date (Item 72) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
+                <div>
+                  <label className="field-label">{lang === 'bn' ? 'ব্যাচ নম্বর (ঐচ্ছিক):' : 'Batch No (Optional):'}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="যেমন: B-2026-X1"
+                    value={newProductForm.batchNumber}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, batchNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="field-label">{lang === 'bn' ? 'মেয়াদোত্তীর্ণের তারিখ:' : 'Expiry Date:'}</label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={newProductForm.expiryDate}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, expiryDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
                 <div>
                   <label className="field-label">{t.business.costPrice} (৳)</label>
@@ -1709,6 +1913,70 @@ export const InventoryManager = () => {
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* Barcode & Auto Barcode Generator (Item 79) */}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="field-label" style={{ margin: 0 }}>
+                    {lang === 'bn' ? 'বারকোড (Barcode / EAN-13):' : 'Barcode / EAN-13:'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const autoCode = '894' + Math.floor(1000000000 + Math.random() * 9000000000);
+                      setEditProductForm(prev => ({ ...prev, barcode: autoCode }));
+                      if (showToast) showToast(lang === 'bn' ? 'নতুন বারকোড তৈরি হয়েছে!' : 'New barcode generated!');
+                    }}
+                    style={{
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      border: '1px solid rgba(99, 102, 241, 0.4)',
+                      color: '#818cf8',
+                      borderRadius: '6px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      padding: '2px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={lang === 'bn' ? 'ইন-হাউস ইউনিক বারকোড তৈরি করুন' : 'Auto Generate Unique Barcode'}
+                  >
+                    <Sparkles size={12} />
+                    <span>{lang === 'bn' ? '⚡ অটো বারকোড তৈরি' : '⚡ Auto Barcode'}</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder={lang === 'bn' ? 'বারকোড লিখুন বা স্ক্যান করুন...' : 'Barcode or scan...'}
+                  value={editProductForm.barcode}
+                  onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })}
+                />
+              </div>
+
+              {/* Batch Number & Expiry Date (Item 72) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
+                <div>
+                  <label className="field-label">{lang === 'bn' ? 'ব্যাচ নম্বর (ঐচ্ছিক):' : 'Batch No (Optional):'}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="যেমন: B-2026-X1"
+                    value={editProductForm.batchNumber}
+                    onChange={(e) => setEditProductForm({ ...editProductForm, batchNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="field-label">{lang === 'bn' ? 'মেয়াদোত্তীর্ণের তারিখ:' : 'Expiry Date:'}</label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={editProductForm.expiryDate}
+                    onChange={(e) => setEditProductForm({ ...editProductForm, expiryDate: e.target.value })}
+                  />
                 </div>
               </div>
 

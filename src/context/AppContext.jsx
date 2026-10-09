@@ -1593,7 +1593,7 @@ export const AppProvider = ({ children }) => {
     setCart([]);
   };
 
-  // Complete POS Sale (with Full or Partial Payment support)
+  // Complete POS Sale (with Full or Partial Payment & Loyalty Points support)
   const completeSale = ({
     customerId,
     customerName,
@@ -1604,7 +1604,8 @@ export const AppProvider = ({ children }) => {
     cashierName = '',
     table = null,
     orderType = null,
-    splitPayments = null
+    splitPayments = null,
+    usedLoyaltyPoints = 0
   }) => {
     if (cart.length === 0) return null;
 
@@ -1688,15 +1689,21 @@ export const AppProvider = ({ children }) => {
       return updated;
     });
 
-    // Update customer due and total purchases if customer is linked
+    // Update customer due, loyalty points and total purchases if customer is linked
     if (customerId) {
       setCustomers(prevCustomers => {
         const updated = prevCustomers.map(cust => {
           if (cust.id === customerId) {
+            const currentPoints = Number(cust.loyaltyPoints) || 0;
+            const pointsEarned = Math.floor(grandTotal / 100);
+            const pointsDeducted = Number(usedLoyaltyPoints) || 0;
+            const nextPoints = Math.max(0, currentPoints - pointsDeducted + pointsEarned);
+
             return {
               ...cust,
               totalPurchased: (Number(cust.totalPurchased) || 0) + grandTotal,
-              outstandingDue: (Number(cust.outstandingDue) || 0) + dueAmount
+              outstandingDue: (Number(cust.outstandingDue) || 0) + dueAmount,
+              loyaltyPoints: nextPoints
             };
           }
           return cust;
