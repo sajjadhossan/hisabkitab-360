@@ -915,6 +915,41 @@ export const MASTER_INDUSTRY_TEMPLATES = [
     sampleProducts: [
       { name: 'খামারের খাঁটি গরুর কাঁচা দুধ (১ লিটার)', category: 'খাঁটি গরুর দুধ (সকাল)', costPrice: 65, sellPrice: 90, unit: 'লিটার', stock: 120 }
     ]
+  },
+  {
+    id: 'agro_cattle_farm',
+    sectorId: 'agro_poultry',
+    name: 'গরুর খামার, ডেইরি ও ক্যাটেল ফার্মিং',
+    enName: 'Cattle Farm, Dairy & Livestock Hub',
+    icon: 'Wheat',
+    uiMode: 'standard',
+    posViewMode: 'compact',
+    supportsPhotos: true,
+    units: ['টি', 'লিটার', 'কেজি', 'বস্তা', 'আঁটি'],
+    features: [
+      'cattle_herd_tracking',
+      'daily_milk_yield',
+      'feed_cost_calculator',
+      'vaccine_deworming_schedule',
+      'disease_herbal_remedies',
+      'farm_profit_loss'
+    ],
+    defaultCategories: [
+      'খাঁটি গরুর তরল দুধ',
+      'মোটাতাজাকরণ ষাঁড় ও কোরবানির পশু',
+      'দুধের বাছুর ও বকনা গাভী',
+      'দানাদার পশু খাদ্য ও খৈল',
+      'কাঁচা ঘাস, খড় ও সাইলেজ',
+      'জৈব গোবর ও ভার্মিকম্পোস্ট সার'
+    ],
+    sampleProducts: [
+      { name: 'খামারের খাঁটি গরুর তরল দুধ (১ লিটার)', category: 'খাঁটি গরুর তরল দুধ', costPrice: 60, sellPrice: 85, unit: 'লিটার', stock: 150 },
+      { name: 'কোরবানির ব্রাহমা ক্রস ষাঁড় (৫০০ কেজি)', category: 'মোটাতাজাকরণ ষাঁড় ও কোরবানির পশু', costPrice: 180000, sellPrice: 240000, unit: 'টি', stock: 4 },
+      { name: 'হলস্টাইন ফ্রিজিয়ান উন্নত জাতের গাভী', category: 'দুধের বাছুর ও বকনা গাভী', costPrice: 160000, sellPrice: 210000, unit: 'টি', stock: 6 },
+      { name: 'পশু পুষ্টি গম ভুসি ও খৈল মিক্স (৫০ কেজি)', category: 'দানাদার পশু খাদ্য ও খৈল', costPrice: 1650, sellPrice: 1950, unit: 'বস্তা', stock: 35 },
+      { name: 'উন্নত নেপিয়ার কাঁচা ঘাস (১ আঁটি)', category: 'কাঁচা ঘাস, খড় ও সাইলেজ', costPrice: 30, sellPrice: 50, unit: 'আঁটি', stock: 100 },
+      { name: 'খামারের শুকনো গোবর সার (৪০ কেজি)', category: 'জৈব গোবর ও ভার্মিকম্পোস্ট সার', costPrice: 120, sellPrice: 280, unit: 'বস্তা', stock: 50 }
+    ]
   }
 ];
 

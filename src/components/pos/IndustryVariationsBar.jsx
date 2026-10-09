@@ -11,7 +11,8 @@ import {
   Sparkles,
   ChevronRight,
   Store,
-  Layers
+  Layers,
+  Wheat
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { GoldRateCalcModal } from './modals/GoldRateCalcModal';
@@ -19,6 +20,7 @@ import { BusSeatBookingModal } from './modals/BusSeatBookingModal';
 import { ConstructionCFTModal } from './modals/ConstructionCFTModal';
 import { PharmacyUnitModal } from './modals/PharmacyUnitModal';
 import { RestaurantKOTModal } from './modals/RestaurantKOTModal';
+import { CattleFarmModal } from './modals/CattleFarmModal';
 
 /**
  * IndustryVariationsBar
@@ -50,6 +52,7 @@ export const IndustryVariationsBar = ({
   const [showCftModal, setShowCftModal] = useState(false);
   const [showPharmaModal, setShowPharmaModal] = useState(false);
   const [showKotModal, setShowKotModal] = useState(false);
+  const [showCattleModal, setShowCattleModal] = useState(false);
 
   // Active Template info
   const activeTpl = (MASTER_INDUSTRY_TEMPLATES || []).find(t => t.id === activeIndustryId) || {
@@ -62,6 +65,7 @@ export const IndustryVariationsBar = ({
   const isFood = activeIndustryId?.includes('restaurant') || activeIndustryId?.includes('food') || activeIndustryId?.includes('cafe');
   const isConstruction = activeIndustryId?.includes('const_') || activeIndustryId?.includes('rod') || activeIndustryId?.includes('cement') || activeIndustryId?.includes('sand');
   const isPharmacy = activeIndustryId?.includes('pharmacy') || activeIndustryId?.includes('health');
+  const isCattle = activeIndustryId?.includes('cattle') || activeIndustryId?.includes('dairy') || activeIndustryId?.includes('milk') || activeIndustryId?.includes('agro') || activeIndustryId?.includes('cow');
 
   return (
     <>
@@ -289,9 +293,40 @@ export const IndustryVariationsBar = ({
             </button>
           )}
 
+          {/* 6. CATTLE & DAIRY FARM */}
+          {isCattle && (
+            <button
+              type="button"
+              onClick={() => setShowCattleModal(true)}
+              className="btn btn-secondary press-scale"
+              style={{
+                padding: '5px 10px',
+                fontSize: '0.76rem',
+                fontWeight: '800',
+                color: '#10b981',
+                borderColor: 'rgba(16, 185, 129, 0.4)',
+                background: 'rgba(16, 185, 129, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <Wheat size={14} />
+              <span>🐄 ক্যাটেল ও ডেইরি হাব</span>
+            </button>
+          )}
+
           {/* Generic fallback: All customizers button if none matched */}
-          {!isGold && !isBus && !isFood && !isConstruction && !isPharmacy && (
+          {!isGold && !isBus && !isFood && !isConstruction && !isPharmacy && !isCattle && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowCattleModal(true)}
+                title="গরুর খামার ও ডেইরি হাব"
+                style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#10b981', cursor: 'pointer' }}
+              >
+                🐄 খামার
+              </button>
               <button
                 type="button"
                 onClick={() => setShowGoldModal(true)}
@@ -334,6 +369,7 @@ export const IndustryVariationsBar = ({
       <BusSeatBookingModal isOpen={showBusModal} onClose={() => setShowBusModal(false)} />
       <ConstructionCFTModal isOpen={showCftModal} onClose={() => setShowCftModal(false)} />
       <PharmacyUnitModal isOpen={showPharmaModal} onClose={() => setShowPharmaModal(false)} />
+      <CattleFarmModal isOpen={showCattleModal} onClose={() => setShowCattleModal(false)} />
       <RestaurantKOTModal
         isOpen={showKotModal}
         onClose={() => setShowKotModal(false)}
