@@ -2292,11 +2292,27 @@ input:checked+.slider:before {
   contain-intrinsic-size: 80px;
 }
 
-/* Touch Active Ripple Feedback */
+/* Touch Active Ripple Feedback & Instant Tap */
 .press-scale {
   transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn,
+.mobile-bottom-nav-item,
+.mobile-bottom-hero-btn,
+.card-interactive,
+.mobile-drawer-tile {
+  touch-action: manipulation;
+}
+
+.main-content,
+.mobile-pos-view,
+.product-card-grid {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 .press-scale:active {
   transform: scale(0.96) !important;

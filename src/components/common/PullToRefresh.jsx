@@ -17,6 +17,14 @@ export const PullToRefresh = ({ onRefresh, children }) => {
 
   useEffect(() => {
     const handleTouchStart = (e) => {
+      // Ignore if touching form controls, modals, or POS interactive surfaces
+      if (e.target && e.target.closest && e.target.closest(
+        'input, textarea, select, button, .modal-backdrop, .modal-content, .mobile-pos-view, .product-card-grid, .no-pull-refresh, [role="dialog"]'
+      )) {
+        isPullingRef.current = false;
+        return;
+      }
+
       if (window.scrollY <= 2 && e.touches.length === 1) {
         startYRef.current = e.touches[0].clientY;
         isPullingRef.current = true;

@@ -483,8 +483,22 @@ export const Navbar = () => {
     } else if (item.isTool) {
       setActiveTool(item.isTool);
     } else {
-      setActiveTab(item.id);
+      React.startTransition(() => {
+        setActiveTab(item.id);
+      });
     }
+    setShowMobileDrawer(false);
+  };
+
+  const handleBottomNavTabClick = (tabId, hapticType = 'light') => {
+    if (hapticType === 'medium') {
+      hapticFeedback.medium();
+    } else {
+      hapticFeedback.light();
+    }
+    React.startTransition(() => {
+      setActiveTab(tabId);
+    });
     setShowMobileDrawer(false);
   };
 
@@ -2177,11 +2191,7 @@ export const Navbar = () => {
                   key={item.id}
                   type="button"
                   className={`mobile-bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={() => {
-                    hapticFeedback.light();
-                    setActiveTab(item.id);
-                    setShowMobileDrawer(false);
-                  }}
+                  onClick={() => handleBottomNavTabClick(item.id, 'light')}
                 >
                   <IconComp size={20} />
                   <span>{item.label}</span>
@@ -2195,11 +2205,7 @@ export const Navbar = () => {
                 <button
                   type="button"
                   className={`mobile-bottom-hero-btn ${activeTab === 'pos' ? 'active' : ''}`}
-                  onClick={() => {
-                    hapticFeedback.medium();
-                    setActiveTab('pos');
-                    setShowMobileDrawer(false);
-                  }}
+                  onClick={() => handleBottomNavTabClick('pos', 'medium')}
                   title={lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Checkout'}
                 >
                   <ScanLine size={24} />
@@ -2216,11 +2222,7 @@ export const Navbar = () => {
                   key={item.id}
                   type="button"
                   className={`mobile-bottom-nav-item ${activeTab === item.id ? 'active' : ''}`}
-                  onClick={() => {
-                    hapticFeedback.light();
-                    setActiveTab(item.id);
-                    setShowMobileDrawer(false);
-                  }}
+                  onClick={() => handleBottomNavTabClick(item.id, 'light')}
                 >
                   <IconComp size={20} />
                   <span>{item.label}</span>
@@ -2247,11 +2249,7 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => {
-                hapticFeedback.light();
-                setActiveTab('dashboard');
-                setShowMobileDrawer(false);
-              }}
+              onClick={() => handleBottomNavTabClick('dashboard', 'light')}
             >
               <LayoutDashboard size={20} />
               <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
@@ -2261,11 +2259,7 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${activeTab === 'daily' ? 'active' : ''}`}
-              onClick={() => {
-                hapticFeedback.light();
-                setActiveTab('daily');
-                setShowMobileDrawer(false);
-              }}
+              onClick={() => handleBottomNavTabClick('daily', 'light')}
             >
               <ShoppingCart size={20} />
               <span>{lang === 'bn' ? 'দৈনিক খরচ' : 'Daily'}</span>
@@ -2276,11 +2270,7 @@ export const Navbar = () => {
               <button
                 type="button"
                 className={`mobile-bottom-hero-btn personal ${activeTab === 'family' ? 'active' : ''}`}
-                onClick={() => {
-                  hapticFeedback.medium();
-                  setActiveTab('family');
-                  setShowMobileDrawer(false);
-                }}
+                onClick={() => handleBottomNavTabClick('family', 'medium')}
                 title={lang === 'bn' ? 'পারিবারিক খরচ' : 'Family Expenses'}
               >
                 <Home size={24} />
@@ -2292,11 +2282,7 @@ export const Navbar = () => {
             <button
               type="button"
               className={`mobile-bottom-nav-item ${activeTab === 'debts' ? 'active' : ''}`}
-              onClick={() => {
-                hapticFeedback.light();
-                setActiveTab('debts');
-                setShowMobileDrawer(false);
-              }}
+              onClick={() => handleBottomNavTabClick('debts', 'light')}
             >
               <HandCoins size={20} />
               <span>{lang === 'bn' ? 'দেনা-পাওনা' : 'Debts'}</span>
