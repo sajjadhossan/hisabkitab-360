@@ -287,6 +287,116 @@ export const POSTerminal = () => {
   const [customMilkRate, setCustomMilkRate] = useState('80');
   const [customMilkFat, setCustomMilkFat] = useState('4.2');
 
+  const [showQuickAddCowModal, setShowQuickAddCowModal] = useState(false);
+  const [herdRefreshKey, setHerdRefreshKey] = useState(0);
+  const [quickCowData, setQuickCowData] = useState({
+    tag: `COW-${Math.floor(100 + Math.random() * 900)}`,
+    name: 'শাপলা',
+    breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস',
+    category: 'দুগ্ধবতী গাভী',
+    weightKg: '420',
+    purchasePrice: '180000',
+    marketValue: '235000',
+    dailyMilk: '16'
+  });
+
+  const handleSelectCowPreset = (presetType) => {
+    const randomTag = `COW-${Math.floor(100 + Math.random() * 900)}`;
+    if (presetType === 'holstein') {
+      setQuickCowData({
+        tag: randomTag,
+        name: 'রানি ২',
+        breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস',
+        category: 'দুগ্ধবতী গাভী',
+        weightKg: '460',
+        purchasePrice: '195000',
+        marketValue: '260000',
+        dailyMilk: '22'
+      });
+    } else if (presetType === 'heifer') {
+      setQuickCowData({
+        tag: randomTag,
+        name: 'ময়না',
+        breed: 'ফ্রিজিয়ান বকনা বাছুর',
+        category: 'বকনা গরু',
+        weightKg: '160',
+        purchasePrice: '55000',
+        marketValue: '85000',
+        dailyMilk: '0'
+      });
+    } else if (presetType === 'bull') {
+      setQuickCowData({
+        tag: randomTag,
+        name: 'সুলতান',
+        breed: 'ব্রাহমা মোটাতাজাকরণ ষাঁড়',
+        category: 'মোটাতাজাকরণ ষাঁড়',
+        weightKg: '540',
+        purchasePrice: '135000',
+        marketValue: '240000',
+        dailyMilk: '0'
+      });
+    } else if (presetType === 'sahiwal') {
+      setQuickCowData({
+        tag: randomTag,
+        name: 'কাজলী',
+        breed: 'শাহীওয়াল জাতের দেশি গরু',
+        category: 'দুগ্ধবতী গাভী',
+        weightKg: '380',
+        purchasePrice: '160000',
+        marketValue: '215000',
+        dailyMilk: '14'
+      });
+    }
+  };
+
+  const handleSaveQuickCow = (e) => {
+    e?.preventDefault();
+    if (!quickCowData.tag || !quickCowData.name) {
+      if (showToast) showToast('গরুর ট্যাগ এবং নাম লিখুন', 'error');
+      return;
+    }
+    const newAnimal = {
+      id: `cow_${Date.now()}`,
+      tag: quickCowData.tag.trim(),
+      name: quickCowData.name.trim(),
+      breed: quickCowData.breed,
+      category: quickCowData.category,
+      weightKg: Number(quickCowData.weightKg) || 350,
+      purchasePrice: Number(quickCowData.purchasePrice) || 120000,
+      marketValue: Number(quickCowData.marketValue) || (Number(quickCowData.purchasePrice) * 1.3),
+      dailyMilk: Number(quickCowData.dailyMilk) || 0,
+      status: 'active',
+      birthDate: new Date().toISOString().split('T')[0]
+    };
+
+    try {
+      const saved = localStorage.getItem('hk360_cattle_herd_data');
+      const herd = saved ? JSON.parse(saved) : [
+        { id: 'cow-1', tag: 'COW-101', name: 'রানি', breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস', category: 'দুগ্ধবতী গাভী', purchasePrice: 185000, weightKg: 420, dailyMilk: 18, status: 'active', birthDate: '2023-01-15', marketValue: 245000 },
+        { id: 'cow-2', tag: 'COW-102', name: 'শোভা', breed: 'শাহীওয়াল', category: 'গর্ভবতী গাভী', purchasePrice: 165000, weightKg: 380, dailyMilk: 12, status: 'pregnant', birthDate: '2023-04-10', marketValue: 210000 },
+        { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, dailyMilk: 0, status: 'fattening', birthDate: '2024-02-01', marketValue: 220000 },
+        { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, dailyMilk: 0, status: 'calf', birthDate: '2025-11-20', marketValue: 75000 }
+      ];
+      herd.unshift(newAnimal);
+      localStorage.setItem('hk360_cattle_herd_data', JSON.stringify(herd));
+      setHerdRefreshKey(prev => prev + 1);
+      setShowQuickAddCowModal(false);
+      setQuickCowData({
+        tag: `COW-${Math.floor(100 + Math.random() * 900)}`,
+        name: '',
+        breed: 'হলস্টাইন ফ্রিজিয়ান ক্রস',
+        category: 'দুগ্ধবতী গাভী',
+        weightKg: '400',
+        purchasePrice: '',
+        marketValue: '',
+        dailyMilk: '15'
+      });
+      if (showToast) showToast(`✅ নতুন গরু (${newAnimal.tag} - ${newAnimal.name}) সফলভাবে যুক্ত হয়েছে!`, 'success');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Load live cows for quick sale in POS
   const liveCattleHerd = useMemo(() => {
     try {
@@ -302,7 +412,7 @@ export const POSTerminal = () => {
       { id: 'cow-3', tag: 'COW-103', name: 'বাহাদুর', breed: 'ব্রাহমা ক্রস', category: 'মোটাতাজাকরণ ষাঁড়', purchasePrice: 120000, weightKg: 510, marketValue: 220000, status: 'fattening' },
       { id: 'cow-4', tag: 'COW-104', name: 'টুনটুনি', breed: 'ফ্রিজিয়ান বকনা', category: 'দুধের বাছুর', purchasePrice: 45000, weightKg: 95, marketValue: 75000, status: 'calf' }
     ];
-  }, [showCattleModal]);
+  }, [showCattleModal, herdRefreshKey]);
 
   const handleAddLiveCowToCart = (cow) => {
     const cowItem = {
@@ -2806,6 +2916,197 @@ export const POSTerminal = () => {
                     })}
                   </div>
                 )}
+
+                {/* BOTTOM ACTION BAR: ADD NEW CATTLE & QUICK PRESETS */}
+                <div style={{ marginTop: '12px', borderTop: '1px dashed rgba(16, 185, 129, 0.35)', paddingTop: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-muted)' }}>
+                        ⚡ দ্রুত জাত সিলেক্ট করুন:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { handleSelectCowPreset('holstein'); setShowQuickAddCowModal(true); }}
+                        className="press-scale"
+                        style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#10b981', cursor: 'pointer' }}
+                      >
+                        🐄 হলস্টাইন গাভী
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { handleSelectCowPreset('bull'); setShowQuickAddCowModal(true); }}
+                        className="press-scale"
+                        style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', color: '#d97706', cursor: 'pointer' }}
+                      >
+                        🐂 মোটাতাজাকরণ ষাঁড়
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { handleSelectCowPreset('heifer'); setShowQuickAddCowModal(true); }}
+                        className="press-scale"
+                        style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.4)', color: '#0891b2', cursor: 'pointer' }}
+                      >
+                        🍼 বকনা গরু
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { handleSelectCowPreset('sahiwal'); setShowQuickAddCowModal(true); }}
+                        className="press-scale"
+                        style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#7c3aed', cursor: 'pointer' }}
+                      >
+                        🐃 শাহীওয়াল গরু
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddCowModal(prev => !prev)}
+                      className="btn press-scale"
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '0.78rem',
+                        fontWeight: '900',
+                        borderRadius: '8px',
+                        background: showQuickAddCowModal ? 'rgba(239, 68, 68, 0.15)' : 'linear-gradient(135deg, #10b981, #059669)',
+                        color: showQuickAddCowModal ? '#ef4444' : '#fff',
+                        border: showQuickAddCowModal ? '1px solid rgba(239, 68, 68, 0.4)' : 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <span>{showQuickAddCowModal ? '✖ ফর্ম বন্ধ করুন' : '➕ নতুন গরু / গবাদিপশু যুক্ত করুন (Add Animal)'}</span>
+                    </button>
+                  </div>
+
+                  {/* INLINE QUICK ADD COW FORM */}
+                  {showQuickAddCowModal && (
+                    <form
+                      onSubmit={handleSaveQuickCow}
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        marginTop: '8px',
+                        animation: 'fadeIn 0.2s ease-in'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.84rem', fontWeight: '900', color: '#10b981', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🐄 নতুন গবাদিপশু দ্রুত এন্ট্রি ফর্ম (Instant Herd Registration)</span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ট্যাগ নম্বর (ID) *</label>
+                          <input
+                            type="text"
+                            className="input-field"
+                            value={quickCowData.tag}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, tag: e.target.value })}
+                            required
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>নাম / পরিচয় *</label>
+                          <input
+                            type="text"
+                            className="input-field"
+                            placeholder="যেমন: শাপলা"
+                            value={quickCowData.name}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, name: e.target.value })}
+                            required
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>গরুর জাত (Breed)</label>
+                          <select
+                            className="input-field"
+                            value={quickCowData.breed}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, breed: e.target.value })}
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          >
+                            <option value="হলস্টাইন ফ্রিজিয়ান ক্রস">হলস্টাইন ফ্রিজিয়ান ক্রস</option>
+                            <option value="শাহীওয়াল জাতের দেশি গরু">শাহীওয়াল জাতের গরু</option>
+                            <option value="ব্রাহমা মোটাতাজাকরণ ষাঁড়">ব্রাহমা জাতের ষাঁড়</option>
+                            <option value="ফ্রিজিয়ান বকনা বাছুর">ফ্রিজিয়ান বকনা বাছুর</option>
+                            <option value="জার্সি জাতের গাভী">জার্সি জাতের গাভী</option>
+                            <option value="দেশি লাল সিন্ধি / পাবনা জাত">দেশি লাল সিন্ধি / পাবনা জাত</option>
+                            <option value="মুন্ডি / সংকর জাত">মুন্ডি / সংকর জাত</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ক্যাটাগরি</label>
+                          <select
+                            className="input-field"
+                            value={quickCowData.category}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, category: e.target.value })}
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          >
+                            <option value="দুগ্ধবতী গাভী">দুগ্ধবতী গাভী</option>
+                            <option value="বকনা গরু">বকনা গরু</option>
+                            <option value="মোটাতাজাকরণ ষাঁড়">মোটাতাজাকরণ ষাঁড়</option>
+                            <option value="দুধের বাছুর">দুধের বাছুর</option>
+                            <option value="গর্ভবতী গাভী">গর্ভবতী গাভী</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ওজন (কেজি)</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            value={quickCowData.weightKg}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, weightKg: e.target.value })}
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ক্রয়মূল্য / খরচ (৳)</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            placeholder="120000"
+                            value={quickCowData.purchasePrice}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, purchasePrice: e.target.value })}
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>প্রত্যাশিত বিক্রয়মূল্য (৳)</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            placeholder="210000"
+                            value={quickCowData.marketValue}
+                            onChange={(e) => setQuickCowData({ ...quickCowData, marketValue: e.target.value })}
+                            style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddCowModal(false)}
+                          className="btn btn-secondary press-scale"
+                          style={{ padding: '5px 12px', fontSize: '0.74rem' }}
+                        >
+                          বাতিল
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn btn-primary press-scale"
+                          style={{ padding: '5px 16px', fontSize: '0.76rem', fontWeight: '900', background: '#10b981', borderColor: '#10b981' }}
+                        >
+                          💾 গরু সেভ করুন ও তালিকায় যোগ করুন
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               </div>
             )}
 
