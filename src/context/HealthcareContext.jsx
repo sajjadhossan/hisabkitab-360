@@ -258,14 +258,73 @@ export const HealthcareProvider = ({ children }) => {
     }
   });
 
+  // Section: Institution Setup Info
+  const [institutionInfo, setInstitutionInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hisabkitab_hc_institution_info');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: 'হেলথকেয়ার 360° হাসপাতাল ও ডায়াগনস্টিক কমপ্লেক্স',
+      logo: '',
+      type: 'হাসপাতাল + ডায়াগনস্টিক + ফার্মেসি',
+      phone: '+৮৮০ ১৭০০-১২৩৪৫৬',
+      email: 'contact@healthcare360.com.bd',
+      address: 'বাড়ি ১২, রোড ৫, ধানমন্ডি, ঢাকা ১২০৫',
+      country: 'বাংলাদেশ',
+      timezone: 'Asia/Dhaka (GMT+6)',
+      currency: 'BDT (৳)',
+      defaultLanguage: 'বাংলা (Bengali)',
+      receiptFooter: 'সুস্থ থাকুন, ভালো থাকুন। জরুরি প্রয়োজনে কল করুন: ১৬২৬৩। যেকোনো অভিযোগ বা পরামর্শে যোগাযোগ করুন admin@healthcare360.com.bd',
+      isActive: true
+    };
+  });
+
+  const updateInstitutionInfo = (newInfo) => {
+    setInstitutionInfo(prev => {
+      const updated = { ...prev, ...newInfo };
+      localStorage.setItem('hisabkitab_hc_institution_info', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Section 1.2: Multi-Branch & Role Permissions State
-  const [branches] = useState([
-    { id: 'all', name: 'সব শাখা (একীভূত রূপ)', code: 'ALL', address: 'সকল শাখা সম্মিলিত ভিউ', isAll: true },
-    { id: 'dhanmondi', name: 'ধানমন্ডি মেইন ব্রাঞ্চ', code: 'DHD-01', address: 'রোড ৫, ধানমন্ডি, ঢাকা', isMain: true },
-    { id: 'uttara', name: 'উত্তরা শাখা', code: 'UTT-02', address: 'সেক্টর ৩, উত্তরা, ঢাকা' },
-    { id: 'mirpur', name: 'মিরপুর শাখা', code: 'MIR-03', address: 'মিরপুর ১০, ঢাকা' },
-    { id: 'chattogram', name: 'চট্টগ্রাম শাখা', code: 'CTG-04', address: 'জিইসি মোড়, চট্টগ্রাম' }
-  ]);
+  const [branches, setBranches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hisabkitab_hc_branches');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      { id: 'all', name: 'সব শাখা (একীভূত রূপ)', code: 'ALL', address: 'সকল শাখা সম্মিলিত ভিউ', isAll: true, isActive: true },
+      { id: 'dhanmondi', name: 'ধানমন্ডি মেইন ব্রাঞ্চ', code: 'DHD-01', phone: '০১৭৭০০০০০১০', email: 'dhanmondi@healthcare360.com', address: 'রোড ৫, ধানমন্ডি, ঢাকা', manager: 'ডা: রফিকুল ইসলাম', openTime: '08:00 AM', closeTime: '10:00 PM', holiday: 'শুক্রবার', stockLocation: 'Central-Rack-01', receiptTitle: 'হেলথকেয়ার 360° - ধানমন্ডি শাখা', isMain: true, isActive: true, transactionCount: 145 },
+      { id: 'uttara', name: 'উত্তরা শাখা', code: 'UTT-02', phone: '০১৭৭০০০০০২০', email: 'uttara@healthcare360.com', address: 'সেক্টর ৩, উত্তরা, ঢাকা', manager: 'মাহমুদুল হাসান', openTime: '08:00 AM', closeTime: '10:00 PM', holiday: 'শুক্রবার', stockLocation: 'Uttara-Rack-01', receiptTitle: 'হেলথকেয়ার 360° - উত্তরা শাখা', isMain: false, isActive: true, transactionCount: 42 },
+      { id: 'mirpur', name: 'মিরপুর শাখা', code: 'MIR-03', phone: '০১৭৭০০০০০৩০', email: 'mirpur@healthcare360.com', address: 'মিরপুর ১০, ঢাকা', manager: 'নাজমুল করিম', openTime: '08:00 AM', closeTime: '10:00 PM', holiday: 'শুক্রবার', stockLocation: 'Mirpur-Rack-01', receiptTitle: 'হেলথকেয়ার 360° - মিরপুর শাখা', isMain: false, isActive: true, transactionCount: 68 },
+      { id: 'chattogram', name: 'চট্টগ্রাম শাখা', code: 'CTG-04', phone: '০১৭৭০০০০০৪০', email: 'ctg@healthcare360.com', address: 'জিইসি মোড়, চট্টগ্রাম', manager: 'ফারহান আহমেদ', openTime: '09:00 AM', closeTime: '09:00 PM', holiday: 'শুক্রবার', stockLocation: 'Ctg-Rack-01', receiptTitle: 'হেলথকেয়ার 360° - চট্টগ্রাম শাখা', isMain: false, isActive: false, transactionCount: 12 }
+    ];
+  });
+
+  const saveBranches = (newBranches) => {
+    setBranches(newBranches);
+    localStorage.setItem('hisabkitab_hc_branches', JSON.stringify(newBranches));
+  };
+
+  const addBranch = (newBranch) => {
+    const updated = [...branches, { ...newBranch, transactionCount: 0, isActive: true }];
+    saveBranches(updated);
+    return true;
+  };
+
+  const updateBranch = (id, updatedFields) => {
+    const updated = branches.map(b => b.id === id ? { ...b, ...updatedFields } : b);
+    saveBranches(updated);
+    return true;
+  };
+
+  const toggleBranchStatus = (id) => {
+    const updated = branches.map(b => b.id === id ? { ...b, isActive: !b.isActive } : b);
+    saveBranches(updated);
+    return true;
+  };
 
   const [activeBranchId, setActiveBranchId] = useState(() => {
     try {
@@ -635,8 +694,16 @@ export const HealthcareProvider = ({ children }) => {
         approveAdvancedSuite,
         revokeAdvancedSuite,
         toggleChecklistItem,
-        // Section 1.2: Multi-Branch & Permissions
+        // Section 1.1 & 1.2: Institution & Multi-Branch Management
+        institutionInfo,
+        setInstitutionInfo,
+        updateInstitutionInfo,
         branches,
+        setBranches,
+        saveBranches,
+        addBranch,
+        updateBranch,
+        toggleBranchStatus,
         activeBranchId,
         setActiveBranchId,
         currentStaffRole,

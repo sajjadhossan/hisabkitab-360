@@ -131,7 +131,7 @@ export const BranchSelectorBar = () => {
                         disabled={!isAllowed}
                         className={!isAllowed ? 'text-slate-500 bg-slate-900' : 'text-white bg-slate-800'}
                       >
-                        {branch.name} {!isAllowed ? '🔒 (অনুমতি নেই)' : branch.isMain ? '★ (প্রধান)' : ''}
+                        {branch.name} {!isAllowed ? '🔒 (অনুমতি নেই)' : branch.isActive === false ? '✕ [নিষ্ক্রিয়]' : branch.isMain ? '★ (প্রধান)' : ''}
                       </option>
                     );
                   })}
@@ -236,6 +236,36 @@ export const BranchSelectorBar = () => {
             className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-[11px] shrink-0 shadow-sm"
           >
             ধানমন্ডি মেইনে যান
+          </button>
+        </div>
+      )}
+
+      {/* Rule 3 Banner: নিষ্ক্রিয় শাখার পুরোনো হিসাব ও রোগীর রেকর্ড দেখা যাবে; নতুন লেনদেন বন্ধ থাকবে */}
+      {currentBranch && !currentBranch.isAll && currentBranch.isActive === false && (
+        <div
+          className="mt-2 p-2.5 px-4 rounded-xl border flex items-center justify-between gap-3 text-xs animate-fade-in"
+          style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            borderColor: 'rgba(239, 68, 68, 0.4)',
+            color: '#fecaca'
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+            <span>
+              <strong>🔒 নিয়ম ৩ কার্যকর (নিষ্ক্রিয় শাখা):</strong> "{currentBranch.name}" বর্তমানে নিষ্ক্রিয় রয়েছে। আপনি শুধুমাত্র পুরোনো হিসাব ও রোগীর রেকর্ড দেখতে পারবেন; নতুন কোনো বিল, টেস্ট অর্ডার বা প্রেসক্রিপশন তৈরি বন্ধ রয়েছে।
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setPendingBranchId('dhanmondi');
+              setShowConfirmModal(true);
+            }}
+            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] shrink-0 shadow-sm"
+          >
+            সক্রিয় শাখায় যান
           </button>
         </div>
       )}
