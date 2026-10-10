@@ -469,7 +469,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               }}
             >
               <ShieldCheck size={16} className="text-orange-400" />
-              <span>৮. কর্মী ও অডিট লগ</span>
+              <span>৮. কাজের ধাপ, কর্মী ও অডিট লগ</span>
             </button>
 
             {/* 9. Settings Tab */}
