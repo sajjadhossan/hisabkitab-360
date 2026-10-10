@@ -12,7 +12,10 @@ import {
   ChevronRight,
   Store,
   Layers,
-  Wheat
+  Wheat,
+  Stethoscope,
+  FlaskConical,
+  Activity
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { GoldRateCalcModal } from './modals/GoldRateCalcModal';
@@ -44,7 +47,7 @@ export const IndustryVariationsBar = ({
   cart,
   onOpenTemplateManager
 }) => {
-  const { activeIndustryId, setActiveIndustryId, lang, MASTER_INDUSTRY_TEMPLATES, showToast } = useApp();
+  const { activeIndustryId, setActiveIndustryId, lang, MASTER_INDUSTRY_TEMPLATES, showToast, setActiveTab } = useApp();
 
   // Modals
   const [showGoldModal, setShowGoldModal] = useState(false);
@@ -299,27 +302,99 @@ export const IndustryVariationsBar = ({
             </button>
           )}
 
-          {/* 5. PHARMACY / HEALTH */}
+          {/* 5. PHARMACY / HEALTHCARE 3-IN-1 SUITE */}
           {isPharmacy && (
-            <button
-              type="button"
-              onClick={() => setShowPharmaModal(true)}
-              className="btn btn-secondary press-scale"
-              style={{
-                padding: '5px 10px',
-                fontSize: '0.76rem',
-                fontWeight: '800',
-                color: '#ef4444',
-                borderColor: 'rgba(239, 68, 68, 0.4)',
-                background: 'rgba(239, 68, 68, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <Pill size={14} />
-              <span>পাতা ➔ পিস কনভার্টার</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (setActiveTab) setActiveTab('healthcare');
+                }}
+                className="btn btn-primary press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  color: '#ffffff',
+                  background: 'linear-gradient(135deg, #0d9488, #059669)',
+                  borderColor: '#0d9488',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+                title="৩-ইন-১ হেলথকেয়ার মাস্টার হাব খুলুন"
+              >
+                <Activity size={13} />
+                <span>🏥 হেলথকেয়ার হাব</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (setActiveTab) setActiveTab('healthcare');
+                }}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#3b82f6',
+                  borderColor: 'rgba(59, 130, 246, 0.4)',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="ডক্টর চেম্বার ও ডিজিটাল প্রেসক্রিপশন"
+              >
+                <Stethoscope size={13} />
+                <span>ডক্টর চেম্বার</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (setActiveTab) setActiveTab('healthcare');
+                }}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#0d9488',
+                  borderColor: 'rgba(13, 148, 136, 0.4)',
+                  background: 'rgba(13, 148, 136, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="ডায়াগনস্টিক ল্যাব ও LIMS"
+              >
+                <FlaskConical size={13} />
+                <span>LIMS ল্যাব</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPharmaModal(true)}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#ef4444',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="পাতা টু পিস কনভার্টার"
+              >
+                <Pill size={13} />
+                <span>পাতা ➔ পিস</span>
+              </button>
+            </div>
           )}
 
           {/* 6. CATTLE & DAIRY FARM (ALWAYS VISIBLE FOR INSTANT ACCESS) */}

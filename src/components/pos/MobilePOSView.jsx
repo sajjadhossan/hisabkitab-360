@@ -79,7 +79,7 @@ export const MobilePOSView = ({
   setSelectedWaiter,
   onOpenTemplateManager
 }) => {
-  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {} } = useApp();
+  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {}, setActiveTab: setGlobalTab } = useApp();
   const { user } = useAuth();
   const posPerms = businessSettings?.posPermissions || {};
 
@@ -103,6 +103,38 @@ export const MobilePOSView = ({
   const [showDrawerFloatModal, setShowDrawerFloatModal] = useState(false);
   const [actualDrawerCashInput, setActualDrawerCashInput] = useState('');
   const [showDigitalMemoModal, setShowDigitalMemoModal] = useState(false);
+
+  // Seamless Android Hardware & Gesture Back Button Handling
+  useEffect(() => {
+    const unregister = registerBackAction(() => {
+      if (showRecallModal) {
+        setShowRecallModal(false);
+        return true;
+      }
+      if (showDrawerFloatModal) {
+        setShowDrawerFloatModal(false);
+        return true;
+      }
+      if (showDigitalMemoModal) {
+        setShowDigitalMemoModal(false);
+        return true;
+      }
+      if (activeTab === 'cart') {
+        setActiveTab('catalog');
+        return true;
+      }
+      if (searchTerm.trim()) {
+        setSearchTerm('');
+        return true;
+      }
+      if (setGlobalTab) {
+        setGlobalTab('dashboard');
+        return true;
+      }
+      return false;
+    });
+    return () => unregister();
+  }, [showRecallModal, showDrawerFloatModal, showDigitalMemoModal, activeTab, searchTerm, setGlobalTab]);
 
   const saveHeldCarts = (list) => {
     setHeldCarts(list);
@@ -340,9 +372,7 @@ export const MobilePOSView = ({
   const handleItemCardClick = (product) => {
     playCartPop();
     addToCart(product);
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(30);
-    }
+    hapticFeedback.light();
   };
 
   return (
@@ -373,6 +403,35 @@ export const MobilePOSView = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          {/* 1-Tap Quick Back to Dashboard Button */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.light();
+              playButtonClick();
+              if (setGlobalTab) setGlobalTab('dashboard');
+            }}
+            className="btn btn-secondary"
+            style={{
+              padding: '6px 10px',
+              borderRadius: '10px',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-primary)',
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontSize: '0.78rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+            title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
+          >
+            <ArrowLeft size={16} />
+            <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
+          </button>
+
           <div
             style={{
               width: '34px',
@@ -552,6 +611,32 @@ export const MobilePOSView = ({
               <span>{lang === 'bn' ? 'পিসি মোড' : 'PC'}</span>
             </button>
           )}
+
+          {/* 1-Tap Quick Exit Cross Button */}
+          <button
+            type="button"
+            onClick={() => {
+              hapticFeedback.light();
+              playButtonClick();
+              if (setGlobalTab) setGlobalTab('dashboard');
+            }}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              border: '1.5px solid rgba(239, 68, 68, 0.45)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+            title={lang === 'bn' ? 'পজ থেকে বের হয়ে ড্যাশবোর্ডে যান' : 'Exit POS to Dashboard'}
+          >
+            <X size={17} />
+          </button>
         </div>
       </div>
 
@@ -1317,7 +1402,10 @@ export const MobilePOSView = ({
                       <button
                         key={pm.id}
                         type="button"
-                        onClick={() => setPaymentMethod(pm.id)}
+                        onClick={() => {
+                          hapticFeedback.light();
+                          setPaymentMethod(pm.id);
+                        }}
                         style={{
                           padding: '8px 4px',
                           borderRadius: '8px',
@@ -1397,6 +1485,7 @@ export const MobilePOSView = ({
                         key={idx}
                         type="button"
                         onClick={() => {
+                          hapticFeedback.light();
                           playButtonClick();
                           setCashReceived(String(note.val));
                         }}

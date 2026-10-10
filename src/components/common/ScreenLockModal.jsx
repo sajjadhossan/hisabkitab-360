@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Unlock, ShieldCheck, KeyRound, AlertCircle, RefreshCw, Fingerprint } from 'lucide-react';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { registerBackAction, hapticFeedback } from '../../services/nativeAppService';
-import { authenticateWithDeviceBiometrics } from '../../services/biometricAuthService';
+import { authenticateWithDeviceBiometrics, isBiometricSupported } from '../../services/biometricAuthService';
 import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 
 export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang = 'bn' }) => {
@@ -15,12 +15,19 @@ export const ScreenLockModal = ({ isOpen, onClose, businessSettings = {}, lang =
   const targetPin = String(businessSettings?.quickLockPin || '1234');
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-        .then(avail => setHasBiometrics(Boolean(avail)))
-        .catch(() => setHasBiometrics(true));
-    }
-  }, []);
+    let timer = null;
+    isBiometricSupported().then((avail) => {
+      setHasBiometrics(avail);
+      if (isOpen && avail) {
+        timer = setTimeout(() => {
+          handleBiometricAuth();
+        }, 350);
+      }
+    });
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isOpen]);
 
   const handleBiometricAuth = async () => {
     hapticFeedback.light();

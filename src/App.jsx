@@ -23,7 +23,8 @@ import {
   initInactivityAutoLock,
   checkNightlyBackupDue,
   markNightlyBackupPromptDone,
-  triggerInstantWhatsAppSelfBackup
+  triggerInstantWhatsAppSelfBackup,
+  initDeepLinkHandler
 } from './services/nativeAppService';
 import { initGlobalShortcuts } from './services/shortcutService';
 
@@ -170,6 +171,18 @@ const AppContent = () => {
     showToast
   };
 
+  const tabHistoryRef = React.useRef(['dashboard']);
+  React.useEffect(() => {
+    if (activeTab) {
+      const history = tabHistoryRef.current;
+      const last = history[history.length - 1];
+      if (last !== activeTab) {
+        if (history.length > 25) history.shift();
+        history.push(activeTab);
+      }
+    }
+  }, [activeTab]);
+
   // Initialize Native Android Hardware Handlers & Fast Live Engines
   React.useEffect(() => {
     initNativeKeyboardListeners();
@@ -218,6 +231,14 @@ const AppContent = () => {
       setShowNightlyPrompt(true);
     }
 
+    // Android Launcher App Shortcuts & Deep Linking
+    initDeepLinkHandler((targetTab) => {
+      const cur = appStateRef.current;
+      if (cur.setActiveTab) {
+        cur.setActiveTab(targetTab);
+      }
+    });
+
     initNativeBackHandling({
       onHomeExitNotice: () => {
         const cur = appStateRef.current;
@@ -228,9 +249,9 @@ const AppContent = () => {
           );
         }
       },
-      onNavigateHome: () => {
+      onNavigateBack: () => {
         const cur = appStateRef.current;
-        // 1. Close open global modals
+        // 1. Close open global modals sequentially
         if (cur.isAuthModalOpen && cur.user) {
           cur.closeAuthModal();
           return true;
@@ -264,12 +285,29 @@ const AppContent = () => {
           return true;
         }
 
-        // 2. If inside a sub-tab, return to home dashboard
+        // 2. Sequential Step-by-Step Back Navigation through Tab History
+        const history = tabHistoryRef.current;
+        if (history.length > 1) {
+          history.pop(); // Remove current active tab
+          const prevTab = history[history.length - 1] || 'dashboard';
+          cur.setActiveTab(prevTab);
+          return true;
+        }
+
+        // 3. If in a sub-tab, return to home dashboard
         if (cur.activeTab !== 'dashboard') {
           cur.setActiveTab('dashboard');
           return true;
         }
 
+        return false;
+      },
+      onNavigateHome: () => {
+        const cur = appStateRef.current;
+        if (cur.activeTab !== 'dashboard') {
+          cur.setActiveTab('dashboard');
+          return true;
+        }
         return false;
       }
     });

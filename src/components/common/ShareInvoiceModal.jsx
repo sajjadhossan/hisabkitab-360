@@ -19,6 +19,7 @@ import {
   normalizeWhatsAppPhone,
   createInvoiceVerificationUrl
 } from '../../services/qrService';
+import { shareNativeSheet } from '../../services/nativeAppService';
 
 export const ShareInvoiceModal = () => {
   const {
@@ -121,24 +122,20 @@ export const ShareInvoiceModal = () => {
     }
   };
 
-  // Native Web Share (Facebook Messenger, Telegram, Imo, etc.)
+  // Native Android & Web Share (WhatsApp, IMO, Facebook Messenger, Telegram, etc.)
   const handleNativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Invoice #${inv.id} - ${businessSettings.companyName}`,
-          text: fullMessage,
-          url: verificationUrl
-        });
-        showToast(
-          lang === 'bn' ? 'শেয়ার সম্পন্ন হয়েছে!' : 'Shared successfully!',
-          'success'
-        );
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          handleCopyMessage();
-        }
-      }
+    const shared = await shareNativeSheet({
+      title: `Invoice #${inv.id} - ${businessSettings.companyName || ''}`,
+      text: fullMessage,
+      url: verificationUrl,
+      dialogTitle: lang === 'bn' ? 'মেমো শেয়ার করুন' : 'Share Receipt'
+    });
+
+    if (shared) {
+      showToast(
+        lang === 'bn' ? 'শেয়ার সম্পন্ন হয়েছে!' : 'Shared successfully!',
+        'success'
+      );
     } else {
       handleCopyMessage();
     }

@@ -1,12 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { useHealthcare } from '../../context/HealthcareContext';
 import { generateHealthcareId } from '../../services/healthcareIdService';
+import {
+  Pill,
+  ShoppingCart,
+  FileText,
+  AlertTriangle,
+  Boxes,
+  Search,
+  CheckCircle2,
+  X
+} from 'lucide-react';
 
 export default function PharmacyFEFOManager() {
   const {
-    pharmacyMedicines,
-    patients,
-    prescriptions,
+    pharmacyMedicines = [],
+    patients = [],
+    prescriptions = [],
     dispensePharmacyMedicine,
     updatePrescriptionDispensingStatus
   } = useHealthcare();
@@ -30,11 +40,12 @@ export default function PharmacyFEFOManager() {
   // Filtered medicines
   const filteredMedicines = useMemo(() => {
     return pharmacyMedicines.filter(med => {
+      const q = searchTerm.toLowerCase();
       const matchesSearch =
-        med.brand_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.generic_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.barcode.includes(searchTerm) ||
-        med.manufacturer.toLowerCase().includes(searchTerm.toLowerCase());
+        (med.brand_name || '').toLowerCase().includes(q) ||
+        (med.generic_name || '').toLowerCase().includes(q) ||
+        (med.barcode || '').includes(searchTerm) ||
+        (med.manufacturer || '').toLowerCase().includes(q);
       const matchesCategory = selectedCategory === 'All' || med.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -42,32 +53,33 @@ export default function PharmacyFEFOManager() {
 
   // Categories
   const categories = useMemo(() => {
-    const set = new Set(pharmacyMedicines.map(m => m.category));
+    const set = new Set(pharmacyMedicines.map(m => m.category).filter(Boolean));
     return ['All', ...Array.from(set)];
   }, [pharmacyMedicines]);
 
   // Get FEFO sorted batches for a medicine
   const getFefoBatches = (med) => {
-    return [...med.batches].sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
+    return [...(med.batches || [])].sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
   };
 
   // Add to cart using FEFO (earliest expiring batch with stock)
   const addToCart = (medicine, preferredBatchNumber = null, unitType = 'strip') => {
     // Check allergy
-    if (selectedPatient && selectedPatient.allergies) {
-      const allergyLower = selectedPatient.allergies.toLowerCase();
+    const patientAllergy = selectedPatient?.allergy_note || selectedPatient?.allergies || '';
+    if (patientAllergy) {
+      const allergyLower = patientAllergy.toLowerCase();
       if (
-        allergyLower.includes(medicine.generic_name.toLowerCase()) ||
-        allergyLower.includes(medicine.brand_name.toLowerCase())
+        allergyLower.includes((medicine.generic_name || '').toLowerCase()) ||
+        allergyLower.includes((medicine.brand_name || '').toLowerCase())
       ) {
         const proceed = window.confirm(
-          `⚠️ অ্যালার্জি সতর্কতা (ALLERGY WARNING)!\nরোগী ${selectedPatient.full_name}-এর এই ওষুধের উপাদানে অ্যালার্জি রয়েছে (${selectedPatient.allergies})। আপনি কি তবুও এটি কার্টে যুক্ত করতে চান?`
+          `⚠️ ড্রাগ অ্যালার্জি সতর্কতা (ALLERGY WARNING)!\nরোগী ${selectedPatient.full_name}-এর এই ওষুধের উপাদানে অ্যালার্জি রয়েছে (${patientAllergy})। আপনি কি তবুও এটি কার্টে যুক্ত করতে চান?`
         );
         if (!proceed) return;
       }
     }
 
-    const fefoBatches = getFefoBatches(medicine).filter(b => b.stock_tablets > 0);
+    const fefoBatches = getFefoBatches(medicine).filter(b => (b.stock_tablets || 0) > 0);
     if (fefoBatches.length === 0) {
       alert(`⚠️ '${medicine.brand_name}' এর কোনো সক্রিয় স্টক নেই!`);
       return;
@@ -88,9 +100,9 @@ export default function PharmacyFEFOManager() {
 
     // Determine unit multiplier and pricing
     const multiplier = unitType === 'box'
-      ? medicine.box_size * medicine.strip_size
+      ? (medicine.box_size || 10) * (medicine.strip_size || 10)
       : unitType === 'strip'
-      ? medicine.strip_size
+      ? (medicine.strip_size || 10)
       : 1;
 
     const unitPrice = unitType === 'box'
@@ -148,7 +160,9 @@ export default function PharmacyFEFOManager() {
     const invoiceData = {
       sale_id: saleId,
       date: new Date().toLocaleString('bn-BD'),
-      patient: selectedPatient ? { id: selectedPatient.patient_id, name: selectedPatient.full_name, phone: selectedPatient.mobile_number } : { name: 'সাধারণ কাস্টমার (Walk-in)', phone: 'N/A' },
+      patient: selectedPatient
+        ? { id: selectedPatient.patient_id, name: selectedPatient.full_name, phone: selectedPatient.mobile_number || selectedPatient.phone || 'N/A' }
+        : { name: 'সাধারণ কাস্টমার (Walk-in)', phone: 'N/A' },
       prescription_id: activePrescriptionId,
       items: [...cart],
       subtotal,
@@ -185,11 +199,10 @@ export default function PharmacyFEFOManager() {
     setSelectedPatientId(rx.patient_id);
     setActivePrescriptionId(rx.prescription_id);
 
-    rx.medicines.forEach(prescribedMed => {
-      // Find matching medicine in stock
+    (rx.medicines || []).forEach(prescribedMed => {
       const matched = pharmacyMedicines.find(m =>
-        m.brand_name.toLowerCase() === prescribedMed.brand_name.toLowerCase() ||
-        m.generic_name.toLowerCase() === prescribedMed.generic_name.toLowerCase()
+        m.brand_name?.toLowerCase() === prescribedMed.brand_name?.toLowerCase() ||
+        m.generic_name?.toLowerCase() === prescribedMed.generic_name?.toLowerCase()
       );
       if (matched) {
         addToCart(matched, null, 'strip');
@@ -207,7 +220,7 @@ export default function PharmacyFEFOManager() {
     ninetyDays.setDate(ninetyDays.getDate() + 90);
 
     pharmacyMedicines.forEach(med => {
-      med.batches.forEach(b => {
+      (med.batches || []).forEach(b => {
         const exp = new Date(b.expiry_date);
         if (exp < now) {
           list.push({ ...med, batch: b, alertType: 'EXPIRED' });
@@ -221,151 +234,170 @@ export default function PharmacyFEFOManager() {
   }, [pharmacyMedicines]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-xl">💊</span>
-            <h1 className="text-2xl font-bold text-slate-800">ফার্মেসি ও FEFO ব্যাচ ডিসপেনসিং (Pharmacy Management)</h1>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Header & Tabs */}
+      <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Pill size={22} />
+              </div>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  ফার্মেসি ও FEFO ব্যাচ ডিসপেনসিং (Pharmacy POS)
+                </h1>
+                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  ফার্স্ট-এক্সপায়ারি-ফার্স্ট-আউট (FEFO) নীতি, জেনেরিক সার্চ ও ডিজিটাল প্রেসক্রিপশন বিতরণ
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-slate-500 text-sm mt-1">
-            ফার্স্ট-এক্সপায়ারি-ফার্স্ট-আউট (FEFO) নীতি, জেনেরিক সার্চ, ইউনিট কনভার্সন (বক্স/পাতা/ট্যাবলেট) ও ডিজিটাল প্রেসক্রিপশন বিতরণ
-          </p>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 overflow-x-auto text-sm">
-          <button
-            onClick={() => setActiveTab('pos')}
-            className={`px-4 py-2 font-medium rounded-lg transition-all ${
-              activeTab === 'pos' ? 'bg-white text-emerald-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            🛒 ফার্মেসি বিক্রয় (POS)
-          </button>
-          <button
-            onClick={() => setActiveTab('prescriptions')}
-            className={`px-4 py-2 font-medium rounded-lg transition-all relative ${
-              activeTab === 'prescriptions' ? 'bg-white text-emerald-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            📋 প্রেসক্রিপশন কিউ
-            {prescriptions.filter(p => p.dispensing_status === 'Sent to Pharmacy').length > 0 && (
-              <span className="ml-1.5 px-2 py-0.5 bg-rose-500 text-white text-xs rounded-full font-bold">
+          {/* Tab Navigation */}
+          <div className="hc-subtabs-nav" style={{ padding: '4px' }}>
+            <button
+              onClick={() => setActiveTab('pos')}
+              className={`hc-tab-btn ${activeTab === 'pos' ? 'active-emerald' : ''}`}
+            >
+              <ShoppingCart size={15} />
+              <span>ফার্মেসি বিক্রয় (POS)</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('prescriptions')}
+              className={`hc-tab-btn ${activeTab === 'prescriptions' ? 'active-emerald' : ''}`}
+            >
+              <FileText size={15} />
+              <span>প্রেসক্রিপশন কিউ</span>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'inherit', padding: '1px 6px', fontSize: '0.7rem' }}>
                 {prescriptions.filter(p => p.dispensing_status === 'Sent to Pharmacy').length}
               </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`px-4 py-2 font-medium rounded-lg transition-all ${
-              activeTab === 'inventory' ? 'bg-white text-emerald-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            📦 ব্যাচ স্টক ও র্যাক
-          </button>
-          <button
-            onClick={() => setActiveTab('alerts')}
-            className={`px-4 py-2 font-medium rounded-lg transition-all flex items-center gap-1.5 ${
-              activeTab === 'alerts' ? 'bg-white text-amber-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            ⚠️ মেয়াদ ও রিকল অ্যালার্ট
-            {alertMedicines.length > 0 && (
-              <span className="px-2 py-0.5 bg-amber-500 text-white text-xs rounded-full font-bold">
-                {alertMedicines.length}
-              </span>
-            )}
-          </button>
+            </button>
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`hc-tab-btn ${activeTab === 'inventory' ? 'active-emerald' : ''}`}
+            >
+              <Boxes size={15} />
+              <span>ব্যাচ ইনভেন্টরি</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('alerts')}
+              className={`hc-tab-btn ${activeTab === 'alerts' ? 'active-emerald' : ''}`}
+            >
+              <AlertTriangle size={15} />
+              <span>মেয়াদ অ্যালার্ট</span>
+              {alertMedicines.length > 0 && (
+                <span className="badge" style={{ background: '#ef4444', color: '#ffffff', padding: '1px 6px', fontSize: '0.7rem' }}>
+                  {alertMedicines.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* POS TAB */}
+      {/* POS VIEW (2-COLUMN RESPONSIVE LAYOUT) */}
       {activeTab === 'pos' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Medicine Catalog */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
+        <div className="hc-pharmacy-layout">
+          {/* Left Column: Search, Filter, Medicine Catalog */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Search and Category Bar */}
+            <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '14px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
-                  placeholder="🔍 ব্র্যান্ড নাম, জেনেরিক বা বারকোড দিয়ে খুঁজুন..."
+                  placeholder="ওষুধের নাম, জেনেরিক বা বারকোড দিয়ে খুঁজুন..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="input-field"
+                  style={{ width: '100%', paddingLeft: '34px', fontSize: '0.82rem' }}
                 />
-                {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">✕</button>
-                )}
               </div>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700"
+                className="input-field"
+                style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: '700' }}
               >
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
             {/* Medicine Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+            <div className="hc-medicine-grid">
               {filteredMedicines.map(med => {
-                const totalStockTablets = med.batches.reduce((sum, b) => sum + b.stock_tablets, 0);
-                const totalStrips = Math.floor(totalStockTablets / med.strip_size);
-                const fefoBatch = getFefoBatches(med).find(b => b.stock_tablets > 0);
+                const totalStockTablets = (med.batches || []).reduce((sum, b) => sum + (b.stock_tablets || 0), 0);
+                const totalStrips = Math.floor(totalStockTablets / (med.strip_size || 10));
+                const fefoBatch = getFefoBatches(med).find(b => (b.stock_tablets || 0) > 0);
 
                 return (
                   <div
                     key={med.medicine_id}
-                    className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-300 transition-all flex flex-col justify-between"
+                    className="glass-card press-scale"
+                    style={{
+                      padding: '1rem',
+                      borderRadius: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      border: '1px solid var(--border-color)'
+                    }}
                   >
                     <div>
-                      <div className="flex justify-between items-start gap-2">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                         <div>
-                          <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md font-semibold">
-                            {med.dosage_form}
+                          <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontSize: '0.7rem', fontWeight: '700' }}>
+                            {med.dosage_form || 'Tablet'}
                           </span>
-                          <h3 className="font-bold text-slate-800 text-base mt-1">{med.brand_name}</h3>
-                          <p className="text-xs text-slate-500 italic">{med.generic_name}</p>
+                          <h3 style={{ margin: '4px 0 2px', fontSize: '0.98rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                            {med.brand_name}
+                          </h3>
+                          <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            {med.generic_name}
+                          </p>
                         </div>
-                        <span className="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded border">
-                          📍 {med.rack_location}
+                        <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                          📍 {med.rack_location || 'A-1'}
                         </span>
                       </div>
 
-                      <div className="mt-2.5 flex items-center justify-between text-xs text-slate-600 border-t border-slate-100 pt-2">
-                        <span>কোম্পানি: <strong className="text-slate-700">{med.manufacturer}</strong></span>
-                        <span>স্টক: <strong className={totalStockTablets < 50 ? 'text-rose-600' : 'text-emerald-700'}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: '6px', marginTop: '8px' }}>
+                        <span>কোম্পানি: <strong style={{ color: 'var(--text-main)' }}>{med.manufacturer}</strong></span>
+                        <span>স্টক: <strong style={{ color: totalStockTablets < 50 ? '#ef4444' : '#10b981' }}>
                           {totalStrips} পাতা ({totalStockTablets} টি)
                         </strong></span>
                       </div>
 
                       {fefoBatch && (
-                        <div className="mt-2 bg-amber-50/70 border border-amber-200/60 rounded-lg p-2 text-xs text-amber-900 flex justify-between items-center">
+                        <div style={{ marginTop: '8px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '6px 8px', fontSize: '0.72rem', color: '#f59e0b', display: 'flex', justifyContent: 'space-between' }}>
                           <span>FEFO ব্যাচ: <strong>{fefoBatch.batch_number}</strong></span>
                           <span>মেয়াদ: <strong>{fefoBatch.expiry_date}</strong></span>
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                      <div className="text-xs text-slate-700">
-                        <div>পাতা: <strong>৳{med.strip_mrp}</strong></div>
-                        <div className="text-[11px] text-slate-400">প্রতি পিস: ৳{med.unit_mrp}</div>
+                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div style={{ fontSize: '0.75rem' }}>
+                        <div>পাতা: <strong style={{ color: 'var(--text-main)' }}>৳{med.strip_mrp}</strong></div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>পিস: ৳{med.unit_mrp}</div>
                       </div>
-                      <div className="flex gap-1.5">
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         <button
+                          type="button"
                           onClick={() => addToCart(med, null, 'tablet')}
-                          className="px-2.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-lg"
-                          title="ট্যাবলেট যোগ করুন"
+                          className="btn btn-secondary press-scale"
+                          style={{ padding: '4px 8px', fontSize: '0.72rem', fontWeight: '700' }}
+                          title="১টি ট্যাবলেট যোগ করুন"
                         >
-                          + ১ টি
+                          + ১ পিস
                         </button>
                         <button
+                          type="button"
                           onClick={() => addToCart(med, null, 'strip')}
-                          className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"
-                          title="পাতা যোগ করুন"
+                          className="btn btn-primary press-scale"
+                          style={{ padding: '4px 10px', fontSize: '0.72rem', fontWeight: '800', background: '#10b981', borderColor: '#10b981' }}
+                          title="১ পাতা যোগ করুন"
                         >
                           + ১ পাতা
                         </button>
@@ -377,117 +409,136 @@ export default function PharmacyFEFOManager() {
             </div>
           </div>
 
-          {/* Right Column: Billing & Cart */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between h-fit sticky top-4">
-            <div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                  <span>🛒</span> বিক্রয় কার্ট (Checkout Cart)
-                </h2>
-                <span className="text-xs font-semibold px-2 py-1 bg-slate-100 rounded text-slate-600">
-                  আইটেম: {cart.length}
-                </span>
-              </div>
+          {/* Right Column: Checkout Cart & Billing Panel */}
+          <div className="glass-card" style={{ padding: '1.25rem', borderRadius: '18px', position: 'sticky', top: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShoppingCart size={18} style={{ color: '#10b981' }} />
+                <span>বিক্রয় কার্ট (Checkout Cart)</span>
+              </h2>
+              <span className="badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-main)', fontSize: '0.72rem' }}>
+                আইটেম: {cart.length}
+              </span>
+            </div>
 
-              {/* Patient Selector */}
-              <div className="mt-3 space-y-1">
-                <label className="text-xs font-medium text-slate-600">রোগী নির্বাচন করুন (Patient ID / Name):</label>
-                <select
-                  value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">-- সাধারণ কাস্টমার (Walk-in Customer) --</option>
-                  {patients.map(p => (
-                    <option key={p.patient_id} value={p.patient_id}>
-                      {p.patient_id} - {p.full_name} ({p.mobile_number})
-                    </option>
-                  ))}
-                </select>
+            {/* Patient Selector */}
+            <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)' }}>
+                রোগী নির্বাচন করুন (Patient ID / Name):
+              </label>
+              <select
+                value={selectedPatientId}
+                onChange={(e) => setSelectedPatientId(e.target.value)}
+                className="input-field"
+                style={{ width: '100%', fontSize: '0.8rem' }}
+              >
+                <option value="">-- সাধারণ কাস্টমার (Walk-in Customer) --</option>
+                {patients.map(p => (
+                  <option key={p.patient_id} value={p.patient_id}>
+                    {p.patient_id} - {p.full_name} ({p.mobile_number || p.phone || 'N/A'})
+                  </option>
+                ))}
+              </select>
 
-                {/* Patient Allergy Alert */}
-                {selectedPatient && selectedPatient.allergies && (
-                  <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
-                    <span className="text-base">⚠️</span>
-                    <div>
-                      <strong>অ্যালার্জি সতর্কতা:</strong> {selectedPatient.allergies}
-                    </div>
+              {/* Patient Allergy Warning Alert */}
+              {selectedPatient && (selectedPatient.allergy_note || selectedPatient.allergies) && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '10px', padding: '8px 10px', fontSize: '0.74rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                  <AlertTriangle size={15} />
+                  <div>
+                    <strong>অ্যালার্জি সতর্কতা:</strong> {selectedPatient.allergy_note || selectedPatient.allergies}
                   </div>
-                )}
+                </div>
+              )}
 
-                {activePrescriptionId && (
-                  <div className="p-2 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex justify-between items-center">
-                    <span>সংযুক্ত প্রেসক্রিপশন: <strong>{activePrescriptionId}</strong></span>
-                    <button onClick={() => setActivePrescriptionId(null)} className="text-blue-600 hover:underline">রিমুভ</button>
-                  </div>
-                )}
-              </div>
+              {activePrescriptionId && (
+                <div style={{ background: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.3)', borderRadius: '10px', padding: '6px 10px', fontSize: '0.74rem', color: '#2563eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  <span>সংযুক্ত প্রেসক্রিপশন: <strong>{activePrescriptionId}</strong></span>
+                  <button onClick={() => setActivePrescriptionId(null)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.72rem', fontWeight: '700' }}>রিমুভ</button>
+                </div>
+              )}
+            </div>
 
-              {/* Cart Items List */}
-              <div className="mt-4 max-h-[260px] overflow-y-auto space-y-2 pr-1">
-                {cart.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 text-sm">
-                    কার্ট খালি। বাম পাশ থেকে ওষুধ নির্বাচন করুন।
-                  </div>
-                ) : (
-                  cart.map((item, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2 text-xs">
-                      <div className="flex-1">
-                        <div className="font-bold text-slate-800 text-sm">{item.brand_name}</div>
-                        <div className="text-slate-500">
-                          ব্যাচ: <span className="font-mono">{item.batch_number}</span> | মেয়াদ: {item.expiry_date}
-                        </div>
-                        <div className="text-emerald-700 font-semibold mt-0.5">
-                          {item.unitType === 'strip' ? '১ পাতা' : item.unitType === 'box' ? '১ বক্স' : '১ টি'} @ ৳{item.unitPrice}
-                        </div>
+            {/* Cart Items List */}
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '10px 0' }}>
+              {cart.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  কার্ট খালি। বাম পাশ থেকে ওষুধ নির্বাচন করুন।
+                </div>
+              ) : (
+                cart.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ fontSize: '0.84rem', color: 'var(--text-main)', display: 'block' }}>{item.brand_name}</strong>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        ব্যাচ: <span style={{ fontFamily: 'var(--font-mono)' }}>{item.batch_number}</span> | মেয়াদ: {item.expiry_date}
                       </div>
+                      <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>
+                        {item.unitType === 'strip' ? '১ পাতা' : item.unitType === 'box' ? '১ বক্স' : '১ টি'} @ ৳{item.unitPrice}
+                      </div>
+                    </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center border border-slate-200 bg-white rounded-lg overflow-hidden">
-                          <button
-                            onClick={() => {
-                              if (item.qty > 1) {
-                                setCart(prev => prev.map((x, i) => i === idx ? { ...x, qty: x.qty - 1 } : x));
-                              } else {
-                                setCart(prev => prev.filter((_, i) => i !== idx));
-                              }
-                            }}
-                            className="px-2 py-1 text-slate-600 hover:bg-slate-100 font-bold"
-                          >
-                            -
-                          </button>
-                          <span className="px-2.5 font-bold text-slate-800">{item.qty}</span>
-                          <button
-                            onClick={() => setCart(prev => prev.map((x, i) => i === idx ? { ...x, qty: x.qty + 1 } : x))}
-                            className="px-2 py-1 text-slate-600 hover:bg-slate-100 font-bold"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <span className="font-bold text-slate-800 text-sm min-w-[50px] text-right">
-                          ৳{item.unitPrice * item.qty}
-                        </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'var(--bg-card)' }}>
                         <button
-                          onClick={() => setCart(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-slate-400 hover:text-rose-500 font-bold px-1"
+                          type="button"
+                          onClick={() => {
+                            if (item.qty > 1) {
+                              setCart(prev => prev.map((x, i) => i === idx ? { ...x, qty: x.qty - 1 } : x));
+                            } else {
+                              setCart(prev => prev.filter((_, i) => i !== idx));
+                            }
+                          }}
+                          style={{ padding: '2px 7px', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: '800' }}
                         >
-                          ✕
+                          -
+                        </button>
+                        <span style={{ padding: '0 6px', fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>{item.qty}</span>
+                        <button
+                          type="button"
+                          onClick={() => setCart(prev => prev.map((x, i) => i === idx ? { ...x, qty: x.qty + 1 } : x))}
+                          style={{ padding: '2px 7px', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', fontWeight: '800' }}
+                        >
+                          +
                         </button>
                       </div>
+
+                      <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', minWidth: '45px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                        ৳{item.unitPrice * item.qty}
+                      </strong>
+
+                      <button
+                        type="button"
+                        onClick={() => setCart(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Calculations & Payment */}
-            <div className="mt-4 pt-3 border-t border-slate-200 space-y-3">
-              <div className="space-y-1 text-sm text-slate-600">
-                <div className="flex justify-between">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                   <span>মোট সাব-টোটাল:</span>
-                  <span className="font-bold text-slate-800">৳{subtotal}</span>
+                  <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{subtotal}</strong>
                 </div>
-                <div className="flex justify-between items-center">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-muted)' }}>
                   <span>ডিসকাউন্ট (%):</span>
                   <input
                     type="number"
@@ -495,46 +546,67 @@ export default function PharmacyFEFOManager() {
                     max="100"
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(e.target.value)}
-                    className="w-16 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-right text-xs"
+                    className="input-field"
+                    style={{ width: '65px', padding: '3px 6px', textAlign: 'right', fontSize: '0.8rem' }}
                   />
                 </div>
-                <div className="flex justify-between text-base font-extrabold text-slate-900 border-t border-slate-100 pt-2">
-                  <span>সর্বমোট প্রদেয়:</span>
-                  <span className="text-emerald-600">৳{netPayable}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '6px', marginTop: '2px' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>সর্বমোট প্রদেয়:</span>
+                  <strong style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{netPayable}</strong>
                 </div>
               </div>
 
-              {/* Payment Methods */}
-              <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
+              {/* Payment Method Switcher */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                 {['Cash', 'bKash', 'Nagad', 'Card'].map(m => (
                   <button
                     key={m}
+                    type="button"
                     onClick={() => setPaymentMethod(m)}
-                    className={`py-2 rounded-xl border text-center transition-all ${
-                      paymentMethod === m
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    style={{
+                      padding: '5px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '700',
+                      border: paymentMethod === m ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                      background: paymentMethod === m ? '#10b981' : 'var(--bg-secondary)',
+                      color: paymentMethod === m ? '#ffffff' : 'var(--text-main)',
+                      cursor: 'pointer'
+                    }}
                   >
                     {m}
                   </button>
                 ))}
               </div>
 
-              <div className="flex gap-2">
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="number"
-                  placeholder={`জমা টাকা (ডিফল্ট: ৳${netPayable})`}
+                  placeholder={`জমা টাকা (৳${netPayable})`}
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  className="input-field"
+                  style={{ flex: 1, fontSize: '0.82rem' }}
                 />
                 <button
+                  type="button"
                   onClick={handleCheckout}
                   disabled={cart.length === 0}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-md transition-all text-sm flex items-center gap-2"
+                  className="btn btn-primary press-scale"
+                  style={{
+                    background: '#10b981',
+                    borderColor: '#10b981',
+                    padding: '8px 16px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: cart.length === 0 ? 0.5 : 1
+                  }}
                 >
-                  <span>✓</span> বিল কনফার্ম করুন
+                  <CheckCircle2 size={16} />
+                  <span>বিল কনফার্ম</span>
                 </button>
               </div>
             </div>
@@ -544,52 +616,64 @@ export default function PharmacyFEFOManager() {
 
       {/* PRESCRIPTION QUEUE TAB */}
       {activeTab === 'prescriptions' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">ডাক্তারের ডিজিটাল প্রেসক্রিপশন কিউ (Pharmacy Dispense Queue)</h2>
-              <p className="text-slate-500 text-xs">ডাক্তারের স্বাক্ষরিত প্রেসক্রিপশন থেকে সরাসরি ওষুধ লোড করে ডিসপেন্স করুন</p>
-            </div>
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '14px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              ডাক্তারের ডিজিটাল প্রেসক্রিপশন কিউ (Pharmacy Dispense Queue)
+            </h2>
+            <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              ডাক্তারের স্বাক্ষরিত প্রেসক্রিপশন থেকে সরাসরি ওষুধ লোড করে কাউন্টারে ডিসপেন্স করুন
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '14px' }}>
             {prescriptions.map(rx => (
-              <div key={rx.prescription_id} className="p-4 border border-slate-200 rounded-2xl hover:border-emerald-300 transition-all bg-slate-50 flex flex-col justify-between">
+              <div
+                key={rx.prescription_id}
+                className="glass-card press-scale"
+                style={{
+                  padding: '1rem',
+                  borderRadius: '16px',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
                 <div>
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="badge" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
                       {rx.prescription_id}
                     </span>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                      rx.dispensing_status === 'Fully Dispensed'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className="badge" style={{ fontSize: '0.7rem', background: rx.dispensing_status === 'Fully Dispensed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: rx.dispensing_status === 'Fully Dispensed' ? '#10b981' : '#f59e0b' }}>
                       {rx.dispensing_status || 'Sent to Pharmacy'}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-slate-800 text-base mt-2">{rx.patient_name}</h3>
-                  <p className="text-xs text-slate-500">রোগী আইডি: {rx.patient_id} | বয়স: {rx.patient_age}</p>
-                  <p className="text-xs text-slate-600 mt-1">ডাক্তার: <strong>{rx.doctor_name}</strong></p>
+                  <h3 style={{ margin: '8px 0 2px', fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>{rx.patient_name}</h3>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>রোগী আইডি: {rx.patient_id} | বয়স: {rx.patient_age || rx.age}</div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>ডাক্তার: <strong style={{ color: 'var(--text-main)' }}>{rx.doctor_name}</strong></div>
 
-                  <div className="mt-3 bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
-                    <div className="text-xs font-semibold text-slate-700">প্রেসক্রাইবড ওষুধসমূহ:</div>
-                    {rx.medicines.map((m, i) => (
-                      <div key={i} className="text-xs text-slate-600 flex justify-between">
-                        <span>• {m.brand_name} ({m.strength})</span>
-                        <span className="font-semibold text-slate-800">{m.frequency} - {m.duration}</span>
+                  <div style={{ marginTop: '10px', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-main)' }}>প্রেসক্রাইবড ওষুধসমূহ:</div>
+                    {(rx.medicines || []).map((m, i) => (
+                      <div key={i} style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>• {m.brand_name} {m.strength && `(${m.strength})`}</span>
+                        <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{m.frequency} - {m.duration}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-200 flex justify-end">
+                <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
                   <button
+                    type="button"
                     onClick={() => loadPrescriptionToCart(rx)}
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center justify-center gap-1.5"
+                    className="btn btn-primary press-scale"
+                    style={{ width: '100%', background: '#10b981', borderColor: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', fontSize: '0.78rem' }}
                   >
-                    <span>🛒</span> কার্টে লোড করুন ও বিল করুন
+                    <ShoppingCart size={15} />
+                    <span>কার্টে লোড করুন ও বিল করুন</span>
                   </button>
                 </div>
               </div>
@@ -600,48 +684,50 @@ export default function PharmacyFEFOManager() {
 
       {/* BATCH INVENTORY TAB */}
       {activeTab === 'inventory' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">ব্যাচ স্টক ও র্যাক অবস্থান (Batch Inventory & Rack Location)</h2>
-              <p className="text-slate-500 text-xs">প্রতিটি ওষুধের ব্যাচ নম্বর, মেয়াদ, ক্রয়মূল্য ও বিক্রয়মূল্য ট্র্যাকিং</p>
-            </div>
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '14px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              ব্যাচ স্টক ও র্যাক অবস্থান (Batch Inventory & Rack Location)
+            </h2>
+            <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              প্রতিটি ওষুধের ব্যাচ নম্বর, মেয়াদ, খুচরা মূল্য ও স্ট্যাটাস ট্র্যাকিং
+            </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="hc-table-container">
+            <table className="hc-data-table">
               <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="p-3">ওষুধের নাম</th>
-                  <th className="p-3">জেনেরিক ও কোম্পানি</th>
-                  <th className="p-3">র্যাক</th>
-                  <th className="p-3">ব্যাচ নম্বর</th>
-                  <th className="p-3">মেয়াদ উত্তীর্ণ তারিখ</th>
-                  <th className="p-3">স্টক (ট্যাবলেট/পিস)</th>
-                  <th className="p-3">খুচরা মূল্য (পাতা)</th>
-                  <th className="p-3">স্ট্যাটাস</th>
+                <tr>
+                  <th>ওষুধের নাম</th>
+                  <th>জেনেরিক ও কোম্পানি</th>
+                  <th>র্যাক</th>
+                  <th>ব্যাচ নম্বর</th>
+                  <th>মেয়াদ উত্তীর্ণ তারিখ</th>
+                  <th>স্টক</th>
+                  <th>মূল্য (পাতা)</th>
+                  <th>স্ট্যাটাস</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {pharmacyMedicines.flatMap(med =>
-                  med.batches.map((b, idx) => {
+                  (med.batches || []).map((b, idx) => {
                     const isExpired = new Date(b.expiry_date) < new Date();
                     return (
-                      <tr key={`${med.medicine_id}-${idx}`} className="hover:bg-slate-50/70">
-                        <td className="p-3 font-bold text-slate-800">{med.brand_name}</td>
-                        <td className="p-3 text-slate-500">{med.generic_name} ({med.manufacturer})</td>
-                        <td className="p-3 font-mono font-semibold text-slate-700">{med.rack_location}</td>
-                        <td className="p-3 font-mono font-bold text-slate-800">{b.batch_number}</td>
-                        <td className="p-3 font-mono">{b.expiry_date}</td>
-                        <td className="p-3 font-bold text-slate-900">{b.stock_tablets} টি</td>
-                        <td className="p-3 font-semibold text-emerald-700">৳{med.strip_mrp}</td>
-                        <td className="p-3">
+                      <tr key={`${med.medicine_id}-${idx}`}>
+                        <td style={{ fontWeight: '800' }}>{med.brand_name}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>{med.generic_name} ({med.manufacturer})</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{med.rack_location}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '700' }}>{b.batch_number}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{b.expiry_date}</td>
+                        <td style={{ fontWeight: '800', color: isExpired ? '#ef4444' : '#10b981' }}>{b.stock_tablets} টি</td>
+                        <td style={{ fontWeight: '800', color: '#10b981' }}>৳{med.strip_mrp}</td>
+                        <td>
                           {isExpired ? (
-                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold text-[10px]">
+                            <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontSize: '0.68rem', fontWeight: '800' }}>
                               EXPIRED
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold text-[10px]">
+                            <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.68rem', fontWeight: '800' }}>
                               AVAILABLE
                             </span>
                           )}
@@ -658,49 +744,63 @@ export default function PharmacyFEFOManager() {
 
       {/* EXPIRY ALERTS TAB */}
       {activeTab === 'alerts' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">মেয়াদোত্তীর্ণ ও আসন্ন মেয়াদোত্তীর্ণ ওষুধ (FEFO Safety Alerts)</h2>
-              <p className="text-slate-500 text-xs">মেয়াদোত্তীর্ণ ওষুধ বিক্রয় সম্পূর্ণ নিষিদ্ধ এবং ৯০ দিনের মধ্যে মেয়াদোত্তীর্ণ ওষুধসমূহ সতর্কবার্তা</p>
-            </div>
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '14px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              মেয়াদোত্তীর্ণ ও আসন্ন মেয়াদোত্তীর্ণ ওষুধ (FEFO Safety Alerts)
+            </h2>
+            <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              মেয়াদোত্তীর্ণ ওষুধ বিক্রয় সম্পূর্ণ নিষিদ্ধ এবং ৯০ দিনের মধ্যে মেয়াদোত্তীর্ণ ওষুধসমূহ সতর্কবার্তা
+            </p>
           </div>
 
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {alertMedicines.map((item, idx) => (
               <div
                 key={idx}
-                className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
-                  item.alertType === 'EXPIRED'
-                    ? 'bg-rose-50 border-rose-200 text-rose-900'
-                    : 'bg-amber-50 border-amber-200 text-amber-900'
-                }`}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: item.alertType === 'EXPIRED' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+                  background: item.alertType === 'EXPIRED' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}
               >
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-base">{item.brand_name}</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      item.alertType === 'EXPIRED' ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
-                    }`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{item.brand_name}</strong>
+                    <span className="badge" style={{ background: item.alertType === 'EXPIRED' ? '#ef4444' : '#f59e0b', color: '#ffffff', fontSize: '0.68rem', fontWeight: '800' }}>
                       {item.alertType === 'EXPIRED' ? 'মেয়াদোত্তীর্ণ (EXPIRED)' : `মেয়াদ আর ${item.daysLeft} দিন`}
                     </span>
                   </div>
-                  <p className="text-xs mt-1">জেনেরিক: {item.generic_name} | কোম্পানি: {item.manufacturer}</p>
-                  <p className="text-xs font-mono mt-0.5">ব্যাচ নম্বর: {item.batch.batch_number} | মেয়াদ: {item.batch.expiry_date} | অবশিষ্ট স্টক: {item.batch.stock_tablets} টি</p>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    জেনেরিক: {item.generic_name} | কোম্পানি: {item.manufacturer}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                    ব্যাচ নম্বর: {item.batch.batch_number} | মেয়াদ: {item.batch.expiry_date} | অবশিষ্ট স্টক: {item.batch.stock_tablets} টি
+                  </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: '8px' }}>
                   {item.alertType === 'EXPIRED' ? (
                     <button
+                      type="button"
                       onClick={() => alert(`ব্যাচ ${item.batch.batch_number} কোম্পানি রিটার্ন/ডিসপোজাল রেজিস্টারে পাঠানো হয়েছে।`)}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm"
+                      className="btn btn-secondary press-scale"
+                      style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', padding: '5px 12px', fontSize: '0.75rem', fontWeight: '700' }}
                     >
                       কোম্পানি রিটার্ন করুন
                     </button>
                   ) : (
                     <button
-                      onClick={() => alert(`ব্যাচ ${item.batch.batch_number} ডিসকাউন্ট ক্যাম্পেইনে যুক্ত করা হয়েছে।`)}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm"
+                      type="button"
+                      onClick={() => alert(`ব্যাচ ${item.batch.batch_number} ডিসকাউন্ট ক্লিয়ারেন্সে অন্তর্ভুক্ত করা হয়েছে।`)}
+                      className="btn btn-secondary press-scale"
+                      style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', padding: '5px 12px', fontSize: '0.75rem', fontWeight: '700' }}
                     >
                       ক্লিয়ারেন্স অফার দিন
                     </button>
@@ -712,73 +812,79 @@ export default function PharmacyFEFOManager() {
         </div>
       )}
 
-      {/* Invoice Modal */}
+      {/* Invoice Receipt Modal */}
       {lastInvoice && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="text-center pb-3 border-b border-slate-200">
-              <h3 className="font-bold text-lg text-slate-800">হিসাবকিতাব ৩৬০ - হেলথকেয়ার ফার্মেসি</h3>
-              <p className="text-xs text-slate-500">ক্যাশ ইনভয়েস ও রসিদ</p>
-              <p className="text-xs font-mono font-bold text-emerald-700 mt-1">{lastInvoice.sale_id}</p>
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '460px', width: '95%', padding: '1.25rem', borderRadius: '18px' }}>
+            <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>হিসাবকিতাব ৩৬০ - হেলথকেয়ার ফার্মেসি</h3>
+              <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>ক্যাশ ইনভয়েস ও ডিসপেনসারি রসিদ</p>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#10b981', fontSize: '0.8rem', marginTop: '4px' }}>
+                #{lastInvoice.sale_id}
+              </div>
             </div>
 
-            <div className="text-xs text-slate-600 space-y-1">
-              <div>তারিখ: <strong>{lastInvoice.date}</strong></div>
-              <div>ক্রেতা: <strong>{lastInvoice.patient.name}</strong> ({lastInvoice.patient.phone})</div>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '10px' }}>
+              <div>তারিখ: <strong style={{ color: 'var(--text-main)' }}>{lastInvoice.date}</strong></div>
+              <div>ক্রেতা: <strong style={{ color: 'var(--text-main)' }}>{lastInvoice.patient.name}</strong> ({lastInvoice.patient.phone})</div>
               {lastInvoice.prescription_id && (
-                <div>প্রেসক্রিপশন: <strong>{lastInvoice.prescription_id}</strong></div>
+                <div>প্রেসক্রিপশন: <strong style={{ color: '#2563eb' }}>{lastInvoice.prescription_id}</strong></div>
               )}
             </div>
 
-            <div className="border-t border-b border-slate-200 py-2 space-y-1.5 max-h-48 overflow-y-auto">
+            <div style={{ borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '8px 0', maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {lastInvoice.items.map((it, idx) => (
-                <div key={idx} className="flex justify-between text-xs">
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem' }}>
                   <div>
-                    <span className="font-bold text-slate-800">{it.brand_name}</span> ({it.qty} {it.unitType})
-                    <div className="text-[10px] text-slate-400">ব্যাচ: {it.batch_number}</div>
+                    <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{it.brand_name}</span> ({it.qty} {it.unitType})
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>ব্যাচ: {it.batch_number}</div>
                   </div>
-                  <span className="font-bold text-slate-800">৳{it.unitPrice * it.qty}</span>
+                  <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{it.unitPrice * it.qty}</strong>
                 </div>
               ))}
             </div>
 
-            <div className="text-xs space-y-1">
-              <div className="flex justify-between">
+            <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.78rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                 <span>সাবটোটাল:</span>
-                <span className="font-bold">৳{lastInvoice.subtotal}</span>
+                <span style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{lastInvoice.subtotal}</span>
               </div>
-              <div className="flex justify-between">
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                 <span>ডিসকাউন্ট:</span>
-                <span className="font-bold">৳{lastInvoice.discountAmount}</span>
+                <span style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{lastInvoice.discountAmount}</span>
               </div>
-              <div className="flex justify-between text-sm font-bold text-slate-800 border-t pt-1">
-                <span>মোট প্রদেয়:</span>
-                <span className="text-emerald-700">৳{lastInvoice.netPayable}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', borderTop: '1px solid var(--border-color)', paddingTop: '4px' }}>
+                <span style={{ color: 'var(--text-main)' }}>মোট প্রদেয়:</span>
+                <span style={{ color: '#10b981', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>৳{lastInvoice.netPayable}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
                 <span>পরিশোধিত ({lastInvoice.paymentMethod}):</span>
-                <span className="font-bold">৳{lastInvoice.paidAmount}</span>
+                <span style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{lastInvoice.paidAmount}</span>
               </div>
               {lastInvoice.dueAmount > 0 && (
-                <div className="flex justify-between text-rose-600 font-bold">
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444', fontWeight: '800' }}>
                   <span>বকেয়া:</span>
-                  <span>৳{lastInvoice.dueAmount}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>৳{lastInvoice.dueAmount}</span>
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
               <button
+                type="button"
                 onClick={() => window.print()}
-                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                className="btn btn-secondary press-scale"
+                style={{ flex: 1, padding: '8px', fontSize: '0.8rem' }}
               >
-                🖨️ প্রিন্ট করুন
+                🖨️ প্রিন্ট রসিদ
               </button>
               <button
+                type="button"
                 onClick={() => setLastInvoice(null)}
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+                className="btn btn-primary press-scale"
+                style={{ flex: 1, padding: '8px', fontSize: '0.8rem', background: '#10b981', borderColor: '#10b981' }}
               >
-                বন্ধ করুন
+                সম্পন্ন
               </button>
             </div>
           </div>

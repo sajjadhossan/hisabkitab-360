@@ -189,20 +189,39 @@ export const connectBluetoothPrinter = async () => {
   }
 
   try {
-    // Standard Bluetooth Serial / Printer GATT Services
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [
-        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-        { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] },
-        { services: ['e7810a71-73ae-499d-8c15-fac9a7420c41'] }
-      ],
-      optionalServices: [
-        '000018f0-0000-1000-8000-00805f9b34fb',
-        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-        'e7810a71-73ae-499d-8c15-fac9a7420c41',
-        0x18f0
-      ]
-    });
+    const ESCPOS_BLUETOOTH_SERVICES = [
+      '000018f0-0000-1000-8000-00805f9b34fb',
+      '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+      'e7810a71-73ae-499d-8c15-fac9a7420c41',
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+      '0000ff00-0000-1000-8000-00805f9b34fb',
+      '0000fee7-0000-1000-8000-00805f9b34fb',
+      '0000af30-0000-1000-8000-00805f9b34fb',
+      '0000ae00-0000-1000-8000-00805f9b34fb',
+      '0000fff0-0000-1000-8000-00805f9b34fb'
+    ];
+
+    let device;
+    try {
+      device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ESCPOS_BLUETOOTH_SERVICES
+      });
+    } catch (reqErr) {
+      if (reqErr.name === 'NotFoundError') throw reqErr;
+      device = await navigator.bluetooth.requestDevice({
+        filters: [
+          { namePrefix: 'POS' },
+          { namePrefix: 'MPT' },
+          { namePrefix: 'RP' },
+          { namePrefix: 'Thermal' },
+          { namePrefix: 'Printer' },
+          { namePrefix: 'XP-' },
+          { namePrefix: 'Bluetooth' }
+        ],
+        optionalServices: ESCPOS_BLUETOOTH_SERVICES
+      });
+    }
 
     const server = await device.gatt.connect();
     activeBluetoothDevice = device;

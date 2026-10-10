@@ -53,6 +53,7 @@ import {
   Printer,
   Coins,
   Tv,
+  ArrowLeft,
   Truck,
   Gift
 } from 'lucide-react';
@@ -90,7 +91,7 @@ import {
   playButtonClick,
   playWarningTone
 } from '../../services/soundFeedback';
-import { requestScreenWakeLock, releaseScreenWakeLock } from '../../services/nativeAppService';
+import { requestScreenWakeLock, releaseScreenWakeLock, registerBackAction, hapticFeedback } from '../../services/nativeAppService';
 
 const DEFAULT_QUICK_FILTERS = [
   {
@@ -559,13 +560,13 @@ export const POSTerminal = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Screen Wake Lock: Keep phone screen on while in POS counter
+  // Android Hardware / Gesture Back Action: Gracefully return to Dashboard
   useEffect(() => {
-    requestScreenWakeLock();
-    return () => {
-      releaseScreenWakeLock();
-    };
-  }, []);
+    return registerBackAction(() => {
+      setActiveTab('dashboard');
+      return true;
+    });
+  }, [setActiveTab]);
 
   // Graceful Crash Recovery: Notify cashier of recovered draft cart
   useEffect(() => {
@@ -1074,8 +1075,9 @@ export const POSTerminal = () => {
   const handleCheckout = (splitList = null) => {
     if (cart.length === 0) return;
 
-    // Confetti effect & Success Chime
+    // Confetti effect & Success Chime & Native Haptics
     playSuccessChime();
+    hapticFeedback.success();
     try {
       confetti({
         particleCount: 80,
@@ -1346,6 +1348,29 @@ export const POSTerminal = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}>
+            {/* Quick 1-Tap Back to Dashboard Button */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              className="btn btn-secondary"
+              style={{
+                padding: '4px 8px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.75rem',
+                fontWeight: '800',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'var(--bg-primary)',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
+            >
+              <ArrowLeft size={14} />
+              <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
+            </button>
+
             <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <Store size={15} style={{ color: 'var(--business-primary)' }} />
               {activeBranch?.name || (lang === 'bn' ? 'প্রধান শাখা' : 'Main Branch')} • {activeCounter?.name || (lang === 'bn' ? 'কাউন্টার ১' : 'Counter 1')}
@@ -1475,6 +1500,28 @@ export const POSTerminal = () => {
               <SlidersHorizontal size={12} />
               <span>{isMobileHeaderExpanded ? (lang === 'bn' ? '▲ লুকান' : 'Hide') : (lang === 'bn' ? '⚙️ টুলস' : 'Tools')}</span>
             </button>
+
+            {/* 1-Tap Quick Exit Cross Button */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '8px',
+                border: '1.5px solid rgba(239, 68, 68, 0.45)',
+                background: 'rgba(239, 68, 68, 0.12)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? 'পজ থেকে বের হয়ে ড্যাশবোর্ডে যান' : 'Exit POS to Dashboard'}
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
       )}
@@ -1495,7 +1542,31 @@ export const POSTerminal = () => {
             borderLeft: '4px solid var(--business-primary)'
           }}
         >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Back to Dashboard Button */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              borderRadius: '8px',
+              background: 'var(--bg-primary)',
+              border: '1.5px solid var(--border-color)',
+              color: 'var(--text-main)',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
+          >
+            <ArrowLeft size={16} />
+            <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard'}</span>
+          </button>
+
           {/* Branch Selector or Badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Store size={18} style={{ color: 'var(--business-primary)' }} />

@@ -831,8 +831,40 @@ export const renderReceiptToEscPosRaster = (receiptData, businessSettings = {}, 
   return rasterBytes;
 };
 
+// Active Bluetooth thermal printer session cache
+let activeBtDevice = null;
+let activeBtCharacteristic = null;
+
+export const getBluetoothPrinterStatus = () => ({
+  connected: !!(activeBtDevice && activeBtDevice.gatt && activeBtDevice.gatt.connected && activeBtCharacteristic),
+  deviceName: activeBtDevice ? activeBtDevice.name || 'Thermal Printer' : null
+});
+
+export const disconnectBluetoothPrinter = () => {
+  try {
+    if (activeBtDevice && activeBtDevice.gatt && activeBtDevice.gatt.connected) {
+      activeBtDevice.gatt.disconnect();
+    }
+  } catch {}
+  activeBtDevice = null;
+  activeBtCharacteristic = null;
+};
+
+const ESCPOS_BLUETOOTH_SERVICES = [
+  '000018f0-0000-1000-8000-00805f9b34fb', // Standard Printer service
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Rongta / Xprinter variant 1
+  'e7810a71-73ae-499d-8c15-fac9a7420c41', // Rongta / Xprinter variant 2
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC transparent UART
+  '0000ff00-0000-1000-8000-00805f9b34fb', // Generic POS service
+  '0000fee7-0000-1000-8000-00805f9b34fb', // Tencent / Chinese POS
+  '0000af30-0000-1000-8000-00805f9b34fb',
+  '0000ae00-0000-1000-8000-00805f9b34fb',
+  '0000fff0-0000-1000-8000-00805f9b34fb'
+];
+
 /**
  * Direct Android / Web Bluetooth ESC/POS Thermal Printer Driver
+ * Universal Bluetooth Device Discovery (Accepts 100% of portable 58mm/80mm printers)
  * Uses Canvas Raster Bitmaps to print 100% crisp, authentic Bengali fonts on any thermal printer!
  */
 export const printBluetoothEscPos = async (receiptData, businessSettings = {}, is58mm = true) => {
@@ -840,41 +872,68 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}, i
     throw new Error('Bluetooth API is not supported on this device/browser');
   }
 
-  const device = await navigator.bluetooth.requestDevice({
-    filters: [
-      { namePrefix: 'POS' },
-      { namePrefix: 'MPT' },
-      { namePrefix: 'RP' },
-      { namePrefix: 'Thermal' },
-      { namePrefix: 'Printer' },
-      { namePrefix: 'XP-' },
-      { namePrefix: 'InnerPrinter' },
-      { namePrefix: 'Bluetooth' }
-    ],
-    optionalServices: [
-      '000018f0-0000-1000-8000-00805f9b34fb',
-      'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-      '49535343-fe7d-4ae5-8fa9-9fafd205e455'
-    ]
-  });
+  let device = activeBtDevice;
+  let writeChar = activeBtCharacteristic;
 
-  const server = await device.gatt.connect();
-  const services = await server.getPrimaryServices();
-  let writeChar = null;
+  // Check if existing connection is still healthy
+  const isHealthy = device && device.gatt && device.gatt.connected && writeChar;
 
-  for (const s of services) {
-    const chars = await s.getCharacteristics();
-    for (const c of chars) {
-      if (c.properties.write || c.properties.writeWithoutResponse) {
-        writeChar = c;
-        break;
+  if (!isHealthy) {
+    // Request device with universal acceptAllDevices to detect Rongta, Xprinter, Goojprt, MPT-II, etc.
+    try {
+      device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ESCPOS_BLUETOOTH_SERVICES
+      });
+    } catch (reqErr) {
+      // Fallback: try with broad namePrefix filters if acceptAllDevices fails on specific platform
+      if (reqErr.name === 'NotFoundError') {
+        throw reqErr; // User cancelled pairing
       }
+      device = await navigator.bluetooth.requestDevice({
+        filters: [
+          { namePrefix: 'POS' },
+          { namePrefix: 'MPT' },
+          { namePrefix: 'RP' },
+          { namePrefix: 'Thermal' },
+          { namePrefix: 'Printer' },
+          { namePrefix: 'XP-' },
+          { namePrefix: 'InnerPrinter' },
+          { namePrefix: 'Bluetooth' }
+        ],
+        optionalServices: ESCPOS_BLUETOOTH_SERVICES
+      });
     }
-    if (writeChar) break;
-  }
 
-  if (!writeChar) {
-    throw new Error('Writable thermal printer service not found on this Bluetooth device');
+    const server = await device.gatt.connect();
+    const services = await server.getPrimaryServices();
+    writeChar = null;
+
+    for (const s of services) {
+      try {
+        const chars = await s.getCharacteristics();
+        for (const c of chars) {
+          if (c.properties.write || c.properties.writeWithoutResponse) {
+            writeChar = c;
+            break;
+          }
+        }
+      } catch {}
+      if (writeChar) break;
+    }
+
+    if (!writeChar) {
+      throw new Error('Writable thermal printer service not found on this Bluetooth device');
+    }
+
+    // Cache healthy connection for instant repeat printing
+    activeBtDevice = device;
+    activeBtCharacteristic = writeChar;
+
+    device.addEventListener('gattserverdisconnected', () => {
+      activeBtDevice = null;
+      activeBtCharacteristic = null;
+    });
   }
 
   const initCmd = new Uint8Array([0x1B, 0x40]);
@@ -889,33 +948,36 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}, i
     console.warn('Fallback to text printing due to raster error:', err);
   }
 
-  await writeChar.writeValue(initCmd);
+  // Safe chunk sender
+  const sendBytes = async (bytes, chunkSize = 256) => {
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      const slice = bytes.slice(offset, offset + chunkSize);
+      if (writeChar.writeValueWithoutResponse) {
+        await writeChar.writeValueWithoutResponse(slice);
+      } else {
+        await writeChar.writeValue(slice);
+      }
+      await new Promise(r => setTimeout(r, 12));
+    }
+  };
+
+  await sendBytes(initCmd);
 
   if (rasterBytes && rasterBytes.length > 0) {
-    // Send in 512-byte slices with small pauses to avoid BLE GATT buffer overflow
-    const chunkSize = 512;
-    for (let offset = 0; offset < rasterBytes.length; offset += chunkSize) {
-      const slice = rasterBytes.slice(offset, offset + chunkSize);
-      await writeChar.writeValue(slice);
-      await new Promise(r => setTimeout(r, 15));
-    }
+    await sendBytes(rasterBytes, 256);
   } else {
     // Fallback: ASCII Text
     const encoder = new TextEncoder();
     const shopName = businessSettings.shopName || receiptData.shopName || 'HisabKitab 360';
-    await writeChar.writeValue(encoder.encode(`${shopName}\n`));
-    await writeChar.writeValue(encoder.encode(`Inv #${receiptData.id}\n`));
-    await writeChar.writeValue(encoder.encode(`TOTAL: BDT ${receiptData.grandTotal || 0}\n`));
+    await sendBytes(encoder.encode(`${shopName}\n`));
+    await sendBytes(encoder.encode(`Inv #${receiptData.id}\n`));
+    await sendBytes(encoder.encode(`TOTAL: BDT ${receiptData.grandTotal || 0}\n`));
   }
 
-  await writeChar.writeValue(feedCmd);
+  await sendBytes(feedCmd);
   try {
-    await writeChar.writeValue(cutCmd);
+    await sendBytes(cutCmd);
   } catch {}
-
-  setTimeout(() => {
-    try { device.gatt.disconnect(); } catch {}
-  }, 1200);
 
   return true;
 };

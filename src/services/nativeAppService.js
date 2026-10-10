@@ -9,6 +9,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Keyboard } from '@capacitor/keyboard';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { Share } from '@capacitor/share';
 
 export const isNativePlatform = () => Capacitor.isNativePlatform();
 
@@ -126,11 +127,11 @@ export const registerBackAction = (handler) => {
   };
 };
 
-export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome }) => {
-  if (!isNativePlatform() || isBackListenerInitialized) return;
+export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNavigateBack }) => {
+  if (isBackListenerInitialized) return;
   isBackListenerInitialized = true;
 
-  App.addListener('backButton', ({ canGoBack }) => {
+  const handleBackPress = () => {
     // 1. If any modal, drawer, or custom sheet registered a handler, run it first
     if (backActionStack.length > 0) {
       const topHandler = backActionStack.pop();
@@ -138,32 +139,125 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome }) => 
         const handled = topHandler();
         if (handled !== false) {
           hapticFeedback.light();
-          return;
+          return true;
         }
       } catch (e) {
         console.error('[Native] Back handler error:', e);
       }
     }
 
-    // 2. If no modal is open, check if we need to navigate back to Home Dashboard
-    const handledByHomeNav = onNavigateHome && onNavigateHome();
-    if (handledByHomeNav) {
-      hapticFeedback.light();
-      return;
+    // 2. Sequential step-by-step back navigation (tab-by-tab / sub-view back)
+    if (onNavigateBack) {
+      try {
+        const handled = onNavigateBack();
+        if (handled) {
+          hapticFeedback.light();
+          return true;
+        }
+      } catch (e) {
+        console.error('[Native] onNavigateBack error:', e);
+      }
     }
 
-    // 3. At Root Home: Double-tap back button to exit
+    // 3. Fallback to Home Dashboard if not on dashboard
+    if (onNavigateHome) {
+      try {
+        const handledByHomeNav = onNavigateHome();
+        if (handledByHomeNav) {
+          hapticFeedback.light();
+          return true;
+        }
+      } catch (e) {
+        console.error('[Native] onNavigateHome error:', e);
+      }
+    }
+
+    // 4. At Root Home Dashboard: Double-tap back button to exit
     const now = Date.now();
     if (now - lastBackPressTime < 2200) {
-      App.exitApp();
+      if (isNativePlatform()) {
+        App.exitApp();
+      }
+      return false;
     } else {
       lastBackPressTime = now;
       hapticFeedback.warning();
       if (onHomeExitNotice) {
         onHomeExitNotice();
       }
+      return true;
     }
-  });
+  };
+
+  // Capacitor Native Android Hardware/Gesture Back Button
+  if (isNativePlatform()) {
+    try {
+      App.addListener('backButton', () => {
+        handleBackPress();
+      });
+    } catch (err) {
+      console.warn('[Native] Capacitor App.addListener failed:', err);
+    }
+  }
+
+  // Web Browser / Android Chrome / PWA popstate back navigation protection
+  if (typeof window !== 'undefined') {
+    try {
+      window.history.pushState({ hkRoot: true }, '');
+      window.addEventListener('popstate', () => {
+        const consumed = handleBackPress();
+        if (consumed) {
+          window.history.pushState({ hkRoot: true }, '');
+        }
+      });
+    } catch {}
+  }
+};
+
+/**
+ * 4.1. ANDROID HOME SCREEN SHORTCUTS & DEEP-LINKING
+ * Handles launching directly into POS, Debts, Stock, or Branch Control
+ * via Android launcher long-press shortcuts and custom URL schemes.
+ */
+export const initDeepLinkHandler = (onNavigateTab) => {
+  if (typeof window !== 'undefined') {
+    // 1. Cold start query parameter check (?tab=pos etc.)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam && onNavigateTab) {
+        onNavigateTab(tabParam);
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    } catch (e) {
+      console.debug('[Native] Deep link parse error:', e);
+    }
+  }
+
+  // 2. Capacitor native App Url Open event (when app is already warm/backgrounded)
+  if (isNativePlatform()) {
+    try {
+      App.addListener('appUrlOpen', (event) => {
+        if (event && event.url) {
+          try {
+            const urlObj = new URL(event.url);
+            const tab = urlObj.searchParams.get('tab');
+            if (tab && onNavigateTab) {
+              onNavigateTab(tab);
+            }
+          } catch {
+            const match = event.url.match(/[?&]tab=([^&#]+)/);
+            if (match && match[1] && onNavigateTab) {
+              onNavigateTab(match[1]);
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('[Native] appUrlOpen listener error:', err);
+    }
+  }
 };
 
 // ==========================================
@@ -558,5 +652,40 @@ export const markNightlyBackupPromptDone = () => {
     localStorage.setItem('hk360_last_nightly_backup_prompt', todayStr);
   } catch {}
 };
+
+// ==========================================
+// 14. NATIVE ANDROID SYSTEM SHARE SHEET
+// ==========================================
+/**
+ * Opens native Android Chooser / Share Sheet for WhatsApp, IMO, Messenger, SMS, Drive, Bluetooth, etc.
+ * Uses @capacitor/share natively on Android APK with web navigator.share fallback.
+ */
+export const shareNativeSheet = async ({ title, text, url, dialogTitle = 'শেয়ার করুন' }) => {
+  try {
+    hapticFeedback.light();
+    if (isNativePlatform()) {
+      await Share.share({
+        title,
+        text,
+        url,
+        dialogTitle
+      });
+      return true;
+    } else if (typeof navigator !== 'undefined' && navigator.share) {
+      await navigator.share({
+        title,
+        text,
+        url
+      });
+      return true;
+    }
+  } catch (err) {
+    if (err && err.name !== 'AbortError') {
+      console.warn('[Native Share] Share sheet closed or unsupported:', err);
+    }
+  }
+  return false;
+};
+
 
 

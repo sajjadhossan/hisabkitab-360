@@ -71,10 +71,14 @@ export const BarcodeScannerModal = () => {
   const [capturedSnapshot, setCapturedSnapshot] = useState(null);
   const [uploadedPreview, setUploadedPreview] = useState(null);
 
+  const [isHardwareAccelerated, setIsHardwareAccelerated] = useState(false);
+
   const html5QrCodeRef = useRef(null);
   const isStartingScannerRef = useRef(false);
   const lastScanTimestampRef = useRef(0);
   const lastScannedCodeRef = useRef('');
+  const nativeDetectorRunningRef = useRef(false);
+  const nativeRafIdRef = useRef(null);
 
   // Android Hardware Back Button: Smoothly release camera and close scanner modal
   useEffect(() => {
@@ -241,6 +245,52 @@ export const BarcodeScannerModal = () => {
       setCameraActive(true);
       setCameraError(null);
 
+      // 4. Native Hardware-Accelerated 60fps ML Kit BarcodeDetector Injection
+      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+        try {
+          const supported = await window.BarcodeDetector.getSupportedFormats();
+          const desired = ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code', 'data_matrix'];
+          const activeFormats = desired.filter((f) => supported.includes(f));
+          if (activeFormats.length > 0) {
+            const nativeDetector = new window.BarcodeDetector({ formats: activeFormats });
+            setIsHardwareAccelerated(true);
+            nativeDetectorRunningRef.current = true;
+
+            const pollVideoAndAttachLoop = () => {
+              const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+              if (!videoElem) {
+                if (nativeDetectorRunningRef.current) {
+                  nativeRafIdRef.current = requestAnimationFrame(pollVideoAndAttachLoop);
+                }
+                return;
+              }
+
+              const scanFrame = async () => {
+                if (!nativeDetectorRunningRef.current) return;
+                if (videoElem.readyState >= 2 && !videoElem.paused && !videoElem.ended) {
+                  try {
+                    const detectedList = await nativeDetector.detect(videoElem);
+                    if (detectedList && detectedList.length > 0 && detectedList[0].rawValue) {
+                      onScanSuccess(detectedList[0].rawValue);
+                    }
+                  } catch {}
+                }
+                if (nativeDetectorRunningRef.current) {
+                  nativeRafIdRef.current = requestAnimationFrame(scanFrame);
+                }
+              };
+
+              nativeRafIdRef.current = requestAnimationFrame(scanFrame);
+            };
+
+            pollVideoAndAttachLoop();
+          }
+        } catch (detectorInitErr) {
+          console.debug('Native BarcodeDetector not initialized, using standard decoder:', detectorInitErr);
+          setIsHardwareAccelerated(false);
+        }
+      }
+
       // Check flashlight/torch & optical zoom capability via Html5Qrcode & direct MediaStream track
       try {
         let canTorch = false;
@@ -297,6 +347,14 @@ export const BarcodeScannerModal = () => {
   };
 
   const stopCamera = async () => {
+    // 1. Terminate native ML Kit animation loop
+    nativeDetectorRunningRef.current = false;
+    if (nativeRafIdRef.current) {
+      cancelAnimationFrame(nativeRafIdRef.current);
+      nativeRafIdRef.current = null;
+    }
+    setIsHardwareAccelerated(false);
+
     if (html5QrCodeRef.current) {
       try {
         if (html5QrCodeRef.current.isScanning) {
@@ -1002,6 +1060,33 @@ export const BarcodeScannerModal = () => {
                   <div style={{ position: 'absolute', top: '16px', right: '16px', width: '20px', height: '20px', borderTop: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 4px 0 0' }} />
                   <div style={{ position: 'absolute', bottom: '16px', left: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderLeft: '3px solid #10b981', borderRadius: '0 0 0 4px' }} />
                   <div style={{ position: 'absolute', bottom: '16px', right: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 0 4px 0' }} />
+
+                  {/* 60fps ML Kit Hardware Acceleration Status Indicator */}
+                  {isHardwareAccelerated && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(16, 185, 129, 0.9)',
+                        backdropFilter: 'blur(6px)',
+                        color: '#ffffff',
+                        fontSize: '0.68rem',
+                        fontWeight: '800',
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <Zap size={11} fill="#ffffff" />
+                      <span>{lang === 'bn' ? '⚡ ৬০fps ML Kit অ্যাক্সিলারেশন' : '⚡ 60fps ML Kit Accelerated'}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

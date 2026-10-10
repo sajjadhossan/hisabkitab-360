@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle2, Clock, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { getPendingSyncCount, subscribeToQueueChanges, flushOfflineQueue } from '../../utils/syncQueue';
@@ -12,6 +12,7 @@ export const SyncStatusIndicator = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => getPendingSyncCount());
   const [showReconnectedToast, setShowReconnectedToast] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const { ref: dragRef, isDragging, hasMoved, style: dragStyle, bind } = useDraggableWidget(
     'hk360_sync_indicator_pos',
@@ -60,6 +61,7 @@ export const SyncStatusIndicator = () => {
 
     const handleOffline = () => {
       setIsOnline(false);
+      setBannerDismissed(false);
       setShowReconnectedToast(false);
       hapticFeedback.warning();
       if (showToast) {
@@ -94,7 +96,7 @@ export const SyncStatusIndicator = () => {
   return (
     <>
       {/* 1. Smart Mobile Top Offline Warning Banner */}
-      {!isOnline && (
+      {!isOnline && !bannerDismissed && (
         <div
           className="offline-top-alert-banner no-print animate-slide-down"
           style={{
@@ -121,9 +123,31 @@ export const SyncStatusIndicator = () => {
             <WifiOff size={16} />
             <span>{lang === 'bn' ? '⚠️ আপনি অফলাইনে আছেন — দোকানে বেচাকেনা ও সব হিসাব নিরাপদ!' : '⚠️ Offline Mode — Sales & records safely saved locally!'}</span>
           </div>
-          <span style={{ fontSize: '0.7rem', background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '8px' }}>
-            {lang === 'bn' ? 'অটো-সিঙ্ক হবে' : 'Auto-Sync'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.7rem', background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '8px' }}>
+              {lang === 'bn' ? 'অটো-সিঙ্ক হবে' : 'Auto-Sync'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setBannerDismissed(true)}
+              style={{
+                background: 'rgba(0,0,0,0.25)',
+                border: 'none',
+                color: '#ffffff',
+                borderRadius: '6px',
+                width: '22px',
+                height: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                padding: 0
+              }}
+              title={lang === 'bn' ? 'লুকিয়ে রাখুন' : 'Dismiss'}
+            >
+              <X size={13} />
+            </button>
+          </div>
         </div>
       )}
 

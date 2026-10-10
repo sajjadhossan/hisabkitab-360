@@ -37,6 +37,7 @@ import {
 } from '../services/lanSyncProtocol';
 import { exportUniversalBackupAsync, validateUniversalBackup } from '../services/fastExportService';
 import { auditService, AUDIT_ACTIONS } from '../services/auditService';
+import { hapticFeedback } from '../services/nativeAppService';
 
 const AppContext = createContext();
 
@@ -1582,17 +1583,21 @@ export const AppProvider = ({ children }) => {
   // POS Cart
   const addToCart = (product) => {
     if (product.stock <= 0) {
+      hapticFeedback.warning();
       showToast(lang === 'bn' ? 'পণ্যটির কোনো স্টক খালি নেই!' : 'Product out of stock!', 'danger');
       return;
     }
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.qty >= product.stock) {
+        hapticFeedback.warning();
         showToast(lang === 'bn' ? 'সর্বোচ্চ উপলব্ধ স্টক যোগ করা হয়েছে' : 'Max available stock reached', 'warning');
         return;
       }
+      hapticFeedback.light();
       setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
     } else {
+      hapticFeedback.light();
       setCart([...cart, { ...product, qty: 1 }]);
     }
   };
@@ -1604,17 +1609,21 @@ export const AppProvider = ({ children }) => {
     }
     const product = products.find(p => p.id === productId);
     if (product && newQty > product.stock) {
+      hapticFeedback.warning();
       showToast(lang === 'bn' ? 'পর্যাপ্ত স্টক নেই' : 'Not enough stock available', 'warning');
       return;
     }
+    hapticFeedback.light();
     setCart(cart.map(item => item.id === productId ? { ...item, qty: newQty } : item));
   };
 
   const removeFromCart = (productId) => {
+    hapticFeedback.heavy();
     setCart(cart.filter(item => item.id !== productId));
   };
 
   const clearCart = () => {
+    hapticFeedback.heavy();
     setCart([]);
   };
 
@@ -1753,6 +1762,7 @@ export const AppProvider = ({ children }) => {
 
     setCart([]);
     setActiveReceipt(saleRecord);
+    hapticFeedback.success();
 
     // Auto-open cash drawer for cash transaction if enabled
     if (businessSettings.autoOpenCashDrawer !== false && (paymentMethod === 'cash' || actualPaid > 0)) {

@@ -557,7 +557,7 @@ export const Navbar = () => {
     return {
       isPosActive,
       leftItems: activeNonHero.slice(0, 2),
-      rightItems: activeNonHero.slice(2, 3)
+      rightItems: activeNonHero.slice(2, isPosActive ? 3 : 4)
     };
   }, [licenseInfo, lang]);
 

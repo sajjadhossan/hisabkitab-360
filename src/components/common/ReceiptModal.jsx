@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Printer, X, Check, ShieldCheck, MessageCircle, MessageSquare, Bluetooth } from 'lucide-react';
+import { Printer, X, Check, ShieldCheck, MessageCircle, MessageSquare, Bluetooth, Share2 } from 'lucide-react';
 import { printElement, printBluetoothEscPos } from '../../services/printService';
 import { generateQrDataUrl, createInvoiceVerificationUrl, generateInvoiceQrPayload, formatWhatsAppInvoiceMessage, normalizeWhatsAppPhone } from '../../services/qrService';
 import { generatePaymentQrDataUrl } from '../../services/barcodeService';
+import { shareNativeSheet } from '../../services/nativeAppService';
 
 export const ReceiptModal = () => {
   const {
@@ -54,6 +55,25 @@ export const ReceiptModal = () => {
       }
     } else {
       openShareInvoice(activeReceipt);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (!activeReceipt) return;
+    const msg = formatWhatsAppInvoiceMessage(activeReceipt, businessSettings, lang);
+    const storeName = businessSettings?.storeName || (lang === 'bn' ? 'হিসাবখাতা ৩৬০' : 'HisabKitab 360');
+    const title = `${storeName} - মেমো #${activeReceipt.id}`;
+    const url = createInvoiceVerificationUrl(activeReceipt, businessSettings);
+
+    const shared = await shareNativeSheet({
+      title,
+      text: msg,
+      url,
+      dialogTitle: lang === 'bn' ? 'মেমো শেয়ার করুন (WhatsApp, IMO, Messenger)' : 'Share Receipt'
+    });
+
+    if (shared && showToast) {
+      showToast(lang === 'bn' ? '📲 মেমো শেয়ার সম্পন্ন হয়েছে!' : 'Receipt shared successfully!', 'success');
     }
   };
 
@@ -471,6 +491,29 @@ export const ReceiptModal = () => {
           >
             <MessageCircle size={16} />
             <span>{lang === 'bn' ? '📲 হোয়াটসঅ্যাপ' : '📲 WhatsApp'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn"
+            onClick={handleNativeShare}
+            style={{
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'অ্যান্ড্রয়েড শেয়ার শিট (IMO, Messenger, WhatsApp, SMS)' : 'Android Native Share Sheet'}
+          >
+            <Share2 size={16} />
+            <span>{lang === 'bn' ? '📲 শেয়ার' : '📲 Share'}</span>
           </button>
 
           <button
