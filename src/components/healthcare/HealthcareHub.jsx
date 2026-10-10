@@ -3,6 +3,8 @@ import { useHealthcare } from '../../context/HealthcareContext';
 import { useApp } from '../../context/AppContext';
 import { PatientManager } from './PatientManager';
 import { DoctorConsultationQueue } from './DoctorConsultationQueue';
+import { AppointmentSerialManager } from './AppointmentSerialManager';
+import { DoctorChamberManager } from './DoctorChamberManager';
 import { DiagnosticLIMSManager } from './DiagnosticLIMSManager';
 import PharmacyFEFOManager from './PharmacyFEFOManager';
 import RadiologyImagingManager from './RadiologyImagingManager';
@@ -101,8 +103,8 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
     }
   };
 
-  // Subtabs within Linked Apps
-  const [hospitalSubTab, setHospitalSubTab] = useState('doctor_queue'); // 'doctor_queue' | 'patient_crm'
+  // Subtabs within Linked Apps (১.৪, ১.৫, ১.৬)
+  const [hospitalSubTab, setHospitalSubTab] = useState('patient_crm'); // 'patient_crm' | 'appointment_serial' | 'doctor_chamber' | 'doctor_queue'
   const [diagnosticSubTab, setDiagnosticSubTab] = useState('lims_workstation'); // 'lims_workstation' | 'radiology'
 
   const [showGuide, setShowGuide] = useState(false);
@@ -123,11 +125,11 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
 
   // All 18 Modules Catalog
   const all18Modules = [
-    { num: 1, title: 'ড্যাশবোর্ড', desc: 'আজকের রোগী, টেস্ট, ওষুধ বিক্রি ও লাভ-ক্ষতির সারাংশ', key: 'hub', icon: '📊', color: '#6366f1' },
-    { num: 2, title: 'রোগী ব্যবস্থাপনা', desc: 'UHID রেজিস্ট্রেশন, হিস্ট্রি, ফাইল ও ডুপ্লিকেট চেকার', key: 'patient_crm', icon: '👤', color: '#0d9488' },
-    { num: 3, title: 'অ্যাপয়েন্টমেন্ট ও সিরিয়াল', desc: 'দৈনিক ডাক্তার কিউ, সিরিয়াল টোকেন ও এসএমএস', key: 'hospital', icon: '📅', color: '#2563eb' },
-    { num: 4, title: 'ডাক্তার ও চেম্বার', desc: 'স্পেশালিটি, ফি, শিডিউল ও ভিজিট তালিকা', key: 'hospital', icon: '🩺', color: '#0284c7' },
-    { num: 5, title: 'ডাক্তারি ভিজিট ও প্রেসক্রিপশন', desc: 'চিফ কমপ্লেইন্টস, ভাইটালস, ড্রাগ ও ল্যাব অর্ডার', key: 'hospital', icon: '℞', color: '#3b82f6' },
+    { num: 1, title: '১.১-১.৩ ড্যাশবোর্ড', desc: 'আজকের রোগী, টেস্ট, ওষুধ বিক্রি, শাখা তুলনা ও ফিল্টার', key: 'hub', icon: '📊', color: '#6366f1' },
+    { num: 2, title: '১.৪ রোগী ব্যবস্থাপনা', desc: 'UHID রেজিস্ট্রি, নতুন রোগী, ডুপ্লিকেট চেকার ও পূর্ণাঙ্গ হিস্ট্রি', key: 'patient_crm', icon: '👤', color: '#0d9488' },
+    { num: 3, title: '১.৫ অ্যাপয়েন্টমেন্ট ও সিরিয়াল', desc: 'দৈনিক সিরিয়াল, ক্যালেন্ডার, অপেক্ষমাণ তালিকা ও টোকেন প্রিন্ট', key: 'appointment_serial', icon: '📅', color: '#2563eb' },
+    { num: 4, title: '১.৬ ডাক্তার ও চেম্বার', desc: 'ডাক্তার তালিকা, বিভাগ/বিশেষত্ব, চেম্বার শিডিউল, ফি ও রিপোর্ট', key: 'doctor_chamber', icon: '🩺', color: '#0284c7' },
+    { num: 5, title: '১.৬ ভিজিট ও প্রেসক্রিপশন', desc: 'রোগী দেখার তালিকা, ভাইটালস, ডাক্তারি নোট, Rx ও টেস্ট অর্ডার', key: 'doctor_queue', icon: '℞', color: '#3b82f6' },
     { num: 6, title: 'ডায়াগনস্টিক ও টেস্ট অর্ডার', desc: '১০টি স্ট্যাটাস লাইফসাইকেল ও বারকোড স্যাম্পল কালেকশন', key: 'diagnostic', icon: '🧪', color: '#0d9488' },
     { num: 7, title: 'ল্যাব রিপোর্ট', desc: 'রেফারেন্স রেঞ্জ, High/Low অ্যালার্ট, ভেরিফাই ও প্রিন্ট', key: 'diagnostic', icon: '🔬', color: '#14b8a6' },
     { num: 8, title: 'রেডিওলজি ও ইমেজিং', desc: 'X-ray, USG, ECG ও ডিজিটাল ইমেজ সংযুক্তি', key: 'radiology', icon: '🩻', color: '#06b6d4' },
@@ -147,6 +149,15 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
     if (modKey === 'patient_crm') {
       setActiveLinkedApp('hospital');
       setHospitalSubTab('patient_crm');
+    } else if (modKey === 'appointment_serial') {
+      setActiveLinkedApp('hospital');
+      setHospitalSubTab('appointment_serial');
+    } else if (modKey === 'doctor_chamber') {
+      setActiveLinkedApp('hospital');
+      setHospitalSubTab('doctor_chamber');
+    } else if (modKey === 'doctor_queue') {
+      setActiveLinkedApp('hospital');
+      setHospitalSubTab('doctor_queue');
     } else if (modKey === 'radiology') {
       setActiveLinkedApp('diagnostic');
       setDiagnosticSubTab('radiology');
@@ -362,7 +373,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               }}
             >
               <Stethoscope size={16} className="text-blue-400" />
-              <span>৪. ডক্টর চেম্বার</span>
+              <span>৪. ডাক্তার ও ওপিডি (১.৪-১.৬)</span>
             </button>
 
             {/* 5. Inpatient IPD Bed Tab */}
@@ -651,33 +662,60 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
         </div>
       )}
 
-      {/* 2. Doctor Chamber & Patients Workstation */}
+      {/* 2. Doctor Chamber, Patients & Appointments Workstation (১.৪, ১.৫, ১.৬) */}
       {activeLinkedApp === 'hospital' && (
         <div style={{ marginTop: '0.5rem' }}>
-          <div className="hc-subtabs-nav" style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setHospitalSubTab('doctor_queue')}
-              className={`hc-tab-btn ${hospitalSubTab === 'doctor_queue' ? 'active-blue' : ''}`}
-            >
-              <Stethoscope size={15} />
-              <span>ডক্টর চেম্বার ও ডিজিটাল প্রেসক্রিপশন</span>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'inherit', padding: '1px 6px', fontSize: '0.7rem' }}>
-                {appointments.filter(a => a.appointment_status === 'Waiting').length}
-              </span>
-            </button>
+          <div className="hc-subtabs-nav" style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+            {/* 1.4 Patient CRM */}
             <button
               onClick={() => setHospitalSubTab('patient_crm')}
               className={`hc-tab-btn ${hospitalSubTab === 'patient_crm' ? 'active-blue' : ''}`}
             >
               <UserCheck size={15} />
-              <span>পেশেন্ট মাস্টার রেজিস্ট্রি (PT-ID)</span>
+              <span>১.৪ রোগী রেজিস্ট্রি ও প্রোফাইল</span>
               <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'inherit', padding: '1px 6px', fontSize: '0.7rem' }}>
                 {patients.length}
               </span>
             </button>
+
+            {/* 1.5 Appointments & Serials */}
+            <button
+              onClick={() => setHospitalSubTab('appointment_serial')}
+              className={`hc-tab-btn ${hospitalSubTab === 'appointment_serial' ? 'active-blue' : ''}`}
+            >
+              <Calendar size={15} />
+              <span>১.৫ অ্যাপয়েন্টমেন্ট ও সিরিয়াল</span>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'inherit', padding: '1px 6px', fontSize: '0.7rem' }}>
+                {appointments.filter(a => a.appointment_status === 'Waiting').length} অপেক্ষমাণ
+              </span>
+            </button>
+
+            {/* 1.6 Doctor & Chamber Management */}
+            <button
+              onClick={() => setHospitalSubTab('doctor_chamber')}
+              className={`hc-tab-btn ${hospitalSubTab === 'doctor_chamber' ? 'active-blue' : ''}`}
+            >
+              <Building size={15} />
+              <span>১.৬ ডাক্তার ও চেম্বার</span>
+              <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'inherit', padding: '1px 6px', fontSize: '0.7rem' }}>
+                {doctors.length}
+              </span>
+            </button>
+
+            {/* 1.6 Doctor Visits & Digital Prescription */}
+            <button
+              onClick={() => setHospitalSubTab('doctor_queue')}
+              className={`hc-tab-btn ${hospitalSubTab === 'doctor_queue' ? 'active-blue' : ''}`}
+            >
+              <Stethoscope size={15} />
+              <span>১.৬ ভিজিট ও ডিজিটাল প্রেসক্রিপশন</span>
+            </button>
           </div>
 
-          {hospitalSubTab === 'doctor_queue' ? <DoctorConsultationQueue /> : <PatientManager />}
+          {hospitalSubTab === 'patient_crm' && <PatientManager />}
+          {hospitalSubTab === 'appointment_serial' && <AppointmentSerialManager />}
+          {hospitalSubTab === 'doctor_chamber' && <DoctorChamberManager />}
+          {hospitalSubTab === 'doctor_queue' && <DoctorConsultationQueue />}
         </div>
       )}
 

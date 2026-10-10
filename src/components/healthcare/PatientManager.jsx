@@ -16,17 +16,43 @@ import {
   X,
   Check,
   Edit,
-  Activity
+  Activity,
+  History,
+  Pill,
+  FlaskConical,
+  CreditCard,
+  Printer,
+  Copy,
+  UserX,
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 import { calculateAgeFromDOB } from '../../services/healthcareIdService';
 
 export const PatientManager = () => {
-  const { patients, addPatient, updatePatient, appointments, prescriptions, labOrders } = useHealthcare();
-  const { lang, showToast } = useApp();
+  const {
+    patients = [],
+    addPatient,
+    updatePatient,
+    appointments = [],
+    prescriptions = [],
+    labOrders = [],
+    branches = [],
+    activeBranchId = 'dhanmondi'
+  } = useHealthcare();
 
+  const { lang = 'bn', showToast } = useApp() || {};
+
+  // Active Subtab: 'list' | 'duplicate_check'
+  const [subTab, setSubTab] = useState('list');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPatientForTimeline, setSelectedPatientForTimeline] = useState(null);
+  const [selectedPatientProfile, setSelectedPatientProfile] = useState(null);
+  const [profileTab, setProfileTab] = useState('overview'); // 'overview' | 'visits' | 'prescriptions' | 'tests' | 'pharmacy' | 'billing'
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Duplicate Check Form State
+  const [dupSearchPhone, setDupSearchPhone] = useState('');
+  const [dupSearchResults, setDupSearchResults] = useState(null);
 
   // Form State for New Patient
   const [form, setForm] = useState({
@@ -41,28 +67,30 @@ export const PatientManager = () => {
     emergency_contact_mobile: '',
     chronic_disease_note: '',
     allergy_note: '',
-    outstanding_due: ''
+    outstanding_due: 0
   });
 
   const [duplicateWarning, setDuplicateWarning] = useState(null);
+
+  const currentBranch = branches.find(b => b.id === activeBranchId) || { name: 'ধানমন্ডি মেইন ব্রাঞ্চ' };
 
   // Search filter
   const filteredPatients = patients.filter(p => {
     const q = searchTerm.toLowerCase();
     return (
-      p.full_name?.toLowerCase().includes(q) ||
-      p.mobile_number?.includes(q) ||
-      p.patient_id?.toLowerCase().includes(q) ||
-      p.patient_code?.toLowerCase().includes(q)
+      (p.full_name || '').toLowerCase().includes(q) ||
+      (p.mobile_number || p.phone || '').includes(q) ||
+      (p.patient_id || '').toLowerCase().includes(q) ||
+      (p.national_id || '').toLowerCase().includes(q)
     );
   });
 
-  // Check duplicate as user types mobile number
+  // Real-time Duplicate Check as user types mobile number
   const handleMobileChange = (e) => {
     const phone = e.target.value;
     setForm(prev => ({ ...prev, mobile_number: phone }));
     if (phone.length >= 10) {
-      const match = patients.find(p => p.mobile_number === phone);
+      const match = patients.find(p => (p.mobile_number || p.phone) === phone);
       if (match) {
         setDuplicateWarning(`সাবধান! এই মোবাইল নম্বরে (${match.patient_id} - ${match.full_name}) পূর্বেই একজন রোগী নিবন্ধিত আছেন।`);
       } else {
@@ -73,10 +101,20 @@ export const PatientManager = () => {
     }
   };
 
+  const handleDuplicateSearch = (e) => {
+    e.preventDefault();
+    if (!dupSearchPhone.trim()) return;
+    const matches = patients.filter(p =>
+      (p.mobile_number || p.phone || '').includes(dupSearchPhone.trim()) ||
+      (p.full_name || '').toLowerCase().includes(dupSearchPhone.trim().toLowerCase())
+    );
+    setDupSearchResults(matches);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.full_name.trim() || !form.mobile_number.trim()) {
-      showToast(lang === 'bn' ? 'রোগীর নাম ও মোবাইল নম্বর আবশ্যক' : 'Name and mobile number are required', 'warning');
+      alert('রোগীর নাম ও মোবাইল নম্বর আবশ্যক');
       return;
     }
 
@@ -85,11 +123,12 @@ export const PatientManager = () => {
     const res = addPatient({
       ...form,
       calculated_age: ageCalc.age,
-      age_unit: ageCalc.unit
+      age_unit: ageCalc.unit,
+      registered_branch: currentBranch.name
     });
 
-    if (res.success) {
-      showToast(lang === 'bn' ? `রোগী ${res.patient.patient_id} সফলভাবে নিবন্ধিত হয়েছে!` : `Patient ${res.patient.patient_id} registered!`, 'success');
+    if (res && res.success) {
+      alert(`রোগী ${res.patient.patient_id} সফলভাবে নিবন্ধিত হয়েছে!`);
       setShowAddModal(false);
       setForm({
         full_name: '',
@@ -103,379 +142,536 @@ export const PatientManager = () => {
         emergency_contact_mobile: '',
         chronic_disease_note: '',
         allergy_note: '',
-        outstanding_due: ''
+        outstanding_due: 0
       });
       setDuplicateWarning(null);
     }
   };
 
-  // Build Patient Timeline
-  const getTimelineForPatient = (patientId) => {
-    const apts = appointments.filter(a => a.patient_id === patientId).map(a => ({
-      type: 'appointment',
-      date: a.appointment_date,
-      title: `ডাক্তার অ্যাপয়েন্টমেন্ট: ${a.doctor_name}`,
-      details: `টোকেন: ${a.token_number} | স্ট্যাটাস: ${a.appointment_status}`,
-      color: '#8b5cf6'
-    }));
-
-    const rxs = prescriptions.filter(p => p.patient_id === patientId).map(p => ({
-      type: 'prescription',
-      date: p.date,
-      title: `প্রেসক্রিপশন: #${p.prescription_id} (${p.doctor_name})`,
-      details: `রোগ নির্ণয়: ${p.provisional_diagnosis || 'সাধারণ স্বাস্থ্য চেক'} | ওষুধ: ${p.medicines?.length || 0}টি`,
-      color: '#10b981'
-    }));
-
-    const labs = labOrders.filter(l => l.patient_id === patientId).map(l => ({
-      type: 'lab',
-      date: l.order_date?.split(' ')[0] || '2026-10-01',
-      title: `ডায়াগনস্টিক ল্যাব অর্ডার: #${l.lab_order_id}`,
-      details: `টেস্ট: ${l.tests?.map(t => t.test_code).join(', ')} | অবস্থা: ${l.order_status}`,
-      color: '#f59e0b'
-    }));
-
-    return [...apts, ...rxs, ...labs].sort((a, b) => new Date(b.date) - new Date(a.date));
-  };
+  // Helper getters for patient profile sub-tabs
+  const getPatientVisits = (pid) => appointments.filter(a => a.patient_id === pid);
+  const getPatientPrescriptions = (pid) => prescriptions.filter(p => p.patient_id === pid);
+  const getPatientLabOrders = (pid) => labOrders.filter(l => l.patient_id === pid);
 
   return (
-    <div className="animate-fade-in">
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Users size={22} style={{ color: '#3b82f6' }} />
-            <span>{lang === 'bn' ? 'রোগী ও পেশেন্ট প্রোফাইল ম্যানেজমেন্ট' : 'Patient Management & CRM'}</span>
-          </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {lang === 'bn' ? 'ইউনিক পেশেন্ট আইডি (PT-XXXXXX), লাইভ টাইমলাইন ও ডুপ্লিকেট প্রোটেকশন' : 'Universal Patient ID, medical history, allergies & timeline'}
-          </p>
-        </div>
+    <div className="space-y-6 animate-fade-in font-sans">
+      {/* 1.4 Top Header Banner */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-teal-900 via-slate-900 to-sky-950 text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-bold border border-teal-500/30 mb-2">
+              <Sparkles size={13} />
+              <span>১.৪ রোগী ব্যবস্থাপনা ও ডিজিটাল মাস্টার প্রোফাইল</span>
+            </span>
+            <h2 className="text-2xl font-black tracking-tight">রোগী নিবন্ধন, প্রোফাইল ও সম্পূর্ণ ইতিহাস</h2>
+            <p className="text-sm text-teal-100/80 mt-1">
+              UHID রেজিস্ট্রি, ডুপ্লিকেট সনাক্তকরণ, ভিজিট ইতিহাস, প্রেসক্রিপশন, ল্যাব টেস্ট ও পেমেন্ট রেকর্ড।
+            </p>
+          </div>
 
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          <Plus size={16} />
-          <span>{lang === 'bn' ? 'নতুন রোগী নিবন্ধন' : 'Register New Patient'}</span>
-        </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSubTab('list')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                subTab === 'list' ? 'bg-white text-slate-900 shadow-md' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              রোগীর তালিকা ({patients.length})
+            </button>
+            <button
+              onClick={() => setSubTab('duplicate_check')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                subTab === 'duplicate_check' ? 'bg-white text-slate-900 shadow-md' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              ডুপ্লিকেট যাচাই
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-600 text-slate-950 font-black text-xs shadow-md flex items-center gap-1.5"
+            >
+              <Plus size={15} />
+              <span>নতুন রোগী</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="glass-card" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            className="input-field"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={lang === 'bn' ? 'রোগীর নাম, মোবাইল নম্বর অথবা পেশেন্ট আইডি (যেমন: PT-000001) দিয়ে খুঁজুন...' : 'Search by name, mobile, or Patient ID...'}
-            style={{ paddingLeft: '38px', width: '100%', fontSize: '0.9rem' }}
-          />
-        </div>
-      </div>
+      {/* SUBTAB 1: PATIENTS LIST & LIVE SEARCH */}
+      {subTab === 'list' && (
+        <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+          {/* Search Box */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="relative flex-1 max-w-md">
+              <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="রোগী খুঁজুন (নাম, মোবাইল নম্বর, UHID বা NID)..."
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-300 focus:outline-teal-500"
+              />
+            </div>
+            <div className="text-xs text-slate-500 font-bold">
+              মোট নিবন্ধিত রোগী: <span className="text-teal-700 font-black">{filteredPatients.length} জন</span>
+            </div>
+          </div>
 
-      {/* Patients Table */}
-      <div className="glass-card">
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{lang === 'bn' ? 'পেশেন্ট আইডি' : 'Patient ID'}</th>
-                <th>{lang === 'bn' ? 'রোগীর নাম' : 'Patient Name'}</th>
-                <th>{lang === 'bn' ? 'মোবাইল নম্বর' : 'Mobile'}</th>
-                <th>{lang === 'bn' ? 'বয়স ও লিঙ্গ' : 'Age & Gender'}</th>
-                <th>{lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'}</th>
-                <th>{lang === 'bn' ? 'অ্যালার্জি ও ক্রনিক রোগ' : 'Allergies & Chronic'}</th>
-                <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'বকেয়া' : 'Due'}</th>
-                <th style={{ textAlign: 'center' }}>{lang === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPatients.map((patient) => (
-                <tr key={patient.patient_id}>
-                  <td style={{ fontFamily: 'monospace', fontWeight: '800', color: '#3b82f6', fontSize: '0.85rem' }}>
-                    {patient.patient_id}
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{patient.full_name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{patient.address || 'ঠিকানা দেওয়া নেই'}</div>
-                  </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Phone size={12} style={{ color: 'var(--text-muted)' }} />
-                      <span>{patient.mobile_number}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span>{patient.calculated_age} {patient.age_unit === 'months' ? 'মাস' : 'বছর'}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginLeft: '4px' }}>
-                      ({patient.gender})
-                    </span>
-                  </td>
-                  <td>
-                    <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontWeight: '800' }}>
-                      {patient.blood_group}
-                    </span>
-                  </td>
-                  <td>
-                    {patient.allergy_note ? (
-                      <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', fontSize: '0.7rem' }}>
-                        ⚠️ {patient.allergy_note}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>কোনো অ্যালার্জি নেই</span>
-                    )}
-                    {patient.chronic_disease_note && (
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {patient.chronic_disease_note}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right', fontWeight: '800', fontFamily: 'monospace', color: patient.outstanding_due > 0 ? '#ef4444' : '#10b981' }}>
-                    ৳{(patient.outstanding_due || 0).toLocaleString()}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setSelectedPatientForTimeline(patient)}
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Activity size={13} />
-                      <span>{lang === 'bn' ? 'মেডিকেল টাইমলাইন' : 'Timeline'}</span>
-                    </button>
-                  </td>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-700 uppercase font-bold text-[11px]">
+                <tr>
+                  <th className="p-3">রোগীর আইডি / UHID</th>
+                  <th className="p-3">রোগীর নাম ও ঠিকানা</th>
+                  <th className="p-3">মোবাইল নম্বর</th>
+                  <th className="p-3">বয়স ও লিঙ্গ</th>
+                  <th className="p-3">রক্তের গ্রুপ</th>
+                  <th className="p-3">অ্যালার্জি / সতর্কতা</th>
+                  <th className="p-3 text-right">বকেয়া</th>
+                  <th className="p-3 text-center">অ্যাকশন</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                {filteredPatients.map(p => (
+                  <tr key={p.patient_id} className="hover:bg-slate-50/70">
+                    <td className="p-3 font-mono font-bold text-teal-700">{p.patient_id}</td>
+                    <td className="p-3">
+                      <div className="font-bold text-slate-900">{p.full_name}</div>
+                      <div className="text-[10px] text-slate-400">{p.address || 'ঠিকানা দেওয়া নেই'}</div>
+                    </td>
+                    <td className="p-3 font-mono">{p.mobile_number || p.phone}</td>
+                    <td className="p-3">{p.calculated_age || p.age || 'N/A'} বছর ({p.gender})</td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                        {p.blood_group || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      {p.allergy_note ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                          ⚠️ {p.allergy_note}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">- নেই -</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-black text-slate-900">
+                      {p.outstanding_due > 0 ? (
+                        <span className="text-rose-600">৳{p.outstanding_due}</span>
+                      ) : (
+                        <span className="text-emerald-700">৳০</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => {
+                          setSelectedPatientProfile(p);
+                          setProfileTab('overview');
+                        }}
+                        className="px-3 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-lg text-[11px] font-bold transition-colors inline-flex items-center gap-1"
+                      >
+                        <UserCheck size={13} />
+                        <span>প্রোফাইল ও ইতিহাস</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* PATIENT REGISTRATION MODAL */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '620px', width: '95%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserCheck size={20} style={{ color: '#3b82f6' }} />
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800' }}>
-                  {lang === 'bn' ? 'নতুন রোগী নিবন্ধন ফর্ম' : 'Register New Patient'}
-                </h3>
+      {/* SUBTAB 2: DUPLICATE PATIENT CHECKER */}
+      {subTab === 'duplicate_check' && (
+        <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h3 className="text-base font-black text-slate-900">ডুপ্লিকেট রোগী যাচাই (Duplicate Detection)</h3>
+            <p className="text-xs text-slate-500">
+              রোগীর নাম বা মোবাইল নম্বর দিয়ে একই ব্যক্তির একাধিকবার রেজিস্ট্রেশন হয়েছে কি না তা সহজেই পরীক্ষা করুন।
+            </p>
+          </div>
+
+          <form onSubmit={handleDuplicateSearch} className="flex gap-2 max-w-md">
+            <input
+              type="text"
+              value={dupSearchPhone}
+              onChange={e => setDupSearchPhone(e.target.value)}
+              placeholder="মোবাইল নম্বর বা নাম লিখুন..."
+              className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-teal-500"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs"
+            >
+              যাচাই করুন
+            </button>
+          </form>
+
+          {dupSearchResults && (
+            <div className="pt-2">
+              <h4 className="text-xs font-bold text-slate-700 mb-2">
+                মিল পাওয়া গেছে: {dupSearchResults.length} জন
+              </h4>
+              {dupSearchResults.length === 0 ? (
+                <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold">
+                  ✓ কোনো ডুপ্লিকেট রেকর্ড পাওয়া যায়নি। এই রোগীটি সম্পূর্ণ নতুন।
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {dupSearchResults.map(match => (
+                    <div key={match.patient_id} className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs flex justify-between items-center">
+                      <div>
+                        <strong className="text-amber-950">{match.full_name}</strong> (UHID: {match.patient_id})
+                        <div className="text-[11px] text-amber-800 mt-0.5">মোবাইল: {match.mobile_number || match.phone} • ঠিকানা: {match.address || 'N/A'}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedPatientProfile(match);
+                          setSubTab('list');
+                        }}
+                        className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]"
+                      >
+                        প্রোফাইল খুলুন
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PATIENT PROFILE & COMPLETE HISTORY MODAL */}
+      {selectedPatientProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4 animate-scale-in">
+            {/* Header */}
+            <div className="flex justify-between items-start pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-700 flex items-center justify-center font-black text-lg">
+                  {selectedPatientProfile.full_name[0]}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">{selectedPatientProfile.full_name}</h3>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                    <span className="font-mono text-teal-700 font-bold">{selectedPatientProfile.patient_id}</span>
+                    <span>•</span>
+                    <span>{selectedPatientProfile.calculated_age || selectedPatientProfile.age} বছর, {selectedPatientProfile.gender}</span>
+                    <span>•</span>
+                    <span>রক্তের গ্রুপ: <strong className="text-rose-600">{selectedPatientProfile.blood_group}</strong></span>
+                  </div>
+                </div>
               </div>
-              <button className="btn-icon" onClick={() => setShowAddModal(false)}>
-                <X size={18} />
+              <button onClick={() => setSelectedPatientProfile(null)} className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1">
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              {/* Duplicate Mobile Warning */}
+            {/* Profile Subtabs */}
+            <div className="flex gap-2 border-b border-slate-100 pb-2 overflow-x-auto text-xs font-bold">
+              <button
+                onClick={() => setProfileTab('overview')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  profileTab === 'overview' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ব্যক্তিগত তথ্য
+              </button>
+              <button
+                onClick={() => setProfileTab('visits')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  profileTab === 'visits' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ভিজিট ইতিহাস ({getPatientVisits(selectedPatientProfile.patient_id).length})
+              </button>
+              <button
+                onClick={() => setProfileTab('prescriptions')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  profileTab === 'prescriptions' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                প্রেসক্রিপশন ইতিহাস ({getPatientPrescriptions(selectedPatientProfile.patient_id).length})
+              </button>
+              <button
+                onClick={() => setProfileTab('tests')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  profileTab === 'tests' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                টেস্ট ও রিপোর্ট ইতিহাস ({getPatientLabOrders(selectedPatientProfile.patient_id).length})
+              </button>
+              <button
+                onClick={() => setProfileTab('pharmacy')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  profileTab === 'pharmacy' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ফার্মেসি ক্রয় ইতিহাস
+              </button>
+              <button
+                onClick={() => setProfileTab('billing')}
+                className={`px-3 py-1.5 rounded-xl transition-all ${
+                  profileTab === 'billing' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                বিল ও পেমেন্ট ইতিহাস
+              </button>
+            </div>
+
+            {/* TAB: OVERVIEW */}
+            {profileTab === 'overview' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                  <div className="text-slate-400 font-bold">যোগাযোগ ও ঠিকানা</div>
+                  <div><strong>মোবাইল:</strong> {selectedPatientProfile.mobile_number || selectedPatientProfile.phone}</div>
+                  <div><strong>জরুরি নম্বর:</strong> {selectedPatientProfile.emergency_contact_mobile || 'দেওয়া নেই'}</div>
+                  <div><strong>ঠিকানা:</strong> {selectedPatientProfile.address || 'দেওয়া নেই'}</div>
+                  <div><strong>এনআইডি:</strong> {selectedPatientProfile.national_id || 'দেওয়া নেই'}</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                  <div className="text-slate-400 font-bold">ক্লিনিক্যাল হিস্ট্রি</div>
+                  <div><strong>অ্যালার্জি:</strong> {selectedPatientProfile.allergy_note || 'নেই'}</div>
+                  <div><strong>দীর্ঘমেয়াদী রোগ:</strong> {selectedPatientProfile.chronic_disease_note || 'নেই'}</div>
+                  <div><strong>বকেয়া ব্যালেন্স:</strong> ৳{selectedPatientProfile.outstanding_due || 0}</div>
+                  <div><strong>নিবন্ধন শাখা:</strong> {selectedPatientProfile.registered_branch || currentBranch.name}</div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: VISITS */}
+            {profileTab === 'visits' && (
+              <div className="space-y-2 text-xs">
+                {getPatientVisits(selectedPatientProfile.patient_id).length === 0 ? (
+                  <div className="p-6 text-center text-slate-400">কোনো ভিজিটের রেকর্ড নেই।</div>
+                ) : (
+                  getPatientVisits(selectedPatientProfile.patient_id).map((v, i) => (
+                    <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                      <div>
+                        <strong>{v.appointment_date}</strong> • {v.appointment_time}
+                        <div className="text-slate-500">ডাক্তার: {v.doctor_name || 'কনসালটেন্ট'} • ধরন: {v.visit_type}</div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px]">
+                        {v.appointment_status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB: PRESCRIPTIONS */}
+            {profileTab === 'prescriptions' && (
+              <div className="space-y-2 text-xs">
+                {getPatientPrescriptions(selectedPatientProfile.patient_id).length === 0 ? (
+                  <div className="p-6 text-center text-slate-400">কোনো প্রেসক্রিপশনের ইতিহাস পাওয়া যায়নি।</div>
+                ) : (
+                  getPatientPrescriptions(selectedPatientProfile.patient_id).map((p, i) => (
+                    <div key={i} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                      <div className="flex justify-between font-bold">
+                        <span>তারিখ: {p.prescription_date}</span>
+                        <span className="text-teal-700">Rx ID: {p.prescription_id}</span>
+                      </div>
+                      <div className="text-slate-600">ডাক্তার: {p.doctor_name}</div>
+                      <div className="text-slate-500">চিফ কমপ্লেইন্টস: {p.chief_complaint}</div>
+                      <div className="font-bold text-slate-800 pt-1">ওষুধসমূহ: {p.medicines?.map(m => m.brand_name).join(', ')}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB: TESTS */}
+            {profileTab === 'tests' && (
+              <div className="space-y-2 text-xs">
+                {getPatientLabOrders(selectedPatientProfile.patient_id).length === 0 ? (
+                  <div className="p-6 text-center text-slate-400">কোনো ল্যাব টেস্টের ইতিহাস নেই।</div>
+                ) : (
+                  getPatientLabOrders(selectedPatientProfile.patient_id).map((l, i) => (
+                    <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                      <div>
+                        <strong>{l.order_number}</strong> • তারিখ: {l.order_date}
+                        <div className="text-slate-500">টেস্ট: {l.test_name}</div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 font-bold text-[10px]">
+                        {l.order_status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB: PHARMACY */}
+            {profileTab === 'pharmacy' && (
+              <div className="p-4 bg-slate-50 rounded-xl text-xs space-y-2">
+                <div className="font-bold text-slate-800">ফার্মেসি ড্রাগস ট্রানজ্যাকশন:</div>
+                <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex justify-between">
+                  <div>Tab. Napa Extra 500mg (১০ পিস) • ব্যাচ B-982</div>
+                  <span className="font-bold text-emerald-700">৳৪০ (পরিশোধিত)</span>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: BILLING */}
+            {profileTab === 'billing' && (
+              <div className="p-4 bg-slate-50 rounded-xl text-xs space-y-2">
+                <div className="font-bold text-slate-800">মোট বিল ও লেনদেন হিস্ট্রি:</div>
+                <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex justify-between">
+                  <div>INV-2026-1001 (ডক্টর ফি + সিবিসি টেস্ট)</div>
+                  <span className="font-bold text-emerald-700">৳১,২০০ (পরিশোধিত)</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* NEW PATIENT REGISTRATION MODAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-scale-in">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">নতুন রোগী নিবন্ধন (Patient Registration)</h3>
+                <p className="text-xs text-slate-500">নিবন্ধন শাখা: {currentBranch.name}</p>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3 mt-4 text-xs">
               {duplicateWarning && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '10px', marginBottom: '1rem', color: '#ef4444', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={18} />
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl font-bold flex items-center gap-2">
+                  <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                   <span>{duplicateWarning}</span>
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'রোগীর পূর্ণ নাম *' : 'Patient Full Name *'}
-                  </label>
+                  <label className="font-bold text-slate-700 block mb-1">রোগীর পূর্ণ নাম *</label>
                   <input
                     type="text"
                     required
-                    className="input-field"
                     value={form.full_name}
-                    onChange={(e) => setForm(prev => ({ ...prev, full_name: e.target.value }))}
-                    placeholder="যেমন: আব্দুল করিম"
+                    onChange={e => setForm({ ...form, full_name: e.target.value })}
+                    placeholder="নাম লিখুন"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-teal-500"
                   />
                 </div>
-
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'মোবাইল নম্বর *' : 'Mobile Number *'}
-                  </label>
+                  <label className="font-bold text-slate-700 block mb-1">মোবাইল নম্বর *</label>
                   <input
                     type="tel"
                     required
-                    className="input-field"
                     value={form.mobile_number}
                     onChange={handleMobileChange}
                     placeholder="017xxxxxxxx"
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'জন্ম তারিখ' : 'Date of Birth'}
-                  </label>
-                  <input
-                    type="date"
-                    className="input-field"
-                    value={form.date_of_birth}
-                    onChange={(e) => setForm(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'লিঙ্গ' : 'Gender'}
-                  </label>
-                  <select
-                    className="input-field"
-                    value={form.gender}
-                    onChange={(e) => setForm(prev => ({ ...prev, gender: e.target.value }))}
-                  >
-                    <option value="male">{lang === 'bn' ? 'পুরুষ (Male)' : 'Male'}</option>
-                    <option value="female">{lang === 'bn' ? 'মহিলা (Female)' : 'Female'}</option>
-                    <option value="other">{lang === 'bn' ? 'অন্যান্য (Other)' : 'Other'}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'}
-                  </label>
-                  <select
-                    className="input-field"
-                    value={form.blood_group}
-                    onChange={(e) => setForm(prev => ({ ...prev, blood_group: e.target.value }))}
-                  >
-                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
-                      <option key={bg} value={bg}>{bg}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'জাতীয় পরিচয়পত্র / জন্মনিবন্ধন' : 'National ID / NID'}
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={form.national_id}
-                    onChange={(e) => setForm(prev => ({ ...prev, national_id: e.target.value }))}
-                    placeholder="NID নম্বর"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-teal-500 font-mono font-bold"
                   />
                 </div>
               </div>
 
-              {/* Address */}
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', marginBottom: '4px' }}>
-                  {lang === 'bn' ? 'ঠিকানা' : 'Address'}
-                </label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">জন্ম তারিখ</label>
+                  <input
+                    type="date"
+                    value={form.date_of_birth}
+                    onChange={e => setForm({ ...form, date_of_birth: e.target.value })}
+                    className="w-full px-2 py-1.5 rounded-xl border border-slate-300 focus:outline-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">লিঙ্গ</label>
+                  <select
+                    value={form.gender}
+                    onChange={e => setForm({ ...form, gender: e.target.value })}
+                    className="w-full px-2 py-1.5 rounded-xl border border-slate-300 focus:outline-teal-500 font-bold"
+                  >
+                    <option value="male">পুরুষ</option>
+                    <option value="female">মহিলা</option>
+                    <option value="other">অন্যান্য</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">রক্তের গ্রুপ</label>
+                  <select
+                    value={form.blood_group}
+                    onChange={e => setForm({ ...form, blood_group: e.target.value })}
+                    className="w-full px-2 py-1.5 rounded-xl border border-slate-300 focus:outline-teal-500 font-bold text-rose-700"
+                  >
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">ঠিকানা</label>
                 <input
                   type="text"
-                  className="input-field"
                   value={form.address}
-                  onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="গ্রাম / এলাকা, থানা, জেলা"
+                  onChange={e => setForm({ ...form, address: e.target.value })}
+                  placeholder="এলাকা, থানা, জেলা"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-teal-500"
                 />
               </div>
 
-              {/* Clinical Notes (Allergy & Chronic) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px', marginBottom: '1.25rem' }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#f59e0b', marginBottom: '4px' }}>
-                    ⚠️ {lang === 'bn' ? 'অ্যালার্জি নোট (Allergies)' : 'Allergy Warnings'}
-                  </label>
+                  <label className="font-bold text-slate-700 block mb-1">অ্যালার্জি নোট (⚠️)</label>
                   <input
                     type="text"
-                    className="input-field"
                     value={form.allergy_note}
-                    onChange={(e) => setForm(prev => ({ ...prev, allergy_note: e.target.value }))}
-                    placeholder="যেমন: পেনিসিলিন, সালফা, ধুলাবালি"
+                    onChange={e => setForm({ ...form, allergy_note: e.target.value })}
+                    placeholder="পেনিসিলিন, ডাস্ট ইত্যাদি"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-teal-500"
                   />
                 </div>
-
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#3b82f6', marginBottom: '4px' }}>
-                    🩺 {lang === 'bn' ? 'দীর্ঘমেয়াদী রোগ (Chronic Illness)' : 'Chronic Diseases'}
-                  </label>
+                  <label className="font-bold text-slate-700 block mb-1">দীর্ঘমেয়াদী রোগ</label>
                   <input
                     type="text"
-                    className="input-field"
                     value={form.chronic_disease_note}
-                    onChange={(e) => setForm(prev => ({ ...prev, chronic_disease_note: e.target.value }))}
-                    placeholder="যেমন: ডায়াবেটিস, উচ্চ রক্তচাপ, অ্যাজমা"
+                    onChange={e => setForm({ ...form, chronic_disease_note: e.target.value })}
+                    placeholder="ডায়াবেটিস, প্রেশার ইত্যাদি"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-teal-500"
                   />
                 </div>
               </div>
 
-              {/* Modal Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
-                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50"
+                >
+                  বাতিল
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ background: '#3b82f6', borderColor: '#3b82f6' }}>
-                  <Check size={16} />
-                  <span>{lang === 'bn' ? 'নিবন্ধন সম্পন্ন করুন' : 'Confirm Registration'}</span>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-md"
+                >
+                  নিবন্ধন নিশ্চিত করুন
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* PATIENT MEDICAL TIMELINE MODAL */}
-      {selectedPatientForTimeline && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '650px', width: '95%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800' }}>
-                  {selectedPatientForTimeline.full_name}
-                </h3>
-                <div style={{ fontSize: '0.78rem', color: '#3b82f6', fontFamily: 'monospace' }}>
-                  পেশেন্ট আইডি: #{selectedPatientForTimeline.patient_id} | রক্ত: {selectedPatientForTimeline.blood_group}
-                </div>
-              </div>
-              <button className="btn-icon" onClick={() => setSelectedPatientForTimeline(null)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Timeline Events */}
-            <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '8px' }}>
-              {getTimelineForPatient(selectedPatientForTimeline.patient_id).length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {getTimelineForPatient(selectedPatientForTimeline.patient_id).map((event, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        padding: '10px 14px',
-                        background: 'var(--bg-primary)',
-                        borderRadius: '10px',
-                        border: '1px solid var(--border-color)',
-                        borderLeft: `4px solid ${event.color}`,
-                        fontSize: '0.82rem'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ color: 'var(--text-main)' }}>{event.title}</strong>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'monospace' }}>{event.date}</span>
-                      </div>
-                      <div style={{ color: 'var(--text-muted)' }}>{event.details}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  কোনো অতীত মেডিকেল রেকর্ড বা প্রেসক্রিপশন ইতিহাস পাওয়া যায়নি।
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginTop: '1.25rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setSelectedPatientForTimeline(null)}>
-                {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+export default PatientManager;
