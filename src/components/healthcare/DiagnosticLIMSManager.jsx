@@ -85,6 +85,7 @@ export const DiagnosticLIMSManager = () => {
   // Active top navigation tab
   // 'orders' | 'billing' | 'test_catalog' | 'disease_bundles' | 'result_entry'
   const [activeTab, setActiveTab] = useState('orders');
+  const [orderFilter, setOrderFilter] = useState('ALL'); // 'ALL' | 'SAMPLE_PENDING' | 'IN_LAB' | 'VERIFY_PENDING' | 'READY' | 'DELIVERED'
 
   const [selectedOrderForResults, setSelectedOrderForResults] = useState(null);
   const [selectedTestForResultEntry, setSelectedTestForResultEntry] = useState(null);
@@ -314,7 +315,7 @@ export const DiagnosticLIMSManager = () => {
             }`}
             onClick={() => setActiveTab('orders')}
           >
-            📋 ল্যাব অর্ডার কিউ ({labOrders.length})
+            📋 ১.৭ অর্ডারের তালিকা ও ডেলিভারি ({labOrders.length})
           </button>
           <button
             type="button"
@@ -323,7 +324,7 @@ export const DiagnosticLIMSManager = () => {
             }`}
             onClick={() => setActiveTab('billing')}
           >
-            🧾 টেস্ট বিলিং কাউন্টার
+            🧾 ১.৭ নতুন টেস্ট অর্ডার
           </button>
           <button
             type="button"
@@ -332,7 +333,7 @@ export const DiagnosticLIMSManager = () => {
             }`}
             onClick={() => setActiveTab('disease_bundles')}
           >
-            🧬 ডিজিজ ও ক্যান্সার বান্ডেল ({testPackages.length})
+            🧬 ১.৭ টেস্ট প্যাকেজ ({testPackages.length})
           </button>
           <button
             type="button"
@@ -341,7 +342,7 @@ export const DiagnosticLIMSManager = () => {
             }`}
             onClick={() => setActiveTab('test_catalog')}
           >
-            📚 A-to-Z টেস্ট ক্যাটালগ ({diagnosticTests.length})
+            📚 ১.৭ টেস্ট ক্যাটালগ ও বিভাগ ({diagnosticTests.length})
           </button>
         </div>
       </div>
@@ -349,17 +350,45 @@ export const DiagnosticLIMSManager = () => {
       {/* TAB 1: LAB ORDERS QUEUE */}
       {activeTab === 'orders' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-5 space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h2 className="text-base font-bold text-slate-800">চলমান ল্যাব অর্ডার ও স্যাম্পল ট্র্যাকিং</h2>
-              <p className="text-xs text-slate-500">স্যাম্পল কালেকশন, রেজাল্ট এন্ট্রি ও চিফ প্যাথলজিস্ট ভেরিফিকেশন</p>
+              <h2 className="text-base font-bold text-slate-800">১.৭ ল্যাব ওয়ার্কলিস্ট ও স্যাম্পল ট্র্যাকিং</h2>
+              <p className="text-xs text-slate-500">নমুনা সংগ্রহ, বারকোড ট্র্যাকিং, টেস্ট বিশ্লেষণ ও রিপোর্ট ডেলিভারি</p>
             </div>
             <button
               onClick={() => setActiveTab('billing')}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-1.5"
             >
-              <Plus size={14} /> নতুন বিল তৈরি করুন
+              <Plus size={14} /> নতুন টেস্ট অর্ডার (New Order)
             </button>
+          </div>
+
+          {/* Subfilter Pills for 1.7 Workflow */}
+          <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
+            {[
+              { id: 'ALL', label: 'সব অর্ডার', count: labOrders.length },
+              { id: 'SAMPLE_PENDING', label: 'নমুনা সংগ্রহ অপেক্ষমাণ', count: labOrders.filter(o => o.tests?.some(t => t.status !== 'Sample Collected')).length },
+              { id: 'IN_LAB', label: 'ল্যাব ওয়ার্কলিস্ট (চলমান)', count: labOrders.filter(o => o.order_status === 'Sample Collected' || o.order_status === 'Processing').length },
+              { id: 'VERIFY_PENDING', label: 'রিপোর্ট যাচাই অপেক্ষমাণ', count: labOrders.filter(o => o.order_status === 'Result Entered').length },
+              { id: 'READY', label: 'রিপোর্ট প্রস্তুত', count: labOrders.filter(o => o.order_status === 'Report Ready').length },
+              { id: 'DELIVERED', label: 'ডেলিভারি সম্পন্ন', count: labOrders.filter(o => o.order_status === 'Delivered').length }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setOrderFilter(f.id)}
+                className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  orderFilter === f.id
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <span>{f.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${orderFilter === f.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {f.count}
+                </span>
+              </button>
+            ))}
           </div>
 
           <div className="overflow-x-auto">
@@ -376,7 +405,16 @@ export const DiagnosticLIMSManager = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {labOrders.map(order => (
+                {labOrders
+                  .filter(order => {
+                    if (orderFilter === 'SAMPLE_PENDING') return order.tests?.some(t => t.status !== 'Sample Collected');
+                    if (orderFilter === 'IN_LAB') return order.order_status === 'Sample Collected' || order.order_status === 'Processing';
+                    if (orderFilter === 'VERIFY_PENDING') return order.order_status === 'Result Entered';
+                    if (orderFilter === 'READY') return order.order_status === 'Report Ready';
+                    if (orderFilter === 'DELIVERED') return order.order_status === 'Delivered';
+                    return true;
+                  })
+                  .map(order => (
                   <tr key={order.lab_order_id} className="hover:bg-slate-50/70">
                     <td className="p-3">
                       <div className="font-mono font-bold text-emerald-700">{order.lab_order_id}</div>
@@ -435,18 +473,24 @@ export const DiagnosticLIMSManager = () => {
                     </td>
                     <td className="p-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        order.order_status === 'Report Ready'
+                        order.order_status === 'Delivered'
+                          ? 'bg-teal-100 text-teal-800'
+                          : order.order_status === 'Report Ready'
                           ? 'bg-emerald-100 text-emerald-800'
                           : order.order_status === 'Result Entered'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-amber-100 text-amber-800'
                       }`}>
-                        {order.order_status === 'Report Ready' ? '✓ প্রস্তুত' : order.order_status}
+                        {order.order_status === 'Delivered'
+                          ? '✓ ডেলিভার্ড'
+                          : order.order_status === 'Report Ready'
+                          ? '✓ প্রস্তুত'
+                          : order.order_status}
                       </span>
                     </td>
                     <td className="p-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {order.order_status !== 'Report Ready' && order.tests?.[0] && (
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        {order.order_status !== 'Report Ready' && order.order_status !== 'Delivered' && order.tests?.[0] && (
                           <button
                             onClick={() => handleOpenResultEntry(order, order.tests[0])}
                             className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
@@ -460,6 +504,18 @@ export const DiagnosticLIMSManager = () => {
                             className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm"
                           >
                             ভেরিফাই
+                          </button>
+                        )}
+                        {order.order_status === 'Report Ready' && (
+                          <button
+                            onClick={() => {
+                              updateLabSampleStatus(order.lab_order_id, order.tests?.[0]?.test_id, 'Delivered');
+                              showToast('রিপোর্ট সফলভাবে ডেলিভারি সম্পন্ন হয়েছে!', 'success');
+                            }}
+                            className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm flex items-center gap-1"
+                            title="রোগীকে রিপোর্ট হস্তান্তর / ডেলিভারি করুন"
+                          >
+                            <CheckCircle2 size={12} /> ডেলিভারি
                           </button>
                         )}
                         <button

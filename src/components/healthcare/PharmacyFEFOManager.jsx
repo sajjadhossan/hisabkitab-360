@@ -9,7 +9,23 @@ import {
   Boxes,
   Search,
   CheckCircle2,
-  X
+  X,
+  Plus,
+  RotateCcw,
+  Truck,
+  Building,
+  Layers,
+  ClipboardCheck,
+  ArrowRightLeft,
+  DollarSign,
+  Calendar,
+  Filter,
+  Check,
+  Clock,
+  Printer,
+  Sparkles,
+  BarChart3,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function PharmacyFEFOManager() {
@@ -21,7 +37,9 @@ export default function PharmacyFEFOManager() {
     updatePrescriptionDispensingStatus
   } = useHealthcare();
 
-  const [activeTab, setActiveTab] = useState('pos'); // 'pos' | 'prescriptions' | 'inventory' | 'alerts'
+  // Active Tab:
+  // 'pos' | 'prescriptions' | 'catalog' | 'inventory' | 'alerts' | 'sales_return' | 'purchases' | 'stock_count' | 'branch_transfer'
+  const [activeTab, setActiveTab] = useState('pos');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -31,6 +49,145 @@ export default function PharmacyFEFOManager() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [lastInvoice, setLastInvoice] = useState(null);
   const [activePrescriptionId, setActivePrescriptionId] = useState(null);
+
+  // 1.8 New Medicine Modal State
+  const [showAddMedModal, setShowAddMedModal] = useState(false);
+  const [newMedForm, setNewMedForm] = useState({
+    brand_name: '',
+    generic_name: '',
+    dosage_form: 'Tablet',
+    manufacturer: 'Square Pharmaceuticals Ltd.',
+    category: 'Antibiotic',
+    strip_size: 10,
+    unit_mrp: 8,
+    strip_mrp: 80,
+    box_mrp: 800,
+    rack_location: 'Rack-A1',
+    initial_stock: 100,
+    batch_number: 'BAT-2026-N1',
+    expiry_date: '2027-12-31'
+  });
+
+  // 1.8 Sales Return State
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnsList, setReturnsList] = useState([
+    {
+      returnId: 'RET-2026-001',
+      invoiceNo: 'PH-INV-9021',
+      date: '2026-10-10 12:40 PM',
+      patientName: 'মো: রফিকুল ইসলাম',
+      medicineName: 'Napa Extra 500mg (Tablet)',
+      batchNumber: 'BAT-2026-01',
+      returnQty: '১ পাতা (১০টি)',
+      refundAmount: 25,
+      reason: 'ডাক্তার ডোজ পরিবর্তন করেছেন',
+      status: 'অনুমোদিত ও রিফান্ডেড'
+    },
+    {
+      returnId: 'RET-2026-002',
+      invoiceNo: 'PH-INV-9045',
+      date: '2026-10-10 03:15 PM',
+      patientName: 'সালমা বেগম',
+      medicineName: 'Azithromycin 500mg',
+      batchNumber: 'AZI-2025-09',
+      returnQty: '২টি ট্যাবলেট',
+      refundAmount: 70,
+      reason: 'রোগী ভুল ওষুধ ক্রয় করেছিলেন',
+      status: 'অনুমোদিত ও রিফান্ডেড'
+    }
+  ]);
+  const [newReturnForm, setNewReturnForm] = useState({
+    invoiceNo: '',
+    patientName: '',
+    medicineName: '',
+    batchNumber: '',
+    returnQty: 1,
+    refundAmount: '',
+    reason: 'ডাক্তার প্রেসক্রিপশন পরিবর্তন করেছেন'
+  });
+
+  // 1.8 Purchase Invoices & Suppliers State
+  const [purchaseSubTab, setPurchaseSubTab] = useState('invoices'); // 'invoices' | 'suppliers'
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [suppliersList, setSuppliersList] = useState([
+    { id: 1, name: 'Square Pharmaceuticals Ltd.', code: 'SQR-01', phone: '০১৭৭০০০০০০১', balance: 45000, creditPeriod: '৩০ দিন' },
+    { id: 2, name: 'Beximco Pharma Ltd.', code: 'BXM-02', phone: '০১৭৭০০০০০০২', balance: 32000, creditPeriod: '৪৫ দিন' },
+    { id: 3, name: 'Incepta Pharmaceuticals Ltd.', code: 'ICP-03', phone: '০১৭৭০০০০০০৩', balance: 18500, creditPeriod: '৩০ দিন' },
+    { id: 4, name: 'Renata Limited', code: 'RNT-04', phone: '০১৭৭০০০০০০৪', balance: 0, creditPeriod: '১৫ দিন' }
+  ]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState([
+    {
+      invoiceNo: 'PUR-2026-8801',
+      supplierName: 'Square Pharmaceuticals Ltd.',
+      challanNo: 'CH-99410',
+      date: '2026-10-08',
+      totalAmount: 52000,
+      paidAmount: 30000,
+      dueAmount: 22000,
+      status: 'আংশিক পরিশোধ'
+    },
+    {
+      invoiceNo: 'PUR-2026-8802',
+      supplierName: 'Beximco Pharma Ltd.',
+      challanNo: 'CH-77821',
+      date: '2026-10-09',
+      totalAmount: 38000,
+      paidAmount: 38000,
+      dueAmount: 0,
+      status: 'সম্পূর্ণ পরিশোধ'
+    }
+  ]);
+  const [newPurchaseForm, setNewPurchaseForm] = useState({
+    supplierName: 'Square Pharmaceuticals Ltd.',
+    challanNo: '',
+    totalAmount: '',
+    paidAmount: '',
+    itemsSummary: ''
+  });
+
+  // 1.8 Stock Count / Physical Audit State
+  const [stockAuditList, setStockAuditList] = useState([
+    { id: 1, brand_name: 'Napa Extra 500mg', systemStock: 450, physicalStock: 450, variance: 0, status: 'মিলেছে (Matched)' },
+    { id: 2, brand_name: 'Seclo 20mg Capsule', systemStock: 320, physicalStock: 316, variance: -4, status: 'ঘাটতি (-4 Discrepancy)' },
+    { id: 3, brand_name: 'Azithromycin 500mg', systemStock: 180, physicalStock: 180, variance: 0, status: 'মিলেছে (Matched)' },
+    { id: 4, brand_name: 'Monas 10mg Tablet', systemStock: 210, physicalStock: 212, variance: +2, status: 'উদ্বৃত্ত (+2 Discrepancy)' },
+    { id: 5, brand_name: 'Ceevit 250mg Chewable', systemStock: 500, physicalStock: 500, variance: 0, status: 'মিলেছে (Matched)' }
+  ]);
+
+  // 1.8 Branch Stock Transfer State
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [branchTransfersList, setBranchTransfersList] = useState([
+    {
+      transferId: 'TRF-2026-101',
+      date: '2026-10-10 11:20 AM',
+      fromBranch: 'ধানমন্ডি মেইন ব্রাঞ্চ',
+      toBranch: 'মিরপুর শাখা',
+      medicineName: 'Seclo 20mg Capsule',
+      batchNumber: 'SEC-2026-03',
+      qty: '৫০ পাতা (৫০০টি)',
+      status: 'রিসিভড (Received)'
+    },
+    {
+      transferId: 'TRF-2026-102',
+      date: '2026-10-10 02:45 PM',
+      fromBranch: 'ধানমন্ডি মেইন ব্রাঞ্চ',
+      toBranch: 'উত্তরা শাখা',
+      medicineName: 'Azithromycin 500mg',
+      batchNumber: 'AZI-2026-01',
+      qty: '২০ পাতা (২০০টি)',
+      status: 'পথে আছে (In Transit)'
+    }
+  ]);
+  const [newTransferForm, setNewTransferForm] = useState({
+    fromBranch: 'ধানমন্ডি মেইন ব্রাঞ্চ',
+    toBranch: 'মিরপুর শাখা',
+    medicineName: 'Seclo 20mg Capsule',
+    batchNumber: 'SEC-2026-03',
+    qty: ''
+  });
+
+  // 1.8 Alert Filter state
+  const [alertFilter, setAlertFilter] = useState('ALL'); // 'ALL' | 'EXPIRED' | 'NEAR_EXPIRY' | 'LOW_STOCK'
 
   // Selected patient details for allergy check
   const selectedPatient = useMemo(() => {
@@ -255,42 +412,77 @@ export default function PharmacyFEFOManager() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="hc-subtabs-nav" style={{ padding: '4px' }}>
+          <div className="hc-subtabs-nav" style={{ padding: '4px', overflowX: 'auto', display: 'flex', gap: '6px' }}>
             <button
               onClick={() => setActiveTab('pos')}
               className={`hc-tab-btn ${activeTab === 'pos' ? 'active-emerald' : ''}`}
             >
               <ShoppingCart size={15} />
-              <span>ফার্মেসি বিক্রয় (POS)</span>
+              <span>১.৮ কাউন্টার বিক্রি (POS)</span>
             </button>
             <button
               onClick={() => setActiveTab('prescriptions')}
               className={`hc-tab-btn ${activeTab === 'prescriptions' ? 'active-emerald' : ''}`}
             >
               <FileText size={15} />
-              <span>প্রেসক্রিপশন কিউ</span>
+              <span>১.৮ প্রেসক্রিপশন বিক্রি</span>
               <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: 'inherit', padding: '1px 6px', fontSize: '0.7rem' }}>
                 {prescriptions.filter(p => p.dispensing_status === 'Sent to Pharmacy').length}
               </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('catalog')}
+              className={`hc-tab-btn ${activeTab === 'catalog' ? 'active-emerald' : ''}`}
+            >
+              <Pill size={15} />
+              <span>১.৮ ওষুধ ক্যাটালগ</span>
             </button>
             <button
               onClick={() => setActiveTab('inventory')}
               className={`hc-tab-btn ${activeTab === 'inventory' ? 'active-emerald' : ''}`}
             >
               <Boxes size={15} />
-              <span>ব্যাচ ইনভেন্টরি</span>
+              <span>১.৮ ব্যাচ ও মেয়াদ</span>
             </button>
             <button
               onClick={() => setActiveTab('alerts')}
               className={`hc-tab-btn ${activeTab === 'alerts' ? 'active-emerald' : ''}`}
             >
               <AlertTriangle size={15} />
-              <span>মেয়াদ অ্যালার্ট</span>
+              <span>১.৮ কম স্টক ও মেয়াদ সতর্কতা</span>
               {alertMedicines.length > 0 && (
                 <span className="badge" style={{ background: '#ef4444', color: '#ffffff', padding: '1px 6px', fontSize: '0.7rem' }}>
                   {alertMedicines.length}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setActiveTab('sales_return')}
+              className={`hc-tab-btn ${activeTab === 'sales_return' ? 'active-emerald' : ''}`}
+            >
+              <RotateCcw size={15} />
+              <span>১.৮ বিক্রয় ফেরত</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('purchases')}
+              className={`hc-tab-btn ${activeTab === 'purchases' ? 'active-emerald' : ''}`}
+            >
+              <Truck size={15} />
+              <span>১.৮ ক্রয় চালান ও সরবরাহকারী</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('stock_count')}
+              className={`hc-tab-btn ${activeTab === 'stock_count' ? 'active-emerald' : ''}`}
+            >
+              <ClipboardCheck size={15} />
+              <span>১.৮ স্টক গণনা</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('branch_transfer')}
+              className={`hc-tab-btn ${activeTab === 'branch_transfer' ? 'active-emerald' : ''}`}
+            >
+              <ArrowRightLeft size={15} />
+              <span>১.৮ শাখা ট্রান্সফার</span>
             </button>
           </div>
         </div>
@@ -742,16 +934,52 @@ export default function PharmacyFEFOManager() {
         </div>
       )}
 
-      {/* EXPIRY ALERTS TAB */}
+      {/* EXPIRY & LOW STOCK ALERTS TAB */}
       {activeTab === 'alerts' && (
         <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
-          <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '14px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-              মেয়াদোত্তীর্ণ ও আসন্ন মেয়াদোত্তীর্ণ ওষুধ (FEFO Safety Alerts)
-            </h2>
-            <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              মেয়াদোত্তীর্ণ ওষুধ বিক্রয় সম্পূর্ণ নিষিদ্ধ এবং ৯০ দিনের মধ্যে মেয়াদোত্তীর্ণ ওষুধসমূহ সতর্কবার্তা
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                ১.৮ কম স্টক ও মেয়াদ সতর্কতা (Safety & Stock Alerts)
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                মেয়াদোত্তীর্ণ ওষুধ বিক্রয় সম্পূর্ণ নিষিদ্ধ এবং কম স্টক ও ৯০ দিনের সতর্কবার্তা
+              </p>
+            </div>
+            <div className="hc-subtabs-nav" style={{ padding: '3px' }}>
+              <button
+                type="button"
+                onClick={() => setAlertFilter('ALL')}
+                className={`hc-tab-btn ${alertFilter === 'ALL' ? 'active-emerald' : ''}`}
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+              >
+                সব সতর্কতা
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertFilter('EXPIRED')}
+                className={`hc-tab-btn ${alertFilter === 'EXPIRED' ? 'active-emerald' : ''}`}
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+              >
+                মেয়াদোত্তীর্ণ
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertFilter('NEAR_EXPIRY')}
+                className={`hc-tab-btn ${alertFilter === 'NEAR_EXPIRY' ? 'active-emerald' : ''}`}
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+              >
+                আসন্ন মেয়াদ
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertFilter('LOW_STOCK')}
+                className={`hc-tab-btn ${alertFilter === 'LOW_STOCK' ? 'active-emerald' : ''}`}
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+              >
+                কম স্টক
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -808,6 +1036,615 @@ export default function PharmacyFEFOManager() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 1.8 MEDICINE CATALOG & ADD MEDICINE */}
+      {activeTab === 'catalog' && (
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                ওষুধ ক্যাটালগ ও জেনেরিক মাস্টার (Medicine Catalog)
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                মোট {filteredMedicines.length}টি ওষুধ নিবন্ধিত • জেনেরিক, প্রস্তুতকারক ও মূল্য তালিকা
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAddMedModal(true)}
+              className="btn btn-primary press-scale"
+              style={{ background: '#10b981', borderColor: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '7px 14px' }}
+            >
+              <Plus size={15} />
+              <span>নতুন ওষুধ যুক্ত করুন</span>
+            </button>
+          </div>
+
+          <div className="hc-table-container">
+            <table className="hc-data-table">
+              <thead>
+                <tr>
+                  <th>ওষুধের নাম</th>
+                  <th>জেনেরিক নাম</th>
+                  <th>ডোজ ফরম</th>
+                  <th>প্রস্তুতকারক কোম্পানি</th>
+                  <th>ক্যাটাগরি</th>
+                  <th>খুচরা মূল্য (পাতা/পিস)</th>
+                  <th>র্যাক অবস্থান</th>
+                  <th>মোট স্টক</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMedicines.map(med => {
+                  const totalStock = (med.batches || []).reduce((sum, b) => sum + (b.stock_tablets || 0), 0);
+                  return (
+                    <tr key={med.medicine_id}>
+                      <td style={{ fontWeight: '800', color: 'var(--text-main)' }}>{med.brand_name}</td>
+                      <td style={{ color: 'var(--text-muted)' }}>{med.generic_name}</td>
+                      <td><span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>{med.dosage_form}</span></td>
+                      <td style={{ fontSize: '0.78rem' }}>{med.manufacturer}</td>
+                      <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>{med.category}</span></td>
+                      <td style={{ fontWeight: '700' }}>৳{med.strip_mrp} / ৳{med.unit_mrp}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)' }}>{med.rack_location}</td>
+                      <td style={{ fontWeight: '800', color: totalStock < 50 ? '#ef4444' : '#10b981' }}>{totalStock} টি</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 1.8 SALES RETURN & REFUND */}
+      {activeTab === 'sales_return' && (
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                বিক্রয় ফেরত ও রিফান্ড ব্যবস্থাপনা (Sales Return)
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                রোগীর ফেরতকৃত ওষুধের হিসাব, কারণ ও ক্যাশ রিফান্ড ট্র্যাকিং
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowReturnModal(true)}
+              className="btn btn-primary press-scale"
+              style={{ background: '#f59e0b', borderColor: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '7px 14px' }}
+            >
+              <RotateCcw size={15} />
+              <span>নতুন বিক্রয় ফেরত এন্ট্রি</span>
+            </button>
+          </div>
+
+          <div className="hc-table-container">
+            <table className="hc-data-table">
+              <thead>
+                <tr>
+                  <th>রিটার্ন আইডি</th>
+                  <th>ইনভয়েস নং</th>
+                  <th>তারিখ ও সময়</th>
+                  <th>রোগীর নাম</th>
+                  <th>ফেরতকৃত ওষুধ ও ব্যাচ</th>
+                  <th>পরিমাণ</th>
+                  <th>রিফান্ড টাকা</th>
+                  <th>কারণ</th>
+                  <th>স্ট্যাটাস</th>
+                </tr>
+              </thead>
+              <tbody>
+                {returnsList.map(ret => (
+                  <tr key={ret.returnId}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#f59e0b' }}>{ret.returnId}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)' }}>{ret.invoiceNo}</td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ret.date}</td>
+                    <td style={{ fontWeight: '700' }}>{ret.patientName}</td>
+                    <td>{ret.medicineName} <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ব্যাচ: {ret.batchNumber}</div></td>
+                    <td style={{ fontWeight: '700' }}>{ret.returnQty}</td>
+                    <td style={{ fontWeight: '800', color: '#ef4444' }}>৳{ret.refundAmount}</td>
+                    <td style={{ fontSize: '0.75rem' }}>{ret.reason}</td>
+                    <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>{ret.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 1.8 PURCHASES & SUPPLIERS */}
+      {activeTab === 'purchases' && (
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                ক্রয় চালান ও সরবরাহকারী (Purchase Invoices & Suppliers)
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                ঔষধ কোম্পানি থেকে ক্রয় চালান ও বাকির খতিয়ান
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="hc-subtabs-nav" style={{ padding: '3px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPurchaseSubTab('invoices')}
+                  className={`hc-tab-btn ${purchaseSubTab === 'invoices' ? 'active-emerald' : ''}`}
+                  style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                >
+                  ক্রয় চালান ({purchaseInvoices.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPurchaseSubTab('suppliers')}
+                  className={`hc-tab-btn ${purchaseSubTab === 'suppliers' ? 'active-emerald' : ''}`}
+                  style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                >
+                  সরবরাহকারী ({suppliersList.length})
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPurchaseModal(true)}
+                className="btn btn-primary press-scale"
+                style={{ background: '#10b981', borderColor: '#10b981', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', padding: '6px 12px' }}
+              >
+                <Plus size={14} />
+                <span>নতুন ক্রয় চালান</span>
+              </button>
+            </div>
+          </div>
+
+          {purchaseSubTab === 'invoices' ? (
+            <div className="hc-table-container">
+              <table className="hc-data-table">
+                <thead>
+                  <tr>
+                    <th>চালান নং</th>
+                    <th>কোম্পানি / সরবরাহকারী</th>
+                    <th>চালান স্লিপ নং</th>
+                    <th>তারিখ</th>
+                    <th>মোট টাকা</th>
+                    <th>পরিশোধিত</th>
+                    <th>বকেয়া</th>
+                    <th>স্ট্যাটাস</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {purchaseInvoices.map(inv => (
+                    <tr key={inv.invoiceNo}>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#10b981' }}>{inv.invoiceNo}</td>
+                      <td style={{ fontWeight: '700' }}>{inv.supplierName}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)' }}>{inv.challanNo}</td>
+                      <td>{inv.date}</td>
+                      <td style={{ fontWeight: '800' }}>৳{inv.totalAmount.toLocaleString()}</td>
+                      <td style={{ color: '#10b981', fontWeight: '700' }}>৳{inv.paidAmount.toLocaleString()}</td>
+                      <td style={{ color: inv.dueAmount > 0 ? '#ef4444' : '#10b981', fontWeight: '800' }}>
+                        {inv.dueAmount > 0 ? `৳${inv.dueAmount.toLocaleString()}` : 'পরিশোধিত'}
+                      </td>
+                      <td>
+                        <span className="badge" style={{ background: inv.dueAmount === 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: inv.dueAmount === 0 ? '#10b981' : '#ef4444' }}>
+                          {inv.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="hc-table-container">
+              <table className="hc-data-table">
+                <thead>
+                  <tr>
+                    <th>কোম্পানির নাম</th>
+                    <th>কোড</th>
+                    <th>যোগাযোগ</th>
+                    <th>বাকির সময়সীমা</th>
+                    <th>বর্তমান পাওনা (Payable)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {suppliersList.map(sup => (
+                    <tr key={sup.id}>
+                      <td style={{ fontWeight: '800' }}>{sup.name}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)' }}>{sup.code}</td>
+                      <td>{sup.phone}</td>
+                      <td>{sup.creditPeriod}</td>
+                      <td style={{ fontWeight: '800', color: sup.balance > 0 ? '#ef4444' : '#10b981' }}>
+                        ৳{sup.balance.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 1.8 PHYSICAL STOCK AUDIT / STOCK COUNT */}
+      {activeTab === 'stock_count' && (
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                স্টক গণনা ও অডিট (Physical Stock Count & Variance Reconciliation)
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                সফটওয়্যার স্টক বনাম শারীরিক গণনার পার্থক্য নিরীক্ষা
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => alert('শারীরিক স্টক গণনা সফলভাবে সিঙ্ক ও অডিট লগ সংরক্ষণ করা হয়েছে!')}
+              className="btn btn-primary press-scale"
+              style={{ background: '#10b981', borderColor: '#10b981', fontSize: '0.8rem', padding: '7px 14px' }}
+            >
+              ✓ অডিট সমাপ্ত ও স্টক সিঙ্ক করুন
+            </button>
+          </div>
+
+          <div className="hc-table-container">
+            <table className="hc-data-table">
+              <thead>
+                <tr>
+                  <th>ওষুধের নাম</th>
+                  <th>সিস্টেম স্টক</th>
+                  <th>শারীরিক গণনা (Physical Count)</th>
+                  <th>পার্থক্য (Variance)</th>
+                  <th>অডিট স্ট্যাটাস</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockAuditList.map(item => (
+                  <tr key={item.id}>
+                    <td style={{ fontWeight: '800' }}>{item.brand_name}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '700' }}>{item.systemStock} টি</td>
+                    <td>
+                      <input
+                        type="number"
+                        defaultValue={item.physicalStock}
+                        onChange={e => {
+                          const val = Number(e.target.value) || 0;
+                          setStockAuditList(prev => prev.map(x => x.id === item.id ? { ...x, physicalStock: val, variance: val - x.systemStock, status: val === x.systemStock ? 'মিলেছে (Matched)' : val < x.systemStock ? `ঘাটতি (${val - x.systemStock})` : `উদ্বৃত্ত (+${val - x.systemStock})` } : x));
+                        }}
+                        className="input-field"
+                        style={{ width: '90px', padding: '4px 8px', fontSize: '0.8rem', fontWeight: '800' }}
+                      />
+                    </td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: item.variance === 0 ? '#10b981' : '#ef4444' }}>
+                      {item.variance > 0 ? `+${item.variance}` : item.variance}
+                    </td>
+                    <td>
+                      <span className="badge" style={{ background: item.variance === 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: item.variance === 0 ? '#10b981' : '#ef4444' }}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 1.8 BRANCH STOCK TRANSFER */}
+      {activeTab === 'branch_transfer' && (
+        <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                শাখা স্টক ট্রান্সফার (Inter-Branch Stock Transfer)
+              </h2>
+              <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                এক শাখা থেকে অন্য শাখায় ঔষধ স্থানান্তর ও রিসিভিং চালান
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTransferModal(true)}
+              className="btn btn-primary press-scale"
+              style={{ background: '#3b82f6', borderColor: '#3b82f6', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '7px 14px' }}
+            >
+              <ArrowRightLeft size={15} />
+              <span>নতুন শাখা ট্রান্সফার</span>
+            </button>
+          </div>
+
+          <div className="hc-table-container">
+            <table className="hc-data-table">
+              <thead>
+                <tr>
+                  <th>ট্রান্সফার আইডি</th>
+                  <th>তারিখ ও সময়</th>
+                  <th>প্রেরক শাখা</th>
+                  <th>প্রাপক শাখা</th>
+                  <th>ঔষধ ও ব্যাচ</th>
+                  <th>পরিমাণ</th>
+                  <th>স্ট্যাটাস</th>
+                </tr>
+              </thead>
+              <tbody>
+                {branchTransfersList.map(trf => (
+                  <tr key={trf.transferId}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#3b82f6' }}>{trf.transferId}</td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{trf.date}</td>
+                    <td style={{ fontWeight: '700' }}>{trf.fromBranch}</td>
+                    <td style={{ fontWeight: '700', color: '#10b981' }}>{trf.toBranch}</td>
+                    <td>{trf.medicineName} <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ব্যাচ: {trf.batchNumber}</div></td>
+                    <td style={{ fontWeight: '800' }}>{trf.qty}</td>
+                    <td>
+                      <span className="badge" style={{ background: trf.status.includes('Received') ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)', color: trf.status.includes('Received') ? '#10b981' : '#3b82f6' }}>
+                        {trf.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: ADD NEW MEDICINE */}
+      {showAddMedModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '520px', width: '95%', padding: '1.5rem', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Pill size={18} color="#10b981" />
+                <span>নতুন ওষুধ নিবন্ধন (Add Medicine)</span>
+              </h3>
+              <button onClick={() => setShowAddMedModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              alert(`ওষুধ '${newMedForm.brand_name}' সফলভাবে ক্যাটালগে যুক্ত হয়েছে!`);
+              setShowAddMedModal(false);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ব্র্যান্ড নাম</label>
+                  <input required placeholder="যেমন: Napa Extend" value={newMedForm.brand_name} onChange={e => setNewMedForm({ ...newMedForm, brand_name: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>জেনেরিক নাম</label>
+                  <input required placeholder="যেমন: Paracetamol" value={newMedForm.generic_name} onChange={e => setNewMedForm({ ...newMedForm, generic_name: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ডোজ ফরম</label>
+                  <select value={newMedForm.dosage_form} onChange={e => setNewMedForm({ ...newMedForm, dosage_form: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }}>
+                    <option value="Tablet">Tablet</option>
+                    <option value="Capsule">Capsule</option>
+                    <option value="Syrup">Syrup</option>
+                    <option value="Injection">Injection</option>
+                    <option value="Eye Drops">Eye Drops</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>কোম্পানি</label>
+                  <input required value={newMedForm.manufacturer} onChange={e => setNewMedForm({ ...newMedForm, manufacturer: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>পাতা মূল্য (৳)</label>
+                  <input type="number" required value={newMedForm.strip_mrp} onChange={e => setNewMedForm({ ...newMedForm, strip_mrp: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>পিস মূল্য (৳)</label>
+                  <input type="number" required value={newMedForm.unit_mrp} onChange={e => setNewMedForm({ ...newMedForm, unit_mrp: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>র্যাক লোকেশন</label>
+                  <input required value={newMedForm.rack_location} onChange={e => setNewMedForm({ ...newMedForm, rack_location: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowAddMedModal(false)} className="btn btn-secondary press-scale">বাতিল</button>
+                <button type="submit" className="btn btn-primary press-scale" style={{ background: '#10b981', borderColor: '#10b981' }}>সংরক্ষণ করুন</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: ADD SALES RETURN */}
+      {showReturnModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '480px', width: '95%', padding: '1.5rem', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RotateCcw size={18} color="#f59e0b" />
+                <span>বিক্রয় ফেরত এন্ট্রি (Sales Return)</span>
+              </h3>
+              <button onClick={() => setShowReturnModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              const newRet = {
+                returnId: `RET-2026-${Math.floor(100 + Math.random() * 900)}`,
+                invoiceNo: newReturnForm.invoiceNo,
+                date: new Date().toLocaleString('bn-BD'),
+                patientName: newReturnForm.patientName,
+                medicineName: newReturnForm.medicineName,
+                batchNumber: newReturnForm.batchNumber || 'BAT-2026-01',
+                returnQty: `${newReturnForm.returnQty} টি`,
+                refundAmount: Number(newReturnForm.refundAmount),
+                reason: newReturnForm.reason,
+                status: 'অনুমোদিত ও রিফান্ডেড'
+              };
+              setReturnsList([newRet, ...returnsList]);
+              alert(`রিটার্ন #${newRet.returnId} সফলভাবে ক্যাশ রিফান্ড সম্পন্ন হয়েছে!`);
+              setShowReturnModal(false);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>পূর্বের ইনভয়েস নং</label>
+                <input required placeholder="যেমন: PH-INV-9021" value={newReturnForm.invoiceNo} onChange={e => setNewReturnForm({ ...newReturnForm, invoiceNo: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>রোগীর নাম</label>
+                  <input required placeholder="যেমন: মো: রফিকুল ইসলাম" value={newReturnForm.patientName} onChange={e => setNewReturnForm({ ...newReturnForm, patientName: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ওষুধের নাম</label>
+                  <input required placeholder="যেমন: Napa Extra" value={newReturnForm.medicineName} onChange={e => setNewReturnForm({ ...newReturnForm, medicineName: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ফেরতের পরিমাণ</label>
+                  <input type="number" required min="1" value={newReturnForm.returnQty} onChange={e => setNewReturnForm({ ...newReturnForm, returnQty: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>রিফান্ড টাকা (৳)</label>
+                  <input type="number" required value={newReturnForm.refundAmount} onChange={e => setNewReturnForm({ ...newReturnForm, refundAmount: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ফেরতের কারণ</label>
+                <input value={newReturnForm.reason} onChange={e => setNewReturnForm({ ...newReturnForm, reason: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowReturnModal(false)} className="btn btn-secondary press-scale">বাতিল</button>
+                <button type="submit" className="btn btn-primary press-scale" style={{ background: '#f59e0b', borderColor: '#f59e0b' }}>রিফান্ড প্রদান করুন</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ADD PURCHASE INVOICE */}
+      {showPurchaseModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '480px', width: '95%', padding: '1.5rem', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Truck size={18} color="#10b981" />
+                <span>নতুন ক্রয় চালান এন্ট্রি (Purchase Invoice)</span>
+              </h3>
+              <button onClick={() => setShowPurchaseModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              const total = Number(newPurchaseForm.totalAmount) || 0;
+              const paid = Number(newPurchaseForm.paidAmount) || 0;
+              const newInv = {
+                invoiceNo: `PUR-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+                supplierName: newPurchaseForm.supplierName,
+                challanNo: newPurchaseForm.challanNo,
+                date: new Date().toISOString().split('T')[0],
+                totalAmount: total,
+                paidAmount: paid,
+                dueAmount: Math.max(0, total - paid),
+                status: total === paid ? 'সম্পূর্ণ পরিশোধ' : paid > 0 ? 'আংশিক পরিশোধ' : 'বকেয়া'
+              };
+              setPurchaseInvoices([newInv, ...purchaseInvoices]);
+              alert(`ক্রয় চালান #${newInv.invoiceNo} সফলভাবে যুক্ত হয়েছে!`);
+              setShowPurchaseModal(false);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>সরবরাহকারী / কোম্পানি</label>
+                <select value={newPurchaseForm.supplierName} onChange={e => setNewPurchaseForm({ ...newPurchaseForm, supplierName: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }}>
+                  {suppliersList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>কোম্পানি চালান / স্লিপ নং</label>
+                <input required placeholder="যেমন: CH-88910" value={newPurchaseForm.challanNo} onChange={e => setNewPurchaseForm({ ...newPurchaseForm, challanNo: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>মোট চালান মূল্য (৳)</label>
+                  <input type="number" required value={newPurchaseForm.totalAmount} onChange={e => setNewPurchaseForm({ ...newPurchaseForm, totalAmount: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>পরিশোধিত টাকা (৳)</label>
+                  <input type="number" required value={newPurchaseForm.paidAmount} onChange={e => setNewPurchaseForm({ ...newPurchaseForm, paidAmount: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowPurchaseModal(false)} className="btn btn-secondary press-scale">বাতিল</button>
+                <button type="submit" className="btn btn-primary press-scale" style={{ background: '#10b981', borderColor: '#10b981' }}>সংরক্ষণ করুন</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: ADD BRANCH TRANSFER */}
+      {showTransferModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '480px', width: '95%', padding: '1.5rem', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ArrowRightLeft size={18} color="#3b82f6" />
+                <span>শাখা স্টক স্থানান্তর (Branch Stock Transfer)</span>
+              </h3>
+              <button onClick={() => setShowTransferModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              const newTrf = {
+                transferId: `TRF-2026-${Math.floor(100 + Math.random() * 900)}`,
+                date: new Date().toLocaleString('bn-BD'),
+                fromBranch: newTransferForm.fromBranch,
+                toBranch: newTransferForm.toBranch,
+                medicineName: newTransferForm.medicineName,
+                batchNumber: newTransferForm.batchNumber,
+                qty: `${newTransferForm.qty} পাতা`,
+                status: 'পথে আছে (In Transit)'
+              };
+              setBranchTransfersList([newTrf, ...branchTransfersList]);
+              alert(`ট্রান্সফার চালান #${newTrf.transferId} সফলভাবে ইস্যু করা হয়েছে!`);
+              setShowTransferModal(false);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>প্রেরক শাখা</label>
+                  <select value={newTransferForm.fromBranch} onChange={e => setNewTransferForm({ ...newTransferForm, fromBranch: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }}>
+                    <option value="ধানমন্ডি মেইন ব্রাঞ্চ">ধানমন্ডি মেইন ব্রাঞ্চ</option>
+                    <option value="মিরপুর শাখা">মিরপুর শাখা</option>
+                    <option value="উত্তরা শাখা">উত্তরা শাখা</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>প্রাপক শাখা</label>
+                  <select value={newTransferForm.toBranch} onChange={e => setNewTransferForm({ ...newTransferForm, toBranch: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }}>
+                    <option value="মিরপুর শাখা">মিরপুর শাখা</option>
+                    <option value="উত্তরা শাখা">উত্তরা শাখা</option>
+                    <option value="ধানমন্ডি মেইন ব্রাঞ্চ">ধানমন্ডি মেইন ব্রাঞ্চ</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ঔষধের নাম</label>
+                <input required value={newTransferForm.medicineName} onChange={e => setNewTransferForm({ ...newTransferForm, medicineName: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>ব্যাচ নম্বর</label>
+                  <input required value={newTransferForm.batchNumber} onChange={e => setNewTransferForm({ ...newTransferForm, batchNumber: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '700' }}>স্থানান্তর পরিমাণ (পাতা)</label>
+                  <input type="number" required min="1" value={newTransferForm.qty} onChange={e => setNewTransferForm({ ...newTransferForm, qty: e.target.value })} className="input-field" style={{ width: '100%', padding: '6px 10px' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+                <button type="button" onClick={() => setShowTransferModal(false)} className="btn btn-secondary press-scale">বাতিল</button>
+                <button type="submit" className="btn btn-primary press-scale" style={{ background: '#3b82f6', borderColor: '#3b82f6' }}>ট্রান্সফার চালান ইস্যু করুন</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

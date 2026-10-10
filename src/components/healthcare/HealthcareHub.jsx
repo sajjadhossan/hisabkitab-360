@@ -325,7 +325,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               }}
             >
               <Pill size={16} className="text-emerald-400" />
-              <span>২. ফার্মেসি POS</span>
+              <span>২. ফার্মেসি (১.৮)</span>
             </button>
 
             {/* 3. Diagnostic Tab */}
@@ -349,7 +349,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               }}
             >
               <FlaskConical size={16} className="text-teal-400" />
-              <span>৩. ডায়াগনস্টিক ল্যাব</span>
+              <span>৩. ডায়াগনস্টিক ল্যাব (১.৭)</span>
             </button>
 
             {/* 4. Doctor Chamber Tab */}
@@ -421,7 +421,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               }}
             >
               <CreditCard size={16} className="text-green-400" />
-              <span>৬. সেন্ট্রাল বিলিং</span>
+              <span>৬. বিল, হিসাব ও রিপোর্ট (১.৯)</span>
             </button>
 
             {/* 7. Print Center Tab */}
