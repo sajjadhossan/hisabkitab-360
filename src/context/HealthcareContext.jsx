@@ -458,6 +458,26 @@ export const HealthcareProvider = ({ children }) => {
     return { success: true, patient: newPatient, duplicateWarning: Boolean(existing) };
   };
 
+  const [patientMergeAuditLogs, setPatientMergeAuditLogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hisabkitab_hc_patient_merge_logs');
+      return saved ? JSON.parse(saved) : [
+        {
+          auditId: 'MRG-2026-001',
+          sourcePatientId: 'PT-000099',
+          targetPatientId: 'PT-000001',
+          sourceName: 'করিম সাহেব (ডুপ্লিকেট)',
+          targetName: 'আব্দুল করিম (Abdul Karim)',
+          mergedBy: 'অ্যাডমিন ইউজার (সুপার অ্যাডমিন)',
+          timestamp: '2026-10-09T14:30:00Z',
+          reason: 'একই ব্যক্তির দুটি ফোন নম্বরে খোলা অ্যাকাউন্ট একীভূতকরণ'
+        }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
   const updatePatient = (patientId, updateData) => {
     setPatients(prev => prev.map(p => {
       if (p.patient_id === patientId) {
@@ -465,6 +485,59 @@ export const HealthcareProvider = ({ children }) => {
       }
       return p;
     }));
+  };
+
+  const mergePatients = (targetId, sourceId, reason, mergedBy = 'সুপার অ্যাডমিন') => {
+    const sourcePatient = patients.find(p => p.patient_id === sourceId);
+    const targetPatient = patients.find(p => p.patient_id === targetId);
+
+    if (!sourcePatient || !targetPatient) {
+      return { success: false, error: 'উৎস বা গন্তব্য রোগী খুঁজে পাওয়া যায়নি' };
+    }
+
+    // Reassign visits, prescriptions, lab orders
+    setAppointments(prev => prev.map(a => a.patient_id === sourceId ? { ...a, patient_id: targetId, merged_from: sourceId } : a));
+    setPrescriptions(prev => prev.map(p => p.patient_id === sourceId ? { ...p, patient_id: targetId, merged_from: sourceId } : p));
+    setLabOrders(prev => prev.map(l => l.patient_id === sourceId ? { ...l, patient_id: targetId, merged_from: sourceId } : l));
+
+    // Update patients
+    setPatients(prev => prev.map(p => {
+      if (p.patient_id === sourceId) {
+        return {
+          ...p,
+          patient_status: 'একীভূত (Merged)',
+          merged_into: targetId,
+          active: false
+        };
+      }
+      if (p.patient_id === targetId) {
+        return {
+          ...p,
+          total_visits: (p.total_visits || 1) + (sourcePatient.total_visits || 1),
+          outstanding_due: (Number(p.outstanding_due) || 0) + (Number(sourcePatient.outstanding_due) || 0)
+        };
+      }
+      return p;
+    }));
+
+    const auditEntry = {
+      auditId: `MRG-${Date.now()}`,
+      sourcePatientId: sourceId,
+      targetPatientId: targetId,
+      sourceName: sourcePatient.full_name || sourceId,
+      targetName: targetPatient.full_name || targetId,
+      mergedBy,
+      timestamp: new Date().toISOString(),
+      reason: reason || 'ডুপ্লিকেট রেকর্ড একীভূতকরণ'
+    };
+
+    setPatientMergeAuditLogs(prev => {
+      const updated = [auditEntry, ...prev];
+      localStorage.setItem('hisabkitab_hc_patient_merge_logs', JSON.stringify(updated));
+      return updated;
+    });
+
+    return { success: true, audit: auditEntry };
   };
 
   // --- APPOINTMENT ACTIONS ---
@@ -708,9 +781,11 @@ export const HealthcareProvider = ({ children }) => {
         setActiveBranchId,
         currentStaffRole,
         setCurrentStaffRole,
-        // Methods
+        // Methods & Patient Merging
         addPatient,
         updatePatient,
+        mergePatients,
+        patientMergeAuditLogs,
         bookAppointment,
         updateAppointmentStatus,
         createPrescription,
