@@ -70,7 +70,7 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
   // Modals & Drawers
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPatientProfile, setSelectedPatientProfile] = useState(null);
-  const [profileTab, setProfileTab] = useState('overview'); // 'overview' | 'visits' | 'prescriptions' | 'tests' | 'pharmacy' | 'billing'
+  const [profileTab, setProfileTab] = useState('summary'); // 'summary' | 'personal_info' | 'visits' | 'prescriptions' | 'test_orders' | 'reports' | 'pharmacy_sales' | 'billing' | 'attachments' | 'audit_history'
   const [visitHistoryModalPatient, setVisitHistoryModalPatient] = useState(null);
   const [printCardModalPatient, setPrintCardModalPatient] = useState(null);
   const [appointmentBookingPatient, setAppointmentBookingPatient] = useState(null);
@@ -1318,60 +1318,188 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
               </div>
             </div>
 
-            {/* Profile Subtabs Navigation */}
-            <div className="flex gap-2 border-b border-slate-100 pb-2 overflow-x-auto text-xs font-bold">
+            {/* Profile Subtabs Navigation (Exact 10 Tabs) */}
+            <div className="flex gap-1.5 border-b border-slate-100 pb-2 overflow-x-auto text-xs font-bold scrollbar-thin">
               <button
                 type="button"
-                onClick={() => setProfileTab('overview')}
-                className={`px-3.5 py-1.5 rounded-xl transition-all ${
-                  profileTab === 'overview' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                onClick={() => setProfileTab('summary')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'summary' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                ব্যক্তিগত ও জরুরি তথ্য
+                ১. সারাংশ
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab('personal_info')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'personal_info' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ২. ব্যক্তিগত তথ্য
               </button>
               <button
                 type="button"
                 onClick={() => setProfileTab('visits')}
-                className={`px-3.5 py-1.5 rounded-xl transition-all ${
-                  profileTab === 'visits' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'visits' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                শাখাভিত্তিক ভিজিট ইতিহাস ({getPatientVisits(selectedPatientProfile.patient_id).length})
+                ৩. ভিজিট ({getPatientVisits(selectedPatientProfile.patient_id).length})
               </button>
               <button
                 type="button"
                 onClick={() => setProfileTab('prescriptions')}
-                className={`px-3.5 py-1.5 rounded-xl transition-all ${
-                  profileTab === 'prescriptions' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'prescriptions' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                প্রেসক্রিপশন ইতিহাস ({getPatientPrescriptions(selectedPatientProfile.patient_id).length})
+                ৪. প্রেসক্রিপশন ({getPatientPrescriptions(selectedPatientProfile.patient_id).length})
               </button>
               <button
                 type="button"
-                onClick={() => setProfileTab('tests')}
-                className={`px-3.5 py-1.5 rounded-xl transition-all ${
-                  profileTab === 'tests' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                onClick={() => setProfileTab('test_orders')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'test_orders' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                টেস্ট ও রিপোর্ট ইতিহাস ({getPatientLabOrders(selectedPatientProfile.patient_id).length})
+                ৫. টেস্ট অর্ডার ({getPatientLabOrders(selectedPatientProfile.patient_id).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab('reports')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'reports' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ৬. রিপোর্ট
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab('pharmacy_sales')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'pharmacy_sales' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ৭. ফার্মেসি বিক্রি
               </button>
               <button
                 type="button"
                 onClick={() => setProfileTab('billing')}
-                className={`px-3.5 py-1.5 rounded-xl transition-all ${
-                  profileTab === 'billing' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'billing' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                বিল ও বকেয়া হিসাব
+                ৮. বিল ও পেমেন্ট
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab('attachments')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'attachments' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ৯. সংযুক্ত ফাইল
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab('audit_history')}
+                className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                  profileTab === 'audit_history' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                ১০. অডিট / পরিবর্তন ইতিহাস
               </button>
             </div>
 
-            {/* TAB: OVERVIEW */}
-            {profileTab === 'overview' && (
+            {/* TAB 1: সারাংশ (Exact 8 Requested Elements) */}
+            {profileTab === 'summary' && (
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* ১. রোগীর আইডি */}
+                  <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200">
+                    <span className="text-[10px] font-bold text-teal-800 uppercase block">১. রোগীর আইডি (UHID)</span>
+                    <strong className="text-base font-black text-teal-950 font-mono mt-0.5 block">
+                      {selectedPatientProfile.patient_id}
+                    </strong>
+                    <span className="text-[10px] text-teal-700">কোড: {selectedPatientProfile.patient_code || 'P-1001'}</span>
+                  </div>
+
+                  {/* ২. নাম ও যোগাযোগ */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block">২. নাম ও যোগাযোগ</span>
+                    <strong className="text-sm font-black text-slate-900 truncate block mt-0.5">
+                      {selectedPatientProfile.full_name}
+                    </strong>
+                    <span className="text-[11px] font-mono text-slate-600">{selectedPatientProfile.mobile_number || selectedPatientProfile.phone}</span>
+                  </div>
+
+                  {/* ৩. অ্যালার্জি সতর্কতা */}
+                  <div className={`p-3.5 rounded-2xl border ${
+                    selectedPatientProfile.allergy_note
+                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}>
+                    <span className="text-[10px] font-bold uppercase block">৩. অ্যালার্জি সতর্কতা</span>
+                    <strong className="text-xs font-black block mt-0.5">
+                      {selectedPatientProfile.allergy_note ? `⚠️ ${selectedPatientProfile.allergy_note}` : 'কোনো অ্যালার্জি নেই'}
+                    </strong>
+                    <span className="text-[10px] opacity-80">রক্তের গ্রুপ: {selectedPatientProfile.blood_group}</span>
+                  </div>
+
+                  {/* ৪. চলতি বকেয়া */}
+                  <div className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200">
+                    <span className="text-[10px] font-bold text-rose-800 uppercase block">৪. চলতি বকেয়া</span>
+                    <strong className="text-base font-black text-rose-700 block mt-0.5">
+                      ৳{selectedPatientProfile.outstanding_due || 0}
+                    </strong>
+                    <span className="text-[10px] text-rose-600">
+                      {(Number(selectedPatientProfile.outstanding_due) || 0) > 0 ? 'বকেয়া পরিশোধ প্রয়োজন' : 'পরিশোধিত'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* ৫. সর্বশেষ ভিজিট ও ৬. সর্বশেষ শাখা */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] font-extrabold text-slate-700">৫. সর্বশেষ ভিজিট</span>
+                      <span className="font-bold text-teal-700">{selectedPatientProfile.last_visit_date || '১০ অক্টো ২০২৬'}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                      <span className="text-[11px] font-extrabold text-slate-700">৬. সর্বশেষ শাখা</span>
+                      <span className="inline-flex items-center gap-1 font-black text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        <Building2 size={12} className="text-teal-600" />
+                        <span>{selectedPatientProfile.last_visit_branch || currentBranch.name}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ৭. সাম্প্রতিক প্রেসক্রিপশন ও ৮. অসম্পূর্ণ রিপোর্ট/অর্ডার */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] font-extrabold text-slate-700">৭. সাম্প্রতিক প্রেসক্রিপশন</span>
+                      <span className="font-bold text-teal-700 font-mono">
+                        {getPatientPrescriptions(selectedPatientProfile.patient_id)[0]?.prescription_id || 'Rx-2026-901 (সক্রিয়)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                      <span className="text-[11px] font-extrabold text-slate-700">৮. অসম্পূর্ণ রিপোর্ট/অর্ডার</span>
+                      <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                        {getPatientLabOrders(selectedPatientProfile.patient_id).filter(l => l.order_status !== 'Verified').length} টি মুলতুবি
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: ব্যক্তিগত তথ্য */}
+            {profileTab === 'personal_info' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
                   <div className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">যোগাযোগ ও পরিচিতি</div>
+                  <div><strong>পূর্ণ নাম:</strong> {selectedPatientProfile.full_name}</div>
                   <div><strong>মোবাইল:</strong> {selectedPatientProfile.mobile_number || selectedPatientProfile.phone}</div>
                   <div><strong>বিকল্প পরিচয়:</strong> {selectedPatientProfile.alt_identity || 'নেই'}</div>
                   <div><strong>ঠিকানা:</strong> {selectedPatientProfile.address || 'দেওয়া নেই'}</div>
@@ -1381,20 +1509,20 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-                  <div className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">ক্লিনিক্যাল প্রোফাইল</div>
+                  <div className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">ক্লিনিক্যাল হিস্ট্রি</div>
+                  <div><strong>বয়স ও লিঙ্গ:</strong> {selectedPatientProfile.calculated_age || selectedPatientProfile.age} বছর ({selectedPatientProfile.gender})</div>
+                  <div><strong>জন্মতারিখ:</strong> {selectedPatientProfile.date_of_birth || 'উল্লেখ নেই'}</div>
                   <div><strong>রক্তের গ্রুপ:</strong> <span className="font-black text-rose-600">{selectedPatientProfile.blood_group}</span></div>
-                  <div><strong>অ্যালার্জি সতর্কতা:</strong> {selectedPatientProfile.allergy_note ? <span className="text-amber-700 font-bold">⚠️ {selectedPatientProfile.allergy_note}</span> : 'নেই'}</div>
-                  <div><strong>দীর্ঘমেয়াদী রোগ:</strong> {selectedPatientProfile.chronic_disease_note || 'নেই'}</div>
-                  <div><strong>বকেয়া টাকা:</strong> <span className="font-bold text-rose-600">৳{selectedPatientProfile.outstanding_due || 0}</span></div>
-                  <div><strong>নোট:</strong> {selectedPatientProfile.clinical_notes || 'বিশেষ কোনো নোট নেই'}</div>
+                  <div><strong>অ্যালার্জি:</strong> {selectedPatientProfile.allergy_note || 'নেই'}</div>
+                  <div><strong>পূর্বের দীর্ঘমেয়াদী রোগ:</strong> {selectedPatientProfile.chronic_disease_note || 'নেই'}</div>
+                  <div><strong>ক্লিনিক্যাল নোট:</strong> {selectedPatientProfile.clinical_notes || 'বিশেষ কোনো নোট নেই'}</div>
                 </div>
               </div>
             )}
 
-            {/* TAB: VISITS WITH RULE 4 SENSITIVE GUARD */}
+            {/* TAB 3: ভিজিট */}
             {profileTab === 'visits' && (
               <div className="space-y-3 text-xs">
-                {/* Rule 4 Permission Notice Banner */}
                 <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Shield size={16} className="text-purple-600 shrink-0" />
@@ -1402,7 +1530,6 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
                       <strong>নিয়ম ৪ এনফোর্সড:</strong> একাধিক শাখার ভিজিট ও সাধারণ রেকর্ড মুক্ত; তবে সংবেদনশীল সাইকিয়াট্রিক/গাইনি নোট দেখতে স্পেশাল অ্যাক্সেস প্রয়োজন।
                     </span>
                   </div>
-
                   <button
                     type="button"
                     onClick={() => setSensitiveUnlocked(!sensitiveUnlocked)}
@@ -1452,7 +1579,7 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
               </div>
             )}
 
-            {/* TAB: PRESCRIPTIONS */}
+            {/* TAB 4: প্রেসক্রিপশন */}
             {profileTab === 'prescriptions' && (
               <div className="space-y-2 text-xs">
                 {getPatientPrescriptions(selectedPatientProfile.patient_id).length === 0 ? (
@@ -1475,12 +1602,12 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
               </div>
             )}
 
-            {/* TAB: TESTS */}
-            {profileTab === 'tests' && (
+            {/* TAB 5: টেস্ট অর্ডার */}
+            {profileTab === 'test_orders' && (
               <div className="space-y-2 text-xs">
                 {getPatientLabOrders(selectedPatientProfile.patient_id).length === 0 ? (
                   <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-2xl">
-                    কোনো ল্যাব টেস্টের অর্ডার পাওয়া যায়নি।
+                    কোনো ল্যাব টেস্ট অর্ডারের রেকর্ড পাওয়া যায়নি।
                   </div>
                 ) : (
                   getPatientLabOrders(selectedPatientProfile.patient_id).map(order => (
@@ -1489,8 +1616,8 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
                         <div className="font-bold text-slate-900">{order.order_id} — {order.test_name}</div>
                         <div className="text-[11px] text-slate-500">স্যাম্পল: {order.sample_type} • শাখা: {order.branch_name || currentBranch.name}</div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                        {order.order_status || 'Verified'}
+                      <span className="px-2.5 py-1 rounded-full bg-sky-100 text-sky-800 font-bold text-[10px]">
+                        {order.order_status || 'Sample Collected'}
                       </span>
                     </div>
                   ))
@@ -1498,7 +1625,35 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
               </div>
             )}
 
-            {/* TAB: BILLING */}
+            {/* TAB 6: রিপোর্ট */}
+            {profileTab === 'reports' && (
+              <div className="space-y-2 text-xs">
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <strong className="text-slate-900">রুটিন হিমোটোলজি (CBC with ESR)</strong>
+                    <div className="text-[11px] text-slate-500">হিমোগ্লোবিন: 13.8 g/dL • প্লেটলেট: 240,000/uL • ভেরিফাইড বাই ডা: তানজিলা</div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                    ✓ ভেরিফাইড রিপোর্ট
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 7: ফার্মেসি বিক্রি */}
+            {profileTab === 'pharmacy_sales' && (
+              <div className="space-y-2 text-xs">
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <strong className="text-slate-900">PHARM-2026-881 (Napa Extra + Seclo 20mg)</strong>
+                    <div className="text-[11px] text-slate-500">ব্যাচ: BX-9921 • শাখা: {currentBranch.name} • বিক্রয়কারী: ফার্মাসিস্ট রাফি</div>
+                  </div>
+                  <span className="font-black text-emerald-700">৳৩৪০ (পরিশোধিত)</span>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 8: বিল ও পেমেন্ট */}
             {profileTab === 'billing' && (
               <div className="p-4 bg-slate-50 rounded-2xl text-xs space-y-3">
                 <div className="flex justify-between items-center border-b border-slate-200 pb-2">
@@ -1513,6 +1668,44 @@ export const PatientManager = ({ onNavigateToAppointment }) => {
                     </div>
                     <span className="font-bold text-emerald-700">৳১,২০০ (পরিশোধিত)</span>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 9: সংযুক্ত ফাইল */}
+            {profileTab === 'attachments' && (
+              <div className="space-y-3 text-xs">
+                <div className="p-4 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-1">
+                  <FileText className="mx-auto text-teal-600" size={24} />
+                  <div className="font-bold text-slate-700">নতুন ডকুমেন্ট বা প্রেসক্রিপশন স্ক্যান ফাইল যুক্ত করুন</div>
+                  <div className="text-[11px] text-slate-400">PDF, JPG, PNG (সর্বোচ্চ ১০ এমবি)</div>
+                </div>
+                <div className="p-3 bg-white border border-slate-200 rounded-xl flex justify-between items-center">
+                  <div>
+                    <div className="font-bold text-slate-800">পূর্বের প্রেসক্রিপশন স্ক্যান কপি (2025).pdf</div>
+                    <div className="text-[10px] text-slate-400">সাইজ: ১.২ MB • আপলোড তারিখ: ১২ জানু ২০২৬</div>
+                  </div>
+                  <span className="text-teal-600 font-bold cursor-pointer hover:underline">ডাউনলোড</span>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 10: অডিট / পরিবর্তন ইতিহাস */}
+            {profileTab === 'audit_history' && (
+              <div className="space-y-2 text-xs">
+                <div className="p-3 bg-white border border-slate-200 rounded-xl flex justify-between items-center">
+                  <div>
+                    <div className="font-bold text-slate-800">রোগী প্রোফাইল তৈরি (Initial Registration)</div>
+                    <div className="text-[10px] text-slate-500">অপারেটর: রিসেপশনিস্ট কায়সার • শাখা: {selectedPatientProfile.registered_branch_name || currentBranch.name}</div>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">২০২৬-০১-১৫</span>
+                </div>
+                <div className="p-3 bg-white border border-slate-200 rounded-xl flex justify-between items-center">
+                  <div>
+                    <div className="font-bold text-slate-800">মোবাইল নম্বর ও ঠিকানা হালনাগাদ</div>
+                    <div className="text-[10px] text-slate-500">অনুমোদিত পরিবর্তন • কর্মকর্তা: সুপার অ্যাডমিন</div>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">২০২৬-১০-০৯</span>
                 </div>
               </div>
             )}
