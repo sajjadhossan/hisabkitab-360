@@ -56,7 +56,9 @@ import {
   TrendingDown,
   MessageCircle,
   Truck,
-  Wheat
+  Wheat,
+  GitBranch,
+  ExternalLink
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -1747,6 +1749,91 @@ export const Navbar = () => {
                     </div>
                   </div>
                 )}
+
+                {/* GitHub Integration & Live Cloud Deployment Card */}
+                <div style={{ marginTop: '8px', padding: '10px 12px', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      <GitBranch size={14} style={{ color: '#10b981' }} />
+                      <span>{lang === 'bn' ? 'গিটহাব সিঙ্ক ও ডিপ্লয়মেন্ট' : 'GitHub Sync & Cloud Status'}</span>
+                    </div>
+                    <span style={{ fontSize: '0.65rem', padding: '1px 7px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '800', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                      🟢 লিঙ্কড (Connected)
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    <a
+                      href="https://github.com/sajjadhossan/hisabkitab-360"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        border: '1px solid rgba(99, 102, 241, 0.3)',
+                        color: 'var(--mode-color)',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <GitBranch size={12} />
+                      <span>{lang === 'bn' ? 'গিটহাব কোড' : 'GitHub Repo'}</span>
+                      <ExternalLink size={10} />
+                    </a>
+                    <a
+                      href="https://github.com/sajjadhossan/hisabkitab-360/releases"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        color: '#10b981',
+                        fontSize: '0.72rem',
+                        fontWeight: '700',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <Download size={12} />
+                      <span>{lang === 'bn' ? 'APK রিলিজ' : 'Download APK'}</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  </div>
+                  <a
+                    href="https://sajjadhossan.github.io/hisabkitab-360/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      marginTop: '6px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      color: '#3b82f6',
+                      fontSize: '0.72rem',
+                      fontWeight: '700',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Globe size={12} />
+                    <span>{lang === 'bn' ? '🌐 লাইভ ক্লাউড ওয়েবসাইট (GitHub Pages)' : '🌐 Live Web Preview'}</span>
+                    <ExternalLink size={10} />
+                  </a>
+                </div>
               </div>
             </div>
           </div>
