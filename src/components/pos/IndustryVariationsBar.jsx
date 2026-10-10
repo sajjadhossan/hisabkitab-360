@@ -24,6 +24,7 @@ import { ConstructionCFTModal } from './modals/ConstructionCFTModal';
 import { PharmacyUnitModal } from './modals/PharmacyUnitModal';
 import { RestaurantKOTModal } from './modals/RestaurantKOTModal';
 import { CattleFarmModal } from './modals/CattleFarmModal';
+import { useHealthcare } from '../../context/HealthcareContext';
 
 /**
  * IndustryVariationsBar
@@ -48,6 +49,11 @@ export const IndustryVariationsBar = ({
   onOpenTemplateManager
 }) => {
   const { activeIndustryId, setActiveIndustryId, lang, MASTER_INDUSTRY_TEMPLATES, showToast, setActiveTab } = useApp();
+  let setActiveLinkedApp = null;
+  try {
+    const hc = useHealthcare();
+    setActiveLinkedApp = hc?.setActiveLinkedApp;
+  } catch {}
 
   // Modals
   const [showGoldModal, setShowGoldModal] = useState(false);
@@ -305,9 +311,11 @@ export const IndustryVariationsBar = ({
           {/* 5. PHARMACY / HEALTHCARE 3-IN-1 SUITE */}
           {isPharmacy && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              {/* Direct Pharmacy Terminal Button */}
               <button
                 type="button"
                 onClick={() => {
+                  if (setActiveLinkedApp) setActiveLinkedApp('pharmacy');
                   if (setActiveTab) setActiveTab('healthcare');
                 }}
                 className="btn btn-primary press-scale"
@@ -316,21 +324,23 @@ export const IndustryVariationsBar = ({
                   fontSize: '0.75rem',
                   fontWeight: '800',
                   color: '#ffffff',
-                  background: 'linear-gradient(135deg, #0d9488, #059669)',
-                  borderColor: '#0d9488',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  borderColor: '#10b981',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '5px'
                 }}
-                title="৩-ইন-১ হেলথকেয়ার মাস্টার হাব খুলুন"
+                title="ফার্মেসি টার্মিনাল ও মেডিসিন সেলস খুলুন"
               >
-                <Activity size={13} />
-                <span>🏥 হেলথকেয়ার হাব</span>
+                <Pill size={13} />
+                <span>💊 ফার্মেসি টার্মিনাল</span>
               </button>
 
+              {/* Direct Doctor Chamber Button */}
               <button
                 type="button"
                 onClick={() => {
+                  if (setActiveLinkedApp) setActiveLinkedApp('hospital');
                   if (setActiveTab) setActiveTab('healthcare');
                 }}
                 className="btn btn-secondary press-scale"
@@ -348,12 +358,14 @@ export const IndustryVariationsBar = ({
                 title="ডক্টর চেম্বার ও ডিজিটাল প্রেসক্রিপশন"
               >
                 <Stethoscope size={13} />
-                <span>ডক্টর চেম্বার</span>
+                <span>🩺 ডক্টর চেম্বার</span>
               </button>
 
+              {/* Direct Diagnostic Lab Button */}
               <button
                 type="button"
                 onClick={() => {
+                  if (setActiveLinkedApp) setActiveLinkedApp('diagnostic');
                   if (setActiveTab) setActiveTab('healthcare');
                 }}
                 className="btn btn-secondary press-scale"
@@ -368,12 +380,38 @@ export const IndustryVariationsBar = ({
                   alignItems: 'center',
                   gap: '4px'
                 }}
-                title="ডায়াগনস্টিক ল্যাব ও LIMS"
+                title="ডায়াগনস্টিক ল্যাব ও LIMS টেস্ট বিলিং"
               >
                 <FlaskConical size={13} />
-                <span>LIMS ল্যাব</span>
+                <span>🔬 LIMS ল্যাব</span>
               </button>
 
+              {/* Hub Overview Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (setActiveLinkedApp) setActiveLinkedApp('hub');
+                  if (setActiveTab) setActiveTab('healthcare');
+                }}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#8b5cf6',
+                  borderColor: 'rgba(139, 92, 246, 0.4)',
+                  background: 'rgba(139, 92, 246, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="৩-ইন-১ হেলথকেয়ার মাস্টার হাব ওভারভিউ"
+              >
+                <Activity size={13} />
+                <span>🏥 হেলথ হাব</span>
+              </button>
+
+              {/* Strip to Tablet Fraction Converter */}
               <button
                 type="button"
                 onClick={() => setShowPharmaModal(true)}
@@ -391,7 +429,6 @@ export const IndustryVariationsBar = ({
                 }}
                 title="পাতা টু পিস কনভার্টার"
               >
-                <Pill size={13} />
                 <span>পাতা ➔ পিস</span>
               </button>
             </div>

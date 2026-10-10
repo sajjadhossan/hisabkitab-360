@@ -225,9 +225,9 @@ export const HealthcareProvider = ({ children }) => {
   // Master Healthcare ERP Suite Admin Approval (Template Mode vs Live Mode)
   const [isHealthcareApproved, setIsHealthcareApproved] = useState(() => {
     try {
-      return localStorage.getItem('hisabkitab_hc_master_approved') === 'true';
+      return localStorage.getItem('hisabkitab_hc_master_approved') !== 'false';
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -251,10 +251,10 @@ export const HealthcareProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem('hisabkitab_hc_active_modules');
       if (saved) return JSON.parse(saved);
-      const isApproved = localStorage.getItem('hisabkitab_hc_master_approved') === 'true';
-      return { hospital: isApproved, diagnostic: isApproved, pharmacy: isApproved };
+      // Default all 3 modules to active so users can instantly use Pharmacy, Lab, and Doctor Chamber
+      return { hospital: true, diagnostic: true, pharmacy: true };
     } catch {
-      return { hospital: false, diagnostic: false, pharmacy: false };
+      return { hospital: true, diagnostic: true, pharmacy: true };
     }
   });
 
