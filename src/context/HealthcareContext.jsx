@@ -258,6 +258,31 @@ export const HealthcareProvider = ({ children }) => {
     }
   });
 
+  // Section 1.2: Multi-Branch & Role Permissions State
+  const [branches] = useState([
+    { id: 'all', name: 'সব শাখা (একীভূত রূপ)', code: 'ALL', address: 'সকল শাখা সম্মিলিত ভিউ', isAll: true },
+    { id: 'dhanmondi', name: 'ধানমন্ডি মেইন ব্রাঞ্চ', code: 'DHD-01', address: 'রোড ৫, ধানমন্ডি, ঢাকা', isMain: true },
+    { id: 'uttara', name: 'উত্তরা শাখা', code: 'UTT-02', address: 'সেক্টর ৩, উত্তরা, ঢাকা' },
+    { id: 'mirpur', name: 'মিরপুর শাখা', code: 'MIR-03', address: 'মিরপুর ১০, ঢাকা' },
+    { id: 'chattogram', name: 'চট্টগ্রাম শাখা', code: 'CTG-04', address: 'জিইসি মোড়, চট্টগ্রাম' }
+  ]);
+
+  const [activeBranchId, setActiveBranchId] = useState(() => {
+    try {
+      return localStorage.getItem('hisabkitab_hc_active_branch') || 'dhanmondi';
+    } catch {
+      return 'dhanmondi';
+    }
+  });
+
+  const [currentStaffRole, setCurrentStaffRole] = useState(() => {
+    try {
+      return localStorage.getItem('hisabkitab_hc_staff_role') || 'admin';
+    } catch {
+      return 'admin';
+    }
+  });
+
   const isAnyModuleActive = activeModules.hospital || activeModules.diagnostic || activeModules.pharmacy;
 
   const toggleHealthcareModule = (modKey) => {
@@ -610,6 +635,12 @@ export const HealthcareProvider = ({ children }) => {
         approveAdvancedSuite,
         revokeAdvancedSuite,
         toggleChecklistItem,
+        // Section 1.2: Multi-Branch & Permissions
+        branches,
+        activeBranchId,
+        setActiveBranchId,
+        currentStaffRole,
+        setCurrentStaffRole,
         // Methods
         addPatient,
         updatePatient,

@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 
 export const InpatientBedManager = () => {
-  const { patients = [], doctors = [] } = useHealthcare();
+  const { patients = [], doctors = [], branches = [], activeBranchId = 'dhanmondi' } = useHealthcare();
+  const currentBranch = branches.find(b => b.id === activeBranchId) || { name: 'ধানমন্ডি মেইন ব্রাঞ্চ' };
 
   // Beds state
   const [beds, setBeds] = useState([
@@ -333,7 +334,9 @@ export const InpatientBedManager = () => {
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-black text-slate-900">ইনপেশেন্ট ভর্তি ফরম (IPD Admission)</h3>
-                <p className="text-xs text-slate-500">বেড নং: {selectedBedForAdmit?.id} ({selectedBedForAdmit?.ward})</p>
+                <p className="text-xs text-slate-500">
+                  বেড নং: {selectedBedForAdmit?.id} ({selectedBedForAdmit?.ward}) • 📍 সক্রিয় শাখা: <strong className="text-teal-700">{currentBranch.name}</strong>
+                </p>
               </div>
               <button onClick={() => setShowAdmitModal(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
             </div>

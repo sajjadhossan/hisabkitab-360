@@ -14,6 +14,7 @@ import HealthcareBillingManager from './HealthcareBillingManager';
 import StaffSecurityManager from './StaffSecurityManager';
 import PrintCenterManager from './PrintCenterManager';
 import HealthcareSettingsManager from './HealthcareSettingsManager';
+import BranchSelectorBar from './BranchSelectorBar';
 
 import {
   Stethoscope,
@@ -157,6 +158,9 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
 
   return (
     <div className="hc-container animate-fade-in" style={{ padding: '0.75rem 1rem 3rem' }}>
+      {/* 1.2 MULTI-BRANCH SELECTOR & ROLE PERMISSIONS BAR */}
+      <BranchSelectorBar />
+
       {/* 1. TOP MASTER HEADER & WORKSTATION TABS */}
       <div className="hc-banner" style={{ marginBottom: '1rem' }}>
         <div className="hc-banner-glow" />

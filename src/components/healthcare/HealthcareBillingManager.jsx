@@ -18,7 +18,15 @@ import {
 } from 'lucide-react';
 
 export const HealthcareBillingManager = () => {
-  const { patients = [], doctors = [], diagnosticTests = [] } = useHealthcare();
+  const {
+    patients = [],
+    doctors = [],
+    diagnosticTests = [],
+    branches = [],
+    activeBranchId = 'dhanmondi'
+  } = useHealthcare();
+
+  const currentBranch = branches.find(b => b.id === activeBranchId) || { name: 'ধানমন্ডি মেইন ব্রাঞ্চ', code: 'DHD-01' };
 
   // Active Tab: 'new_bill' | 'recent_invoices' | 'cash_closing'
   const [subTab, setSubTab] = useState('new_bill');
@@ -185,6 +193,14 @@ export const HealthcareBillingManager = () => {
           <div className="lg:col-span-7 space-y-4">
             {/* Patient Selector */}
             <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
+              {/* Rule: কোনো তথ্য তৈরি করার সময় সক্রিয় শাখা স্পষ্টভাবে দেখাতে হবে */}
+              <div className="p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-xs font-bold text-teal-900 flex items-center justify-between">
+                <span>📍 বিল তৈরির সক্রিয় শাখা: <strong>{currentBranch.name}</strong></span>
+                <span className="text-[10px] bg-teal-200/80 text-teal-900 px-2 py-0.5 rounded font-black">
+                  {currentBranch.code || 'BRANCH'}
+                </span>
+              </div>
+
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                 <UserCheck size={18} className="text-teal-600" />
                 <span>রোগী নির্বাচন (Patient Selection)</span>
