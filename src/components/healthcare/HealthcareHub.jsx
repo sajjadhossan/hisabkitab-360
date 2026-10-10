@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHealthcare } from '../../context/HealthcareContext';
 import { useApp } from '../../context/AppContext';
 import { PatientManager } from './PatientManager';
@@ -9,6 +9,12 @@ import RadiologyImagingManager from './RadiologyImagingManager';
 import HomeServicesReferral from './HomeServicesReferral';
 import AdvancedComplianceSuite from './AdvancedComplianceSuite';
 import { HealthcareDashboard } from './HealthcareDashboard';
+import InpatientBedManager from './InpatientBedManager';
+import HealthcareBillingManager from './HealthcareBillingManager';
+import StaffSecurityManager from './StaffSecurityManager';
+import PrintCenterManager from './PrintCenterManager';
+import HealthcareSettingsManager from './HealthcareSettingsManager';
+
 import {
   Stethoscope,
   FlaskConical,
@@ -30,13 +36,22 @@ import {
   X,
   HelpCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Bed,
+  CreditCard,
+  Printer,
+  Settings,
+  Building,
+  Calendar,
+  Users,
+  Grid,
+  ClipboardList
 } from 'lucide-react';
 
 export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen }) {
   const {
     // 3 Modular activations
-    activeModules = { hospital: false, diagnostic: false, pharmacy: false },
+    activeModules = { hospital: true, diagnostic: true, pharmacy: true },
     isAnyModuleActive,
     toggleHealthcareModule,
     activateAllHealthcareModules,
@@ -44,7 +59,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
     isHealthcareApproved,
     healthcareApprovalRecord,
     // Active app state
-    activeLinkedApp,
+    activeLinkedApp = 'hub',
     setActiveLinkedApp,
     globalSelectedPatientId,
     setGlobalSelectedPatientId,
@@ -64,18 +79,33 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
 
   const { setActiveTab, lang = 'bn' } = useApp() || {};
 
-  // Admin modal state for activating
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [adminName, setAdminName] = useState('সুপার অ্যাডমিন / চিফ মেডিকেল ডিরেক্টর');
-  const [adminPin, setAdminPin] = useState('1234');
-  const [adminNotes, setAdminNotes] = useState('হেলথকেয়ার মাস্টার টেমপ্লেট ৩টি লিংকড মডিউল সহ লাইভ অপারেশনের জন্য অনুমোদিত।');
-  const [targetModToToggle, setTargetModToToggle] = useState(null); // 'all' | 'hospital' | 'diagnostic' | 'pharmacy'
+  // Organization Type state
+  const [instType, setInstType] = useState(() => {
+    try {
+      return localStorage.getItem('hisabkitab_hc_inst_type') || 'hospital_diag_pharmacy';
+    } catch {
+      return 'hospital_diag_pharmacy';
+    }
+  });
+
+  const getInstTypeLabel = (type) => {
+    switch (type) {
+      case 'doctor_chamber': return 'ডাক্তার চেম্বার';
+      case 'diagnostic_center': return 'ডায়াগনস্টিক সেন্টার';
+      case 'pharmacy': return 'ফার্মেসি';
+      case 'clinic': return 'ক্লিনিক / ছোট হাসপাতাল';
+      case 'hospital_diag_pharmacy': return 'হাসপাতাল + ডায়াগনস্টিক + ফার্মেসি (360°)';
+      case 'multi_branch': return 'একাধিক শাখার প্রতিষ্ঠান';
+      default: return 'হাসপাতাল + ডায়াগনস্টিক + ফার্মেসি (360°)';
+    }
+  };
 
   // Subtabs within Linked Apps
   const [hospitalSubTab, setHospitalSubTab] = useState('doctor_queue'); // 'doctor_queue' | 'patient_crm'
   const [diagnosticSubTab, setDiagnosticSubTab] = useState('lims_workstation'); // 'lims_workstation' | 'radiology'
 
-  const [showGuide, setShowGuide] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showAllModulesGrid, setShowAllModulesGrid] = useState(false);
 
   // Global search input
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,26 +120,39 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
       )
     : [];
 
-  const handleAdminApprovalConfirm = (e) => {
-    e.preventDefault();
-    if (targetModToToggle === 'all') {
-      activateAllHealthcareModules(adminName, adminNotes);
-    } else if (targetModToToggle) {
-      toggleHealthcareModule(targetModToToggle);
-    }
-    setShowApprovalModal(false);
-    setTargetModToToggle(null);
-  };
+  // All 18 Modules Catalog
+  const all18Modules = [
+    { num: 1, title: 'ড্যাশবোর্ড', desc: 'আজকের রোগী, টেস্ট, ওষুধ বিক্রি ও লাভ-ক্ষতির সারাংশ', key: 'hub', icon: '📊', color: '#6366f1' },
+    { num: 2, title: 'রোগী ব্যবস্থাপনা', desc: 'UHID রেজিস্ট্রেশন, হিস্ট্রি, ফাইল ও ডুপ্লিকেট চেকার', key: 'patient_crm', icon: '👤', color: '#0d9488' },
+    { num: 3, title: 'অ্যাপয়েন্টমেন্ট ও সিরিয়াল', desc: 'দৈনিক ডাক্তার কিউ, সিরিয়াল টোকেন ও এসএমএস', key: 'hospital', icon: '📅', color: '#2563eb' },
+    { num: 4, title: 'ডাক্তার ও চেম্বার', desc: 'স্পেশালিটি, ফি, শিডিউল ও ভিজিট তালিকা', key: 'hospital', icon: '🩺', color: '#0284c7' },
+    { num: 5, title: 'ডাক্তারি ভিজিট ও প্রেসক্রিপশন', desc: 'চিফ কমপ্লেইন্টস, ভাইটালস, ড্রাগ ও ল্যাব অর্ডার', key: 'hospital', icon: '℞', color: '#3b82f6' },
+    { num: 6, title: 'ডায়াগনস্টিক ও টেস্ট অর্ডার', desc: '১০টি স্ট্যাটাস লাইফসাইকেল ও বারকোড স্যাম্পল কালেকশন', key: 'diagnostic', icon: '🧪', color: '#0d9488' },
+    { num: 7, title: 'ল্যাব রিপোর্ট', desc: 'রেফারেন্স রেঞ্জ, High/Low অ্যালার্ট, ভেরিফাই ও প্রিন্ট', key: 'diagnostic', icon: '🔬', color: '#14b8a6' },
+    { num: 8, title: 'রেডিওলজি ও ইমেজিং', desc: 'X-ray, USG, ECG ও ডিজিটাল ইমেজ সংযুক্তি', key: 'radiology', icon: '🩻', color: '#06b6d4' },
+    { num: 9, title: 'ফার্মেসি ও ওষুধের তালিকা', desc: 'FEFO এক্সপায়ারি, স্ট্রিপ টু পিস বিক্রি ও রি-অর্ডার', key: 'pharmacy', icon: '💊', color: '#10b981' },
+    { num: 10, title: 'হাসপাতাল / ভর্তি রোগী (IPD)', desc: 'ওয়ার্ড/কেবিন বেড ট্র্যাকিং, ভর্তি ও ছাড়পত্র ফরম', key: 'inpatient', icon: '🛏️', color: '#059669' },
+    { num: 11, title: 'বিলিং ও পেমেন্ট', desc: 'সমন্বিত বিল, নগদ/কার্ড/বিকাশ পেমেন্ট ও ক্যাশ ক্লোজিং', key: 'billing', icon: '💳', color: '#16a34a' },
+    { num: 12, title: 'সরবরাহকারী, ক্রয় ও খরচ', desc: 'সাপ্লায়ার বাকি, ওষুধ ক্রয় চালান ও ডেইলি খরচের হিসাব', key: 'pharmacy', icon: '📦', color: '#84cc16' },
+    { num: 13, title: 'রিপোর্ট ও ব্যবসার হিসাব', desc: 'মাসিক আয়-ব্যয়, ল্যাব বিক্রি ও ডাক্তারভিত্তিক রিপোর্ট', key: 'hub', icon: '📈', color: '#eab308' },
+    { num: 14, title: 'কর্মী ও অনুমতি (RBAC)', desc: 'ডাক্তার, ফার্মাসিস্ট, ক্যাশিয়ার পারমিশন ও সীমা', key: 'staff', icon: '🔑', color: '#f97316' },
+    { num: 15, title: 'নিরাপত্তা ও অডিট লগ', desc: 'কে লগইন করেছে, কে বিল বা প্রেসক্রিপশন বদলেছে তার ট্রেইল', key: 'staff', icon: '🛡️', color: '#ef4444' },
+    { num: 16, title: 'প্রিন্ট ও কাগজপত্র', desc: 'প্রেসক্রিপশন প্যাড, মানি রিসিট, টোকেন ও ল্যাব রিপোর্ট প্রিন্ট', key: 'print', icon: '🖨️', color: '#8b5cf6' },
+    { num: 17, title: 'সেটিংস ও প্রতিষ্ঠানের ধরন', desc: 'নাম, লোগো, স্লিপ সাইজ, শাখা ও প্রতিষ্ঠানের প্রোফাইল', key: 'settings', icon: '⚙️', color: '#6b7280' },
+    { num: 18, title: 'প্রথম সংস্করণ রোডম্যাপ', desc: 'লাইভ ফিচারসমূহ ও পরবর্তী ফেজের অগ্রগতি ট্র্যাকার', key: 'hub', icon: '🚀', color: '#ec4899' }
+  ];
 
-  const handleModuleToggleClick = (modKey) => {
-    if (!activeModules[modKey]) {
-      setTargetModToToggle(modKey);
-      setShowApprovalModal(true);
+  const handleLaunchModule = (modKey) => {
+    if (modKey === 'patient_crm') {
+      setActiveLinkedApp('hospital');
+      setHospitalSubTab('patient_crm');
+    } else if (modKey === 'radiology') {
+      setActiveLinkedApp('diagnostic');
+      setDiagnosticSubTab('radiology');
     } else {
-      if (window.confirm('আপনি কি এই মডিউলটি সাময়িকভাবে নিষ্ক্রিয় করতে চান?')) {
-        toggleHealthcareModule(modKey);
-      }
+      setActiveLinkedApp(modKey);
     }
+    setShowAllModulesGrid(false);
   };
 
   return (
@@ -124,22 +167,68 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
                 <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.25)', color: '#2dd4bf', border: '1px solid rgba(45, 212, 191, 0.4)', padding: '3px 9px', fontSize: '0.72rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <Sparkles size={13} />
-                  <span>Smart Healthcare 3-in-1 Ecosystem</span>
+                  <span>হেলথকেয়ার 360° এন্টারপ্রাইজ সিস্টেম</span>
                 </span>
+                
+                {/* Institution Profile Indicator */}
+                <button
+                  type="button"
+                  onClick={() => setActiveLinkedApp('settings')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#93c5fd',
+                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                    padding: '3px 8px',
+                    borderRadius: '20px',
+                    fontSize: '0.7rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                  title="প্রতিষ্ঠানের ধরন পরিবর্তন করতে ক্লিক করুন"
+                >
+                  <Building size={12} />
+                  <span>ধরন: {getInstTypeLabel(instType)}</span>
+                  <Settings size={11} style={{ opacity: 0.8 }} />
+                </button>
+
                 <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.35)', padding: '3px 8px', fontSize: '0.7rem', fontWeight: '800' }}>
-                  ✓ ৩টি মডিউল সম্পূর্ণ লাইভ ও প্রস্তুত
+                  ✓ ১৮টি মডিউল অন্তর্ভুক্ত
                 </span>
               </div>
               <h1 style={{ fontSize: '1.45rem', fontWeight: '900', color: '#ffffff', margin: '2px 0 4px', letterSpacing: '-0.02em' }}>
-                🏥 ফার্মেসি, ডায়াগনস্টিক ও ডক্টর চেম্বার (৩-ইন-১)
+                🏥 হেলথকেয়ার 360° — হাসপাতাল, ডায়াগনস্টিক, ডাক্তার চেম্বার ও ফার্মেসি
               </h1>
               <p style={{ fontSize: '0.8rem', color: '#cbd5e1', margin: 0 }}>
-                নিচের যেকোনো ট্যাবে ক্লিক করে সরাসরি সংশ্লিষ্ট কাউন্টারে প্রবেশ করুন। প্রেসক্রিপশন ও বিলিং স্বয়ংক্রিয়ভাবে সংযুক্ত।
+                নিচের যে কোনো কাউন্টারে সরাসরি প্রবেশ করুন। প্রেসক্রিপশন, ল্যাব টেস্ট, ড্রাগ স্টক ও বিলিং স্বয়ংক্রিয়ভাবে সিঙ্কড।
               </p>
             </div>
 
-            {/* Quick Guide Toggle Button */}
+            {/* Quick Actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setShowAllModulesGrid(!showAllModulesGrid)}
+                className="btn btn-secondary press-scale"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 12px',
+                  borderRadius: '10px',
+                  background: showAllModulesGrid ? 'rgba(13, 148, 136, 0.4)' : 'rgba(255, 255, 255, 0.1)',
+                  borderColor: showAllModulesGrid ? '#2dd4bf' : 'rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  fontSize: '0.78rem',
+                  fontWeight: '800'
+                }}
+              >
+                <Grid size={15} />
+                <span>১৮টি মডিউল সূচি</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowGuide(!showGuide)}
@@ -158,18 +247,17 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
                 }}
               >
                 <HelpCircle size={15} />
-                <span>{showGuide ? 'গাইড লুকান' : '💡 কোথায় কি এবং কীভাবে কাজ করবেন?'}</span>
-                {showGuide ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                <span>{showGuide ? 'গাইড লুকান' : '💡 ব্যবহার নির্দেশিকা'}</span>
               </button>
             </div>
           </div>
 
-          {/* 4 PRIMARY WORKSTATION TABS */}
+          {/* PRIMARY WORKSTATION COMMAND TABS */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: '8px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '6px',
               padding: '6px',
               background: 'rgba(15, 23, 42, 0.75)',
               borderRadius: '14px',
@@ -177,118 +265,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               backdropFilter: 'blur(10px)'
             }}
           >
-            {/* 1. Pharmacy Tab */}
-            <button
-              type="button"
-              onClick={() => setActiveLinkedApp('pharmacy')}
-              className="press-scale"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '8px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: activeLinkedApp === 'pharmacy' ? '2px solid #10b981' : '1px solid transparent',
-                background: activeLinkedApp === 'pharmacy' ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.35))' : 'rgba(255, 255, 255, 0.04)',
-                color: activeLinkedApp === 'pharmacy' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                transition: 'all 0.18s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Pill size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: activeLinkedApp === 'pharmacy' ? '#10b981' : '#ffffff' }}>
-                    💊 ১. ফার্মেসি ও ওষুধ
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                    ওষুধ বিক্রয়, স্টক ও এক্সপায়ারি
-                  </div>
-                </div>
-              </div>
-              <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.25)', color: '#34d399', fontSize: '0.7rem', fontWeight: '900' }}>
-                {pharmacyMedicines.length} ওষুধ
-              </span>
-            </button>
-
-            {/* 2. Diagnostic Tab */}
-            <button
-              type="button"
-              onClick={() => setActiveLinkedApp('diagnostic')}
-              className="press-scale"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '8px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: activeLinkedApp === 'diagnostic' ? '2px solid #0d9488' : '1px solid transparent',
-                background: activeLinkedApp === 'diagnostic' ? 'linear-gradient(135deg, rgba(13, 148, 136, 0.25), rgba(15, 118, 110, 0.35))' : 'rgba(255, 255, 255, 0.04)',
-                color: activeLinkedApp === 'diagnostic' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                transition: 'all 0.18s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(13, 148, 136, 0.2)', color: '#2dd4bf', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FlaskConical size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: activeLinkedApp === 'diagnostic' ? '#2dd4bf' : '#ffffff' }}>
-                    🔬 ২. ডায়াগনস্টিক ল্যাব
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                    ল্যাব টেস্ট বিলিং ও রিপোর্ট
-                  </div>
-                </div>
-              </div>
-              <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.25)', color: '#2dd4bf', fontSize: '0.7rem', fontWeight: '900' }}>
-                {diagnosticTests.length}+ টেস্ট
-              </span>
-            </button>
-
-            {/* 3. Doctor Chamber Tab */}
-            <button
-              type="button"
-              onClick={() => setActiveLinkedApp('hospital')}
-              className="press-scale"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '8px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: activeLinkedApp === 'hospital' ? '2px solid #3b82f6' : '1px solid transparent',
-                background: activeLinkedApp === 'hospital' ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.35))' : 'rgba(255, 255, 255, 0.04)',
-                color: activeLinkedApp === 'hospital' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                transition: 'all 0.18s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Stethoscope size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: activeLinkedApp === 'hospital' ? '#60a5fa' : '#ffffff' }}>
-                    🩺 ৩. ডক্টর চেম্বার
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                    সিরিয়াল ও ডিজিটাল প্রেসক্রিপশন
-                  </div>
-                </div>
-              </div>
-              <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.25)', color: '#93c5fd', fontSize: '0.7rem', fontWeight: '900' }}>
-                {appointments.filter(a => a.appointment_status === 'Waiting').length} সিরিয়াল
-              </span>
-            </button>
-
-            {/* 4. Hub Overview Tab */}
+            {/* 1. Dashboard Tab */}
             <button
               type="button"
               onClick={() => setActiveLinkedApp('hub')}
@@ -296,39 +273,269 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
                 gap: '8px',
-                padding: '10px 14px',
+                padding: '8px 12px',
                 borderRadius: '10px',
-                border: activeLinkedApp === 'hub' ? '2px solid #8b5cf6' : '1px solid transparent',
-                background: activeLinkedApp === 'hub' ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(124, 58, 237, 0.35))' : 'rgba(255, 255, 255, 0.04)',
+                border: activeLinkedApp === 'hub' ? '2px solid #818cf8' : '1px solid transparent',
+                background: activeLinkedApp === 'hub' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.04)',
                 color: activeLinkedApp === 'hub' ? '#ffffff' : '#94a3b8',
                 cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
                 transition: 'all 0.18s ease'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Activity size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: activeLinkedApp === 'hub' ? '#a78bfa' : '#ffffff' }}>
-                    📊 সার্বিক ওভারভিউ
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                    পেশেন্ট রেজিস্ট্রি ও সিঙ্ক
-                  </div>
-                </div>
-              </div>
-              <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.25)', color: '#c4b5fd', fontSize: '0.7rem', fontWeight: '900' }}>
-                {patients.length} পেশেন্ট
-              </span>
+              <Activity size={16} className="text-indigo-400" />
+              <span>১. ড্যাশবোর্ড</span>
+            </button>
+
+            {/* 2. Pharmacy Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('pharmacy')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'pharmacy' ? '2px solid #10b981' : '1px solid transparent',
+                background: activeLinkedApp === 'pharmacy' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'pharmacy' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <Pill size={16} className="text-emerald-400" />
+              <span>২. ফার্মেসি POS</span>
+            </button>
+
+            {/* 3. Diagnostic Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('diagnostic')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'diagnostic' ? '2px solid #0d9488' : '1px solid transparent',
+                background: activeLinkedApp === 'diagnostic' ? 'rgba(13, 148, 136, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'diagnostic' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <FlaskConical size={16} className="text-teal-400" />
+              <span>৩. ডায়াগনস্টিক ল্যাব</span>
+            </button>
+
+            {/* 4. Doctor Chamber Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('hospital')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'hospital' ? '2px solid #3b82f6' : '1px solid transparent',
+                background: activeLinkedApp === 'hospital' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'hospital' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <Stethoscope size={16} className="text-blue-400" />
+              <span>৪. ডক্টর চেম্বার</span>
+            </button>
+
+            {/* 5. Inpatient IPD Bed Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('inpatient')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'inpatient' ? '2px solid #059669' : '1px solid transparent',
+                background: activeLinkedApp === 'inpatient' ? 'rgba(5, 150, 105, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'inpatient' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <Bed size={16} className="text-emerald-400" />
+              <span>৫. ভর্তি ও বেড (IPD)</span>
+            </button>
+
+            {/* 6. Central Billing Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('billing')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'billing' ? '2px solid #16a34a' : '1px solid transparent',
+                background: activeLinkedApp === 'billing' ? 'rgba(22, 163, 74, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'billing' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <CreditCard size={16} className="text-green-400" />
+              <span>৬. সেন্ট্রাল বিলিং</span>
+            </button>
+
+            {/* 7. Print Center Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('print')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'print' ? '2px solid #8b5cf6' : '1px solid transparent',
+                background: activeLinkedApp === 'print' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'print' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <Printer size={16} className="text-purple-400" />
+              <span>৭. প্রিন্ট ও ডকুমেন্টস</span>
+            </button>
+
+            {/* 8. Staff / Security Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('staff')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'staff' ? '2px solid #f97316' : '1px solid transparent',
+                background: activeLinkedApp === 'staff' ? 'rgba(249, 115, 22, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'staff' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <ShieldCheck size={16} className="text-orange-400" />
+              <span>৮. কর্মী ও অডিট লগ</span>
+            </button>
+
+            {/* 9. Settings Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveLinkedApp('settings')}
+              className="press-scale"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: activeLinkedApp === 'settings' ? '2px solid #64748b' : '1px solid transparent',
+                background: activeLinkedApp === 'settings' ? 'rgba(100, 116, 139, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeLinkedApp === 'settings' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                transition: 'all 0.18s ease'
+              }}
+            >
+              <Settings size={16} className="text-slate-300" />
+              <span>৯. সেটিংস</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. EXPANDABLE QUICK START GUIDE BANNER (WHERE IS WHAT?) */}
+      {/* 2. ALL 18 MODULES MASTER DIRECTORY MODAL/DRAWER */}
+      {showAllModulesGrid && (
+        <div
+          className="p-6 rounded-3xl bg-slate-900 border border-slate-700 shadow-2xl mb-4 animate-scale-in text-white"
+          style={{ backdropFilter: 'blur(16px)' }}
+        >
+          <div className="flex justify-between items-center pb-4 border-b border-slate-800 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-teal-500/20 text-teal-400 font-bold text-xs">
+                  Enterprise Architecture
+                </span>
+                <h3 className="text-lg font-black text-white">১৮টি মডিউলের সম্পূর্ণ স্থাপত্য সূচি (All 18 Modules Navigator)</h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">যেকোনো মডিউলে ১ ক্লিকে সরাসরি জাম্প করুন</p>
+            </div>
+            <button
+              onClick={() => setShowAllModulesGrid(false)}
+              className="text-slate-400 hover:text-white text-lg font-bold p-1"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {all18Modules.map(mod => (
+              <div
+                key={mod.num}
+                onClick={() => handleLaunchModule(mod.key)}
+                className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 hover:border-teal-400 hover:bg-slate-800 cursor-pointer transition-all flex items-start gap-3 group"
+              >
+                <div className="text-2xl p-2 rounded-xl bg-slate-700/60 group-hover:scale-110 transition-transform">
+                  {mod.icon}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-teal-300">
+                      মডিউল {mod.num}
+                    </span>
+                    <h4 className="text-xs font-black text-white group-hover:text-teal-300 transition-colors">
+                      {mod.title}
+                    </h4>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">{mod.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. EXPANDABLE QUICK START GUIDE BANNER */}
       {showGuide && (
         <div
           className="glass-card animate-fade-in"
@@ -344,7 +551,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '1.1rem' }}>💡</span>
               <strong style={{ fontSize: '0.92rem', color: '#ffffff' }}>
-                কোথায় কি আছে এবং কীভাবে কাজ করবেন? (সচিত্র ব্যবহার নির্দেশিকা)
+                কোথায় কি আছে এবং কীভাবে কাজ করবেন? (সচিত্র নির্দেশিকা)
               </strong>
             </div>
             <button
@@ -356,15 +563,15 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
-            {/* Guide 1: Pharmacy */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+            {/* Guide 1 */}
             <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '800', fontSize: '0.84rem', marginBottom: '4px' }}>
                 <Pill size={15} />
-                <span>💊 ১. ফার্মেসির ওষুধ কোথায়?</span>
+                <span>💊 ফার্মেসি ও ওষুধ</span>
               </div>
               <p style={{ margin: 0, fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.5 }}>
-                ওপরের <strong>"১. ফার্মেসি ও ওষুধ"</strong> ট্যাবে ক্লিক করলেই সমস্ত ওষুধের তালিকা, স্টক, জেনেরিক নাম (যেমন Paracetamol) ও ব্র্যান্ড নাম (Napa, Seclo) দেখতে পাবেন। যেকোনো ওষুধ পাতা (Strip) বা খুচরা পিস (Tablet) হিসেবে বিক্রি করা যাবে। নতুন ওষুধ যোগ করতে <strong>"+ নতুন ওষুধ যোগ"</strong> বাটনে ক্লিক করুন।
+                ওষুধ বিক্রয়, পাতা ভেঙে পিস বিক্রি, FEFO ব্যাচ চয়ন এবং মেয়াদ শেষের অ্যালার্ট।
               </p>
               <button
                 type="button"
@@ -375,14 +582,14 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               </button>
             </div>
 
-            {/* Guide 2: Diagnostic */}
+            {/* Guide 2 */}
             <div style={{ background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.3)', borderRadius: '10px', padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2dd4bf', fontWeight: '800', fontSize: '0.84rem', marginBottom: '4px' }}>
                 <FlaskConical size={15} />
-                <span>🔬 ২. ডায়াগনস্টিক ল্যাব কোথায়?</span>
+                <span>🔬 ডায়াগনস্টিক ল্যাব</span>
               </div>
               <p style={{ margin: 0, fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.5 }}>
-                ওপরের <strong>"২. ডায়াগনস্টিক ল্যাব"</strong> ট্যাবে ক্লিক করলেই রক্ত পরীক্ষা (CBC, Sugar, Lipid Profile), ইউরিন, আল্ট্রা ইত্যাদি ৫০+ টেস্টের ক্যাটালগ পাবেন। রোগীর নাম দিয়ে টেস্ট সিলেক্ট করে ইনভয়েস ও বারকোড স্লিপ প্রিন্ট করুন এবং ল্যাব রেজাল্ট লিখে ভেরিফাইড রিপোর্ট তৈরি করুন।
+                ৭৪+ টেস্ট ক্যাটালগ, বারকোড স্যাম্পল কালেকশন, রেজাল্ট এন্ট্রি ও ভেরিফায়েড রিপোর্ট প্রিন্ট।
               </p>
               <button
                 type="button"
@@ -393,14 +600,14 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               </button>
             </div>
 
-            {/* Guide 3: Doctor Chamber */}
+            {/* Guide 3 */}
             <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#60a5fa', fontWeight: '800', fontSize: '0.84rem', marginBottom: '4px' }}>
                 <Stethoscope size={15} />
-                <span>🩺 ৩. ডক্টর চেম্বার কোথায়?</span>
+                <span>🩺 ডক্টর চেম্বার</span>
               </div>
               <p style={{ margin: 0, fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.5 }}>
-                ওপরের <strong>"৩. ডক্টর চেম্বার"</strong> ট্যাবে ক্লিক করলেই চিকিৎসকের সিরিয়াল/টোকেন কিউ পাবেন। রোগী চেম্বারে ঢুকলে <strong>"প্রেসক্রিপশন তৈরি করুন"</strong> চাপুন। ব্লাড প্রেশার (BP), ওজন ইত্যাদি লিখে প্রেসক্রিপশনে প্রয়োজনীয় ওষুধ ও ল্যাব টেস্ট সিলেক্ট করে ১ ক্লিকে প্রিন্ট দিন।
+                সিরিয়াল কিউ, রোগীর ভাইটালস (BP, Pulse) ও ৩-মুখী অটো-সিঙ্ক সহ ডিজিটাল প্রেসক্রিপশন।
               </p>
               <button
                 type="button"
@@ -411,34 +618,36 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
               </button>
             </div>
 
-            {/* Guide 4: 3-Way Auto Sync */}
-            <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '10px', padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontWeight: '800', fontSize: '0.84rem', marginBottom: '4px' }}>
-                <Activity size={15} />
-                <span>🔄 ৪. ম্যাজিক অটো-সিঙ্ক (৩-ইন-১)</span>
+            {/* Guide 4 */}
+            <div style={{ background: 'rgba(5, 150, 105, 0.08)', border: '1px solid rgba(5, 150, 105, 0.3)', borderRadius: '10px', padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: '800', fontSize: '0.84rem', marginBottom: '4px' }}>
+                <Bed size={15} />
+                <span>🛏️ ভর্তি রোগী (IPD)</span>
               </div>
               <p style={{ margin: 0, fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.5 }}>
-                ডাক্তার চেম্বারে প্রেসক্রিপশন সেভ করা মাত্রই ওষুধগুলো সাথে সাথে <strong>ফার্মেসির লাইভ কিউতে</strong> চলে যায় এবং ল্যাব টেস্টগুলো সরাসরি <strong>ডায়াগনস্টিক সেন্টারের পেন্ডিং টেস্ট অর্ডারে</strong> ভেসে ওঠে! রোগীকে প্রেসক্রিপশন হাতে নিয়ে ঘুরতে হবে না।
+                কেবিন ও ওয়ার্ড বেড বরাদ্দ, অগ্রিম জমা এবং ছাড়পত্র ফরম পরিচালনা।
               </p>
               <button
                 type="button"
-                onClick={() => setActiveLinkedApp('hub')}
-                style={{ marginTop: '8px', padding: '4px 10px', borderRadius: '6px', background: '#7c3aed', border: 'none', color: '#fff', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer' }}
+                onClick={() => setActiveLinkedApp('inpatient')}
+                style={{ marginTop: '8px', padding: '4px 10px', borderRadius: '6px', background: '#059669', border: 'none', color: '#fff', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer' }}
               >
-                ওভারভিউ দেখুন ➔
+                বেড বোর্ডে যান ➔
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. ACTIVE VIEW WORKSTATION RENDERER */}
+      {/* 4. ACTIVE WORKSTATION VIEW RENDERER */}
+      {/* 1. Pharmacy POS Workstation */}
       {activeLinkedApp === 'pharmacy' && (
         <div style={{ marginTop: '0.5rem' }}>
           <PharmacyFEFOManager />
         </div>
       )}
 
+      {/* 2. Doctor Chamber & Patients Workstation */}
       {activeLinkedApp === 'hospital' && (
         <div style={{ marginTop: '0.5rem' }}>
           <div className="hc-subtabs-nav" style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -468,6 +677,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
         </div>
       )}
 
+      {/* 3. Diagnostic & Radiology Workstation */}
       {activeLinkedApp === 'diagnostic' && (
         <div style={{ marginTop: '0.5rem' }}>
           <div className="hc-subtabs-nav" style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -494,677 +704,242 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
         </div>
       )}
 
-      {activeLinkedApp === 'hub' && (
-        <div>
-
-      {/* 2. Global Unified Patient Search Dock (Visible when active) */}
-      {isAnyModuleActive && (
-        <div className="hc-search-dock">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Search size={16} style={{ color: '#0d9488' }} />
-                <span>সেন্ট্রাল পেশেন্ট আইডি সার্চ ও ক্রস-অ্যাপ সিঙ্ক (Central PT-ID Lookup)</span>
-              </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                পেশেন্ট আইডি (<code style={{ color: '#0d9488', fontWeight: '700', fontFamily: 'var(--font-mono)' }}>PT-XXXXXX</code>), নাম বা মোবাইল নম্বর দিয়ে দ্রুত রোগী নির্বাচন করুন
-              </p>
-            </div>
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            <Search size={17} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setShowSearchResults(true);
-              }}
-              onFocus={() => setShowSearchResults(true)}
-              placeholder="পেশেন্ট আইডি (যেমন: PT-000001), মোবাইল বা রোগীর নাম দিয়ে খুঁজুন..."
-              className="input-field"
-              style={{ width: '100%', paddingLeft: '38px', paddingRight: '12px', fontSize: '0.85rem' }}
-            />
-
-            {/* Live Search Results Dropdown */}
-            {showSearchResults && searchQuery.trim() !== '' && (
-              <div
-                className="glass-card"
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  left: 0,
-                  right: 0,
-                  zIndex: 40,
-                  maxHeight: '300px',
-                  overflowY: 'auto',
-                  borderRadius: '12px',
-                  padding: '6px',
-                  boxShadow: 'var(--shadow-lg)'
-                }}
-              >
-                {filteredPatients.length === 0 ? (
-                  <div style={{ padding: '12px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    কোনো রোগী পাওয়া যায়নি।
-                  </div>
-                ) : (
-                  filteredPatients.map(p => (
-                    <div
-                      key={p.patient_id}
-                      style={{
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '10px',
-                        borderBottom: '1px solid var(--border-color)',
-                        flexWrap: 'wrap'
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong style={{ fontSize: '0.86rem', color: 'var(--text-main)' }}>{p.full_name}</strong>
-                          <span className="badge" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488' }}>
-                            {p.patient_id}
-                          </span>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                            {p.calculated_age || p.age || 'N/A'} বছর | {p.gender}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          ফোন: {p.mobile_number || p.phone || 'N/A'}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {activeModules.hospital && (
-                          <button
-                            onClick={() => {
-                              setGlobalSelectedPatientId(p.patient_id);
-                              setShowSearchResults(false);
-                              setActiveLinkedApp('hospital');
-                            }}
-                            className="btn btn-secondary press-scale"
-                            style={{ padding: '4px 8px', fontSize: '0.72rem', color: '#2563eb', borderColor: 'rgba(37, 99, 235, 0.4)' }}
-                          >
-                            <Stethoscope size={13} />
-                            <span>ডক্টর চেম্বার</span>
-                          </button>
-                        )}
-
-                        {activeModules.diagnostic && (
-                          <button
-                            onClick={() => {
-                              setGlobalSelectedPatientId(p.patient_id);
-                              setShowSearchResults(false);
-                              setActiveLinkedApp('diagnostic');
-                            }}
-                            className="btn btn-secondary press-scale"
-                            style={{ padding: '4px 8px', fontSize: '0.72rem', color: '#0d9488', borderColor: 'rgba(13, 148, 136, 0.4)' }}
-                          >
-                            <FlaskConical size={13} />
-                            <span>ল্যাব টেস্ট দিন</span>
-                          </button>
-                        )}
-
-                        {activeModules.pharmacy && (
-                          <button
-                            onClick={() => {
-                              setGlobalSelectedPatientId(p.patient_id);
-                              setShowSearchResults(false);
-                              setActiveLinkedApp('pharmacy');
-                            }}
-                            className="btn btn-secondary press-scale"
-                            style={{ padding: '4px 8px', fontSize: '0.72rem', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' }}
-                          >
-                            <Pill size={13} />
-                            <span>ওষুধ ডিসপেন্স</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+      {/* 4. Inpatient IPD Workstation */}
+      {activeLinkedApp === 'inpatient' && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <InpatientBedManager />
         </div>
       )}
 
-      {/* 3. The 3 Master Categories & Linked Apps Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={18} style={{ color: '#0d9488' }} />
-            <span>টেমপ্লেটের ৩টি প্রধান ক্লিনিক্যাল ক্যাটাগরি ও ৩টি লিংকড অ্যাপ</span>
-          </h2>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            প্রয়োজন অনুযায়ী প্রতিটি ক্যাটাগরি স্বাধীনভাবে চালু/বন্ধ করুন অথবা সংশ্লিষ্ট ওয়ার্কস্টেশনে প্রবেশ করুন
-          </p>
+      {/* 5. Central Billing & Cashier Workstation */}
+      {activeLinkedApp === 'billing' && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <HealthcareBillingManager />
         </div>
+      )}
 
-        <div className="hc-grid-3">
-          {/* ========================================================
-              CATEGORY 1: HOSPITAL & CLINIC
-             ======================================================== */}
-          <div className={`hc-pillar-card ${activeModules.hospital ? 'active-hospital' : ''}`}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Stethoscope size={24} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleModuleToggleClick('hospital')}
-                  className="press-scale"
+      {/* 6. Print Center Workstation */}
+      {activeLinkedApp === 'print' && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <PrintCenterManager />
+        </div>
+      )}
+
+      {/* 7. Staff & Security Audit Workstation */}
+      {activeLinkedApp === 'staff' && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <StaffSecurityManager />
+        </div>
+      )}
+
+      {/* 8. Settings Workstation */}
+      {activeLinkedApp === 'settings' && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <HealthcareSettingsManager onInstitutionTypeChange={(type) => setInstType(type)} />
+        </div>
+      )}
+
+      {/* 9. Hub Overview & Executive Analytics Dashboard */}
+      {activeLinkedApp === 'hub' && (
+        <div className="space-y-6">
+          {/* Executive Dashboard KPI Metrics */}
+          <HealthcareDashboard />
+
+          {/* Central PT-ID Search Dock */}
+          <div className="hc-search-dock">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Search size={16} style={{ color: '#0d9488' }} />
+                  <span>সেন্ট্রাল পেশেন্ট আইডি সার্চ ও ক্রস-অ্যাপ সিঙ্ক (Central PT-ID Lookup)</span>
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  পেশেন্ট আইডি (<code style={{ color: '#0d9488', fontWeight: '700', fontFamily: 'var(--font-mono)' }}>PT-XXXXXX</code>), নাম বা মোবাইল নম্বর দিয়ে দ্রুত রোগী নির্বাচন করুন
+                </p>
+              </div>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <Search size={17} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(true);
+                }}
+                onFocus={() => setShowSearchResults(true)}
+                placeholder="পেশেন্ট আইডি (যেমন: PT-000001), মোবাইল বা রোগীর নাম দিয়ে খুঁজুন..."
+                className="input-field"
+                style={{ width: '100%', paddingLeft: '38px', paddingRight: '12px', fontSize: '0.85rem' }}
+              />
+
+              {showSearchResults && searchQuery.trim() !== '' && (
+                <div
+                  className="glass-card"
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '0.75rem',
-                    fontWeight: '800',
-                    border: '1px solid rgba(59, 130, 246, 0.4)',
-                    background: activeModules.hospital ? '#2563eb' : 'rgba(255,255,255,0.05)',
-                    color: activeModules.hospital ? '#ffffff' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    right: 0,
+                    zIndex: 40,
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    borderRadius: '12px',
+                    padding: '6px',
+                    boxShadow: 'var(--shadow-lg)'
                   }}
                 >
-                  {activeModules.hospital ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                  <span>{activeModules.hospital ? 'সক্রিয় (Active)' : 'নিষ্ক্রিয় (Inactive)'}</span>
-                </button>
-              </div>
+                  {filteredPatients.length === 0 ? (
+                    <div style={{ padding: '12px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      কোনো রোগী পাওয়া যায়নি।
+                    </div>
+                  ) : (
+                    filteredPatients.map(p => (
+                      <div
+                        key={p.patient_id}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '10px',
+                          borderBottom: '1px solid var(--border-color)',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '0.86rem', color: 'var(--text-main)' }}>{p.full_name}</strong>
+                            <span className="badge" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488' }}>
+                              {p.patient_id}
+                            </span>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {p.calculated_age || p.age || 'N/A'} বছর | {p.gender}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            ফোন: {p.mobile_number || p.phone || 'N/A'}
+                          </div>
+                        </div>
 
-              <div>
-                <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', fontSize: '0.68rem', fontWeight: '800' }}>
-                  ক্যাটাগরি ০১
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGlobalSelectedPatientId(p.patient_id);
+                            setShowSearchResults(false);
+                            setActiveLinkedApp('hospital');
+                          }}
+                          className="btn btn-primary"
+                          style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#0d9488', border: 'none' }}
+                        >
+                          সিলেক্ট করুন
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3 Pillars Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+            {/* Card 1: Hospital */}
+            <div className="hc-pillar-card active-hospital">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600">
+                  <Stethoscope size={22} />
                 </span>
-                <h3 style={{ margin: '6px 0 2px', fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                  হসপিটাল ও ক্লিনিক ম্যানেজমেন্ট
-                </h3>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                  লিংকড অ্যাপ: <strong>Doctor Chamber & Consultation Portal</strong>
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', margin: '12px 0', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#2563eb' }} />
-                  <span>টোকেন কিউ ও লাইভ সিরিয়াল কলিং</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#2563eb' }} />
-                  <span>ডিজিটাল প্রেসক্রিপশন ও ড্রাগ সাজেশন</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#2563eb' }} />
-                  <span>রোগীর ভাইটালস ও মেডিকেল হিস্ট্রি</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2563eb', fontWeight: '700' }}>
-                  <span>🔗</span>
-                  <span>এক ক্লিকে ল্যাব টেস্ট ও ফার্মেসি সিঙ্ক</span>
-                </div>
-              </div>
-
-              {activeModules.hospital && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-                  <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>অপেক্ষমাণ রোগী</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#2563eb' }}>
-                      {appointments.filter(a => a.appointment_status === 'Waiting').length} জন
-                    </div>
-                  </div>
-                  <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>রোগী রেজিস্ট্রি</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--text-main)' }}>
-                      {patients.length} জন
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-              {activeModules.hospital ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveLinkedApp('hospital')}
-                  className="btn btn-primary press-scale"
-                  style={{ width: '100%', background: '#2563eb', borderColor: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px' }}
-                >
-                  <Stethoscope size={15} />
-                  <span>হসপিটাল অ্যাপে প্রবেশ করুন</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleModuleToggleClick('hospital')}
-                  className="btn btn-secondary press-scale"
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}
-                >
-                  <Unlock size={14} />
-                  <span>এডমিন সক্রিয় করুন</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* ========================================================
-              CATEGORY 2: DIAGNOSTIC & LAB
-             ======================================================== */}
-          <div className={`hc-pillar-card ${activeModules.diagnostic ? 'active-diagnostic' : ''}`}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FlaskConical size={24} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleModuleToggleClick('diagnostic')}
-                  className="press-scale"
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '0.75rem',
-                    fontWeight: '800',
-                    border: '1px solid rgba(13, 148, 136, 0.4)',
-                    background: activeModules.diagnostic ? '#0d9488' : 'rgba(255,255,255,0.05)',
-                    color: activeModules.diagnostic ? '#ffffff' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {activeModules.diagnostic ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                  <span>{activeModules.diagnostic ? 'সক্রিয় (Active)' : 'নিষ্ক্রিয় (Inactive)'}</span>
-                </button>
-              </div>
-
-              <div>
-                <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488', fontSize: '0.68rem', fontWeight: '800' }}>
-                  ক্যাটাগরি ০২
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  {appointments.filter(a => a.appointment_status === 'Waiting').length} জন অপেক্ষমাণ
                 </span>
-                <h3 style={{ margin: '6px 0 2px', fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                  ডায়াগনস্টিক সেন্টার ও ল্যাবরেটরি
-                </h3>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                  লিংকড অ্যাপ: <strong>Diagnostic Lab Workstation & Billing</strong>
-                </div>
               </div>
-
-              <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', margin: '12px 0', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#0d9488' }} />
-                  <span>৫০টি ক্যাটাগরি ও ৭৮টি টেস্ট বান্ডেল</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#0d9488' }} />
-                  <span>বারকোড স্পেসিমেন ও স্যাম্পল ট্র্যাকিং</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#0d9488' }} />
-                  <span>রেজাল্ট এন্ট্রি ও ভেরিফায়েড রিপোর্ট</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0d9488', fontWeight: '700' }}>
-                  <span>🔗</span>
-                  <span>ডাক্তারের টেস্ট অর্ডার সরাসরি রিসিভ</span>
-                </div>
-              </div>
-
-              {activeModules.diagnostic && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-                  <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>পেন্ডিং টেস্ট অর্ডার</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#0d9488' }}>
-                      {labOrders.filter(l => l.order_status === 'Sample Pending' || l.order_status === 'Processing').length} টি
-                    </div>
-                  </div>
-                  <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>টেস্ট ক্যাটালগ</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--text-main)' }}>
-                      {diagnosticTests.length}+ টি
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-              {activeModules.diagnostic ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveLinkedApp('diagnostic')}
-                  className="btn btn-primary press-scale"
-                  style={{ width: '100%', background: '#0d9488', borderColor: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px' }}
-                >
-                  <FlaskConical size={15} />
-                  <span>ল্যাব ওয়ার্কস্টেশনে প্রবেশ করুন</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleModuleToggleClick('diagnostic')}
-                  className="btn btn-secondary press-scale"
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}
-                >
-                  <Unlock size={14} />
-                  <span>এডমিন সক্রিয় করুন</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* ========================================================
-              CATEGORY 3: PHARMACY POS
-             ======================================================== */}
-          <div className={`hc-pillar-card ${activeModules.pharmacy ? 'active-pharmacy' : ''}`}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Pill size={24} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleModuleToggleClick('pharmacy')}
-                  className="press-scale"
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    fontSize: '0.75rem',
-                    fontWeight: '800',
-                    border: '1px solid rgba(16, 185, 129, 0.4)',
-                    background: activeModules.pharmacy ? '#10b981' : 'rgba(255,255,255,0.05)',
-                    color: activeModules.pharmacy ? '#ffffff' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {activeModules.pharmacy ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                  <span>{activeModules.pharmacy ? 'সক্রিয় (Active)' : 'নিষ্ক্রিয় (Inactive)'}</span>
-                </button>
-              </div>
-
-              <div>
-                <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.68rem', fontWeight: '800' }}>
-                  ক্যাটাগরি ০৩
-                </span>
-                <h3 style={{ margin: '6px 0 2px', fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                  ফার্মেসি ও মেডিসিন ডিসপেনসারি
-                </h3>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                  লিংকড অ্যাপ: <strong>Pharmacy POS & FEFO Batch Dispenser</strong>
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--border-color)', margin: '12px 0', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#10b981' }} />
-                  <span>প্রেসক্রিপশন কিউ থেকে সরাসরি সেলস সিঙ্ক</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#10b981' }} />
-                  <span>FEFO (ফার্স্ট-এক্সপায়ারি) অটো ব্যাচ চয়ন</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                  <Check size={14} style={{ color: '#10b981' }} />
-                  <span>বক্স টু স্ট্রিপ/ট্যাবলেট অটো হিসাব</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '700' }}>
-                  <span>🔗</span>
-                  <span>মেয়াদোত্তীর্ণ ব্যাচ অটো-লক সুরক্ষা</span>
-                </div>
-              </div>
-
-              {activeModules.pharmacy && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-                  <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>ডিসপেন্সের কিউ</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#10b981' }}>
-                      {prescriptions.filter(p => p.dispensing_status === 'Sent to Pharmacy').length} টি
-                    </div>
-                  </div>
-                  <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '700' }}>ওষুধ আইটেম</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--text-main)' }}>
-                      {pharmacyMedicines.length} টি
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-              {activeModules.pharmacy ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveLinkedApp('pharmacy')}
-                  className="btn btn-primary press-scale"
-                  style={{ width: '100%', background: '#10b981', borderColor: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px' }}
-                >
-                  <Pill size={15} />
-                  <span>ফার্মেসি টার্মিনালে প্রবেশ করুন</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleModuleToggleClick('pharmacy')}
-                  className="btn btn-secondary press-scale"
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}
-                >
-                  <Unlock size={14} />
-                  <span>এডমিন সক্রিয় করুন</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Live Inter-Connection Matrix (3-Way Linkup Explanation) */}
-      <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Activity size={18} style={{ color: '#0d9488' }} />
-          <span>৩টি লিংকড অ্যাপ্লিকেশনের সার্বক্ষণিক ইন্টার-কানেকশন ম্যাট্রিক্স (Workflow Sync)</span>
-        </h3>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2563eb', fontWeight: '800', fontSize: '0.8rem', marginBottom: '4px' }}>
-              <Stethoscope size={15} />
-              <span>ডক্টর চেম্বার ➔ ডায়াগনস্টিক ল্যাব</span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              ডাক্তার প্রেসক্রিপশনে কোনো প্যাথলজি বা রেডিওলজি টেস্ট অ্যাড করলে রোগীর ফাইল থেকে সরাসরি ল্যাব অর্ডারে চলে যায়। ল্যাব কর্মী কেবল বারকোড প্রিন্ট করে কাজ শুরু করতে পারেন।
-            </p>
-          </div>
-
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '800', fontSize: '0.8rem', marginBottom: '4px' }}>
-              <Pill size={15} />
-              <span>ডক্টর চেম্বার ➔ ফার্মেসি পিওএস</span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              ডাক্তার প্রেসক্রিপশন সেভ করা মাত্র ফার্মেসি কাউন্টারের লাইভ কিউতে রোগীর প্রেসক্রিপশন ভেসে ওঠে। ফার্মাসিস্ট দ্রুত FEFO ব্যাচ চয়ন করে বিল তৈরি করতে পারেন।
-            </p>
-          </div>
-
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0d9488', fontWeight: '800', fontSize: '0.8rem', marginBottom: '4px' }}>
-              <FlaskConical size={15} />
-              <span>ডায়াগনস্টিক ল্যাব ➔ ডক্টর হিস্ট্রি</span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              প্যাথলজিস্ট কর্তৃক ল্যাব রিপোর্ট ভেরিফাই ও সাইন হওয়ার সাথে সাথে তা সেন্ট্রাল পেশেন্ট আইডি (<strong style={{ color: '#0d9488', fontFamily: 'var(--font-mono)' }}>PT-ID</strong>)-তে যুক্ত হয়ে ডাক্তারের ডিসপ্লেতে দৃশ্যমান হয়।
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Auxiliary Suite & Analytics */}
-      <div className="glass-card" style={{ padding: '1.25rem 1.5rem', borderRadius: '18px' }}>
-        <h3 style={{ margin: '0 0 10px', fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ShieldCheck size={18} style={{ color: '#0d9488' }} />
-          <span>সহায়ক সেবা ও কমপ্লায়েন্স মডিউল (Auxiliary Clinical Services)</span>
-        </h3>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-          <button
-            type="button"
-            onClick={() => setActiveHealthcareTab('dashboard')}
-            className={`hc-tab-btn ${activeHealthcareTab === 'dashboard' ? 'active-dark' : ''}`}
-            style={{ border: '1px solid var(--border-color)' }}
-          >
-            <Activity size={14} />
-            <span>হেলথকেয়ার অ্যানালিটিক্স</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveHealthcareTab('home_service')}
-            className={`hc-tab-btn ${activeHealthcareTab === 'home_service' ? 'active-dark' : ''}`}
-            style={{ border: '1px solid var(--border-color)' }}
-          >
-            <Layers size={14} />
-            <span>হোম স্যাম্পল কালেকশন ও রেফারেল</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveHealthcareTab('compliance_suite')}
-            className={`hc-tab-btn ${activeHealthcareTab === 'compliance_suite' ? 'active-dark' : ''}`}
-            style={{ border: '1px solid var(--border-color)' }}
-          >
-            <ShieldCheck size={14} />
-            <span>সেকশন ২৪: কোয়ালিটি ও কমপ্লায়েন্স সুইট (LQMS & ISO)</span>
-          </button>
-        </div>
-
-        <div>
-          {activeHealthcareTab === 'dashboard' && <HealthcareDashboard />}
-          {activeHealthcareTab === 'home_service' && <HomeServicesReferral />}
-          {activeHealthcareTab === 'compliance_suite' && <AdvancedComplianceSuite />}
-        </div>
-      </div>
-    </div>
-  )}
-
-      {/* 6. Admin Approval Security Modal (Clean Glassmorphic Modal) */}
-      {showApprovalModal && (
-        <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div className="modal-content glass-card" style={{ maxWidth: '520px', width: '95%', padding: '1.5rem', borderRadius: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ShieldCheck size={24} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                    অ্যাডমিন মডিউল অনুমোদন
-                  </h3>
-                  <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    {targetModToToggle === 'all'
-                      ? '৩টি লিংকড হেলথকেয়ার মডিউল একসাথে সক্রিয়করণ'
-                      : targetModToToggle === 'hospital'
-                      ? 'হসপিটাল ও ডক্টর কনসালটেশন মডিউল সক্রিয়করণ'
-                      : targetModToToggle === 'diagnostic'
-                      ? 'ডায়াগনস্টিক ল্যাব ও LIMS মডিউল সক্রিয়করণ'
-                      : 'ফার্মেসি FEFO পিওএস মডিউল সক্রিয়করণ'}
-                  </p>
-                </div>
-              </div>
+              <h3 className="text-base font-black text-slate-900">ডাক্তার চেম্বার ও কনসালটেন্সি</h3>
+              <p className="text-xs text-slate-500 mt-1">রোগীর ভাইটালস, প্রেসক্রিপশন ও অটো-সিঙ্ক ল্যাব অর্ডার।</p>
               <button
-                type="button"
-                onClick={() => setShowApprovalModal(false)}
-                className="btn-icon"
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                onClick={() => setActiveLinkedApp('hospital')}
+                className="mt-4 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
               >
-                <X size={20} />
+                <span>ডক্টর চেম্বারে যান</span>
+                <ArrowRight size={13} />
               </button>
             </div>
 
-            <form onSubmit={handleAdminApprovalConfirm} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px' }}>
-                  অনুমোদনকারী অ্যাডমিনের নাম:
-                </label>
-                <input
-                  type="text"
-                  value={adminName}
-                  onChange={(e) => setAdminName(e.target.value)}
-                  className="input-field"
-                  style={{ width: '100%', fontSize: '0.85rem' }}
-                  required
-                />
+            {/* Card 2: Diagnostic */}
+            <div className="hc-pillar-card active-diagnostic">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span className="p-2.5 rounded-xl bg-teal-500/10 text-teal-600">
+                  <FlaskConical size={22} />
+                </span>
+                <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
+                  {labOrders.length} টি টেস্ট
+                </span>
               </div>
+              <h3 className="text-base font-black text-slate-900">ডায়াগনস্টিক ল্যাব ও LIMS</h3>
+              <p className="text-xs text-slate-500 mt-1">৭৪+ টেস্ট ক্যাটালগ, বারকোড স্যাম্পল ও ভেরিফায়েড রিপোর্ট।</p>
+              <button
+                onClick={() => setActiveLinkedApp('diagnostic')}
+                className="mt-4 w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+              >
+                <span>ল্যাব ওয়ার্কস্টেশনে যান</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px' }}>
-                  নিরাপত্তা পিন কোড (Security PIN):
-                </label>
-                <input
-                  type="password"
-                  value={adminPin}
-                  onChange={(e) => setAdminPin(e.target.value)}
-                  placeholder="ডিফল্ট: 1234"
-                  className="input-field"
-                  style={{ width: '100%', fontSize: '0.85rem', fontFamily: 'var(--font-mono)', letterSpacing: '4px' }}
-                  required
-                />
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                  * ডেমো পিন: <strong style={{ color: 'var(--text-main)' }}>1234</strong>
-                </div>
+            {/* Card 3: Pharmacy */}
+            <div className="hc-pillar-card active-pharmacy">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600">
+                  <Pill size={22} />
+                </span>
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  {pharmacyMedicines.length} প্রকারের ড্রাগস
+                </span>
               </div>
+              <h3 className="text-base font-black text-slate-900">ফার্মেসি ও মেডিসিন POS</h3>
+              <p className="text-xs text-slate-500 mt-1">FEFO ফার্স্ট-এক্সপায়ারি, স্ট্রিপ টু পিস বিক্রি ও প্রেসক্রিপশন কিউ।</p>
+              <button
+                onClick={() => setActiveLinkedApp('pharmacy')}
+                className="mt-4 w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+              >
+                <span>ফার্মেসি কাউন্টারে যান</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px' }}>
-                  অনুমোদন মন্তব্য ও লাইসেন্স নোট:
-                </label>
-                <textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  rows={2}
-                  className="input-field"
-                  style={{ width: '100%', fontSize: '0.82rem', resize: 'none' }}
-                />
-              </div>
+          {/* Auxiliary Compliance & Home Services */}
+          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="text-teal-600" size={18} />
+              <span>কোয়ালিটি ও কমপ্লায়েন্স সুইট (LQMS & ISO 15189)</span>
+            </h3>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowApprovalModal(false)}
-                  className="btn btn-secondary"
-                  style={{ padding: '8px 14px', fontSize: '0.82rem' }}
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    background: '#10b981',
-                    borderColor: '#10b981',
-                    padding: '8px 18px',
-                    fontSize: '0.82rem',
-                    fontWeight: '800',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <CheckCircle2 size={16} />
-                  <span>অনুমোদন কনফার্ম ও সক্রিয় করুন</span>
-                </button>
-              </div>
-            </form>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setActiveHealthcareTab('home_service')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  activeHealthcareTab === 'home_service' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                হোম স্যাম্পল কালেকশন
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveHealthcareTab('compliance_suite')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  activeHealthcareTab === 'compliance_suite' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                DGHS / ISO অডিট ও কমপ্লায়েন্স
+              </button>
+            </div>
+
+            {activeHealthcareTab === 'home_service' && <HomeServicesReferral />}
+            {activeHealthcareTab === 'compliance_suite' && <AdvancedComplianceSuite />}
           </div>
         </div>
       )}
