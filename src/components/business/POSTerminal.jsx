@@ -877,6 +877,8 @@ export const POSTerminal = () => {
     }, 'pos', initialMode);
   };
 
+  const handleCheckoutRef = useRef(null);
+
   // GLOBAL HOTKEYS ENGINE & BARCODE SCANNER (HID WEDGE)
   useEffect(() => {
     let barcodeBuffer = '';
@@ -922,7 +924,9 @@ export const POSTerminal = () => {
       if (e.key === 'F8') {
         e.preventDefault();
         if (cart.length > 0) {
-          handleCheckout();
+          if (handleCheckoutRef.current) {
+            handleCheckoutRef.current();
+          }
         } else {
           playWarningTone();
           showToast(lang === 'bn' ? '⚠️ কার্ট ফাঁকা! পণ্য যোগ করুন' : 'Cart is empty!', 'warning');
@@ -1319,6 +1323,8 @@ export const POSTerminal = () => {
       </div>
     );
   }
+
+  handleCheckoutRef.current = handleCheckout;
 
   return (
     <div

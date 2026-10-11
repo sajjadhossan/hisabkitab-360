@@ -135,6 +135,9 @@ const AppContent = () => {
 
   const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
   const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
+  const [allowOfflineAccess, setAllowOfflineAccess] = useState(() => {
+    return localStorage.getItem('hk360_offline_mode') === 'true';
+  });
 
   React.useEffect(() => {
     window.__openAuditTrail = () => setShowAuditTrailModal(true);
@@ -421,8 +424,8 @@ const AppContent = () => {
   }
 
   const renderContent = () => {
-    // Strictly lock system until authenticated as requested by user
-    if (!user) {
+    // If not authenticated and offline access not explicitly enabled, prompt user
+    if (!user && !allowOfflineAccess) {
       return (
         <div style={{
           minHeight: '65vh',
@@ -437,17 +440,16 @@ const AppContent = () => {
             width: '80px',
             height: '80px',
             borderRadius: '24px',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '2px solid #ef4444',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '2px solid #10b981',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '2.5rem',
             marginBottom: '1.25rem',
-            boxShadow: '0 0 30px rgba(239, 68, 68, 0.25)',
-            animation: 'pulse 2s infinite'
+            boxShadow: '0 0 30px rgba(16, 185, 129, 0.25)'
           }}>
-            🔒
+            💼
           </div>
           <div style={{
             display: 'inline-flex',
@@ -455,37 +457,58 @@ const AppContent = () => {
             gap: '6px',
             padding: '4px 12px',
             borderRadius: '16px',
-            background: 'rgba(239, 68, 68, 0.12)',
-            color: '#ef4444',
+            background: 'rgba(56, 189, 248, 0.12)',
+            color: '#38bdf8',
             fontWeight: '700',
             fontSize: '0.8rem',
             marginBottom: '10px'
           }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-            <span>লাল বাতি: সিস্টেমে কোনো সক্রিয় লগইন নেই</span>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
+            <span>হিসাবকিতাব ৩৬০ - স্মার্ট ব্যবসা ও ব্যক্তিগত হিসাব</span>
           </div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 8px', color: 'var(--text-main)' }}>
-            সুপাবেসের অনুমোদন ছাড়া সিস্টেমে প্রবেশ নিষেধ
+            সিস্টেমে স্বাগতম
           </h2>
           <p style={{ maxWidth: '520px', fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
-            দোকানের হিসাব, পণ্য স্টক ও ক্যাশ কাউন্টারের তথ্য সম্পূর্ণ সুরক্ষিত রাখতে দয়া করে আপনার সুপাবেস একাউন্ট দিয়ে সাইন ইন করুন।
+            ক্লাউড ব্যাকআপ ও একাধিক ডিভাইসে সিঙ্ক করার জন্য সাইন ইন করুন, অথবা ইন্টারনেট ছাড়া লোকাল ডিভাইসে অফলাইন মোডে হিসাব চালু রাখুন।
           </p>
-          <button
-            onClick={() => openAuthModal('login')}
-            className="btn btn-primary"
-            style={{
-              padding: '12px 28px',
-              fontSize: '1rem',
-              fontWeight: '800',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              boxShadow: '0 4px 18px rgba(16, 185, 129, 0.4)',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            🔐 সাইন ইন করুন (Sign In)
-          </button>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => openAuthModal('login')}
+              className="btn btn-primary"
+              style={{
+                padding: '12px 26px',
+                fontSize: '0.95rem',
+                fontWeight: '800',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                boxShadow: '0 4px 18px rgba(16, 185, 129, 0.4)',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              🔐 সাইন ইন করুন (Sign In)
+            </button>
+            <button
+              onClick={() => {
+                setAllowOfflineAccess(true);
+                localStorage.setItem('hk360_offline_mode', 'true');
+              }}
+              className="btn btn-secondary"
+              style={{
+                padding: '12px 24px',
+                fontSize: '0.95rem',
+                fontWeight: '700',
+                borderRadius: '12px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--border-color)',
+                cursor: 'pointer'
+              }}
+            >
+              ⚡ অফলাইন / লোকাল মোডে প্রবেশ করুন
+            </button>
+          </div>
         </div>
       );
     }

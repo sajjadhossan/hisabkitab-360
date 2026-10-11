@@ -34,6 +34,18 @@ export default defineConfig({
           if (id.includes('node_modules/canvas-confetti')) {
             return 'vendor-confetti';
           }
+          if (id.includes('components/business/POSTerminal')) {
+            return 'module-pos';
+          }
+          if (id.includes('components/business/InventoryManager')) {
+            return 'module-inventory';
+          }
+          if (id.includes('components/business/InvoicesManager')) {
+            return 'module-invoices';
+          }
+          if (id.includes('components/common/DebtKhataManager')) {
+            return 'module-debts';
+          }
         }
       }
     }

@@ -54,6 +54,8 @@ public class MainActivity extends BridgeActivity {
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                 webView.getSettings().setDomStorageEnabled(true);
                 webView.getSettings().setDatabaseEnabled(true);
+                webView.getSettings().setAllowFileAccess(true);
+                webView.getSettings().setAllowContentAccess(true);
                 webView.getSettings().setRenderPriority(android.webkit.WebSettings.RenderPriority.HIGH);
                 webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
                 webView.setScrollBarStyle(WebView.SCROLLBARS_INSIDE_OVERLAY);
