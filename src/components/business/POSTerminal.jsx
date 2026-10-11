@@ -279,6 +279,8 @@ export const POSTerminal = () => {
   const [showSalesReturnModal, setShowSalesReturnModal] = useState(false);
   const [showLiveProfit, setShowLiveProfit] = useState(false);
   const [useLoyaltyPoints, setUseLoyaltyPoints] = useState(false);
+  const [showFastCashModal, setShowFastCashModal] = useState(false);
+  const [fastCashTendered, setFastCashTendered] = useState(0);
   const [showCattleModal, setShowCattleModal] = useState(false);
   const [cattleModalInitialTab, setCattleModalInitialTab] = useState('overview');
 
@@ -4357,28 +4359,57 @@ export const POSTerminal = () => {
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--business-primary)', fontSize: '1.25rem' }}>৳{grandTotal.toLocaleString()}</span>
           </div>
 
-          {/* Checkout Button */}
-          <button
-            className="btn btn-primary press-scale"
-            disabled={cart.length === 0}
-            onClick={handleCheckout}
-            style={{
-              width: '100%',
-              padding: '11px',
-              fontSize: '0.98rem',
-              fontWeight: '800',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-              boxShadow: cart.length > 0 ? '0 4px 14px rgba(79, 70, 229, 0.35)' : 'none'
-            }}
-          >
-            <CheckCircle2 size={18} />
-            <span>{t.business.completeSale}</span>
-          </button>
+          {/* Checkout & Fast Cash Buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
+            <button
+              className="btn btn-primary press-scale"
+              disabled={cart.length === 0}
+              onClick={handleCheckout}
+              style={{
+                padding: '11px',
+                fontSize: '0.92rem',
+                fontWeight: '800',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: cart.length === 0 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <CheckCircle2 size={16} />
+              <span>{t.business.completeSale}</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn press-scale"
+              disabled={cart.length === 0}
+              onClick={() => {
+                setFastCashTendered(grandTotal);
+                setShowFastCashModal(true);
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '11px',
+                fontSize: '0.92rem',
+                fontWeight: '800',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: cart.length > 0 ? '0 4px 14px rgba(16, 185, 129, 0.35)' : 'none'
+              }}
+              title="⚡ ফাস্ট ক্যাশ মোড: ১-ক্লিকে ক্যাশ গ্রহণ ও ফেরত হিসাব"
+            >
+              <Zap size={16} fill="#ffffff" />
+              <span>{lang === 'bn' ? '⚡ ফাস্ট ক্যাশ' : '⚡ Fast Cash'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -4487,6 +4518,176 @@ export const POSTerminal = () => {
                 {lang === 'bn' ? 'পরবর্তী বিল' : 'Next Sale'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: FAST CASH DIALPAD & INSTANT CHECKOUT               */}
+      {/* ========================================================= */}
+      {showFastCashModal && (
+        <div className="modal-overlay animate-fade-in" style={{ zIndex: 1200, backdropFilter: 'blur(6px)', background: 'rgba(0, 0, 0, 0.75)' }}>
+          <div
+            className="glass-card modal-container"
+            style={{
+              maxWidth: '460px',
+              width: '94%',
+              padding: '1.25rem',
+              borderRadius: '20px',
+              background: 'var(--bg-card)',
+              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #10b981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                  <Zap size={20} fill="#fff" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? '⚡ ফাস্ট ক্যাশ ডায়ালপ্যাড' : '⚡ Fast Cash Checkout'}
+                  </h3>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'দ্রুত ক্যাশ গ্রহণ ও ফেরত হিসাব' : 'Instant Cash Tender & Change Calculator'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setShowFastCashModal(false)}
+                style={{ borderRadius: '50%', background: 'var(--bg-secondary)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Bill and Tendered Display */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                  {lang === 'bn' ? 'মোট বিল' : 'Grand Total'}
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: '900', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                  ৳{grandTotal.toLocaleString()}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px 12px', borderRadius: '14px', border: '1.5px solid rgba(16, 185, 129, 0.4)' }}>
+                <div style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '800' }}>
+                  {lang === 'bn' ? 'ক্যাশ গ্রহণ (টাকা)' : 'Cash Tendered'}
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+                  ৳{Number(fastCashTendered).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Change Due / বকেয়া ব্যালেন্স */}
+            <div
+              style={{
+                background: fastCashTendered >= grandTotal ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                border: fastCashTendered >= grandTotal ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: '12px',
+                padding: '8px 12px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem'
+              }}
+            >
+              <span style={{ fontSize: '0.82rem', fontWeight: '800', color: fastCashTendered >= grandTotal ? '#10b981' : '#f59e0b' }}>
+                {fastCashTendered >= grandTotal 
+                  ? (lang === 'bn' ? '🔄 গ্রাহককে ফেরত দিন:' : '🔄 Change to Return:') 
+                  : (lang === 'bn' ? '⚠️ বকেয়া থাকবে:' : '⚠️ Remaining Due:')}
+              </span>
+              <span style={{ fontSize: '1.15rem', fontWeight: '900', fontFamily: 'var(--font-mono)', color: fastCashTendered >= grandTotal ? '#10b981' : '#f59e0b' }}>
+                ৳{Math.abs(Number(fastCashTendered) - grandTotal).toLocaleString()}
+              </span>
+            </div>
+
+            {/* Quick Cash Banknotes */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setFastCashTendered(grandTotal)}
+                style={{ padding: '8px 4px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)', cursor: 'pointer' }}
+              >
+                এক্সেক্ট
+              </button>
+              {[100, 500, 1000].map(amt => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setFastCashTendered(amt)}
+                  style={{ padding: '8px 4px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)', cursor: 'pointer' }}
+                >
+                  ৳{amt}
+                </button>
+              ))}
+            </div>
+
+            {/* Numeric Keypad */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '1rem' }}>
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '00'].map(key => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    hapticFeedback.light();
+                    if (key === 'C') {
+                      setFastCashTendered(0);
+                    } else {
+                      const str = String(fastCashTendered === 0 ? '' : fastCashTendered) + key;
+                      setFastCashTendered(Number(str) || 0);
+                    }
+                  }}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: key === 'C' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-secondary)',
+                    color: key === 'C' ? '#ef4444' : 'var(--text-main)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '1.05rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+
+            {/* Complete Sale Button */}
+            <button
+              type="button"
+              className="btn press-scale"
+              onClick={() => {
+                setShowFastCashModal(false);
+                handleCheckout();
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: '800',
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.4)',
+                cursor: 'pointer'
+              }}
+            >
+              <CheckCircle2 size={18} />
+              <span>{lang === 'bn' ? 'বিলিং সম্পন্ন ও রসিদ প্রিন্ট' : 'Complete Sale & Print'}</span>
+            </button>
           </div>
         </div>
       )}

@@ -414,7 +414,26 @@ export const BarcodeScannerModal = () => {
     try {
       const nextTorch = !torchOn;
       let applied = false;
-      if (html5QrCodeRef.current) {
+
+      const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+      if (videoElem && videoElem.srcObject) {
+        const stream = videoElem.srcObject;
+        const tracks = stream.getVideoTracks ? stream.getVideoTracks() : [];
+        for (const track of tracks) {
+          if (track && track.applyConstraints) {
+            try {
+              await track.applyConstraints({
+                advanced: [{ torch: nextTorch }]
+              });
+              applied = true;
+            } catch (e) {
+              console.warn('Track torch constraint warning:', e);
+            }
+          }
+        }
+      }
+
+      if (!applied && html5QrCodeRef.current) {
         try {
           await html5QrCodeRef.current.applyVideoConstraints({
             advanced: [{ torch: nextTorch }]
@@ -423,23 +442,16 @@ export const BarcodeScannerModal = () => {
         } catch {}
       }
 
-      if (!applied) {
-        const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
-        if (videoElem && videoElem.srcObject) {
-          const track = videoElem.srcObject.getVideoTracks?.()[0];
-          if (track && track.applyConstraints) {
-            await track.applyConstraints({
-              advanced: [{ torch: nextTorch }]
-            });
-            applied = true;
-          }
-        }
-      }
-
       setTorchOn(nextTorch);
-      triggerHaptic([20]);
+      triggerHaptic([30]);
+      if (showToast) {
+        showToast(nextTorch ? '🔦 ক্যামেরা ফ্ল্যাশলাইট চালু হয়েছে' : '🔦 ফ্ল্যাশলাইট বন্ধ করা হয়েছে', 'info');
+      }
     } catch (err) {
       console.warn('Torch toggle failed:', err);
+      if (showToast) {
+        showToast(lang === 'bn' ? 'এই ক্যামেরায় টর্চ সাপোর্ট করেনি' : 'Flashlight not supported on this camera', 'warning');
+      }
     }
   };
 
@@ -1198,27 +1210,29 @@ export const BarcodeScannerModal = () => {
                       {z}x
                     </button>
                   ))}
-                  {hasTorch && (
-                    <button
-                      type="button"
-                      onClick={toggleTorch}
-                      style={{
-                        background: torchOn ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)',
-                        color: torchOn ? '#000' : '#fff',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '2px 8px',
-                        fontSize: '0.72rem',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      <Zap size={11} /> {torchOn ? 'ON' : 'টর্চ'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={toggleTorch}
+                    style={{
+                      background: torchOn ? '#f59e0b' : 'rgba(255, 255, 255, 0.15)',
+                      color: torchOn ? '#000000' : '#ffffff',
+                      border: torchOn ? '1px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.25)',
+                      borderRadius: '12px',
+                      padding: '3px 10px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: torchOn ? '0 0 12px rgba(245, 158, 11, 0.7)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title={lang === 'bn' ? 'ক্যামেরা ফ্ল্যাশলাইট / টর্চ অন/অফ করুন' : 'Toggle Camera Flashlight'}
+                  >
+                    <Flashlight size={13} style={{ color: torchOn ? '#000000' : '#f59e0b' }} />
+                    <span>{torchOn ? (lang === 'bn' ? 'টর্চ চালু' : 'Torch ON') : (lang === 'bn' ? 'টর্চ' : 'Torch')}</span>
+                  </button>
                 </div>
               )}
 

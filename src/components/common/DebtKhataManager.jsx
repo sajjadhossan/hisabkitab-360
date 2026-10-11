@@ -38,6 +38,7 @@ import { SmartVoiceFormBanner } from './SmartVoiceFormBanner';
 import { VoiceInputButton } from './VoiceInputButton';
 import { triggerSoundboxPayment } from '../../services/soundboxService';
 import { DueReminderModal } from './DueReminderModal';
+import { BulkDueSmsModal } from './BulkDueSmsModal';
 import { exportDebtKhataToCSV } from '../../services/exportService';
 import { hapticFeedback } from '../../services/nativeAppService';
 
@@ -74,6 +75,7 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
   const [activePersonForLedger, setActivePersonForLedger] = useState(null);
   const [editingTx, setEditingTx] = useState(null); // { personId, tx }
   const [reminderTarget, setReminderTarget] = useState(null);
+  const [showBulkSmsModal, setShowBulkSmsModal] = useState(false);
 
   const sendWhatsAppReminder = (person) => {
     const stats = getPersonStats(person);
@@ -669,6 +671,28 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
           >
             <Download size={16} style={{ color: '#10b981' }} />
             <span>{lang === 'bn' ? 'এক্সেল খতিয়ান' : 'Excel Export'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowBulkSmsModal(true)}
+            title={lang === 'bn' ? '১-ক্লিকে সব বাকিদারকে ফোনে তাগাদা বার্তা পাঠান' : '1-Click Bulk Due SMS Recovery'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(249, 115, 22, 0.12))',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              fontSize: '0.88rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)'
+            }}
+          >
+            <MessageSquare size={16} style={{ color: '#ef4444' }} />
+            <span>{lang === 'bn' ? '📢 বাল্ক এসএমএস তাগাদা' : 'Bulk SMS Due Alert'}</span>
           </button>
 
           <button
@@ -2791,6 +2815,18 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
         isOpen={Boolean(reminderTarget)}
         onClose={() => setReminderTarget(null)}
         customer={reminderTarget}
+        businessSettings={businessSettings}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* ======================================================== */}
+      {/* MODAL 7: 1-CLICK BULK SMS DUE RECOVERY MODAL              */}
+      {/* ======================================================== */}
+      <BulkDueSmsModal
+        isOpen={showBulkSmsModal}
+        onClose={() => setShowBulkSmsModal(false)}
+        debtList={debtList}
         businessSettings={businessSettings}
         lang={lang}
         showToast={showToast}
