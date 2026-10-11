@@ -39,6 +39,8 @@ import { FamilyBudgetAllocationModal } from './FamilyBudgetAllocationModal';
 import { RecurringBillsManagerModal } from './RecurringBillsManagerModal';
 import { SavingsGoalManagerModal } from './SavingsGoalManagerModal';
 import { ZakatCalculatorModal } from './ZakatCalculatorModal';
+import { MarketPriceTrackerModal } from '../common/MarketPriceTrackerModal';
+import { RoutineShoppingPresetsModal } from '../common/RoutineShoppingPresetsModal';
 
 const DEFAULT_CATEGORY_SUB_MAP = {
   transport: ['বাস ভাড়া', 'অটো / সিএনজি ভাড়া', 'রিকশা ভাড়া', 'উবার / পাঠাও রাইড', 'মেট্রোরেল ভাড়া', 'মোটরসাইকেল তেল', 'ট্রেন / লঞ্চ ভাড়া'],
@@ -82,6 +84,8 @@ export const DailyExpenses = () => {
   const [showRecurringBillsModal, setShowRecurringBillsModal] = useState(false);
   const [showSavingsGoalModal, setShowSavingsGoalModal] = useState(false);
   const [showZakatModal, setShowZakatModal] = useState(false);
+  const [showPriceTrackerModal, setShowPriceTrackerModal] = useState(false);
+  const [showRoutinePresetsModal, setShowRoutinePresetsModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
 
@@ -365,6 +369,54 @@ export const DailyExpenses = () => {
                 {pendingShoppingCount}
               </span>
             )}
+          </button>
+
+          {/* 1-Click Routine Shopping Presets Button */}
+          <button
+            onClick={() => setShowRoutinePresetsModal(true)}
+            title={lang === 'bn' ? '⚡ ১-ক্লিক নিয়মিত বাজার প্রি-সেট (এক ক্লিকে সকল নিত্য খরচ যোগ করুন)' : '1-Click Routine Shopping Presets'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(139, 92, 246, 0.12)',
+              color: '#8b5cf6',
+              border: '1px solid rgba(139, 92, 246, 0.35)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Zap size={16} />
+            <span>{lang === 'bn' ? '১-ক্লিক বাজার' : 'Routine Preset'}</span>
+          </button>
+
+          {/* Market Price Tracker & Wishlist Button */}
+          <button
+            onClick={() => setShowPriceTrackerModal(true)}
+            title={lang === 'bn' ? '🏷️ বাজার দর চেক ও কেনার ফর্দ' : 'Market Price Tracker & Wishlist'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(236, 72, 153, 0.12)',
+              color: '#ec4899',
+              border: '1px solid rgba(236, 72, 153, 0.35)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Tag size={16} />
+            <span>{lang === 'bn' ? 'দর ও ফর্দ' : 'Price Tracker'}</span>
           </button>
 
           {/* Voice Expense Button (Item 70) */}
@@ -1135,6 +1187,20 @@ export const DailyExpenses = () => {
       <ZakatCalculatorModal
         isOpen={showZakatModal}
         onClose={() => setShowZakatModal(false)}
+      />
+
+      {/* Market Price Tracker & Wishlist Modal */}
+      <MarketPriceTrackerModal
+        isOpen={showPriceTrackerModal}
+        onClose={() => setShowPriceTrackerModal(false)}
+        defaultProfile="personal"
+      />
+
+      {/* Routine Shopping 1-Click Presets Modal */}
+      <RoutineShoppingPresetsModal
+        isOpen={showRoutinePresetsModal}
+        onClose={() => setShowRoutinePresetsModal(false)}
+        defaultProfile="personal"
       />
     </div>
   );

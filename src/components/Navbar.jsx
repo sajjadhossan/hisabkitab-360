@@ -58,7 +58,8 @@ import {
   Truck,
   Wheat,
   GitBranch,
-  ExternalLink
+  ExternalLink,
+  Zap
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -67,6 +68,8 @@ import { MasterPinModal } from './admin/MasterPinModal';
 import { SystemDiagnosticsModal } from './common/SystemDiagnosticsModal';
 import { TemplateReviewModal } from './common/TemplateReviewModal';
 import { PermissionManagerModal } from './common/PermissionManagerModal';
+import { MarketPriceTrackerModal } from './common/MarketPriceTrackerModal';
+import { RoutineShoppingPresetsModal } from './common/RoutineShoppingPresetsModal';
 
 export const Navbar = () => {
   const {
@@ -125,6 +128,8 @@ export const Navbar = () => {
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showTemplateReviewModal, setShowTemplateReviewModal] = useState(false);
+  const [showPriceTrackerModal, setShowPriceTrackerModal] = useState(false);
+  const [showRoutinePresetsModal, setShowRoutinePresetsModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveSyncing, setIsDriveSyncing] = useState(false);
   const [soundMuted, setSoundMuted] = useState(isSoundMuted());
@@ -469,6 +474,8 @@ export const Navbar = () => {
         { id: 'settings', label: lang === 'bn' ? 'সফটওয়্যার সেটিংস' : 'Business Settings', desc: lang === 'bn' ? 'দোকানের নাম, ভ্যাট ও প্রিন্ট' : 'Store profile & print', icon: Settings, color: '#64748b' },
         { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 সিস্টেম ডায়াগনোসিস ও SOS' : 'System Diagnostics & SOS', desc: lang === 'bn' ? 'প্রিন্টার, মেমোরি ও SOS রিপোর্ট' : 'Hardware & repair hub', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); }, badge: 'SOS' },
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Manager', desc: lang === 'bn' ? 'সকল ক্যাটাগরি ম্যানেজ' : 'Manage all categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
+        { id: 'tool_price_tracker', label: lang === 'bn' ? '🏷️ মার্কেট প্রাইস ও উইশলিস্ট' : 'Market Price & Wishlist', desc: lang === 'bn' ? 'বাজার দর ট্র্যাকিং ও কেনার তালিকা' : 'Price log & buy wishlist', icon: Tag, color: '#ec4899', badge: 'NEW', isAction: () => { setShowMobileDrawer(false); setShowPriceTrackerModal(true); } },
+        { id: 'tool_routine_presets', label: lang === 'bn' ? '⚡ নিয়মিত কেনাকাটা ১-ক্লিক' : '1-Click Routine Presets', desc: lang === 'bn' ? '১-ক্লিকে নিয়মিত বাজার ও সাপ্লাই খরচ' : 'Batch recurring supplies', icon: Zap, color: '#8b5cf6', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowRoutinePresetsModal(true); } },
         { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowExportImportHub(true); } },
         { id: 'tool_drive', label: lang === 'bn' ? 'গুগল ড্রাইভ সিঙ্ক' : 'Google Drive Sync', desc: lang === 'bn' ? 'ক্লাউডে অটো ব্যাকআপ' : 'Direct cloud backup', icon: Cloud, color: '#3b82f6', isAction: handleQuickDriveSync },
         { id: 'tool_calc', label: lang === 'bn' ? 'ডিজিটাল ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত হিসাব ও যোগ-বিয়োগ' : 'Popup calculator', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
@@ -485,7 +492,9 @@ export const Navbar = () => {
       items: [
         { id: 'dashboard', label: lang === 'bn' ? 'পার্সোনাল ড্যাশবোর্ড' : 'Personal Dashboard', desc: lang === 'bn' ? 'মাসিক সামারি ও ব্যালেন্স' : 'Monthly overview', icon: LayoutDashboard, color: '#10b981' },
         { id: 'daily', label: lang === 'bn' ? 'দৈনিক বাজার ও খরচ' : 'Daily Market Expense', desc: lang === 'bn' ? 'প্রতিদিনের বাজার ও খরচ' : 'Groceries & items', icon: ShoppingCart, color: '#0ea5e9', badge: lang === 'bn' ? 'নিত্য' : 'Daily' },
-        { id: 'family', label: lang === 'bn' ? 'পারিবারিক ফোল্ডার' : 'Family Folders', desc: lang === 'bn' ? 'বাসা ভাড়া, ইউটিলিটি, চিকিৎসা' : 'Rent, utility & bills', icon: Home, color: '#f97316' }
+        { id: 'family', label: lang === 'bn' ? 'পারিবারিক ফোল্ডার' : 'Family Folders', desc: lang === 'bn' ? 'বাসা ভাড়া, ইউটিলিটি, চিকিৎসা' : 'Rent, utility & bills', icon: Home, color: '#f97316' },
+        { id: 'personal_routine_presets', label: lang === 'bn' ? '⚡ নিয়মিত কেনাকাটা ১-ক্লিক' : '1-Click Routine Groceries', desc: lang === 'bn' ? '১-ক্লিকে নিয়মিত বাজার ফর্দ থেকে খরচ যোগ' : '1-Click recurring groceries', icon: Zap, color: '#8b5cf6', badge: '1-CLICK', isAction: () => { setShowMobileDrawer(false); setShowRoutinePresetsModal(true); } },
+        { id: 'personal_price_tracker', label: lang === 'bn' ? '🏷️ বাজার দর ও উইশলিস্ট' : 'Market Price & Wishlist', desc: lang === 'bn' ? 'বাজার দর ট্র্যাকিং ও ভবিষ্যত ফর্দ' : 'Price log & buy wishlist', icon: Tag, color: '#ec4899', badge: 'NEW', isAction: () => { setShowMobileDrawer(false); setShowPriceTrackerModal(true); } }
       ]
     },
     {
@@ -502,6 +511,8 @@ export const Navbar = () => {
       items: [
         { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 ডায়াগনোসিস ও হেলথ' : 'Diagnostics & Health', desc: lang === 'bn' ? 'ডাটাবেজ ও মেমোরি টেস্ট' : 'Storage & health', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); } },
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Hub', desc: lang === 'bn' ? 'খরচের ক্যাটাগরি তৈরি ও এডিট' : 'Manage categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
+        { id: 'tool_price_tracker_util', label: lang === 'bn' ? '🏷️ বাজার দর ও উইশলিস্ট' : 'Market Price & Wishlist', desc: lang === 'bn' ? 'দর ট্র্যাকিং ও কেনার তালিকা' : 'Market price logs', icon: Tag, color: '#ec4899', badge: 'NEW', isAction: () => { setShowMobileDrawer(false); setShowPriceTrackerModal(true); } },
+        { id: 'tool_routine_presets_util', label: lang === 'bn' ? '⚡ নিয়মিত বাজার প্রি-সেট' : '1-Click Routine Presets', desc: lang === 'bn' ? '১-ক্লিকে নিয়মিত বাজার ফর্দ' : 'Batch groceries', icon: Zap, color: '#8b5cf6', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowRoutinePresetsModal(true); } },
         { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowExportImportHub(true); } },
         { id: 'tool_calc', label: lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত যোগ-বিয়োগ' : 'Fast digital math', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটপ্যাড' : 'Sticky Notes', desc: lang === 'bn' ? 'বাজারের ফর্দ ও জরুরি নোট' : 'Quick autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
@@ -1015,6 +1026,42 @@ export const Navbar = () => {
               <Database size={16} />
             </button>
 
+            {/* Quick Market Price Tracker & Wishlist Button */}
+            <button
+              className="btn-icon press-scale"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowPriceTrackerModal(true);
+              }}
+              title={lang === 'bn' ? '🏷️ মার্কেট প্রাইস ও উইশলিস্ট (বাজার দর চেক ও ভবিষ্যত ফর্দ)' : 'Market Price Tracker & Wishlist'}
+              style={{
+                color: '#ec4899',
+                background: 'rgba(236, 72, 153, 0.12)',
+                border: '1px solid rgba(236, 72, 153, 0.35)',
+                transition: 'transform 0.1s ease'
+              }}
+            >
+              <Tag size={16} />
+            </button>
+
+            {/* Quick 1-Click Routine Presets Button */}
+            <button
+              className="btn-icon press-scale"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowRoutinePresetsModal(true);
+              }}
+              title={lang === 'bn' ? '⚡ নিয়মিত কেনাকাটা ১-ক্লিক প্রি-সেট (এক ক্লিকে সকল নিত্য খরচ এন্ট্রি)' : '1-Click Routine Shopping Presets'}
+              style={{
+                color: '#8b5cf6',
+                background: 'rgba(139, 92, 246, 0.12)',
+                border: '1px solid rgba(139, 92, 246, 0.35)',
+                transition: 'transform 0.1s ease'
+              }}
+            >
+              <Zap size={16} />
+            </button>
+
             {/* Quick POS Counter Screen Lock */}
             <button
               className="btn-icon press-scale"
@@ -1375,6 +1422,20 @@ export const Navbar = () => {
         isOpen={showPermissionModal}
         onClose={() => setShowPermissionModal(false)}
         lang={lang}
+      />
+
+      {/* MARKET PRICE TRACKER & WISHLIST MODAL */}
+      <MarketPriceTrackerModal
+        isOpen={showPriceTrackerModal}
+        onClose={() => setShowPriceTrackerModal(false)}
+        defaultProfile={profile}
+      />
+
+      {/* ROUTINE SHOPPING 1-CLICK PRESETS MODAL */}
+      <RoutineShoppingPresetsModal
+        isOpen={showRoutinePresetsModal}
+        onClose={() => setShowRoutinePresetsModal(false)}
+        defaultProfile={profile}
       />
 
       {/* ========================================================
