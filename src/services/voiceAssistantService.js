@@ -563,14 +563,51 @@ export const parseBengaliShoppingListVoice = (transcript) => {
 };
 
 /**
- * Initializes and starts Web Speech Recognition with callbacks
+ * Initializes and starts Speech Recognition with native Android bridge or Web Speech API fallback
  */
 export const startUniversalSpeechListener = ({ onResult, onInterim, onError, onEnd, lang = 'bn-BD', continuous = false }) => {
   if (typeof window === 'undefined') return null;
 
+  // 1. Android APK Native Hardware Speech Recognizer (100% Reliable in APK)
+  if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.startListening === 'function') {
+    try {
+      window.__onNativeSpeechResult = (text) => {
+        if (text && onResult) onResult(text);
+        if (onEnd) onEnd();
+      };
+      window.__onNativeSpeechPartial = (text) => {
+        if (text && onInterim) onInterim(text);
+      };
+      window.__onNativeSpeechError = (errMsg) => {
+        if (onError) onError(errMsg);
+        if (onEnd) onEnd();
+      };
+      window.__onNativeSpeechStatus = (_status) => {};
+
+      window.AndroidSpeechBridge.startListening(lang || 'bn-BD');
+      return {
+        stop: () => {
+          try {
+            window.AndroidSpeechBridge.stopListening();
+          } catch {}
+          if (onEnd) onEnd();
+        },
+        abort: () => {
+          try {
+            window.AndroidSpeechBridge.stopListening();
+          } catch {}
+          if (onEnd) onEnd();
+        }
+      };
+    } catch (bridgeErr) {
+      console.warn('[VoiceService] AndroidSpeechBridge error, falling back to WebSpeech:', bridgeErr);
+    }
+  }
+
+  // 2. Standard Web Browser SpeechRecognition Fallback
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    if (onError) onError('SpeechRecognition not supported in this browser');
+    if (onError) onError('ডিভাইসে ভয়েস স্পিচ রিকগনিশন সমর্থন করে না। অনুগ্রহ করে কিবোর্ডে টাইপ করুন।');
     return null;
   }
 

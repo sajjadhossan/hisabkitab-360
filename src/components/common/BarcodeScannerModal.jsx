@@ -183,19 +183,7 @@ export const BarcodeScannerModal = () => {
     }
 
     try {
-      // 1. Preflight permission check to prompt mobile Android WebView permission if needed
-      if (typeof navigator !== 'undefined' && navigator?.mediaDevices?.getUserMedia) {
-        try {
-          const preStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: mode === 'environment' ? { ideal: 'environment' } : 'user' }
-          });
-          preStream.getTracks().forEach((track) => track.stop());
-        } catch (permErr) {
-          console.warn('Preflight media permission notice:', permErr);
-        }
-      }
-
-      // 2. Discover available camera hardware
+      // 1. Discover available camera hardware safely
       let cameraConfig = { facingMode: mode };
       try {
         const devices = await Html5Qrcode.getCameras();
@@ -217,7 +205,7 @@ export const BarcodeScannerModal = () => {
           }
         }
       } catch (deviceQueryErr) {
-        console.warn('Could not query camera device list:', deviceQueryErr);
+        console.debug('[BarcodeScanner] Camera enumeration fallback to facingMode:', deviceQueryErr);
       }
 
       // 3. Initialize Html5Qrcode instance
@@ -686,7 +674,7 @@ export const BarcodeScannerModal = () => {
   if (!isScannerOpen) return null;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1050, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+    <div className="modal-overlay" style={{ zIndex: 99999, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
       <div
         className="modal-content animate-fade-in android-scroll-view"
         style={{

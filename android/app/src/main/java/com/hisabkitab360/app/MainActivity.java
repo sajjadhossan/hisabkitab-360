@@ -117,7 +117,24 @@ public class MainActivity extends BridgeActivity {
                 // 2. Android Native File Bridge for Downloads, Excel & Backups
                 webView.addJavascriptInterface(new AndroidNativeFileBridge(), "AndroidFileBridge");
 
-                // 3. Android WebView Download Listener Fallback
+                // 3. Android Native High-Accuracy Speech Recognition Bridge
+                webView.addJavascriptInterface(new AndroidNativeSpeechBridge(), "AndroidSpeechBridge");
+
+                // 4. Explicit Camera & Microphone WebRTC Permission Grant
+                webView.setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(getBridge()) {
+                    @Override
+                    public void onPermissionRequest(final PermissionRequest request) {
+                        runOnUiThread(() -> {
+                            try {
+                                request.grant(request.getResources());
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        });
+                    }
+                });
+
+                // 5. Android WebView Download Listener Fallback
                 webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
                     try {
                         android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW);
@@ -218,6 +235,137 @@ public class MainActivity extends BridgeActivity {
                     android.widget.Toast.makeText(MainActivity.this, "ডাউনলোড ত্রুটি: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
                 }
             });
+        }
+    }
+
+    // =========================================================================
+    // 3. NATIVE ANDROID HIGH-ACCURACY SPEECH RECOGNITION (Bangla/English Voice)
+    // =========================================================================
+    public class AndroidNativeSpeechBridge {
+        private android.speech.SpeechRecognizer speechRecognizer;
+
+        @android.webkit.JavascriptInterface
+        public void startListening(String lang) {
+            runOnUiThread(() -> {
+                try {
+                    if (!android.speech.SpeechRecognizer.isRecognitionAvailable(MainActivity.this)) {
+                        notifySpeechError("ডিভাইসে ভয়েস রিকগনিশন উপলব্ধ নেই");
+                        return;
+                    }
+                    if (speechRecognizer != null) {
+                        try {
+                            speechRecognizer.destroy();
+                        } catch (Exception ignored) {}
+                    }
+                    speechRecognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(MainActivity.this);
+                    speechRecognizer.setRecognitionListener(new android.speech.RecognitionListener() {
+                        @Override
+                        public void onReadyForSpeech(android.os.Bundle params) {
+                            notifySpeechStatus("ready");
+                        }
+                        @Override
+                        public void onBeginningOfSpeech() {
+                            notifySpeechStatus("listening");
+                        }
+                        @Override public void onRmsChanged(float rmsdB) {}
+                        @Override public void onBufferReceived(byte[] buffer) {}
+                        @Override
+                        public void onEndOfSpeech() {
+                            notifySpeechStatus("processing");
+                        }
+                        @Override
+                        public void onError(int error) {
+                            String errDesc = "ভয়েস শনাক্তকরণে সমস্যা (" + error + ")";
+                            if (error == android.speech.SpeechRecognizer.ERROR_NO_MATCH) {
+                                errDesc = "কোনো কথা শনাক্ত করা যায়নি";
+                            } else if (error == android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                                errDesc = "মাইক্রোফোন অনুমতি দিন";
+                            } else if (error == android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                                errDesc = "কথা বলার সময় শেষ হয়েছে";
+                            }
+                            notifySpeechError(errDesc);
+                        }
+                        @Override
+                        public void onResults(android.os.Bundle results) {
+                            java.util.ArrayList<String> matches = results.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (matches != null && !matches.isEmpty()) {
+                                notifySpeechResult(matches.get(0));
+                            } else {
+                                notifySpeechError("কোনো কথা শনাক্ত করা যায়নি");
+                            }
+                        }
+                        @Override
+                        public void onPartialResults(android.os.Bundle partialResults) {
+                            java.util.ArrayList<String> matches = partialResults.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (matches != null && !matches.isEmpty()) {
+                                notifySpeechPartial(matches.get(0));
+                            }
+                        }
+                        @Override public void onEvent(int eventType, android.os.Bundle params) {}
+                    });
+
+                    android.content.Intent intent = new android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                    intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                    String targetLang = (lang != null && !lang.isEmpty()) ? lang : "bn-BD";
+                    intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, targetLang);
+                    intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLang);
+                    intent.putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                    intent.putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+                    speechRecognizer.startListening(intent);
+                } catch (Exception e) {
+                    notifySpeechError(e.getMessage());
+                }
+            });
+        }
+
+        @android.webkit.JavascriptInterface
+        public void stopListening() {
+            runOnUiThread(() -> {
+                try {
+                    if (speechRecognizer != null) {
+                        speechRecognizer.stopListening();
+                    }
+                } catch (Exception ignored) {}
+            });
+        }
+
+        private void notifySpeechResult(String text) {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                String escaped = text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ");
+                getBridge().getWebView().evaluateJavascript(
+                    "if (typeof window.__onNativeSpeechResult === 'function') window.__onNativeSpeechResult('" + escaped + "');",
+                    null
+                );
+            }
+        }
+
+        private void notifySpeechPartial(String text) {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                String escaped = text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ");
+                getBridge().getWebView().evaluateJavascript(
+                    "if (typeof window.__onNativeSpeechPartial === 'function') window.__onNativeSpeechPartial('" + escaped + "');",
+                    null
+                );
+            }
+        }
+
+        private void notifySpeechError(String error) {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                String escaped = (error != null ? error : "Unknown error").replace("'", "\\'");
+                getBridge().getWebView().evaluateJavascript(
+                    "if (typeof window.__onNativeSpeechError === 'function') window.__onNativeSpeechError('" + escaped + "');",
+                    null
+                );
+            }
+        }
+
+        private void notifySpeechStatus(String status) {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().evaluateJavascript(
+                    "if (typeof window.__onNativeSpeechStatus === 'function') window.__onNativeSpeechStatus('" + status + "');",
+                    null
+                );
+            }
         }
     }
 }

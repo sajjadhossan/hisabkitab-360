@@ -2352,6 +2352,67 @@ export const InventoryManager = () => {
             </div>
 
             <form onSubmit={handleStockInSubmit}>
+              {/* Product Selector with Camera Scan Button */}
+              <div style={{ marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="field-label" style={{ margin: 0, fontWeight: '700' }}>
+                    {lang === 'bn' ? 'পণ্য নির্বাচন বা বারকোড স্ক্যান:' : 'Select Product or Scan:'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticFeedback.light();
+                      if (!openScanner) return;
+                      openScanner((scannedCode, matchedProduct) => {
+                        if (matchedProduct) {
+                          setSelectedProduct(matchedProduct);
+                          showToast(lang === 'bn' ? `✓ নির্বাচিত পণ্য: ${matchedProduct.name}` : `Selected: ${matchedProduct.name}`, 'success');
+                        } else if (scannedCode) {
+                          const found = products.find(p => p.barcode === scannedCode || (p.sku && p.sku.toLowerCase() === scannedCode.toLowerCase()));
+                          if (found) {
+                            setSelectedProduct(found);
+                            showToast(lang === 'bn' ? `✓ নির্বাচিত পণ্য: ${found.name}` : `Selected: ${found.name}`, 'success');
+                          } else {
+                            showToast(lang === 'bn' ? `এই বারকোডের (${scannedCode}) কোনো পণ্য তালিকায় পাওয়া যায়নি` : `No product found for barcode ${scannedCode}`, 'warning');
+                          }
+                        }
+                      }, 'inventory', 'barcode');
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid rgba(16, 185, 129, 0.45)',
+                      color: '#10b981',
+                      borderRadius: '6px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      padding: '2px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={lang === 'bn' ? 'ক্যামেরা দিয়ে প্যাকেটের বারকোড স্ক্যান করে পণ্য সিলেক্ট করুন' : 'Scan product barcode via camera'}
+                  >
+                    <Camera size={13} />
+                    <span>{lang === 'bn' ? '📷 বারকোড স্ক্যান' : '📷 Scan'}</span>
+                  </button>
+                </div>
+                <select
+                  className="input-field"
+                  value={selectedProduct.id}
+                  onChange={(e) => {
+                    const prod = products.find(p => p.id === e.target.value);
+                    if (prod) setSelectedProduct(prod);
+                  }}
+                >
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} (মজুদ: {p.stock}) {p.barcode ? `[${p.barcode}]` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div style={{ marginBottom: '1rem' }}>
                 <label className="field-label">{lang === 'bn' ? 'বর্তমান মজুদ স্টক:' : 'Current Stock:'} <strong>{selectedProduct.stock}</strong></label>
                 <input
