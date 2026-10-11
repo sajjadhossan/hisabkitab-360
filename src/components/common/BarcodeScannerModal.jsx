@@ -116,16 +116,19 @@ export const BarcodeScannerModal = () => {
 
   // Android Hardware Back Button: Guaranteed top-priority scanner dismissal
   useEffect(() => {
-    window.__closeScannerModal = handleSafeClose;
     if (isScannerOpen) {
-      return registerBackAction(() => {
+      window.__closeScannerModal = handleSafeClose;
+      const unregister = registerBackAction(() => {
         handleSafeClose();
         return true;
       });
-    }
-    return () => {
+      return () => {
+        delete window.__closeScannerModal;
+        unregister();
+      };
+    } else {
       delete window.__closeScannerModal;
-    };
+    }
   }, [isScannerOpen]);
 
   // Sync mode when opened

@@ -1214,6 +1214,8 @@ export const POSTerminal = () => {
           selectedWaiter={selectedWaiter}
           setSelectedWaiter={setSelectedWaiter}
           onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
+          onClose={() => setActiveTab('dashboard')}
+          onNavigate={(targetTab) => setActiveTab(targetTab)}
         />
 
         {/* Counter Shift Closing Modal */}
@@ -1602,7 +1604,55 @@ export const POSTerminal = () => {
             title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
           >
             <ArrowLeft size={16} />
-            <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard'}</span>
+            <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
+          </button>
+
+          {/* Quick Jump to Inventory Button */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('inventory')}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              borderRadius: '8px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+              color: '#10b981',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'ইনভেন্টরি স্টকে যান' : 'Go to Inventory'}
+          >
+            <Package size={16} />
+            <span>{lang === 'bn' ? '📦 ইনভেন্টরি' : '📦 Inventory'}</span>
+          </button>
+
+          {/* Quick Jump to Debts Button */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('debts')}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              borderRadius: '8px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1.5px solid rgba(245, 158, 11, 0.4)',
+              color: '#f59e0b',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'দেনা-পাওনা খতিয়ানে যান' : 'Go to Debt Ledger'}
+          >
+            <Coins size={16} />
+            <span>{lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debts'}</span>
           </button>
 
           {/* Branch Selector or Badge */}
@@ -2014,6 +2064,29 @@ export const POSTerminal = () => {
               <ZoomIn size={14} />
             </button>
           </div>
+
+          {/* Prominent Red Exit Cross Button for Desktop POS */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1.5px solid rgba(239, 68, 68, 0.5)',
+              color: '#ef4444',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease',
+              flexShrink: 0
+            }}
+            title={lang === 'bn' ? 'পজ বন্ধ করে ড্যাশবোর্ডে ফিরে যান' : 'Exit POS Terminal to Dashboard'}
+          >
+            <X size={18} />
+          </button>
         </div>
       </div>
 

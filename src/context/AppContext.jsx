@@ -479,11 +479,9 @@ export const AppProvider = ({ children }) => {
     });
   }, []);
 
-  // React 19 Non-blocking transition-wrapped tab switching
+  // Instant zero-lag tab switching
   const handleSetActiveTab = useCallback((nextTab) => {
-    startTransition(() => {
-      setActiveTabState(nextTab);
-    });
+    setActiveTabState(nextTab);
   }, []);
 
   // Quick POS Counter Screen Lock

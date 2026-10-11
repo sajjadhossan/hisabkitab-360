@@ -21,6 +21,9 @@ import {
   Volume2,
   VolumeX,
   X,
+  Boxes,
+  HandCoins,
+  LayoutDashboard,
   Sparkles,
   ArrowLeft,
   Sun,
@@ -77,11 +80,33 @@ export const MobilePOSView = ({
   setSelectedTable,
   selectedWaiter = 'করিম',
   setSelectedWaiter,
-  onOpenTemplateManager
+  onOpenTemplateManager,
+  onClose,
+  onNavigate
 }) => {
   const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {}, setActiveTab: setGlobalTab } = useApp();
   const { user } = useAuth();
   const posPerms = businessSettings?.posPermissions || {};
+
+  const handleExit = () => {
+    hapticFeedback.light();
+    playButtonClick();
+    if (onClose) {
+      onClose();
+    } else if (setGlobalTab) {
+      setGlobalTab('dashboard');
+    }
+  };
+
+  const handleNavigate = (tabId) => {
+    hapticFeedback.light();
+    playButtonClick();
+    if (onNavigate) {
+      onNavigate(tabId);
+    } else if (setGlobalTab) {
+      setGlobalTab(tabId);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'cart'
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,6 +152,10 @@ export const MobilePOSView = ({
         setSearchTerm('');
         return true;
       }
+      if (onClose) {
+        onClose();
+        return true;
+      }
       if (setGlobalTab) {
         setGlobalTab('dashboard');
         return true;
@@ -134,7 +163,7 @@ export const MobilePOSView = ({
       return false;
     });
     return () => unregister();
-  }, [showRecallModal, showDrawerFloatModal, showDigitalMemoModal, activeTab, searchTerm, setGlobalTab]);
+  }, [showRecallModal, showDrawerFloatModal, showDigitalMemoModal, activeTab, searchTerm, onClose, setGlobalTab]);
 
   const saveHeldCarts = (list) => {
     setHeldCarts(list);
@@ -451,11 +480,7 @@ export const MobilePOSView = ({
           {/* 1-Tap Quick Exit Cross Button */}
           <button
             type="button"
-            onClick={() => {
-              hapticFeedback.light();
-              playButtonClick();
-              if (setGlobalTab) setGlobalTab('dashboard');
-            }}
+            onClick={handleExit}
             style={{
               width: '32px',
               height: '32px',
@@ -488,6 +513,80 @@ export const MobilePOSView = ({
             msOverflowStyle: 'none'
           }}
         >
+          {/* Direct Quick Jump to Central Dashboard */}
+          <button
+            type="button"
+            onClick={() => handleNavigate('dashboard')}
+            className="btn btn-secondary"
+            style={{
+              padding: '5px 9px',
+              fontSize: '0.72rem',
+              fontWeight: '800',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'rgba(99, 102, 241, 0.15)',
+              color: 'var(--business-primary)',
+              border: '1px solid rgba(99, 102, 241, 0.35)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            title={lang === 'bn' ? 'ড্যাশবোর্ডে যান' : 'Go to Dashboard'}
+          >
+            <LayoutDashboard size={13} />
+            <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : 'Dashboard'}</span>
+          </button>
+
+          {/* Direct Quick Jump to Inventory */}
+          <button
+            type="button"
+            onClick={() => handleNavigate('inventory')}
+            className="btn btn-secondary"
+            style={{
+              padding: '5px 9px',
+              fontSize: '0.72rem',
+              fontWeight: '800',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            title={lang === 'bn' ? 'ইনভেন্টরি স্টক মডিউলে যান' : 'Go to Inventory'}
+          >
+            <Boxes size={13} />
+            <span>{lang === 'bn' ? '📦 ইনভেন্টরি' : 'Inventory'}</span>
+          </button>
+
+          {/* Direct Quick Jump to Debts */}
+          <button
+            type="button"
+            onClick={() => handleNavigate('debts')}
+            className="btn btn-secondary"
+            style={{
+              padding: '5px 9px',
+              fontSize: '0.72rem',
+              fontWeight: '800',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'rgba(245, 158, 11, 0.15)',
+              color: '#f59e0b',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            title={lang === 'bn' ? 'দেনা-পাওনা খতিয়ানে যান' : 'Go to Debt Ledger'}
+          >
+            <HandCoins size={13} />
+            <span>{lang === 'bn' ? '📒 দেনা-পাওনা' : 'Debts'}</span>
+          </button>
           {/* Desktop view switch (PC Mode) */}
           {onSwitchToDesktop && (
             <button

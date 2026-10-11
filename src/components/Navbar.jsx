@@ -364,6 +364,27 @@ export const Navbar = () => {
     return profile === 'personal' ? personalNavItems : filteredBusinessNavItems;
   }, [profile, personalNavItems, filteredBusinessNavItems]);
 
+  const primaryQuickTabs = useMemo(() => {
+    if (profile === 'business') {
+      const candidates = [
+        { id: 'dashboard', label: t.businessNav?.dashboard || (lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'), icon: LayoutDashboard },
+        { id: 'pos', label: t.businessNav?.pos || (lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'), icon: ScanLine },
+        { id: 'inventory', label: t.businessNav?.inventory || (lang === 'bn' ? '📦 ইনভেন্টরি স্টক' : '📦 Inventory'), icon: Boxes },
+        { id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger'), icon: HandCoins },
+        { id: 'invoices', label: t.businessNav?.invoices || (lang === 'bn' ? '🧾 বিক্রয় মেমো' : '🧾 Invoices'), icon: FileText }
+      ];
+      return candidates.filter(c => isModEnabled(c.id));
+    } else {
+      return [
+        { id: 'dashboard', label: lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard', icon: LayoutDashboard },
+        { id: 'daily', label: lang === 'bn' ? '🛒 দৈনিক খরচ' : '🛒 Daily Expenses', icon: ShoppingCart },
+        { id: 'family', label: lang === 'bn' ? '🏠 পারিবারিক খরচ' : '🏠 Family', icon: Home },
+        { id: 'debts', label: lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger', icon: HandCoins },
+        { id: 'income', label: lang === 'bn' ? '💵 ব্যক্তিগত আয়' : '💵 Income', icon: Wallet }
+      ];
+    }
+  }, [profile, isModEnabled, t.businessNav, lang]);
+
   // Mobile Categorized Drawer Groups
   const businessDrawerGroups = [
     {
@@ -491,14 +512,13 @@ export const Navbar = () => {
   ];
 
   const handleDrawerItemClick = (item) => {
+    hapticFeedback.light();
     if (item.isAction) {
       item.isAction();
     } else if (item.isTool) {
       setActiveTool(item.isTool);
     } else {
-      React.startTransition(() => {
-        setActiveTab(item.id);
-      });
+      setActiveTab(item.id);
     }
     setShowMobileDrawer(false);
   };
@@ -509,9 +529,7 @@ export const Navbar = () => {
     } else {
       hapticFeedback.light();
     }
-    React.startTransition(() => {
-      setActiveTab(tabId);
-    });
+    setActiveTab(tabId);
     setShowMobileDrawer(false);
   };
 
@@ -1190,37 +1208,42 @@ export const Navbar = () => {
           >
             {/* Primary Action Tabs (Only Dashboard) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {/* Dashboard Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  React.startTransition(() => {
-                    setActiveTab('dashboard');
-                  });
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 18px',
-                  borderRadius: '11px',
-                  background: activeTab === 'dashboard' ? 'var(--mode-color)' : 'rgba(255, 255, 255, 0.05)',
-                  border: activeTab === 'dashboard' ? '1.5px solid var(--mode-color)' : '1px solid var(--border-color)',
-                  color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-main)',
-                  fontWeight: activeTab === 'dashboard' ? '800' : '600',
-                  fontSize: '0.88rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: activeTab === 'dashboard' ? '0 3px 12px var(--mode-glow)' : 'none'
-                }}
-                title={lang === 'bn' ? 'সেন্ট্রাল ড্যাশবোর্ড ও ওভারভিউ (F2)' : 'Main Dashboard (F2)'}
-              >
-                <LayoutDashboard size={17} style={{ color: activeTab === 'dashboard' ? '#ffffff' : 'var(--mode-color)' }} />
-                <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
-              </button>
+              {/* Primary Action Tabs (Dashboard, POS, Inventory, Debts, Invoices) */}
+              {primaryQuickTabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      borderRadius: '11px',
+                      background: isActive ? 'var(--mode-color)' : 'rgba(255, 255, 255, 0.05)',
+                      border: isActive ? '1.5px solid var(--mode-color)' : '1px solid var(--border-color)',
+                      color: isActive ? '#ffffff' : 'var(--text-main)',
+                      fontWeight: isActive ? '800' : '600',
+                      fontSize: '0.88rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isActive ? '0 3px 12px var(--mode-glow)' : 'none'
+                    }}
+                    title={tab.label}
+                  >
+                    <IconComponent size={17} style={{ color: isActive ? '#ffffff' : 'var(--mode-color)' }} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
 
-              {/* Current Active Module Pill if outside Dashboard */}
-              {activeTab !== 'dashboard' && (() => {
+              {/* Current Active Module Pill if outside primaryQuickTabs */}
+              {!primaryQuickTabs.some(t => t.id === activeTab) && (() => {
                 const currentActiveItem = (profile === 'business' ? businessNavItems : personalNavItems).find(i => i.id === activeTab);
                 if (!currentActiveItem) return null;
                 const CurrIcon = currentActiveItem.icon;
