@@ -18,7 +18,11 @@ import {
 import { useApp } from '../../context/AppContext';
 import { startUniversalSpeechListener } from '../../services/voiceAssistantService';
 import { parseVoiceBusinessInquiry, speakVoiceAnswer } from '../../services/voiceAnalyticsService';
-import { speakVoiceConfirmation } from '../../services/voiceBillingService';
+import {
+  speakVoiceConfirmation,
+  convertBengaliDigitsToNumber,
+  BENGALI_WORD_NUMBERS
+} from '../../services/voiceBillingService';
 import { useDraggableWidget } from '../../utils/useDraggableWidget';
 
 export const GlobalVoiceWidget = () => {
@@ -31,6 +35,10 @@ export const GlobalVoiceWidget = () => {
     products = [],
     customers = [],
     businessDebts = [],
+    collectDue,
+    adjustStock,
+    addBusinessExpense,
+    addExpense,
     lang = 'bn',
     showToast
   } = useApp();
@@ -213,7 +221,133 @@ export const GlobalVoiceWidget = () => {
     }
 
     // ========================================================
-    // 2. Business Q&A and Analytics Inquiry
+    // 2. Direct Smart Voice Actions (Debt Collect, Stock In, Expense)
+    // ========================================================
+    const extractAmountVal = (text) => {
+      const digitMatch = text.match(/([০-৯0-9]+)/);
+      if (digitMatch) {
+        return convertBengaliDigitsToNumber(digitMatch[1]);
+      }
+      for (const [w, val] of Object.entries(BENGALI_WORD_NUMBERS)) {
+        if (text.includes(w)) return val;
+      }
+      return null;
+    };
+
+    // A. Debt Collection Action (বাকি আদায় / দেনা জমা)
+    const isDebt = lower.includes('বাকি') || lower.includes('বকেয়া') || lower.includes('বকেয়া') || lower.includes('দেনা');
+    const isCollect = lower.includes('আদায়') || lower.includes('জমা') || lower.includes('পরিশোধ') || lower.includes('দিল');
+    if (isDebt && isCollect) {
+      const amt = extractAmountVal(lower);
+      let matchedCust = null;
+      for (const c of customers) {
+        const cName = (c.name || '').toLowerCase();
+        const parts = cName.split(' ').filter(p => p.length > 2);
+        if (lower.includes(cName) || parts.some(p => lower.includes(p))) {
+          matchedCust = c;
+          break;
+        }
+      }
+
+      if (matchedCust && amt && amt > 0 && typeof collectDue === 'function') {
+        collectDue(matchedCust.id, amt, 'cash', 'ভয়েস কমান্ডে আদায়');
+        const spoken = `${matchedCust.name} এর ৳${amt.toLocaleString()} টাকা বকেয়া আদায় সফলভাবে সম্পন্ন হয়েছে।`;
+        if (voiceSpeechEnabled) speakVoiceAnswer(spoken, lang);
+        showToast(spoken, 'success');
+        setCurrentAnswer({
+          type: 'action',
+          title: 'বকেয়া আদায় সম্পন্ন ✅',
+          value: `৳${amt.toLocaleString()}`,
+          subtitle: `${matchedCust.name} এর খাতা আপডেট হয়েছে`
+        });
+        setActiveTab('debts');
+        return;
+      } else if (amt && amt > 0) {
+        const spoken = `৳${amt.toLocaleString()} টাকা বকেয়া আদায়ের জন্য কাস্টমার পেজ ওপেন করা হয়েছে।`;
+        if (voiceSpeechEnabled) speakVoiceAnswer(spoken, lang);
+        showToast(spoken, 'info');
+        setActiveTab('debts');
+        setCurrentAnswer({
+          type: 'action',
+          title: 'বকেয়া আদায়ের খাতা',
+          value: `৳${amt.toLocaleString()}`,
+          subtitle: 'তালিকা থেকে নির্দিষ্ট কাস্টমারে ক্লিক করুন'
+        });
+        return;
+      }
+    }
+
+    // B. Stock In Action (স্টক বৃদ্ধি / যোগ)
+    const isStock = lower.includes('স্টক') || lower.includes('মাল');
+    const isAdd = lower.includes('বাড়াও') || lower.includes('বাড়া') || lower.includes('ইন') || lower.includes('যোগ') || lower.includes('ঢুক');
+    if (isStock && isAdd) {
+      const qty = extractAmountVal(lower) || 1;
+      let matchedProd = null;
+      for (const p of products) {
+        const pName = (p.name || '').toLowerCase();
+        const parts = pName.split(' ').filter(x => x.length > 2);
+        if (lower.includes(pName) || parts.some(x => lower.includes(x))) {
+          matchedProd = p;
+          break;
+        }
+      }
+
+      if (matchedProd && typeof adjustStock === 'function') {
+        adjustStock(matchedProd.id, qty);
+        const spoken = `${matchedProd.name} এর স্টক ${qty} টি বৃদ্ধি করা হয়েছে।`;
+        if (voiceSpeechEnabled) speakVoiceAnswer(spoken, lang);
+        showToast(spoken, 'success');
+        setCurrentAnswer({
+          type: 'action',
+          title: 'স্টক ইন সম্পন্ন ✅',
+          value: `+${qty} টি`,
+          subtitle: `${matchedProd.name} (বর্তমান মোট স্টক: ${(Number(matchedProd.stock) || 0) + qty})`
+        });
+        setActiveTab('inventory');
+        return;
+      } else {
+        const spoken = `${qty} টি পণ্য স্টকে যোগ করার জন্য ইনভেন্টরি ওপেন করা হয়েছে।`;
+        if (voiceSpeechEnabled) speakVoiceAnswer(spoken, lang);
+        showToast(spoken, 'info');
+        setActiveTab('inventory');
+        setCurrentAnswer({
+          type: 'action',
+          title: 'স্টক ইন পেজ',
+          value: `+${qty} টি`,
+          subtitle: 'তালিকা থেকে নির্দিষ্ট পণ্য নির্বাচন করুন'
+        });
+        return;
+      }
+    }
+
+    // C. Record Expense Action (খরচ ভাউচার)
+    const isExp = lower.includes('খরচ') || lower.includes('ব্যয়') || lower.includes('ভাড়া') || lower.includes('বিল');
+    const expAmt = extractAmountVal(lower);
+    if (isExp && expAmt && expAmt > 0) {
+      const expHandler = addBusinessExpense || addExpense;
+      if (typeof expHandler === 'function') {
+        expHandler({
+          title: sentence,
+          amount: expAmt,
+          category: 'সাধারণ খরচ',
+          paymentMethod: 'cash'
+        });
+        const spoken = `৳${expAmt.toLocaleString()} টাকা খরচের ভাউচার সফলভাবে সেভ হয়েছে।`;
+        if (voiceSpeechEnabled) speakVoiceAnswer(spoken, lang);
+        showToast(spoken, 'success');
+        setCurrentAnswer({
+          type: 'action',
+          title: 'খরচ রেকর্ড সম্পন্ন ✅',
+          value: `৳${expAmt.toLocaleString()}`,
+          subtitle: `ভাউচার: ${sentence}`
+        });
+        setActiveTab(profile === 'personal' ? 'daily' : 'erp');
+        return;
+      }
+    }
+
+    // ========================================================
+    // 3. Business Q&A and Analytics Inquiry
     // ========================================================
     const answer = parseVoiceBusinessInquiry(sentence, {
       salesHistory,
@@ -231,11 +365,13 @@ export const GlobalVoiceWidget = () => {
   };
 
   const samplePrompts = [
+    'রহিম সাহেবের বাকি ৫০০ টাকা জমা করো',
+    '১০ কেজি চিনি স্টক বাড়াও',
+    'চা নাস্তা খরচ ৫০ টাকা',
+    'কোন মালের স্টক কম?',
     'আজকের বিক্রি কত?',
     'ক্যাশ ড্রয়ারে কত আছে?',
-    'কোন মালের স্টক কম?',
     'সবচেয়ে বেশি বাকি কার কাছে?',
-    'আজকের লাভ কত?',
     'দোকান বন্ধ করো (ডে-এন্ড)',
     'সারাদিনের হিসাব কি?',
     'বাকি খাতা খোলো',

@@ -38,6 +38,8 @@ import {
 import { exportUniversalBackupAsync, validateUniversalBackup } from '../services/fastExportService';
 import { auditService, AUDIT_ACTIONS } from '../services/auditService';
 import { hapticFeedback } from '../services/nativeAppService';
+import { enqueueOfflineAction } from '../utils/syncQueue';
+import { notifyLowStockAlert, notifySaleCompleted } from '../services/localNotificationService';
 
 const AppContext = createContext();
 
@@ -1708,12 +1710,17 @@ export const AppProvider = ({ children }) => {
       status: saleStatus
     };
 
-    // Deduct stock
+    // Deduct stock & trigger Low-Stock alerts
     setProducts(prevProducts => {
       const updated = prevProducts.map(p => {
         const cartItem = cart.find(ci => ci.id === p.id);
         if (cartItem) {
-          return { ...p, stock: Math.max(0, p.stock - cartItem.qty) };
+          const nextStock = Math.max(0, p.stock - cartItem.qty);
+          const minStockThreshold = Number(p.minStock) || 5;
+          if (nextStock <= minStockThreshold && p.stock > minStockThreshold) {
+            notifyLowStockAlert(p.name, nextStock);
+          }
+          return { ...p, stock: nextStock };
         }
         return p;
       });
@@ -1761,6 +1768,12 @@ export const AppProvider = ({ children }) => {
     setCart([]);
     setActiveReceipt(saleRecord);
     hapticFeedback.success();
+    notifySaleCompleted(saleRecord.id, saleRecord.grandTotal);
+
+    // Guaranteed Offline Sync Queue
+    try {
+      enqueueOfflineAction('SALE_COMPLETED', saleRecord);
+    } catch {}
 
     // Auto-open cash drawer for cash transaction if enabled
     if (businessSettings.autoOpenCashDrawer !== false && (paymentMethod === 'cash' || actualPaid > 0)) {
@@ -1803,11 +1816,19 @@ export const AppProvider = ({ children }) => {
   const adjustStock = (productId, qtyDelta, type = 'in', note = '') => {
     setProducts(products.map(p => {
       if (p.id === productId) {
-        const newStock = type === 'in' ? p.stock + Number(qtyDelta) : Math.max(0, p.stock - Number(qtyDelta));
+        const delta = Number(qtyDelta) || 0;
+        const newStock = type === 'in' ? p.stock + delta : Math.max(0, p.stock - delta);
+        const minAlert = Number(p.minStock) || 5;
+        if (newStock <= minAlert && p.stock > minAlert) {
+          notifyLowStockAlert(p.name, newStock);
+        }
         return { ...p, stock: newStock };
       }
       return p;
     }));
+    try {
+      enqueueOfflineAction('STOCK_ADJUSTED', { productId, qtyDelta, type, note });
+    } catch {}
     showToast(
       type === 'in'
         ? (lang === 'bn' ? 'স্টক ইন সফলভাবে সম্পন্ন হয়েছে' : 'Stock In recorded')
@@ -1840,7 +1861,7 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? 'কাস্টমার মুছে ফেলা হয়েছে' : 'Customer deleted');
   };
 
-  const collectDue = (customerId, amount) => {
+  const collectDue = (customerId, amount, method = 'cash', note = '') => {
     const amt = Number(amount);
     setCustomers(customers.map(c => {
       if (c.id === customerId) {
@@ -1848,6 +1869,9 @@ export const AppProvider = ({ children }) => {
       }
       return c;
     }));
+    try {
+      enqueueOfflineAction('DUE_COLLECTED', { customerId, amount: amt, method, note });
+    } catch {}
     showToast(lang === 'bn' ? `৳${amt.toLocaleString()} বাকি আদায় সফল হয়েছে` : `Collected ৳${amt}`);
   };
 

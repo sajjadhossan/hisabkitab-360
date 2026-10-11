@@ -877,12 +877,80 @@ const ESCPOS_BLUETOOTH_SERVICES = [
   '0000fff0-0000-1000-8000-00805f9b34fb'
 ];
 
+export const getAndroidPairedBluetoothPrinters = () => {
+  if (typeof window !== 'undefined' && window.AndroidBtPrinterBridge) {
+    try {
+      const json = window.AndroidBtPrinterBridge.getPairedDevices();
+      return JSON.parse(json || '[]');
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 /**
  * Direct Android / Web Bluetooth ESC/POS Thermal Printer Driver
  * Universal Bluetooth Device Discovery (Accepts 100% of portable 58mm/80mm printers)
  * Uses Canvas Raster Bitmaps to print 100% crisp, authentic Bengali fonts on any thermal printer!
  */
 export const printBluetoothEscPos = async (receiptData, businessSettings = {}, is58mm = true) => {
+  const initCmd = new Uint8Array([0x1B, 0x40]);
+  const feedCmd = new Uint8Array([0x0A, 0x0A, 0x0A]);
+  const cutCmd = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
+
+  // Try Bengali Raster Graphics first
+  let rasterBytes = null;
+  try {
+    rasterBytes = renderReceiptToEscPosRaster(receiptData, businessSettings, is58mm);
+  } catch (err) {
+    console.warn('Fallback to text printing due to raster error:', err);
+  }
+
+  // Combine full byte payload
+  let fullPayload;
+  if (rasterBytes && rasterBytes.length > 0) {
+    fullPayload = new Uint8Array(initCmd.length + rasterBytes.length + feedCmd.length + cutCmd.length);
+    fullPayload.set(initCmd, 0);
+    fullPayload.set(rasterBytes, initCmd.length);
+    fullPayload.set(feedCmd, initCmd.length + rasterBytes.length);
+    fullPayload.set(cutCmd, initCmd.length + rasterBytes.length + feedCmd.length);
+  } else {
+    const encoder = new TextEncoder();
+    const shopName = businessSettings.shopName || receiptData.shopName || 'HisabKitab 360';
+    const textData = encoder.encode(`${shopName}\nInv #${receiptData.id}\nTOTAL: BDT ${receiptData.grandTotal || 0}\n`);
+    fullPayload = new Uint8Array(initCmd.length + textData.length + feedCmd.length + cutCmd.length);
+    fullPayload.set(initCmd, 0);
+    fullPayload.set(textData, initCmd.length);
+    fullPayload.set(feedCmd, initCmd.length + textData.length);
+    fullPayload.set(cutCmd, initCmd.length + textData.length + feedCmd.length);
+  }
+
+  // 1. Android APK Native Bluetooth RFCOMM Socket Bridge (Direct SPP, Zero Browser Prompts)
+  if (typeof window !== 'undefined' && window.AndroidBtPrinterBridge) {
+    try {
+      const pairedList = getAndroidPairedBluetoothPrinters();
+      if (pairedList && pairedList.length > 0) {
+        const savedAddr = localStorage.getItem('hk360_preferred_bt_printer');
+        const targetPrinter = (savedAddr && pairedList.find(p => p.address === savedAddr)) || pairedList[0];
+        
+        let binary = '';
+        for (let i = 0; i < fullPayload.length; i++) {
+          binary += String.fromCharCode(fullPayload[i]);
+        }
+        const base64Data = window.btoa(binary);
+
+        const ok = window.AndroidBtPrinterBridge.printRawBase64(targetPrinter.address, base64Data);
+        if (ok) {
+          return true;
+        }
+      }
+    } catch (androidErr) {
+      console.warn('Android native BT printer error, trying Web Bluetooth fallback:', androidErr);
+    }
+  }
+
+  // 2. Standard Web Bluetooth API Fallback (Desktop / Web Chrome)
   if (typeof navigator === 'undefined' || !navigator.bluetooth) {
     throw new Error('Bluetooth API is not supported on this device/browser');
   }
@@ -901,7 +969,6 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}, i
         optionalServices: ESCPOS_BLUETOOTH_SERVICES
       });
     } catch (reqErr) {
-      // Fallback: try with broad namePrefix filters if acceptAllDevices fails on specific platform
       if (reqErr.name === 'NotFoundError') {
         throw reqErr; // User cancelled pairing
       }
@@ -949,18 +1016,6 @@ export const printBluetoothEscPos = async (receiptData, businessSettings = {}, i
       activeBtDevice = null;
       activeBtCharacteristic = null;
     });
-  }
-
-  const initCmd = new Uint8Array([0x1B, 0x40]);
-  const feedCmd = new Uint8Array([0x0A, 0x0A, 0x0A]);
-  const cutCmd = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
-
-  // Try Bengali Raster Graphics first
-  let rasterBytes = null;
-  try {
-    rasterBytes = renderReceiptToEscPosRaster(receiptData, businessSettings, is58mm);
-  } catch (err) {
-    console.warn('Fallback to text printing due to raster error:', err);
   }
 
   // Safe chunk sender

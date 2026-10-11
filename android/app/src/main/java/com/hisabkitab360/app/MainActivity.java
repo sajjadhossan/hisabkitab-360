@@ -73,6 +73,10 @@ public class MainActivity extends BridgeActivity {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 permList.add(Manifest.permission.POST_NOTIFICATIONS);
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                permList.add(Manifest.permission.BLUETOOTH_CONNECT);
+                permList.add(Manifest.permission.BLUETOOTH_SCAN);
+            }
 
             java.util.List<String> needed = new java.util.ArrayList<>();
             for (String perm : permList) {
@@ -120,7 +124,13 @@ public class MainActivity extends BridgeActivity {
                 // 3. Android Native High-Accuracy Speech Recognition Bridge
                 webView.addJavascriptInterface(new AndroidNativeSpeechBridge(), "AndroidSpeechBridge");
 
-                // 4. Explicit Camera & Microphone WebRTC Permission Grant
+                // 4. Android Native Direct Bluetooth Thermal Receipt Printer Bridge
+                webView.addJavascriptInterface(new AndroidNativeBluetoothBridge(), "AndroidBtPrinterBridge");
+
+                // 5. Android Native High-Priority Notification Bridge
+                webView.addJavascriptInterface(new AndroidNativeNotificationBridge(), "AndroidNotificationBridge");
+
+                // 6. Explicit Camera & Microphone WebRTC Permission Grant
                 webView.setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(getBridge()) {
                     @Override
                     public void onPermissionRequest(final PermissionRequest request) {
@@ -365,6 +375,121 @@ public class MainActivity extends BridgeActivity {
                     "if (typeof window.__onNativeSpeechStatus === 'function') window.__onNativeSpeechStatus('" + status + "');",
                     null
                 );
+            }
+        }
+    }
+
+    // =========================================================================
+    // 4. NATIVE ANDROID BLUETOOTH THERMAL PRINTER BRIDGE (Direct ESC/POS Socket)
+    // =========================================================================
+    public class AndroidNativeBluetoothBridge {
+        private static final java.util.UUID SPP_UUID = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
+        @android.webkit.JavascriptInterface
+        public String getPairedDevices() {
+            try {
+                android.bluetooth.BluetoothAdapter adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                if (adapter == null || !adapter.isEnabled()) return "[]";
+                java.util.Set<android.bluetooth.BluetoothDevice> bonded = adapter.getBondedDevices();
+                org.json.JSONArray array = new org.json.JSONArray();
+                for (android.bluetooth.BluetoothDevice dev : bonded) {
+                    org.json.JSONObject obj = new org.json.JSONObject();
+                    obj.put("name", dev.getName() != null ? dev.getName() : "Bluetooth Printer");
+                    obj.put("address", dev.getAddress());
+                    array.put(obj);
+                }
+                return array.toString();
+            } catch (Exception e) {
+                return "[]";
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean isBluetoothEnabled() {
+            try {
+                android.bluetooth.BluetoothAdapter adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                return adapter != null && adapter.isEnabled();
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean printRawBase64(String address, String base64Data) {
+            try {
+                android.bluetooth.BluetoothAdapter adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                if (adapter == null || !adapter.isEnabled() || address == null || address.isEmpty()) return false;
+                android.bluetooth.BluetoothDevice device = adapter.getRemoteDevice(address);
+                if (device == null) return false;
+
+                byte[] bytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT);
+                android.bluetooth.BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SPP_UUID);
+                socket.connect();
+                java.io.OutputStream os = socket.getOutputStream();
+                os.write(bytes);
+                os.flush();
+                Thread.sleep(180);
+                socket.close();
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+    }
+
+    // =========================================================================
+    // 5. NATIVE ANDROID SYSTEM NOTIFICATION BRIDGE (Low-Stock & Reminders)
+    // =========================================================================
+    public class AndroidNativeNotificationBridge {
+        private static final String CHANNEL_ID = "hisabkitab_notifications";
+
+        public AndroidNativeNotificationBridge() {
+            createNotificationChannel();
+        }
+
+        private void createNotificationChannel() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                    CHANNEL_ID,
+                    "HisabKitab 360 Notifications",
+                    android.app.NotificationManager.IMPORTANCE_HIGH
+                );
+                channel.setDescription("Low stock alerts, daily closing, and due reminders");
+                channel.enableVibration(true);
+                android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
+                if (manager != null) {
+                    manager.createNotificationChannel(channel);
+                }
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean showNotification(String title, String body, String tag) {
+            try {
+                android.content.Intent intent = new android.content.Intent(MainActivity.this, MainActivity.class);
+                intent.setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                android.app.PendingIntent pendingIntent = android.app.PendingIntent.getActivity(
+                    MainActivity.this, 0, intent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? android.app.PendingIntent.FLAG_IMMUTABLE : 0)
+                );
+
+                androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(MainActivity.this, CHANNEL_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle(title)
+                    .setContentText(body)
+                    .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(body))
+                    .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true)
+                    .setContentIntent(pendingIntent);
+
+                androidx.core.app.NotificationManagerCompat notificationManager = androidx.core.app.NotificationManagerCompat.from(MainActivity.this);
+                int notifId = (tag != null ? tag.hashCode() : (int) System.currentTimeMillis());
+                notificationManager.notify(notifId, builder.build());
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
             }
         }
     }

@@ -8,7 +8,14 @@
 import { hapticFeedback } from './nativeAppService';
 
 export const requestNotificationPermission = async () => {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
+  if (typeof window === 'undefined') return false;
+
+  // In Android APK, native notifications are handled via system bridge
+  if (window.AndroidNotificationBridge) {
+    return true;
+  }
+
+  if (!('Notification' in window)) {
     return false;
   }
   if (Notification.permission === 'granted') {
@@ -26,9 +33,22 @@ export const requestNotificationPermission = async () => {
 };
 
 export const sendLocalNotification = (title, options = {}) => {
-  if (typeof window === 'undefined' || !('Notification' in window)) return false;
+  if (typeof window === 'undefined') return false;
 
-  if (Notification.permission === 'granted') {
+  // 1. Native Android OS Status-Bar Notification (High Priority + Sound & Vibration)
+  if (window.AndroidNotificationBridge && typeof window.AndroidNotificationBridge.showNotification === 'function') {
+    try {
+      const body = options.body || '';
+      const tag = options.tag || ('notif_' + Date.now());
+      const success = window.AndroidNotificationBridge.showNotification(title, body, tag);
+      if (success) return true;
+    } catch (e) {
+      console.warn('Native notification bridge error:', e);
+    }
+  }
+
+  // 2. Standard Web Notification API Fallback (Desktop / PWA)
+  if ('Notification' in window && Notification.permission === 'granted') {
     try {
       const notif = new Notification(title, {
         icon: '/favicon.svg',
