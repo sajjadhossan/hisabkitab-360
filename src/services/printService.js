@@ -112,6 +112,21 @@ export const printHtmlContent = (htmlContent, options = {}) => {
 </body>
 </html>`;
 
+  // 0. Native Android APK Direct Spooler Support
+  if (typeof window !== 'undefined' && window.AndroidPrintBridge) {
+    try {
+      if (typeof window.AndroidPrintBridge.printHtml === 'function') {
+        window.AndroidPrintBridge.printHtml(fullDoc, title);
+        return;
+      } else if (typeof window.AndroidPrintBridge.print === 'function') {
+        window.AndroidPrintBridge.print();
+        return;
+      }
+    } catch (err) {
+      console.warn('[PrintService] AndroidPrintBridge failed, falling back to iframe:', err);
+    }
+  }
+
   // Print execution: Use off-screen rendered iframe with real dimensions and low opacity
   const frameId = 'hk360-print-worker-frame';
   let iframe = document.getElementById(frameId);

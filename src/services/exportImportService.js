@@ -15,6 +15,18 @@ export const exportToExcel = (data, sheetName = 'Sheet1', fileName = 'Export.xls
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+    // Native Android APK Direct Spooler/Download Bridge
+    if (typeof window !== 'undefined' && window.AndroidFileBridge && typeof window.AndroidFileBridge.downloadBase64File === 'function') {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+      window.AndroidFileBridge.downloadBase64File(
+        wbout,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        fileName
+      );
+      return true;
+    }
+
     XLSX.writeFile(workbook, fileName);
     return true;
   } catch (error) {

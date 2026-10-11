@@ -98,6 +98,10 @@ export const connectGoogleDrive = async (customClientId = null, forceSelectAccou
         callback: async (resp) => {
           if (resp.error) {
             console.error('Google OAuth error:', resp);
+            const errStr = (resp.error_description || resp.error || '').toLowerCase();
+            if (errStr.includes('disallowed_useragent') || errStr.includes('403')) {
+              return reject(new Error('মোবাইল অ্যাপে Google সরাসরি লগইন সীমাবদ্ধ রেখেছে। আপনি নিচের "ইউনিভার্সাল ব্যাকআপ এক্সপোর্ট" অপশন দিয়ে ১-ক্লিকে ফোনে বা গুগল ড্রাইভে ফাইল সংরক্ষণ করতে পারবেন।'));
+            }
             return reject(new Error(resp.error_description || resp.error));
           }
           if (resp.access_token) {
@@ -115,7 +119,12 @@ export const connectGoogleDrive = async (customClientId = null, forceSelectAccou
           }
         },
         error_callback: (err) => {
-          reject(new Error(err.message || 'OAuth popup closed or blocked'));
+          const errMsg = (err?.message || '').toLowerCase();
+          if (errMsg.includes('disallowed_useragent') || errMsg.includes('403') || errMsg.includes('blocked')) {
+            reject(new Error('মোবাইল অ্যাপে Google সরাসরি লগইন সীমাবদ্ধ রেখেছে। আপনি নিচের "ইউনিভার্সাল ব্যাকআপ এক্সপোর্ট" অপশন দিয়ে ১-ক্লিকে ফোনে বা গুগল ড্রাইভে ফাইল সংরক্ষণ করতে পারবেন।'));
+          } else {
+            reject(new Error(err?.message || 'OAuth পপআপ বন্ধ বা ব্লক করা হয়েছে'));
+          }
         }
       });
 

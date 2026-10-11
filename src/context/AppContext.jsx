@@ -3754,7 +3754,18 @@ export const AppProvider = ({ children }) => {
         isScreenLocked,
         setIsScreenLocked,
         lockScreen,
-        unlockScreen
+        unlockScreen,
+
+        // Robust AppContext Aliases & Fallbacks
+        debtRecords: personalDebts,
+        dailyExpenses: businessExpenses,
+        setProducts,
+        setSalesHistory,
+        setBusinessDebts,
+        branchCashRecords: cashMovements || [],
+        addExpense: handleAddExpense,
+        setPersonalSavings,
+        setActiveIndustryId: switchIndustryTemplate
       }}
     >
       {children}

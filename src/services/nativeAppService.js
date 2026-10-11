@@ -724,5 +724,79 @@ export const shareNativeSheet = async ({ title, text, url, dialogTitle = 'শে
   return false;
 };
 
+// ==========================================
+// 8. ANDROID NATIVE PRINT & FILE DOWNLOAD BRIDGES
+// ==========================================
+if (typeof window !== 'undefined') {
+  const origPrint = window.print;
+  window.print = function() {
+    if (window.AndroidPrintBridge && typeof window.AndroidPrintBridge.print === 'function') {
+      try {
+        window.AndroidPrintBridge.print();
+        return;
+      } catch (err) {
+        console.warn('[NativeAppService] AndroidPrintBridge print failed:', err);
+      }
+    }
+    if (typeof origPrint === 'function') {
+      origPrint.call(window);
+    }
+  };
+}
+
+export const downloadNativeFile = async (blobOrData, filename, mimeType = 'application/octet-stream') => {
+  if (typeof window === 'undefined') return false;
+
+  // 1. Android APK Native MediaStore Bridge
+  if (window.AndroidFileBridge && typeof window.AndroidFileBridge.downloadBase64File === 'function') {
+    try {
+      let base64 = '';
+      if (blobOrData instanceof Blob) {
+        base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const res = reader.result;
+            const commaIdx = res.indexOf(',');
+            resolve(commaIdx !== -1 ? res.slice(commaIdx + 1) : res);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blobOrData);
+        });
+      } else if (typeof blobOrData === 'string') {
+        if (blobOrData.startsWith('data:')) {
+          const commaIdx = blobOrData.indexOf(',');
+          base64 = commaIdx !== -1 ? blobOrData.slice(commaIdx + 1) : blobOrData;
+        } else {
+          base64 = btoa(unescape(encodeURIComponent(blobOrData)));
+        }
+      }
+
+      if (base64) {
+        window.AndroidFileBridge.downloadBase64File(base64, mimeType, filename);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[NativeAppService] AndroidFileBridge error:', e);
+    }
+  }
+
+  // 2. Standard Web fallback: <a download>
+  try {
+    const blob = blobOrData instanceof Blob ? blobOrData : new Blob([blobOrData], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    return true;
+  } catch (err) {
+    console.error('[NativeAppService] File download fallback error:', err);
+    return false;
+  }
+};
+
 
 

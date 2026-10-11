@@ -6,6 +6,8 @@
  * zero-cloud-lock-in portability for business and personal records.
  */
 
+import { downloadNativeFile } from './nativeAppService';
+
 /**
  * Computes a simple fast integrity checksum for the exported backup
  */
@@ -23,7 +25,7 @@ const computeChecksum = (str) => {
  */
 export const exportUniversalBackupAsync = async (appState, options = {}) => {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         const payload = {
           app: 'HisabKitab 360',
@@ -50,16 +52,10 @@ export const exportUniversalBackupAsync = async (appState, options = {}) => {
         payload.integrityChecksum = checksum;
 
         const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
         const filename = options.filename || `HisabKitab360_UniversalBackup_${new Date().toISOString().split('T')[0]}.json`;
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        
+        await downloadNativeFile(blob, filename, 'application/json');
 
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
         resolve({ success: true, sizeBytes: blob.size, checksum, filename });
       } catch (err) {
         console.error('[FastExport] Backup export failed:', err);
