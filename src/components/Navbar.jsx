@@ -469,7 +469,7 @@ export const Navbar = () => {
         { id: 'settings', label: lang === 'bn' ? 'সফটওয়্যার সেটিংস' : 'Business Settings', desc: lang === 'bn' ? 'দোকানের নাম, ভ্যাট ও প্রিন্ট' : 'Store profile & print', icon: Settings, color: '#64748b' },
         { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 সিস্টেম ডায়াগনোসিস ও SOS' : 'System Diagnostics & SOS', desc: lang === 'bn' ? 'প্রিন্টার, মেমোরি ও SOS রিপোর্ট' : 'Hardware & repair hub', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); }, badge: 'SOS' },
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Manager', desc: lang === 'bn' ? 'সকল ক্যাটাগরি ম্যানেজ' : 'Manage all categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
-        { id: 'tool_backup', label: lang === 'bn' ? 'এক্সেল ও ব্যাকআপ হাব' : 'Export & Import Hub', desc: lang === 'bn' ? 'ডাটা ডাউনলোড ও আপলোড' : 'Excel, PDF, JSON', icon: Download, color: '#10b981', isAction: () => setShowExportImportHub(true) },
+        { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowExportImportHub(true); } },
         { id: 'tool_drive', label: lang === 'bn' ? 'গুগল ড্রাইভ সিঙ্ক' : 'Google Drive Sync', desc: lang === 'bn' ? 'ক্লাউডে অটো ব্যাকআপ' : 'Direct cloud backup', icon: Cloud, color: '#3b82f6', isAction: handleQuickDriveSync },
         { id: 'tool_calc', label: lang === 'bn' ? 'ডিজিটাল ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত হিসাব ও যোগ-বিয়োগ' : 'Popup calculator', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটবুক' : 'Quick Scratchpad', desc: lang === 'bn' ? 'জরুরি খসড়া ও মেমো' : 'Autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
@@ -502,7 +502,7 @@ export const Navbar = () => {
       items: [
         { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 ডায়াগনোসিস ও হেলথ' : 'Diagnostics & Health', desc: lang === 'bn' ? 'ডাটাবেজ ও মেমোরি টেস্ট' : 'Storage & health', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); } },
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Hub', desc: lang === 'bn' ? 'খরচের ক্যাটাগরি তৈরি ও এডিট' : 'Manage categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
-        { id: 'tool_backup', label: lang === 'bn' ? 'এক্সেল ও ব্যাকআপ' : 'Export & Import', desc: lang === 'bn' ? 'হিসাব ডাউনলোড ও ব্যাকআপ' : 'Data export / import', icon: Download, color: '#10b981', isAction: () => setShowExportImportHub(true) },
+        { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowExportImportHub(true); } },
         { id: 'tool_calc', label: lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত যোগ-বিয়োগ' : 'Fast digital math', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটপ্যাড' : 'Sticky Notes', desc: lang === 'bn' ? 'বাজারের ফর্দ ও জরুরি নোট' : 'Quick autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
         { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp ও জরুরি সাপোর্ট' : 'WhatsApp & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport(), badge: '24/7' },
@@ -997,6 +997,24 @@ export const Navbar = () => {
               <Activity size={17} />
             </button>
 
+            {/* Quick Smart Backup & Ingestion Hub Button */}
+            <button
+              className="btn-icon press-scale"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowExportImportHub(true);
+              }}
+              title={lang === 'bn' ? '💾 স্মার্ট ব্যাকআপ ও ডেটা সেন্টার (Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ)' : 'Smart Backup & Data Center'}
+              style={{
+                color: '#0ea5e9',
+                background: 'rgba(14, 165, 233, 0.12)',
+                border: '1px solid rgba(14, 165, 233, 0.35)',
+                transition: 'transform 0.1s ease'
+              }}
+            >
+              <Database size={16} />
+            </button>
+
             {/* Quick POS Counter Screen Lock */}
             <button
               className="btn-icon press-scale"
@@ -1329,7 +1347,7 @@ export const Navbar = () => {
       <DataExportImportModal
         isOpen={showExportImportHub}
         onClose={() => setShowExportImportHub(false)}
-        defaultTab="export"
+        defaultTab="import"
         initialTarget={profile === 'business' ? 'business_inventory' : 'family'}
       />
 

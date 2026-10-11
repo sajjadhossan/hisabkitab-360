@@ -22,7 +22,12 @@ import {
   Filter,
   Lock,
   Key,
-  ShieldCheck
+  ShieldCheck,
+  Database,
+  Archive,
+  History,
+  CheckCheck,
+  Tag
 } from 'lucide-react';
 import {
   exportFamilyExpensesExcel,
@@ -31,7 +36,10 @@ import {
   exportBusinessSalesExcel,
   exportTableToPrintablePdf,
   parseExcelFile,
-  parsePdfFile
+  parsePdfFile,
+  normalizeDate,
+  parseAmountSafely,
+  guessFolderFromText
 } from '../../services/exportImportService';
 import { encryptData, decryptData, downloadEncryptedBackupFile } from '../../services/cryptoService';
 import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
@@ -39,7 +47,7 @@ import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 export const DataExportImportModal = ({
   isOpen,
   onClose,
-  defaultTab = 'export',
+  defaultTab = 'import',
   initialTarget = 'family'
 }) => {
   const {
@@ -56,7 +64,7 @@ export const DataExportImportModal = ({
     lang
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState(defaultTab); // 'export' | 'import'
+  const [activeTab, setActiveTab] = useState(defaultTab); // 'import' | 'encrypted_backup' | 'export' | 'history'
 
   // EXPORT STATE
   const [exportTarget, setExportTarget] = useState(initialTarget);
@@ -68,9 +76,9 @@ export const DataExportImportModal = ({
   const [isParsing, setIsParsing] = useState(false);
   const [parseProgress, setParseProgress] = useState({ percent: 0, stage: '' });
   const [dateRangeSummary, setDateRangeSummary] = useState({ min: '', max: '' });
-  const [importDestination, setImportDestination] = useState('family'); // 'family' | 'daily' | 'event' | 'biz_product' | 'biz_expense'
+  const [importDestination, setImportDestination] = useState('family'); // 'family' | 'daily' | 'biz_expense' | 'event' | 'biz_product'
   const [targetEventId, setTargetEventId] = useState(personalEvents[0]?.id || '');
-  const [defaultFolder, setDefaultFolder] = useState('গৃহস্থালি ও নিত্য কেনাকাটা');
+  const [defaultFolder, setDefaultFolder] = useState('বিদ্যুৎ, গ্যাস ও ইউটিলিটি');
 
   // Excel parsing state
   const [excelData, setExcelData] = useState(null); // { headers, rawRows, detectedMapping }
@@ -91,15 +99,39 @@ export const DataExportImportModal = ({
   const [candidateRows, setCandidateRows] = useState([]);
   const [selectAll, setSelectAll] = useState(true);
 
-  const availableFolders = categories.familyExpenseFolders || [
-    'বাসা ও ফ্ল্যাট খরচ',
-    'বিদ্যুৎ, গ্যাস ও ইউটিলিটি',
-    'সন্তানের পড়াশোনা ও স্কুল',
-    'পারিবারিক চিকিৎসা ও ওষুধ',
-    'ইন্টারনেট ও মোবাইল রিচার্জ',
-    'গৃহস্থালি ও নিত্য কেনাকাটা',
-    'অন্যান্য পারিবারিক খরচ'
-  ];
+  // Backup Snapshots History State
+  const [importHistory, setImportHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('hk360_smart_import_backups') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const availableFolders = useMemo(() => {
+    if (importDestination === 'biz_expense') {
+      return [
+        'ইউটিলিটি ও বিল',
+        'দোকান ও গোডাউন ভাড়া',
+        'দোকান ও টিফিন খরচ',
+        'কর্মচারী বেতন ও মজুরি',
+        'যাতায়াত ও পরিবহন খরচ',
+        'অফিস সাপ্লাই ও স্টেশনারি',
+        'জরুরি চিকিৎসা ও ফার্স্ট এইড',
+        'অন্যান্য ব্যবসায়িক খরচ'
+      ];
+    }
+    return categories.familyExpenseFolders || [
+      'বিদ্যুৎ, গ্যাস ও ইউটিলিটি',
+      'গৃহস্থালি ও নিত্য কেনাকাটা',
+      'বাসা ও ফ্ল্যাট খরচ',
+      'সন্তানের পড়াশোনা ও স্কুল',
+      'পারিবারিক চিকিৎসা ও ওষুধ',
+      'ইন্টারনেট ও মোবাইল রিচার্জ',
+      'যাতায়াত ও পরিবহন',
+      'অন্যান্য পারিবারিক খরচ'
+    ];
+  }, [importDestination, categories.familyExpenseFolders]);
 
   // AES-256 Encrypted Backup State
   const [encryptPassphrase, setEncryptPassphrase] = useState('');
@@ -396,18 +428,23 @@ export const DataExportImportModal = ({
         });
         setPdfData(parsed);
 
-        // Convert parsed records into candidate rows
-        const rows = parsed.parsedRecords.map((rec, i) => ({
-          id: `cand-${i}`,
-          selected: true,
-          date: rec.date || new Date().toISOString().split('T')[0],
-          item: rec.item || 'অজ্ঞাত খরচ',
-          amount: Number(rec.amount) || 0,
-          quantity: rec.quantity || null,
-          unit: rec.unit || '',
-          folder: rec.folder || defaultFolder,
-          note: rec.note || 'PDF থেকে ইমপোর্টকৃত'
-        }));
+        // Convert parsed records into candidate rows with accurate date and amount
+        const rows = parsed.parsedRecords.map((rec, i) => {
+          const finalDate = normalizeDate(rec.date);
+          const finalAmount = parseAmountSafely(rec.amount);
+          const finalFolder = rec.folder || guessFolderFromText(rec.item, importDestination);
+          return {
+            id: `cand-pdf-${i}-${Date.now()}`,
+            selected: true,
+            date: finalDate,
+            item: rec.item || 'অজ্ঞাত খরচ',
+            amount: finalAmount,
+            quantity: rec.quantity || null,
+            unit: rec.unit || '',
+            folder: finalFolder,
+            note: rec.note || 'PDF থেকে ইমপোর্টকৃত'
+          };
+        });
 
         setCandidateRows(rows);
 
@@ -416,7 +453,8 @@ export const DataExportImportModal = ({
           if (dates.length > 0) {
             setDateRangeSummary({ min: dates[0], max: dates[dates.length - 1] });
           }
-          showToast(lang === 'bn' ? `🎉 মোট ${rows.length}টি লেনদেন সফলভাবে অ্যানালাইসিস হয়েছে!` : `Extracted ${rows.length} transactions!`, 'success');
+          const totalSum = rows.reduce((s, r) => s + r.amount, 0);
+          showToast(lang === 'bn' ? `🎉 মোট ${rows.length}টি লেনদেন (সর্বমোট ৳${totalSum.toLocaleString('en-IN')}) সফলভাবে লোড হয়েছে!` : `Extracted ${rows.length} transactions (Total ৳${totalSum.toLocaleString('en-IN')})!`, 'success');
         } else {
           showToast(lang === 'bn' ? '⚠️ PDF ফাইলে কোনো লেনদেন চিহ্নিত করা যায়নি। ফাইলটি চেক করুন।' : 'No transactions found in PDF.', 'warning');
         }
@@ -431,30 +469,34 @@ export const DataExportImportModal = ({
     }
   };
 
-  // Build candidate rows when mapping changes
+  // Build candidate rows when mapping changes or Excel parsed
   const buildCandidateRowsFromExcel = (rawRows, mapping) => {
     const candidates = [];
     rawRows.forEach((row, i) => {
       const itemVal = mapping.item !== -1 ? String(row[mapping.item] || '').trim() : '';
-      const amountVal = mapping.amount !== -1 ? parseFloat(String(row[mapping.amount] || '').replace(/[^\d.-]/g, '')) : 0;
+      const rawAmt = mapping.amount !== -1 ? row[mapping.amount] : 0;
+      const amountVal = parseAmountSafely(rawAmt);
 
-      if (itemVal && !isNaN(amountVal) && amountVal > 0) {
-        const dateVal = mapping.date !== -1 && row[mapping.date] ? String(row[mapping.date]).trim() : new Date().toISOString().split('T')[0];
-        const qtyVal = mapping.quantity !== -1 && row[mapping.quantity] ? parseFloat(String(row[mapping.quantity])) : null;
+      if (itemVal && amountVal > 0) {
+        const rawDate = mapping.date !== -1 && row[mapping.date] ? row[mapping.date] : null;
+        const dateVal = normalizeDate(rawDate);
+        const qtyVal = mapping.quantity !== -1 && row[mapping.quantity] ? parseAmountSafely(row[mapping.quantity]) : null;
         const unitVal = mapping.unit !== -1 && row[mapping.unit] ? String(row[mapping.unit]).trim() : '';
-        const folderVal = mapping.folder !== -1 && row[mapping.folder] ? String(row[mapping.folder]).trim() : defaultFolder;
+        const folderVal = mapping.folder !== -1 && row[mapping.folder]
+          ? String(row[mapping.folder]).trim()
+          : guessFolderFromText(itemVal, importDestination);
         const noteVal = mapping.note !== -1 && row[mapping.note] ? String(row[mapping.note]).trim() : '';
 
         candidates.push({
-          id: `cand-${i}`,
+          id: `cand-xls-${i}-${Date.now()}`,
           selected: true,
           date: dateVal,
           item: itemVal,
           amount: amountVal,
-          quantity: !isNaN(qtyVal) ? qtyVal : null,
+          quantity: qtyVal,
           unit: unitVal,
-          folder: folderVal || defaultFolder,
-          note: noteVal
+          folder: folderVal,
+          note: noteVal || 'Excel থেকে ইমপোর্টকৃত'
         });
       }
     });
@@ -466,6 +508,21 @@ export const DataExportImportModal = ({
         setDateRangeSummary({ min: dates[0], max: dates[dates.length - 1] });
       }
     }
+  };
+
+  // Inline Row Updates (Allow user to correct date, title, folder, amount before importing)
+  const updateCandidateRow = (id, field, value) => {
+    setCandidateRows(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      if (field === 'amount') {
+        return { ...r, amount: parseAmountSafely(value) };
+      }
+      return { ...r, [field]: value };
+    }));
+  };
+
+  const deleteCandidateRow = (id) => {
+    setCandidateRows(prev => prev.filter(r => r.id !== id));
   };
 
   // Toggle single row
@@ -480,7 +537,34 @@ export const DataExportImportModal = ({
     setCandidateRows(prev => prev.map(r => ({ ...r, selected: nextVal })));
   };
 
-  // Execute Import
+  // Live Comprehensive Reconciliation & Audit Metrics
+  const candidateMetrics = useMemo(() => {
+    const totalFoundCount = candidateRows.length;
+    const totalFoundAmount = candidateRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const selectedRows = candidateRows.filter(r => r.selected);
+    const selectedCount = selectedRows.length;
+    const selectedAmount = selectedRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+    const categoryBreakdown = {};
+    selectedRows.forEach(r => {
+      const cat = r.folder || (importDestination === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা');
+      if (!categoryBreakdown[cat]) {
+        categoryBreakdown[cat] = { count: 0, amount: 0 };
+      }
+      categoryBreakdown[cat].count += 1;
+      categoryBreakdown[cat].amount += (Number(r.amount) || 0);
+    });
+
+    return {
+      totalFoundCount,
+      totalFoundAmount,
+      selectedCount,
+      selectedAmount,
+      categoryBreakdown
+    };
+  }, [candidateRows, importDestination]);
+
+  // Execute Import & Auto Snapshot Backup
   const handleExecuteImport = () => {
     const selectedRows = candidateRows.filter(r => r.selected);
     if (selectedRows.length === 0) {
@@ -496,34 +580,34 @@ export const DataExportImportModal = ({
         addPersonalExpense({
           title: row.item,
           item: row.item,
-          amount: row.amount,
+          amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
           folder: row.folder || defaultFolder,
           category: row.folder || defaultFolder,
           type: 'family',
           date: row.date,
-          note: row.note ? `${row.note} (ইমপোর্টকৃত)` : 'ইমপোর্টকৃত'
+          note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
         count++;
       } else if (importDestination === 'daily') {
         addPersonalExpense({
           title: row.item,
           item: row.item,
-          amount: row.amount,
+          amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
           category: 'bazaar',
           type: 'daily',
           date: row.date,
-          note: row.note ? `${row.note} (ইমপোর্টকৃত)` : 'ইমপোর্টকৃত'
+          note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
         count++;
       } else if (importDestination === 'event') {
         addPersonalExpense({
           title: row.item,
           item: row.item,
-          amount: row.amount,
+          amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
           folder: row.folder || defaultFolder,
@@ -532,16 +616,16 @@ export const DataExportImportModal = ({
           eventId: targetEventId,
           eventName: linkedEvent ? linkedEvent.title : '',
           date: row.date,
-          note: row.note ? `${row.note} (ইমপোর্টকৃত)` : 'ইমপোর্টকৃত'
+          note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
         count++;
       } else if (importDestination === 'biz_expense') {
         addBusinessExpense({
           title: row.item,
-          amount: row.amount,
-          category: 'other',
+          amount: Number(row.amount),
+          category: row.folder || 'other',
           date: row.date,
-          note: row.note ? `${row.note} (ইমপোর্টকৃত)` : 'ইমপোর্টকৃত'
+          note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
         count++;
       } else if (importDestination === 'biz_product') {
@@ -558,10 +642,44 @@ export const DataExportImportModal = ({
       }
     });
 
+    // Automatically Create Persistent Backup Snapshot
+    const backupSnapshot = {
+      id: `bk-${Date.now()}`,
+      fileName: importFile ? importFile.name : 'Data_Import.xlsx',
+      fileSize: importFile ? importFile.size : 0,
+      importedAt: new Date().toISOString(),
+      destination: importDestination,
+      itemCount: selectedRows.length,
+      totalAmount: candidateMetrics.selectedAmount,
+      dateRange: dateRangeSummary,
+      categoryBreakdown: Object.entries(candidateMetrics.categoryBreakdown).map(([cat, info]) => ({
+        name: cat,
+        count: info.count,
+        amount: info.amount
+      })),
+      items: selectedRows
+    };
+
+    try {
+      const existingHist = JSON.parse(localStorage.getItem('hk360_smart_import_backups') || '[]');
+      const updatedHist = [backupSnapshot, ...existingHist].slice(0, 30);
+      localStorage.setItem('hk360_smart_import_backups', JSON.stringify(updatedHist));
+      setImportHistory(updatedHist);
+    } catch (e) {
+      console.warn('Backup history storage warning:', e);
+    }
+
+    logAuditEvent({
+      action: AUDIT_ACTIONS.DATA_IMPORT,
+      title: 'স্মার্ট এক্সপেন্স ইমপোর্ট ও অটো-ব্যাকআপ সম্পন্ন',
+      entityType: 'SmartExpenseImport',
+      note: `ফাইল: ${backupSnapshot.fileName} | রেকর্ড: ${count}টি | মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}`
+    });
+
     showToast(
       lang === 'bn'
-        ? `সফলভাবে ${count}টি রেকর্ড ইমপোর্ট করে ব্যাকআপ যুক্ত করা হয়েছে!`
-        : `Successfully imported ${count} records!`
+        ? `🎉 সফলভাবে ${count}টি রেকর্ড (সর্বমোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}) রানিং খরচে যুক্ত ও ব্যাকআপ সংরক্ষণ সম্পন্ন হয়েছে!`
+        : `Successfully imported ${count} records (Total ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})!`
     );
 
     // Reset and close
@@ -632,11 +750,16 @@ export const DataExportImportModal = ({
               <FileSpreadsheet size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                {lang === 'bn' ? 'এক্সেল ও পিডিএফ ডেটা হাব (Export & Import)' : 'Excel & PDF Data Hub'}
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>💾 স্মার্ট ব্যাকআপ ও ডেটা সেন্টার</span>
+                <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', fontWeight: '800' }}>
+                  PRO HUB
+                </span>
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {lang === 'bn' ? 'হিসাব এক্সপোর্ট করুন বা অন্য অ্যাপসের Excel/PDF থেকে ডেটা ইমপোর্ট করুন' : 'Export reports or import data from other app spreadsheets/PDFs'}
+                {lang === 'bn' 
+                  ? 'Excel/PDF ফাইল দিন—স্বয়ংক্রিয়ভাবে তারিখ, টাকা ও ক্যাটাগরি যাচাই করে রানিং খরচে যুক্ত ও ব্যাকআপ সংরক্ষণ হবে।' 
+                  : 'Import Excel/PDF into running expenses with reconciliation & secure full backup.'}
               </p>
             </div>
           </div>
@@ -646,75 +769,102 @@ export const DataExportImportModal = ({
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', background: 'var(--bg-main)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+        {/* Unified 4-Tab Switcher */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px', marginBottom: '1.25rem', background: 'var(--bg-main)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
           <button
-            onClick={() => setActiveTab('export')}
-            style={{
-              flex: 1,
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'export' ? 'var(--bg-card)' : 'transparent',
-              color: activeTab === 'export' ? 'var(--text-main)' : 'var(--text-muted)',
-              fontWeight: '700',
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              boxShadow: activeTab === 'export' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-            }}
-          >
-            <Download size={16} style={{ color: '#0f766e' }} />
-            <span>{lang === 'bn' ? '📤 ডেটা এক্সপোর্ট (Excel / PDF)' : 'Export Data'}</span>
-          </button>
-
-          <button
+            type="button"
             onClick={() => setActiveTab('import')}
             style={{
-              flex: 1,
-              padding: '8px 14px',
+              padding: '8px 10px',
               borderRadius: '8px',
               border: 'none',
               background: activeTab === 'import' ? 'var(--bg-card)' : 'transparent',
-              color: activeTab === 'import' ? 'var(--text-main)' : 'var(--text-muted)',
-              fontWeight: '700',
-              fontSize: '0.88rem',
+              color: activeTab === 'import' ? '#0ea5e9' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: activeTab === 'import' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+              boxShadow: activeTab === 'import' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
             }}
           >
-            <Upload size={16} style={{ color: '#ec4899' }} />
-            <span>{lang === 'bn' ? '📥 স্মার্ট ইমপোর্ট (Excel / PDF)' : 'Intelligent Import'}</span>
+            <Upload size={15} style={{ color: '#0ea5e9' }} />
+            <span>{lang === 'bn' ? '📥 খরচ ইমপোর্ট ও ব্যাকআপ' : 'Smart Ingest'}</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('encrypted_backup')}
             style={{
-              flex: 1,
-              padding: '8px 14px',
+              padding: '8px 10px',
               borderRadius: '8px',
               border: 'none',
               background: activeTab === 'encrypted_backup' ? 'var(--bg-card)' : 'transparent',
-              color: activeTab === 'encrypted_backup' ? 'var(--text-main)' : 'var(--text-muted)',
-              fontWeight: '700',
-              fontSize: '0.88rem',
+              color: activeTab === 'encrypted_backup' ? '#10b981' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: activeTab === 'encrypted_backup' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+              boxShadow: activeTab === 'encrypted_backup' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
             }}
           >
-            <ShieldCheck size={16} style={{ color: '#059669' }} />
-            <span>{lang === 'bn' ? '🔐 AES-256 এনক্রিপ্টেড ব্যাকআপ' : 'Encrypted Backup'}</span>
+            <ShieldCheck size={15} style={{ color: '#10b981' }} />
+            <span>{lang === 'bn' ? '🔐 ফুল সিস্টেম ব্যাকআপ' : 'Full Backup'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('export')}
+            style={{
+              padding: '8px 10px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'export' ? 'var(--bg-card)' : 'transparent',
+              color: activeTab === 'export' ? '#f59e0b' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: activeTab === 'export' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Download size={15} style={{ color: '#f59e0b' }} />
+            <span>{lang === 'bn' ? '📤 রিপোর্ট এক্সপোর্ট' : 'Export Reports'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            style={{
+              padding: '8px 10px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'history' ? 'var(--bg-card)' : 'transparent',
+              color: activeTab === 'history' ? '#8b5cf6' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: activeTab === 'history' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <History size={15} style={{ color: '#8b5cf6' }} />
+            <span>{lang === 'bn' ? `📜 ব্যাকআপ হিস্ট্রি (${importHistory.length})` : `History (${importHistory.length})`}</span>
           </button>
         </div>
 
@@ -1266,118 +1416,287 @@ export const DataExportImportModal = ({
               </div>
             )}
 
-            {/* Candidate Rows Preview */}
+            {/* Candidate Rows Preview & Reconciliation Dashboard */}
             {candidateRows.length > 0 && !isParsing && (
-              <div>
-                {/* Summary Stat Pills */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* 1. MASTER RECONCILIATION & AUDIT CARD */}
                 <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  borderRadius: '10px',
-                  padding: '10px 14px',
-                  marginBottom: '10px'
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(14, 165, 233, 0.08))',
+                  border: '1.5px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '14px',
+                  padding: '14px 16px',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.84rem' }}>
-                    <div style={{ fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <CheckCircle2 size={16} color="#10b981" />
-                      <span>{candidateRows.length}টি লেনদেন প্রস্তুত ({candidateRows.filter(r => r.selected).length}টি নির্বাচিত)</span>
-                    </div>
-                    <div style={{ fontWeight: '800', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-                      মোট: ৳{candidateRows.reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString('en-IN')}
-                    </div>
-                    {dateRangeSummary.min && (
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Calendar size={13} color="#f59e0b" />
-                        <span>তারিখ পরিসর: <strong>{dateRangeSummary.min}</strong> থেকে <strong>{dateRangeSummary.max}</strong></span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <CheckCheck size={16} />
+                        <span>{lang === 'bn' ? '🔍 সামঞ্জস্য ও রিকনসিলিয়েশন অডিট' : 'Reconciliation Audit'}</span>
                       </div>
-                    )}
+                      <h4 style={{ margin: '4px 0 2px', fontSize: '1.45rem', fontWeight: '900', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
+                        ৳{candidateMetrics.selectedAmount.toLocaleString('en-IN')}
+                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                          ({lang === 'bn' ? 'নির্বাচিত মোট টাকা' : 'Selected Total'})
+                        </span>
+                      </h4>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span>
+                          {lang === 'bn' 
+                            ? `মোট ${candidateMetrics.selectedCount}টি খরচ প্রস্তুত (ফাইলে পাওয়া গেছে ${candidateMetrics.totalFoundCount}টি)` 
+                            : `${candidateMetrics.selectedCount} of ${candidateMetrics.totalFoundCount} selected`}
+                        </span>
+                        {dateRangeSummary.min && (
+                          <>
+                            <span>•</span>
+                            <span style={{ color: '#f59e0b', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Calendar size={13} />
+                              {dateRangeSummary.min} থেকে {dateRangeSummary.max}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={toggleSelectAll}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-main)',
+                          fontSize: '0.76rem',
+                          fontWeight: '800',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {selectAll ? (lang === 'bn' ? 'সব আনচেক করুন' : 'Unselect All') : (lang === 'bn' ? 'সব সিলেক্ট করুন' : 'Select All')}
+                      </button>
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={toggleSelectAll}
-                    style={{ background: 'transparent', border: 'none', color: '#0f766e', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer' }}
-                  >
-                    {selectAll ? (lang === 'bn' ? 'সব আনচেক করুন' : 'Unselect All') : (lang === 'bn' ? 'সব নির্বাচন করুন' : 'Select All')}
-                  </button>
-                </div>
-
-                {/* Preview Table */}
-                <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-main)', position: 'sticky', top: 0, borderBottom: '1px solid var(--border-color)' }}>
-                        <th style={{ padding: '6px 8px', width: '30px', textAlign: 'center' }}>✓</th>
-                        <th style={{ padding: '6px 8px' }}>তারিখ</th>
-                        <th style={{ padding: '6px 8px' }}>আইটেম / বিবরণ</th>
-                        <th style={{ padding: '6px 8px' }}>ফোল্ডার</th>
-                        <th style={{ padding: '6px 8px', textAlign: 'right' }}>টাকা (৳)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidateRows.map((r) => (
-                        <tr
-                          key={r.id}
+                  {/* Category-wise Breakdown Chips Grid */}
+                  <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed rgba(16, 185, 129, 0.25)' }}>
+                    <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Tag size={12} />
+                      <span>{lang === 'bn' ? 'ক্যাটাগরি অনুযায়ী মোট টাকার বিভাজন (ফাইলের সাথে মিলান):' : 'Category Totals Breakdown:'}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {Object.entries(candidateMetrics.categoryBreakdown).map(([catName, info]) => (
+                        <div
+                          key={catName}
                           style={{
-                            borderBottom: '1px solid var(--border-color)',
-                            background: r.selected ? 'transparent' : 'rgba(255,255,255,0.02)',
-                            opacity: r.selected ? 1 : 0.4
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '20px',
+                            padding: '3px 10px',
+                            fontSize: '0.75rem',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.05)'
                           }}
                         >
-                          <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={r.selected}
-                              onChange={() => toggleRow(r.id)}
-                            />
-                          </td>
-                          <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{r.date}</td>
-                          <td style={{ padding: '6px 8px', fontWeight: '700' }}>
-                            {r.item}
-                            {r.quantity && <span style={{ fontSize: '0.72rem', color: '#06b6d4', marginLeft: '4px' }}>({r.quantity} {r.unit})</span>}
-                          </td>
-                          <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{r.folder}</td>
-                          <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '800', color: '#ef4444' }}>
-                            ৳{r.amount.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
+                          <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{catName}</span>
+                          <span style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', padding: '1px 5px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                            {info.count}টি
+                          </span>
+                          <span style={{ fontWeight: '900', color: '#10b981' }}>
+                            ৳{info.amount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Import Confirmation Button */}
+                {/* 2. INTERACTIVE EDITABLE PREVIEW TABLE */}
+                <div style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  background: 'var(--bg-card)',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ padding: '8px 12px', background: 'var(--bg-main)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      {lang === 'bn' ? '📝 লেনদেনের তালিকা (প্রয়োজনে তারিখ, নাম, ক্যাটাগরি ও টাকা সংশোধন করুন):' : 'Detailed Records (Editable):'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {candidateRows.filter(r => r.selected).length}/{candidateRows.length} {lang === 'bn' ? 'নির্বাচিত' : 'selected'}
+                    </span>
+                  </div>
+
+                  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-main)', position: 'sticky', top: 0, borderBottom: '1px solid var(--border-color)', zIndex: 10 }}>
+                          <th style={{ padding: '8px 6px', width: '32px', textAlign: 'center' }}>✓</th>
+                          <th style={{ padding: '8px 8px', width: '110px' }}>তারিখ</th>
+                          <th style={{ padding: '8px 8px' }}>খরচের বিবরণ / আইটেম</th>
+                          <th style={{ padding: '8px 8px', width: '140px' }}>ক্যাটাগরি</th>
+                          <th style={{ padding: '8px 8px', width: '100px', textAlign: 'right' }}>টাকা (৳)</th>
+                          <th style={{ padding: '8px 6px', width: '36px', textAlign: 'center' }}>মুছুন</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {candidateRows.map((r) => (
+                          <tr
+                            key={r.id}
+                            style={{
+                              borderBottom: '1px solid var(--border-color)',
+                              background: r.selected ? 'transparent' : 'rgba(255,255,255,0.02)',
+                              opacity: r.selected ? 1 : 0.45,
+                              transition: 'background 0.15s ease'
+                            }}
+                          >
+                            {/* Checkbox */}
+                            <td style={{ padding: '6px 6px', textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={r.selected}
+                                onChange={() => toggleRow(r.id)}
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </td>
+
+                            {/* Editable Date */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input
+                                type="text"
+                                value={r.date}
+                                onChange={(e) => updateCandidateRow(r.id, 'date', e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-primary)',
+                                  color: 'var(--text-main)',
+                                  fontSize: '0.74rem',
+                                  fontFamily: 'monospace'
+                                }}
+                              />
+                            </td>
+
+                            {/* Editable Item Description */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input
+                                type="text"
+                                value={r.item}
+                                onChange={(e) => updateCandidateRow(r.id, 'item', e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-primary)',
+                                  color: 'var(--text-main)',
+                                  fontSize: '0.78rem',
+                                  fontWeight: '700'
+                                }}
+                              />
+                            </td>
+
+                            {/* Editable Category Dropdown */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <select
+                                value={r.folder}
+                                onChange={(e) => updateCandidateRow(r.id, 'folder', e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-primary)',
+                                  color: 'var(--text-main)',
+                                  fontSize: '0.74rem'
+                                }}
+                              >
+                                {availableFolders.map((f, fIdx) => (
+                                  <option key={fIdx} value={f}>{f}</option>
+                                ))}
+                              </select>
+                            </td>
+
+                            {/* Editable Amount */}
+                            <td style={{ padding: '6px 4px', textAlign: 'right' }}>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={r.amount}
+                                onChange={(e) => updateCandidateRow(r.id, 'amount', e.target.value)}
+                                style={{
+                                  width: '90px',
+                                  textAlign: 'right',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-primary)',
+                                  color: '#10b981',
+                                  fontWeight: '900',
+                                  fontSize: '0.8rem'
+                                }}
+                              />
+                            </td>
+
+                            {/* Delete Button */}
+                            <td style={{ padding: '6px 6px', textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => deleteCandidateRow(r.id)}
+                                title="এই সারিটি বাদ দিন"
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  padding: '2px',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 3. FINAL IMPORT & AUTO-BACKUP ACTION BUTTON */}
                 <button
                   type="button"
                   onClick={handleExecuteImport}
                   style={{
                     width: '100%',
-                    marginTop: '1rem',
-                    padding: '12px',
-                    borderRadius: '10px',
+                    padding: '13px 18px',
+                    borderRadius: '12px',
                     background: 'linear-gradient(135deg, #10b981, #059669)',
                     color: '#ffffff',
                     border: 'none',
-                    fontSize: '0.95rem',
-                    fontWeight: '800',
+                    fontSize: '0.96rem',
+                    fontWeight: '900',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)'
+                    gap: '10px',
+                    boxShadow: '0 6px 20px rgba(16, 185, 129, 0.38)',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  <CheckCircle2 size={18} />
+                  <CheckCircle2 size={20} />
                   <span>
                     {lang === 'bn'
-                      ? `নির্বাচিত ${candidateRows.filter(r => r.selected).length}টি রেকর্ড সিস্টেমে যোগ করুন`
-                      : `Import ${candidateRows.filter(r => r.selected).length} Records`}
+                      ? `💾 নির্বাচিত ${candidateMetrics.selectedCount}টি খরচ সিস্টেমে যোগ ও অটো-ব্যাকআপ করুন (মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})`
+                      : `💾 Import & Auto-Backup ${candidateMetrics.selectedCount} Records (৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})`}
                   </span>
                 </button>
               </div>
@@ -1580,6 +1899,191 @@ export const DataExportImportModal = ({
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 4: IMPORTED EXPENSES BACKUP ARCHIVES & HISTORY       */}
+        {/* ======================================================== */}
+        {activeTab === 'history' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{
+              padding: '12px 14px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(99, 102, 241, 0.08))',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <History size={22} style={{ color: '#8b5cf6' }} />
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? 'আপলোডকৃত এক্সেল ও পিডিএফ ব্যাকআপ আর্কাইভ' : 'Imported Expense Backup Archives'}
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' 
+                      ? 'পূর্বে ইমপোর্ট করা সমস্ত খরচের তারিখ, মোট টাকা ও ক্যাটাগরিভিত্তিক সংরক্ষিত স্ন্যাপশট।' 
+                      : 'Audit log and full snapshots of all previously ingested Excel & PDF ledgers.'}
+                  </p>
+                </div>
+              </div>
+
+              {importHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(lang === 'bn' ? 'আপনি কি সমস্ত ব্যাকআপ হিস্ট্রি ক্লিয়ার করতে চান?' : 'Clear all backup history?')) {
+                      localStorage.removeItem('hk360_smart_import_backups');
+                      setImportHistory([]);
+                      showToast(lang === 'bn' ? 'ব্যাকআপ হিস্ট্রি ক্লিয়ার করা হয়েছে' : 'History cleared');
+                    }
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    color: '#ef4444',
+                    fontSize: '0.74rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {lang === 'bn' ? 'হিস্ট্রি মুছুন' : 'Clear History'}
+                </button>
+              )}
+            </div>
+
+            {importHistory.length === 0 ? (
+              <div style={{
+                padding: '36px 20px',
+                textAlign: 'center',
+                borderRadius: '12px',
+                border: '1.5px dashed var(--border-color)',
+                background: 'var(--bg-main)'
+              }}>
+                <Archive size={38} style={{ color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.6 }} />
+                <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'এখনো কোনো ব্যাকআপ সংরক্ষিত নেই' : 'No Backup Archives Found'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {lang === 'bn' 
+                    ? '১ম ট্যাবে ("খরচ ইমপোর্ট ও ব্যাকআপ") গিয়ে আপনার আগের মাসের এক্সেল বা পিডিএফ আপলোড করলেই এখানে অটো ব্যাকআপ তৈরি হবে।' 
+                    : 'Upload any Excel or PDF in the first tab to automatically generate backup archives.'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {importHistory.map((snap) => (
+                  <div
+                    key={snap.id}
+                    style={{
+                      background: 'var(--bg-main)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          background: snap.fileType === 'pdf' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                          color: snap.fileType === 'pdf' ? '#ef4444' : '#10b981',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {snap.fileType === 'pdf' ? <FileText size={18} /> : <FileSpreadsheet size={18} />}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-main)' }}>
+                            {snap.fileName}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {new Date(snap.importedAt).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')} • {snap.destination === 'family' ? '🏠 পারিবারিক' : snap.destination === 'biz_expense' ? '🏢 ব্যবসায়িক' : '🛒 দৈনিক'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '1.05rem', fontWeight: '900', color: '#10b981' }}>
+                          ৳{(Number(snap.totalAmount) || 0).toLocaleString('en-IN')}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {snap.itemCount}টি আইটেম
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Category summary pills */}
+                    {snap.categoryBreakdown && snap.categoryBreakdown.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', paddingTop: '4px' }}>
+                        {snap.categoryBreakdown.map((cat, cIdx) => (
+                          <span
+                            key={cIdx}
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: '700',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: 'var(--bg-card)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-main)'
+                            }}
+                          >
+                            {cat.name}: <strong>৳{(Number(cat.amount) || 0).toLocaleString('en-IN')}</strong> ({cat.count}টি)
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action button to download snapshot */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(snap, null, 2));
+                          const downloadAnchor = document.createElement('a');
+                          downloadAnchor.setAttribute("href", dataStr);
+                          downloadAnchor.setAttribute("download", `Backup_${snap.fileName.replace(/\.[^/.]+$/, "")}_${snap.id}.json`);
+                          document.body.appendChild(downloadAnchor);
+                          downloadAnchor.click();
+                          downloadAnchor.remove();
+                          showToast(lang === 'bn' ? 'JSON ব্যাকআপ ফাইল ডাউনলোড সম্পন্ন!' : 'Downloaded snapshot JSON');
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-main)',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Download size={12} />
+                        <span>{lang === 'bn' ? 'স্ন্যাপশট ডাউনলোড' : 'Download JSON'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -321,7 +321,7 @@ export const exportTableToPrintablePdf = ({
 
 export const parseExcelFile = async (file) => {
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
 
@@ -430,10 +430,10 @@ export const parsePdfFile = async (file, onProgress) => {
   reportProgress(65, 'লাইন বাই লাইন লেনদেন ও তারিখ অ্যানালাইসিস শুরু...');
   const parsedRecords = [];
 
-  // Robust Date regex: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, or Month Name dates
-  const dateRegex = /\b(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[a-z]*\s+\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4})\b/i;
-  // Currency/Number regex: e.g. 1,500.00 or 500 or 1500
-  const numberRegex = /\b(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+)\b/g;
+  // Robust Date regex: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, or Month Name dates (supporting Bengali digits)
+  const dateRegex = /\b([0-9০-৯]{1,4}[-/.\s][0-9০-৯]{1,2}[-/.\s][0-9০-৯]{1,4}|[0-9০-৯]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[a-z]*\s+[0-9০-৯]{2,4})\b/i;
+  // Currency/Number regex: handles 1,500.00, ৳১,৫০০, 500, etc.
+  const numberRegex = /(?:[৳$€£]\s*)?([0-9০-৯]{1,3}(?:[, ][0-9০-৯]{3})*(?:\.[0-9০-৯]+)?|[0-9০-৯]+(?:\.[0-9০-৯]+)?)/g;
 
   const totalLines = allLines.length;
   allLines.forEach((line, idx) => {
@@ -453,31 +453,31 @@ export const parsePdfFile = async (file, onProgress) => {
     }
 
     const dateMatch = line.match(dateRegex);
-    const numbers = line.match(numberRegex) || [];
+    const rawMatches = line.match(numberRegex) || [];
 
     // If line has a date and at least one number, it's likely a transaction
-    if (dateMatch && numbers.length > 0) {
+    if (dateMatch && rawMatches.length > 0) {
       // Pick the last number on the line as the amount (typical for expense/statement sheets)
-      const rawAmountStr = numbers[numbers.length - 1].replace(/,/g, '');
-      const amountVal = parseFloat(rawAmountStr);
+      const lastNumStr = rawMatches[rawMatches.length - 1];
+      const amountVal = parseAmountSafely(lastNumStr);
 
-      if (!isNaN(amountVal) && amountVal > 0) {
+      if (amountVal > 0) {
         const foundDate = dateMatch[0];
         // Clean description: strip date and amount from the line
         let desc = line
           .replace(foundDate, '')
-          .replace(numbers[numbers.length - 1], '')
+          .replace(lastNumStr, '')
           .replace(/[৳$€£,]/g, '')
           .replace(/\s+/g, ' ')
           .trim();
 
         // Extract possible quantity & unit (e.g. 5 kg, 2 pcs, 500 g)
-        const qtyMatch = desc.match(/(\d+(?:\.\d+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টিপ|ডজন|kg|g|gm|ltr|l|pcs|ft)/i);
+        const qtyMatch = desc.match(/([0-9০-৯]+(?:\.[0-9০-৯]+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টিপ|ডজন|kg|g|gm|ltr|l|pcs|ft)/i);
         let quantity = null;
         let unit = '';
 
         if (qtyMatch) {
-          quantity = parseFloat(qtyMatch[1]);
+          quantity = parseAmountSafely(qtyMatch[1]);
           unit = qtyMatch[2];
         }
 
@@ -488,7 +488,7 @@ export const parsePdfFile = async (file, onProgress) => {
             amount: amountVal,
             quantity: quantity,
             unit: unit,
-            folder: guessFolderFromText(desc),
+            folder: guessFolderFromText(desc, 'family'),
             note: 'PDF থেকে ইমপোর্টকৃত'
           });
         }
@@ -504,10 +504,41 @@ export const parsePdfFile = async (file, onProgress) => {
   };
 };
 
-function normalizeDate(str) {
+export function parseAmountSafely(val) {
+  if (typeof val === 'number') return isNaN(val) ? 0 : Math.abs(val);
+  if (!val) return 0;
+  try {
+    const bnDigits = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+    let clean = String(val)
+      .replace(/[০-৯]/g, d => bnDigits[d] || d)
+      .replace(/[৳$€£,]/g, '')
+      .replace(/tk|bdt|taka|টাকা/gi, '')
+      .trim();
+    const parsed = parseFloat(clean);
+    return isNaN(parsed) ? 0 : Math.abs(parsed);
+  } catch (err) {
+    console.warn('parseAmountSafely fallback:', err);
+    return 0;
+  }
+}
+
+export function normalizeDate(str) {
   if (!str) return new Date().toISOString().split('T')[0];
   try {
-    // Convert Bengali digits to English
+    // 1. JavaScript Date instance
+    if (str instanceof Date && !isNaN(str.getTime())) {
+      return str.toISOString().split('T')[0];
+    }
+
+    // 2. Excel Numeric Serial Date (e.g. 45200 ~ 2023+)
+    if (typeof str === 'number' || (!isNaN(str) && Number(str) > 20000 && Number(str) < 70000)) {
+      const excelEpoch = new Date(Math.round((Number(str) - 25569) * 86400 * 1000));
+      if (!isNaN(excelEpoch.getTime())) {
+        return excelEpoch.toISOString().split('T')[0];
+      }
+    }
+
+    // 3. Convert Bengali digits to English
     const bnDigits = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
     let clean = String(str).replace(/[০-৯]/g, d => bnDigits[d] || d).trim();
 
@@ -570,28 +601,59 @@ function normalizeDate(str) {
   return new Date().toISOString().split('T')[0];
 }
 
-function guessFolderFromText(text) {
-  const t = text.toLowerCase();
-  if (t.includes('চাল') || t.includes('তেল') || t.includes('বাজার') || t.includes('মাছ') || t.includes('সবজি') || t.includes('ডিম') || t.includes('grocery') || t.includes('মুরগি') || t.includes('মাংস')) {
-    return 'গৃহস্থালি ও নিত্য কেনাকাটা';
+export function guessFolderFromText(text, destinationType = 'family') {
+  if (!text) return destinationType === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা';
+  const t = String(text).toLowerCase();
+
+  // Gas, Cylinder, LPG, Electricity, Water, Utilities
+  if (
+    t.includes('গ্যাস') || t.includes('gas') || t.includes('lpg') || t.includes('এলপিজি') ||
+    t.includes('সিলিন্ডার') || t.includes('cylinder') || t.includes('বিদ্যুৎ') || t.includes('কারেন্ট') ||
+    t.includes('পানি') || t.includes('water') || t.includes('bill') || t.includes('ডেসকো') ||
+    t.includes('ওয়াসা') || t.includes('নেস্কো') || t.includes('পল্লী') || t.includes('বিদ্যুত')
+  ) {
+    return destinationType === 'biz_expense' ? 'ইউটিলিটি ও বিল' : 'বিদ্যুৎ, গ্যাস ও ইউটিলিটি';
   }
-  if (t.includes('বিদ্যুৎ') || t.includes('গ্যাস') || t.includes('পানি') || t.includes('কারেন্ট') || t.includes('bill') || t.includes('ডেসকো') || t.includes('ওয়াসা')) {
-    return 'বিদ্যুৎ, গ্যাস ও ইউটিলিটি';
+
+  // House / Flat / Shop Rent
+  if (t.includes('ভাড়া') || t.includes('বাসা') || t.includes('ফ্ল্যাট') || t.includes('rent') || t.includes('দোকান ভাড়া') || t.includes('গোডাউন')) {
+    return destinationType === 'biz_expense' ? 'দোকান ও গোডাউন ভাড়া' : 'বাসা ও ফ্ল্যাট খরচ';
   }
-  if (t.includes('স্কুল') || t.includes('কলেজ') || t.includes('বই') || t.includes('বেতন') || t.includes('টিউটর') || t.includes('খাতা') || t.includes('school')) {
-    return 'সন্তানের পড়াশোনা ও স্কুল';
+
+  // Grocery, Bazaar, Meat, Fish, Daily items
+  if (
+    t.includes('চাল') || t.includes('তেল') || t.includes('বাজার') || t.includes('মাছ') ||
+    t.includes('সবজি') || t.includes('ডিম') || t.includes('grocery') || t.includes('মুরগি') ||
+    t.includes('মাংস') || t.includes('গোশত') || t.includes('ডাল') || t.includes('আলু') ||
+    t.includes('পেঁয়াজ') || t.includes('মসলা') || t.includes('দুধ') || t.includes('চিনি')
+  ) {
+    return destinationType === 'biz_expense' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা';
   }
-  if (t.includes('ওষুধ') || t.includes('ডাক্তার') || t.includes('হাসপাতাল') || t.includes('ফার্মেসি') || t.includes('টেস্ট') || t.includes('pharma') || t.includes('med')) {
-    return 'পারিবারিক চিকিৎসা ও ওষুধ';
+
+  // Children, School, Tuition, Books
+  if (t.includes('স্কুল') || t.includes('কলেজ') || t.includes('বই') || t.includes('টিউটর') || t.includes('খাতা') || t.includes('school') || t.includes('মাদ্রাসা') || t.includes('কোচিং') || t.includes('ফি')) {
+    return destinationType === 'biz_expense' ? 'অফিস সাপ্লাই ও স্টেশনারি' : 'সন্তানের পড়াশোনা ও স্কুল';
   }
-  if (t.includes('ইন্টারনেট') || t.includes('মোবাইল') || t.includes('রিচার্জ') || t.includes('ওয়াইফাই') || t.includes('wifi') || t.includes('recharge')) {
-    return 'ইন্টারনেট ও মোবাইল রিচার্জ';
+
+  // Medical, Doctor, Medicine, Pharmacy
+  if (t.includes('ওষুধ') || t.includes('ঔষধ') || t.includes('ডাক্তার') || t.includes('হাসপাতাল') || t.includes('ফার্মেসি') || t.includes('টেস্ট') || t.includes('pharma') || t.includes('med') || t.includes('clinic')) {
+    return destinationType === 'biz_expense' ? 'জরুরি চিকিৎসা ও ফার্স্ট এইড' : 'পারিবারিক চিকিৎসা ও ওষুধ';
   }
-  if (t.includes('ভাড়া') || t.includes('বাসা') || t.includes('ফ্ল্যাট') || t.includes('rent')) {
-    return 'বাসা ও ফ্ল্যাট খরচ';
+
+  // Internet, Mobile, Recharge, WiFi
+  if (t.includes('ইন্টারনেট') || t.includes('মোবাইল') || t.includes('রিচার্জ') || t.includes('ওয়াইফাই') || t.includes('wifi') || t.includes('recharge') || t.includes('mb') || t.includes('data')) {
+    return destinationType === 'biz_expense' ? 'ইন্টারনেট ও ফোন বিল' : 'ইন্টারনেট ও মোবাইল রিচার্জ';
   }
-  if (t.includes('গাড়ি') || t.includes('সিএনজি') || t.includes('রিকশা') || t.includes('উবার') || t.includes('পাঠাও') || t.includes('তেল/অকটেন') || t.includes('ফুয়েল')) {
-    return 'যাতায়াত ও পরিবহন';
+
+  // Transport, Travel, Fuel
+  if (t.includes('গাড়ি') || t.includes('সিএনজি') || t.includes('রিকশা') || t.includes('উবার') || t.includes('পাঠাও') || t.includes('তেল/অকটেন') || t.includes('ফুয়েল') || t.includes('পেট্রোল') || t.includes('ডিজেল') || t.includes('যাতায়াত')) {
+    return destinationType === 'biz_expense' ? 'যাতায়াত ও পরিবহন খরচ' : 'যাতায়াত ও পরিবহন';
   }
-  return 'অন্যান্য পারিবারিক খরচ';
+
+  // Salary, Staff wages
+  if (t.includes('বেতন') || t.includes('salary') || t.includes('স্টাফ') || t.includes('মজুরি') || t.includes('কর্মচারী')) {
+    return destinationType === 'biz_expense' ? 'কর্মচারী বেতন ও মজুরি' : 'গৃহকর্মী ও কাজের লোক';
+  }
+
+  return destinationType === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'অন্যান্য পারিবারিক খরচ';
 }
