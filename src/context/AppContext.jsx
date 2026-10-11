@@ -2594,10 +2594,12 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const openScanner = (callback, context = 'pos', initialMode = 'barcode') => {
-    setScannerCallback(() => callback);
+  const openScanner = (callbackOrMode, context = 'pos', initialMode = 'barcode') => {
+    const cb = typeof callbackOrMode === 'function' ? callbackOrMode : null;
+    const mode = typeof callbackOrMode === 'string' ? callbackOrMode : initialMode;
+    setScannerCallback(() => cb);
     setScannerContext(context);
-    setScannerInitialMode(initialMode);
+    setScannerInitialMode(mode);
     setIsScannerOpen(true);
   };
 
@@ -2613,8 +2615,12 @@ export const AppProvider = ({ children }) => {
       p => p.barcode === cleanCode || p.sku.toLowerCase() === cleanCode.toLowerCase()
     );
 
-    if (scannerCallback) {
-      scannerCallback(cleanCode, matched);
+    if (typeof scannerCallback === 'function') {
+      try {
+        scannerCallback(cleanCode, matched);
+      } catch (err) {
+        console.warn('Scanner callback handler error:', err);
+      }
     }
 
     if (matched) {

@@ -140,6 +140,17 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNav
     }
     lastBackPressTriggerTime = now;
 
+    // 0. ABSOLUTE TOP PRIORITY: Active Barcode Scanner Force Dismissal Guard
+    if (typeof window !== 'undefined' && typeof window.__closeScannerModal === 'function') {
+      try {
+        window.__closeScannerModal();
+        hapticFeedback.light();
+        return true;
+      } catch (err) {
+        console.warn('Direct scanner close error:', err);
+      }
+    }
+
     // 1. Query registered modal, sheet, or sub-view handlers (top-down)
     for (let i = backActionStack.length - 1; i >= 0; i--) {
       const handler = backActionStack[i];
@@ -197,6 +208,13 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNav
       return true;
     }
   };
+
+  if (typeof window !== 'undefined') {
+    window.__hkNativeBackDispatcher = handleBackPress;
+    if (onHomeExitNotice) {
+      window.__showHKToast = onHomeExitNotice;
+    }
+  }
 
   // Capacitor Native Android Hardware/Gesture Back Button
   if (isNativePlatform()) {

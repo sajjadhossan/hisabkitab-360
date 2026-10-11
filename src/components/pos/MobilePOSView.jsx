@@ -825,7 +825,17 @@ export const MobilePOSView = ({
             {/* Direct Camera Scanner Button */}
             <button
               type="button"
-              onClick={() => openScanner('barcode')}
+              onClick={() => {
+                if (typeof openScanner === 'function') {
+                  openScanner((scannedCode, matchedProduct) => {
+                    if (matchedProduct) {
+                      addToCart(matchedProduct);
+                    } else if (scannedCode) {
+                      setSearchTerm(scannedCode);
+                    }
+                  }, 'pos', 'barcode');
+                }
+              }}
               style={{
                 width: '44px',
                 height: '44px',

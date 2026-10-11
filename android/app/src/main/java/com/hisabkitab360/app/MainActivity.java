@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -19,6 +20,47 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestNativeAppPermissions();
+
+        // 100% Robust Android Hardware & Gesture Back Button Dispatcher
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            private long lastBackExitNoticeTime = 0;
+
+            @Override
+            public void handleOnBackPressed() {
+                try {
+                    if (getBridge() != null && getBridge().getWebView() != null) {
+                        WebView webView = getBridge().getWebView();
+                        webView.evaluateJavascript(
+                            "(function() { " +
+                            "  if (typeof window.__hkNativeBackDispatcher === 'function') { " +
+                            "    return window.__hkNativeBackDispatcher(); " +
+                            "  } " +
+                            "  return false; " +
+                            "})();",
+                            value -> {
+                                if ("true".equals(value) || Boolean.parseBoolean(value)) {
+                                    return;
+                                }
+                                long now = System.currentTimeMillis();
+                                if (now - lastBackExitNoticeTime < 2200) {
+                                    finish();
+                                } else {
+                                    lastBackExitNoticeTime = now;
+                                    webView.evaluateJavascript(
+                                        "if (typeof window.__showHKToast === 'function') window.__showHKToast();",
+                                        null
+                                    );
+                                }
+                            }
+                        );
+                    } else {
+                        finish();
+                    }
+                } catch (Exception e) {
+                    finish();
+                }
+            }
+        });
     }
 
     private void requestNativeAppPermissions() {

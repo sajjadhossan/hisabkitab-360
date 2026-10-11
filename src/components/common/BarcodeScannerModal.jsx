@@ -80,18 +80,53 @@ export const BarcodeScannerModal = () => {
   const nativeDetectorRunningRef = useRef(false);
   const nativeRafIdRef = useRef(null);
 
-  // Android Hardware Back Button: Smoothly release camera and close scanner modal
+  // Bulletproof Camera Release & Safe Close Handler
+  const handleSafeClose = () => {
+    try {
+      nativeDetectorRunningRef.current = false;
+      if (nativeRafIdRef.current) {
+        cancelAnimationFrame(nativeRafIdRef.current);
+        nativeRafIdRef.current = null;
+      }
+      setIsHardwareAccelerated(false);
+
+      const videoElem = document.querySelector('#hisabkitab-scanner-viewfinder video');
+      if (videoElem && videoElem.srcObject) {
+        const stream = videoElem.srcObject;
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach((track) => {
+            try { track.stop(); } catch {}
+          });
+        }
+        videoElem.srcObject = null;
+      }
+
+      if (html5QrCodeRef.current) {
+        if (html5QrCodeRef.current.isScanning) {
+          html5QrCodeRef.current.stop().catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('Safe camera stop ignored:', e);
+    }
+    setCameraActive(false);
+    setTorchOn(false);
+    closeScanner();
+  };
+
+  // Android Hardware Back Button: Guaranteed top-priority scanner dismissal
   useEffect(() => {
+    window.__closeScannerModal = handleSafeClose;
     if (isScannerOpen) {
       return registerBackAction(() => {
-        closeScanner();
-        try {
-          stopCamera();
-        } catch {}
+        handleSafeClose();
         return true;
       });
     }
-  }, [isScannerOpen, closeScanner]);
+    return () => {
+      delete window.__closeScannerModal;
+    };
+  }, [isScannerOpen]);
 
   // Sync mode when opened
   useEffect(() => {
@@ -722,7 +757,7 @@ export const BarcodeScannerModal = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              onClick={closeScanner}
+              onClick={handleSafeClose}
               className="btn btn-secondary"
               style={{
                 padding: '5px 10px',
@@ -743,7 +778,7 @@ export const BarcodeScannerModal = () => {
             </button>
             <button
               className="btn-icon"
-              onClick={closeScanner}
+              onClick={handleSafeClose}
               title={t.close}
               style={{ width: '34px', height: '34px', borderRadius: '50%' }}
             >
