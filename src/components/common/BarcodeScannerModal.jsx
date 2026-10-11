@@ -84,12 +84,14 @@ export const BarcodeScannerModal = () => {
   useEffect(() => {
     if (isScannerOpen) {
       return registerBackAction(() => {
-        stopCamera();
         closeScanner();
+        try {
+          stopCamera();
+        } catch {}
         return true;
       });
     }
-  }, [isScannerOpen]);
+  }, [isScannerOpen, closeScanner]);
 
   // Sync mode when opened
   useEffect(() => {
@@ -717,14 +719,37 @@ export const BarcodeScannerModal = () => {
             </div>
           </div>
 
-          <button
-            className="btn-icon"
-            onClick={closeScanner}
-            title={t.close}
-            style={{ width: '34px', height: '34px', borderRadius: '50%' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={closeScanner}
+              className="btn btn-secondary"
+              style={{
+                padding: '5px 10px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'স্ক্যানার বন্ধ করে ফিরে যান' : 'Close and go back'}
+            >
+              <span>← {lang === 'bn' ? 'ফিরে যান' : 'Back'}</span>
+            </button>
+            <button
+              className="btn-icon"
+              onClick={closeScanner}
+              title={t.close}
+              style={{ width: '34px', height: '34px', borderRadius: '50%' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs (Barcode, AI Visual, Photo Upload, Manual) */}

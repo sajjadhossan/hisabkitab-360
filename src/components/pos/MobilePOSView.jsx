@@ -220,33 +220,6 @@ export const MobilePOSView = ({
   const actualCountNum = actualDrawerCashInput !== '' ? Number(actualDrawerCashInput) : null;
   const drawerDiscrepancy = actualCountNum !== null ? actualCountNum - expectedDrawerCash : 0;
 
-  // Android Hardware Back Button Listeners
-  useEffect(() => {
-    if (activeTab === 'cart') {
-      return registerBackAction(() => {
-        setActiveTab('catalog');
-        return true;
-      });
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (showRecallModal) {
-      return registerBackAction(() => {
-        setShowRecallModal(false);
-        return true;
-      });
-    }
-  }, [showRecallModal]);
-
-  useEffect(() => {
-    if (showDrawerFloatModal) {
-      return registerBackAction(() => {
-        setShowDrawerFloatModal(false);
-        return true;
-      });
-    }
-  }, [showDrawerFloatModal]);
 
 
   // Filter products by search and category
@@ -387,230 +360,93 @@ export const MobilePOSView = ({
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. TOP MOBILE HEADER BAR */}
+      {/* 1. TOP MOBILE HEADER BAR (2-TIER RESPONSIVE NO-OVERFLOW DESIGN) */}
       <div
         className="glass-card"
         style={{
-          padding: '0.65rem 0.85rem',
+          padding: '0.6rem 0.75rem',
           marginBottom: '0.65rem',
           borderRadius: '14px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           background: 'var(--bg-secondary)',
           borderLeft: '4px solid var(--business-primary)',
+          display: 'flex',
+          flexDirection: 'column',
           gap: '8px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-          {/* 1-Tap Quick Back to Dashboard Button */}
-          <button
-            type="button"
-            onClick={() => {
-              hapticFeedback.light();
-              playButtonClick();
-              if (setGlobalTab) setGlobalTab('dashboard');
-            }}
-            className="btn btn-secondary"
-            style={{
-              padding: '6px 10px',
-              borderRadius: '10px',
-              border: '1.5px solid var(--border-color)',
-              background: 'var(--bg-primary)',
-              color: 'var(--text-main)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              fontSize: '0.78rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              flexShrink: 0
-            }}
-            title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
-          >
-            <ArrowLeft size={16} />
-            <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
-          </button>
-
-          <div
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '10px',
-              background: 'rgba(99, 102, 241, 0.15)',
-              color: 'var(--business-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            <Store size={18} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {activeBranch?.name || (lang === 'bn' ? 'প্রধান শাখা' : 'Main Branch')}
-            </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>🖥️ {activeCounter?.name || (lang === 'bn' ? 'কাউন্টার ১' : 'Counter 1')}</span>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => (isShiftActive ? setShowClosingModal(true) : setShowOpeningModal(true))}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  fontSize: '0.7rem',
-                  fontWeight: '700',
-                  color: isShiftActive ? '#10b981' : '#f59e0b',
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}
-              >
-                {isShiftActive ? (lang === 'bn' ? '🟢 শিফট সক্রিয়' : 'Shift Active') : (lang === 'bn' ? '🌅 শিফট বন্ধ' : 'Closed')}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Header Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {/* Drawer Float Reconciliation Button */}
-          {posPerms.showCashDrawer !== false && (
+        {/* Tier 1: Navigation & Branch Status */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            {/* 1-Tap Quick Back to Dashboard Button */}
             <button
               type="button"
               onClick={() => {
                 hapticFeedback.light();
-                setShowDrawerFloatModal(true);
+                playButtonClick();
+                if (setGlobalTab) setGlobalTab('dashboard');
               }}
+              className="btn btn-secondary"
               style={{
-                padding: '5px 8px',
-                borderRadius: '8px',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
-                background: 'rgba(16, 185, 129, 0.12)',
-                color: '#10b981',
+                padding: '6px 10px',
+                borderRadius: '10px',
+                border: '1.5px solid var(--border-color)',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-main)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.72rem',
+                gap: '5px',
+                fontSize: '0.78rem',
                 fontWeight: '800',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                flexShrink: 0
               }}
-              title={lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব ও রিকনসিলিয়েশন' : 'Cash Drawer Float'}
+              title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
             >
-              <Banknote size={14} />
-              <span>{lang === 'bn' ? 'ক্যাশ ড্রয়ার' : 'Drawer'}</span>
+              <ArrowLeft size={16} />
+              <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home'}</span>
             </button>
-          )}
 
-          {/* Held Carts Button */}
-          {posPerms.showHoldCart !== false && (
-            <button
-              type="button"
-              onClick={() => {
-                hapticFeedback.light();
-                setShowRecallModal(true);
-              }}
-              style={{
-                padding: '5px 8px',
-                borderRadius: '8px',
-                border: heldCarts.length > 0 ? '1px solid #f59e0b' : '1px solid var(--border-color)',
-                background: heldCarts.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                color: heldCarts.length > 0 ? '#f59e0b' : 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.72rem',
-                fontWeight: '800',
-                cursor: 'pointer'
-              }}
-              title={lang === 'bn' ? `হোল্ড কার্ট (${heldCarts.length}টি সংরক্ষিত)` : `Held Carts (${heldCarts.length})`}
-            >
-              <History size={14} />
-              <span>{lang === 'bn' ? `হোল্ড (${heldCarts.length})` : `Held (${heldCarts.length})`}</span>
-            </button>
-          )}
-
-          {/* Network Quality & Latency Badge */}
-          <NetworkQualityIndicator lang={lang} />
-
-          {/* Screen Wake Lock Toggle (Always-on Screen) */}
-          {posPerms.showWakeLock !== false && (
-            <ScreenWakeLockToggle lang={lang} showToast={showToast} />
-          )}
-
-          {/* Soundbox toggle */}
-          {posPerms.showSoundbox !== false && (
-            <button
-              type="button"
-              onClick={() => setSoundboxActive(!soundboxActive)}
+            <div
               style={{
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                border: soundboxActive ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-                background: soundboxActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                color: soundboxActive ? '#10b981' : 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু' : 'সাউন্ডবক্স বন্ধ'}
-            >
-              {soundboxActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            </button>
-          )}
-
-          {/* Customer Display Live Mirror Screen Button */}
-          {posPerms.showCustomerMirror !== false && (
-            <button
-              type="button"
-              onClick={() => {
-                hapticFeedback.light();
-                window.open('/?view=customer_mirror', '_blank');
-              }}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                border: '1px solid rgba(99, 102, 241, 0.4)',
-                background: 'rgba(99, 102, 241, 0.12)',
+                background: 'rgba(99, 102, 241, 0.15)',
                 color: 'var(--business-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer'
+                flexShrink: 0
               }}
-              title={lang === 'bn' ? 'গ্রাহক লাইভ ডিসপ্লে স্ক্রিন খুলুন' : 'Open Customer Live Display'}
             >
-              <Monitor size={15} />
-            </button>
-          )}
-
-          {/* Desktop view switch */}
-
-          {onSwitchToDesktop && (
-            <button
-              type="button"
-              onClick={onSwitchToDesktop}
-              className="btn btn-secondary"
-              style={{
-                padding: '4px 8px',
-                fontSize: '0.72rem',
-                fontWeight: '700',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="কম্পিউটার ডেস্কটপ ভিউতে দেখুন"
-            >
-              <LayoutGrid size={13} />
-              <span>{lang === 'bn' ? 'পিসি মোড' : 'PC'}</span>
-            </button>
-          )}
+              <Store size={16} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {activeBranch?.name || (lang === 'bn' ? 'প্রধান শাখা' : 'Main Branch')}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>{activeCounter?.name || (lang === 'bn' ? 'কাউন্টার ১' : 'Counter 1')}</span>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => (isShiftActive ? setShowClosingModal(true) : setShowOpeningModal(true))}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    fontSize: '0.68rem',
+                    fontWeight: '700',
+                    color: isShiftActive ? '#10b981' : '#f59e0b',
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  {isShiftActive ? (lang === 'bn' ? '🟢 শিফট সক্রিয়' : 'Shift Active') : (lang === 'bn' ? '🌅 শিফট বন্ধ' : 'Closed')}
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* 1-Tap Quick Exit Cross Button */}
           <button
@@ -633,10 +469,176 @@ export const MobilePOSView = ({
               cursor: 'pointer',
               flexShrink: 0
             }}
-            title={lang === 'bn' ? 'পজ থেকে বের হয়ে ড্যাশবোর্ডে যান' : 'Exit POS to Dashboard'}
+            title={lang === 'bn' ? 'পজ থেকে বের হয়ে ড্যাশবোর্ডে যান' : 'Exit to Dashboard'}
           >
             <X size={17} />
           </button>
+        </div>
+
+        {/* Tier 2: Horizontal Touch Tool Ribbon (Zero Overflow, Swipeable on Touch) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: '2px',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
+        >
+          {/* Desktop view switch (PC Mode) */}
+          {onSwitchToDesktop && (
+            <button
+              type="button"
+              onClick={onSwitchToDesktop}
+              className="btn btn-secondary"
+              style={{
+                padding: '5px 9px',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: 'var(--business-primary)',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              title="কম্পিউটার ডেস্কটপ ভিউতে দেখুন"
+            >
+              <LayoutGrid size={13} />
+              <span>{lang === 'bn' ? '🖥️ পিসি মোড' : 'PC Mode'}</span>
+            </button>
+          )}
+
+          {/* Drawer Float Reconciliation Button */}
+          {posPerms.showCashDrawer !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowDrawerFloatModal(true);
+              }}
+              style={{
+                padding: '5px 9px',
+                borderRadius: '8px',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? 'ক্যাশ ড্রয়ার হিসাব ও রিকনসিলিয়েশন' : 'Cash Drawer Float'}
+            >
+              <Banknote size={14} />
+              <span>{lang === 'bn' ? 'ক্যাশ ড্রয়ার' : 'Drawer'}</span>
+            </button>
+          )}
+
+          {/* Held Carts Button */}
+          {posPerms.showHoldCart !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                setShowRecallModal(true);
+              }}
+              style={{
+                padding: '5px 9px',
+                borderRadius: '8px',
+                border: heldCarts.length > 0 ? '1px solid #f59e0b' : '1px solid var(--border-color)',
+                background: heldCarts.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-primary)',
+                color: heldCarts.length > 0 ? '#f59e0b' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? `হোল্ড কার্ট (${heldCarts.length}টি সংরক্ষিত)` : `Held Carts (${heldCarts.length})`}
+            >
+              <History size={14} />
+              <span>{lang === 'bn' ? `হোল্ড (${heldCarts.length})` : `Held (${heldCarts.length})`}</span>
+            </button>
+          )}
+
+          {/* Soundbox toggle */}
+          {posPerms.showSoundbox !== false && (
+            <button
+              type="button"
+              onClick={() => setSoundboxActive(!soundboxActive)}
+              style={{
+                padding: '5px 8px',
+                borderRadius: '8px',
+                border: soundboxActive ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                background: soundboxActive ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-primary)',
+                color: soundboxActive ? '#10b981' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু' : 'সাউন্ডবক্স বন্ধ'}
+            >
+              {soundboxActive ? <Volume2 size={14} /> : <VolumeX size={14} />}
+              <span>{soundboxActive ? (lang === 'bn' ? 'সাউন্ডবক্স অন' : 'Sound On') : (lang === 'bn' ? 'সাউন্ড অফ' : 'Mute')}</span>
+            </button>
+          )}
+
+          {/* Customer Display Live Mirror Screen Button */}
+          {posPerms.showCustomerMirror !== false && (
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback.light();
+                window.open('/?view=customer_mirror', '_blank');
+              }}
+              style={{
+                padding: '5px 8px',
+                borderRadius: '8px',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                background: 'rgba(99, 102, 241, 0.12)',
+                color: 'var(--business-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? 'গ্রাহক লাইভ ডিসপ্লে স্ক্রিন খুলুন' : 'Open Customer Live Display'}
+            >
+              <Monitor size={14} />
+              <span>{lang === 'bn' ? 'ডিসপ্লে' : 'Mirror'}</span>
+            </button>
+          )}
+
+          {/* Screen Wake Lock Toggle (Always-on Screen) */}
+          {posPerms.showWakeLock !== false && (
+            <ScreenWakeLockToggle lang={lang} showToast={showToast} />
+          )}
+
+          {/* Network Quality & Latency Badge */}
+          <NetworkQualityIndicator lang={lang} />
         </div>
       </div>
 

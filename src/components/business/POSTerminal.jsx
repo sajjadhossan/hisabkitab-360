@@ -1337,6 +1337,38 @@ export const POSTerminal = () => {
         zoom: zoomLevel !== 100 ? `${zoomLevel}%` : undefined
       }}
     >
+      {/* Floating Return-to-Mobile Pill when Desktop Mode is forced on Mobile */}
+      {isMobileScreen && forceDesktopMode && (
+        <button
+          type="button"
+          onClick={() => {
+            hapticFeedback.light();
+            setForceDesktopMode(false);
+          }}
+          style={{
+            position: 'fixed',
+            top: '72px',
+            right: '12px',
+            zIndex: 9995,
+            padding: '7px 14px',
+            borderRadius: '20px',
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            color: '#ffffff',
+            border: '2px solid rgba(255, 255, 255, 0.45)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(99, 102, 241, 0.5)',
+            fontSize: '0.8rem',
+            fontWeight: '800',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+          title={lang === 'bn' ? 'মোবাইল মোডে ফিরুন' : 'Back to Mobile Mode'}
+        >
+          <span>📱 {lang === 'bn' ? 'মোবাইল মোড' : 'Mobile Mode'}</span>
+        </button>
+      )}
+
       {/* MOBILE COMPACT HEADER BAR */}
       {isMobileScreen && (
         <div

@@ -114,6 +114,7 @@ export const hideNativeSplashScreen = async (duration = 350) => {
 // ==========================================
 const backActionStack = [];
 let lastBackPressTime = 0;
+let lastBackPressTriggerTime = 0;
 let isBackListenerInitialized = false;
 
 export const registerBackAction = (handler) => {
@@ -132,12 +133,21 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNav
   isBackListenerInitialized = true;
 
   const handleBackPress = () => {
-    // 1. If any modal, drawer, or custom sheet registered a handler, run it first
-    if (backActionStack.length > 0) {
-      const topHandler = backActionStack.pop();
+    const now = Date.now();
+    // 320ms Debounce guard to prevent hardware double-firing
+    if (now - lastBackPressTriggerTime < 320) {
+      return true;
+    }
+    lastBackPressTriggerTime = now;
+
+    // 1. Query registered modal, sheet, or sub-view handlers (top-down)
+    for (let i = backActionStack.length - 1; i >= 0; i--) {
+      const handler = backActionStack[i];
       try {
-        const handled = topHandler();
-        if (handled !== false) {
+        const handled = handler();
+        if (handled === true) {
+          // Handled successfully: remove from stack and consume event
+          backActionStack.splice(i, 1);
           hapticFeedback.light();
           return true;
         }
@@ -173,7 +183,6 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNav
     }
 
     // 4. At Root Home Dashboard: Double-tap back button to exit
-    const now = Date.now();
     if (now - lastBackPressTime < 2200) {
       if (isNativePlatform()) {
         App.exitApp();
@@ -198,10 +207,8 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNav
     } catch (err) {
       console.warn('[Native] Capacitor App.addListener failed:', err);
     }
-  }
-
-  // Web Browser / Android Chrome / PWA popstate back navigation protection
-  if (typeof window !== 'undefined') {
+  } else if (typeof window !== 'undefined') {
+    // Web Browser / PWA popstate back navigation protection
     try {
       window.history.pushState({ hkRoot: true }, '');
       window.addEventListener('popstate', () => {
@@ -286,6 +293,18 @@ export const initNativeKeyboardListeners = () => {
           target.setAttribute('inputmode', 'decimal');
         }
       }
+    }, { passive: true });
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focusout', () => {
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && !active.isContentEditable)) {
+          document.body.classList.remove('keyboard-is-open');
+          document.documentElement.style.removeProperty('--keyboard-height');
+        }
+      }, 150);
     }, { passive: true });
   }
 
