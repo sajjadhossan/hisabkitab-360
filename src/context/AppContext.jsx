@@ -3787,7 +3787,7 @@ export const AppProvider = ({ children }) => {
         setSalesHistory,
         setBusinessDebts,
         branchCashRecords: cashMovements || [],
-        addExpense: handleAddExpense,
+        addExpense: (expenseData) => (profile === 'personal' ? addPersonalExpense(expenseData) : addBusinessExpense(expenseData)),
         setPersonalSavings,
         setActiveIndustryId: switchIndustryTemplate
       }}
