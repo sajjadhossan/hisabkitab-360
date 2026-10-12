@@ -33,20 +33,32 @@ export const PullToRefresh = ({ onRefresh, children }) => {
     };
 
     const handleTouchMove = (e) => {
-      if (!isPullingRef.current || isRefreshingRef.current || window.scrollY > 5) return;
+      if (!isPullingRef.current || isRefreshingRef.current) return;
+      if (window.scrollY > 5) {
+        isPullingRef.current = false;
+        pullYRef.current = 0;
+        setPullY(0);
+        return;
+      }
+
       const currentY = e.touches[0].clientY;
       const diff = currentY - startYRef.current;
 
-      if (diff > 0) {
-        // Damped pull distance
-        const damped = Math.min(diff * 0.4, 75);
-        pullYRef.current = damped;
-        setPullY(damped);
+      if (diff <= 0) {
+        isPullingRef.current = false;
+        pullYRef.current = 0;
+        setPullY(0);
+        return;
+      }
 
-        if (damped > 50 && !hasTriggeredHapticRef.current) {
-          hasTriggeredHapticRef.current = true;
-          hapticFeedback.light();
-        }
+      // Damped pull distance
+      const damped = Math.min(diff * 0.4, 75);
+      pullYRef.current = damped;
+      setPullY(damped);
+
+      if (damped > 50 && !hasTriggeredHapticRef.current) {
+        hasTriggeredHapticRef.current = true;
+        hapticFeedback.light();
       }
     };
 
