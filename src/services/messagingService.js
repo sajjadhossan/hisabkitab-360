@@ -171,7 +171,19 @@ export const openWhatsAppDirect = ({ phone, message }) => {
   } else {
     url = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
   }
-  window.open(url, '_blank', 'noopener,noreferrer');
+
+  // On Android/Capacitor WebView, window.open is frequently blocked by popup blockers.
+  // Using window.location.href triggers Android OS Intent directly into the installed WhatsApp app!
+  try {
+    const isMobile = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || Boolean(window.Capacitor?.isNativePlatform?.()));
+    if (isMobile) {
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  } catch {
+    window.location.href = url;
+  }
 };
 
 /**
@@ -180,5 +192,9 @@ export const openWhatsAppDirect = ({ phone, message }) => {
 export const openSMSDirect = ({ phone, message }) => {
   const cleanPhone = normalizeBDPhoneForSMS(phone);
   const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(message)}`;
-  window.location.href = smsUrl;
+  try {
+    window.location.href = smsUrl;
+  } catch {
+    window.open(smsUrl, '_self');
+  }
 };

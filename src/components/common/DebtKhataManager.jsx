@@ -1436,6 +1436,27 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
                     </button>
                   )}
 
+                  {/* Direct Call Button (if phone exists) */}
+                  {person.phone && (
+                    <a
+                      href={`tel:${person.phone}`}
+                      title={lang === 'bn' ? 'সরাসরি কল দিন' : 'Call Phone'}
+                      style={{
+                        padding: '7px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(59, 130, 246, 0.12)',
+                        color: '#3b82f6',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textDecoration: 'none'
+                      }}
+                    >
+                      <Phone size={14} />
+                    </a>
+                  )}
+
                   {/* Print Slip */}
                   <button
                     onClick={() => handlePrintStatement(person)}
@@ -2467,6 +2488,28 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
                     <MessageCircle size={15} />
                     <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপ তাগাদা' : 'WhatsApp'}</span>
                   </button>
+                )}
+
+                {activePersonForLedger.phone && (
+                  <a
+                    href={`tel:${activePersonForLedger.phone}`}
+                    style={{
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(59, 130, 246, 0.15)',
+                      color: '#3b82f6',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <Phone size={15} />
+                    <span>{lang === 'bn' ? 'সরাসরি কল' : 'Call'}</span>
+                  </a>
                 )}
 
                 <button

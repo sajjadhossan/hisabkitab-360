@@ -167,6 +167,21 @@ export const initNativeBackHandling = ({ onHomeExitNotice, onNavigateHome, onNav
       }
     }
 
+    // 1.5. Fallback: Automatically close topmost DOM modal overlay if active
+    if (typeof document !== 'undefined') {
+      const openOverlays = document.querySelectorAll('.modal-overlay, .modal-backdrop, [role="dialog"]');
+      if (openOverlays.length > 0) {
+        const topOverlay = openOverlays[openOverlays.length - 1];
+        // Look for close button or trigger click
+        const closeBtn = topOverlay.querySelector('button[aria-label="close" i], button.btn-close, button.modal-close, button:has(svg.lucide-x)');
+        if (closeBtn && typeof closeBtn.click === 'function') {
+          closeBtn.click();
+          hapticFeedback.light();
+          return true;
+        }
+      }
+    }
+
     // 2. Sequential step-by-step back navigation (tab-by-tab / sub-view back)
     if (onNavigateBack) {
       try {
