@@ -3,19 +3,12 @@ import { useApp } from '../../context/AppContext';
 import {
   X,
   Plus,
-  ShoppingCart,
   CheckCircle2,
   Trash2,
   Edit2,
-  Sparkles,
   Zap,
-  ListPlus,
   RotateCcw,
-  Tag,
-  Calendar,
-  Layers,
-  ShoppingBag,
-  DollarSign
+  Tag
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
 
@@ -97,6 +90,10 @@ export const RoutineShoppingPresetsModal = ({
     { name: '', unit: '', defaultAmount: '' }
   ]);
 
+  // Quick Rename State
+  const [quickRenameTarget, setQuickRenameTarget] = useState(null);
+  const [quickRenameName, setQuickRenameName] = useState('');
+
   // Sync presets to storage
   useEffect(() => {
     try {
@@ -106,20 +103,23 @@ export const RoutineShoppingPresetsModal = ({
     }
   }, [presets]);
 
-  // Select first preset for active profile on open
+  // Select first preset for active profile on open or when selection becomes invalid
   useEffect(() => {
     if (presets.length > 0) {
-      const matched = presets.find(p => p.profile === activeProfile) || presets[0];
-      if (matched) {
-        setSelectedPresetId(matched.id);
-        setExecutionItems(matched.items.map(it => ({
-          ...it,
-          amount: it.defaultAmount || 0,
-          selected: true
-        })));
+      const currentValid = presets.find(p => p.id === selectedPresetId && p.profile === activeProfile);
+      if (!currentValid) {
+        const matched = presets.find(p => p.profile === activeProfile) || presets[0];
+        if (matched) {
+          setSelectedPresetId(matched.id);
+          setExecutionItems(matched.items.map(it => ({
+            ...it,
+            amount: it.defaultAmount || 0,
+            selected: true
+          })));
+        }
       }
     }
-  }, [activeProfile, presets]);
+  }, [activeProfile, presets, selectedPresetId]);
 
   // When switching preset
   const handleSelectPreset = (preset) => {
@@ -216,15 +216,20 @@ export const RoutineShoppingPresetsModal = ({
     if (preset) {
       setEditingPresetId(preset.id);
       setPresetNameInput(preset.name);
-      setPresetFolderInput(preset.folder || 'গৃহস্থালি ও নিত্য কেনাকাটা');
-      setNewPresetItems(preset.items.map(i => ({ name: i.name, unit: i.unit, defaultAmount: i.defaultAmount })));
+      setPresetFolderInput(preset.folder || (preset.profile === 'business' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা'));
+      setNewPresetItems(preset.items.map(i => ({
+        id: i.id,
+        name: i.name,
+        unit: i.unit || '',
+        defaultAmount: i.defaultAmount ?? ''
+      })));
     } else {
       setEditingPresetId(null);
       setPresetNameInput('');
       setPresetFolderInput(activeProfile === 'business' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা');
       setNewPresetItems([
-        { name: '', unit: 'কেজি', defaultAmount: '' },
-        { name: '', unit: 'লিটার', defaultAmount: '' }
+        { id: `it-new-1`, name: '', unit: 'কেজি', defaultAmount: '' },
+        { id: `it-new-2`, name: '', unit: 'লিটার', defaultAmount: '' }
       ]);
     }
     setIsEditingPreset(true);
@@ -232,16 +237,17 @@ export const RoutineShoppingPresetsModal = ({
 
   const handleSavePresetCustom = (e) => {
     e.preventDefault();
-    if (!presetNameInput.trim()) {
+    const trimmedName = presetNameInput.trim();
+    if (!trimmedName) {
       showToast(lang === 'bn' ? 'প্রি-সেটের একটি নাম দিন' : 'Enter preset name', 'warning');
       return;
     }
     const cleanItems = newPresetItems
-      .filter(it => it.name.trim().length > 0)
+      .filter(it => it.name && it.name.trim().length > 0)
       .map((it, idx) => ({
-        id: `it-${Date.now()}-${idx}`,
+        id: it.id || `it-${Date.now()}-${idx}`,
         name: it.name.trim(),
-        unit: it.unit.trim() || 'পিস',
+        unit: (it.unit && it.unit.trim()) || 'পিস',
         defaultAmount: parseFloat(it.defaultAmount) || 0
       }));
 
@@ -251,35 +257,122 @@ export const RoutineShoppingPresetsModal = ({
     }
 
     if (editingPresetId) {
-      setPresets(prev => prev.map(p => p.id === editingPresetId ? {
+      const updatedList = presets.map(p => p.id === editingPresetId ? {
         ...p,
-        name: presetNameInput.trim(),
-        folder: presetFolderInput.trim(),
+        name: trimmedName,
+        folder: presetFolderInput.trim() || p.folder,
         items: cleanItems
-      } : p));
-      showToast(lang === 'bn' ? 'প্রি-সেট আপডেট সম্পন্ন!' : 'Preset updated!');
+      } : p);
+      setPresets(updatedList);
+
+      if (selectedPresetId === editingPresetId) {
+        setExecutionItems(cleanItems.map(it => ({
+          ...it,
+          amount: it.defaultAmount || 0,
+          selected: true
+        })));
+      }
+      showToast(lang === 'bn' ? 'প্রি-সেট সফলভাবে আপডেট করা হয়েছে!' : 'Preset updated!', 'success');
     } else {
       const newPreset = {
         id: `preset-${Date.now()}`,
-        name: presetNameInput.trim(),
+        name: trimmedName,
         profile: activeProfile,
-        folder: presetFolderInput.trim(),
+        folder: presetFolderInput.trim() || (activeProfile === 'business' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা'),
         items: cleanItems
       };
       setPresets(prev => [newPreset, ...prev]);
       setSelectedPresetId(newPreset.id);
-      showToast(lang === 'bn' ? 'নতুন প্রি-সেট তৈরি হয়েছে!' : 'Preset created!');
+      setExecutionItems(cleanItems.map(it => ({
+        ...it,
+        amount: it.defaultAmount || 0,
+        selected: true
+      })));
+      showToast(lang === 'bn' ? 'নতুন প্রি-সেট তৈরি হয়েছে!' : 'Preset created!', 'success');
     }
     setIsEditingPreset(false);
   };
 
+  // Quick Rename Handlers
+  const handleStartQuickRename = (preset) => {
+    if (!preset) return;
+    setQuickRenameTarget(preset);
+    setQuickRenameName(preset.name);
+  };
+
+  const handleSaveQuickRename = (e) => {
+    if (e) e.preventDefault();
+    if (!quickRenameTarget) return;
+    const trimmed = quickRenameName.trim();
+    if (!trimmed) {
+      showToast(lang === 'bn' ? 'প্রি-সেটের নাম খালি রাখা যাবে না' : 'Preset name cannot be empty', 'warning');
+      return;
+    }
+    setPresets(prev => prev.map(p => p.id === quickRenameTarget.id ? { ...p, name: trimmed } : p));
+    setQuickRenameTarget(null);
+    showToast(lang === 'bn' ? `প্রি-সেটের নাম পরিবর্তন করে "${trimmed}" রাখা হয়েছে!` : 'Preset renamed!', 'success');
+  };
+
+  // Delete Preset with Confirmation
   const handleDeletePreset = (id) => {
+    const targetId = id || selectedPresetId;
+    const target = presets.find(p => p.id === targetId);
+    if (!target) return;
+
     if (presets.length <= 1) {
       showToast(lang === 'bn' ? 'কমপক্ষে একটি প্রি-সেট থাকা প্রয়োজন' : 'Must keep at least one preset', 'warning');
       return;
     }
-    setPresets(prev => prev.filter(p => p.id !== id));
-    showToast(lang === 'bn' ? 'প্রি-সেট মোছা হয়েছে' : 'Preset removed');
+
+    const confirmed = window.confirm(
+      lang === 'bn'
+        ? `আপনি কি নিশ্চিতভাবে "${target.name}" প্রি-সেটটি মুছে ফেলতে চান?`
+        : `Are you sure you want to delete preset "${target.name}"?`
+    );
+    if (!confirmed) return;
+
+    hapticFeedback.light();
+    const remaining = presets.filter(p => p.id !== targetId);
+    setPresets(remaining);
+
+    if (selectedPresetId === targetId) {
+      const nextPreset = remaining.find(p => p.profile === activeProfile) || remaining[0];
+      if (nextPreset) {
+        setSelectedPresetId(nextPreset.id);
+        setExecutionItems(nextPreset.items.map(it => ({
+          ...it,
+          amount: it.defaultAmount || 0,
+          selected: true
+        })));
+      }
+    }
+
+    if (isEditingPreset && editingPresetId === targetId) {
+      setIsEditingPreset(false);
+    }
+
+    showToast(lang === 'bn' ? `"${target.name}" প্রি-সেট সফলভাবে মুছে ফেলা হয়েছে!` : 'Preset deleted!', 'info');
+  };
+
+  // Restore Default Presets
+  const handleRestoreDefaultPresets = () => {
+    const confirmed = window.confirm(
+      lang === 'bn'
+        ? 'আপনি কি নিয়মিত কেনাকাটার সকল ডিফল্ট প্রি-সেট ফিরিয়ে আনতে চান?'
+        : 'Do you want to restore default routine presets?'
+    );
+    if (!confirmed) return;
+    setPresets(DEFAULT_PRESETS);
+    const first = DEFAULT_PRESETS.find(p => p.profile === activeProfile) || DEFAULT_PRESETS[0];
+    if (first) {
+      setSelectedPresetId(first.id);
+      setExecutionItems(first.items.map(it => ({
+        ...it,
+        amount: it.defaultAmount || 0,
+        selected: true
+      })));
+    }
+    showToast(lang === 'bn' ? 'ডিফল্ট প্রি-সেট সফলভাবে ফিরিয়ে আনা হয়েছে' : 'Default presets restored', 'info');
   };
 
   if (!isOpen) return null;
@@ -394,8 +487,8 @@ export const RoutineShoppingPresetsModal = ({
         </div>
 
         {/* Preset Selector Chips Row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', flex: 1, minWidth: '200px' }}>
             {presets.filter(p => p.profile === activeProfile).map(p => (
               <button
                 key={p.id}
@@ -413,7 +506,8 @@ export const RoutineShoppingPresetsModal = ({
                   whiteSpace: 'nowrap',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <span>{p.name}</span>
@@ -426,23 +520,143 @@ export const RoutineShoppingPresetsModal = ({
             type="button"
             onClick={() => handleOpenPresetBuilder()}
             style={{
-              padding: '6px 10px',
+              padding: '6px 12px',
               borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-main)',
-              fontSize: '0.75rem',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(2, 132, 199, 0.2))',
+              border: '1px solid rgba(14, 165, 233, 0.4)',
+              color: '#0ea5e9',
+              fontSize: '0.76rem',
               fontWeight: '800',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '4px',
+              whiteSpace: 'nowrap'
             }}
           >
             <Plus size={14} />
             <span>নতুন প্রি-সেট</span>
           </button>
         </div>
+
+        {/* Active Preset Action Toolbar */}
+        {activePreset && (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '10px',
+            padding: '8px 12px',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ color: '#0ea5e9' }}>📌</span>
+                {activePreset.name}
+              </span>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', fontWeight: '700' }}>
+                {activePreset.items.length}টি পণ্য • {activePreset.folder || 'ক্যাটাগরি'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {/* Rename Button */}
+              <button
+                type="button"
+                onClick={() => handleStartQuickRename(activePreset)}
+                title="প্রিসেটের নাম পরিবর্তন (রিনেম) করুন"
+                style={{
+                  padding: '5px 9px',
+                  borderRadius: '7px',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  color: '#3b82f6',
+                  fontSize: '0.73rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Tag size={12} />
+                <span>রিনেম</span>
+              </button>
+
+              {/* Edit Preset Button */}
+              <button
+                type="button"
+                onClick={() => handleOpenPresetBuilder(activePreset)}
+                title="আইটেম ও টাকার রেট এডিট করুন"
+                style={{
+                  padding: '5px 9px',
+                  borderRadius: '7px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: '#10b981',
+                  fontSize: '0.73rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Edit2 size={12} />
+                <span>এডিট</span>
+              </button>
+
+              {/* Delete Preset Button */}
+              <button
+                type="button"
+                onClick={() => handleDeletePreset(activePreset.id, activePreset.name)}
+                title="এই প্রিসেট মুছে ফেলুন"
+                style={{
+                  padding: '5px 9px',
+                  borderRadius: '7px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  fontSize: '0.73rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Trash2 size={12} />
+                <span>ডিলিট</span>
+              </button>
+
+              {/* Restore Defaults */}
+              <button
+                type="button"
+                onClick={handleRestoreDefaultPresets}
+                title="ডিফল্ট প্রিসেটগুলো রিস্টোর করুন"
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '7px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+              >
+                <RotateCcw size={11} />
+                <span>রিস্টোর</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Preset Customizer Modal Drawer */}
         {isEditingPreset && (
@@ -457,15 +671,16 @@ export const RoutineShoppingPresetsModal = ({
             gap: '10px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                {editingPresetId ? '✏️ প্রি-সেট এডিট করুন' : '➕ নতুন নিয়মিত কেনাকাটা প্রি-সেট তৈরি করুন'}
+              <span style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {editingPresetId ? <Edit2 size={15} color="#10b981" /> : <Plus size={15} color="#0ea5e9" />}
+                {editingPresetId ? `প্রি-সেট এডিট: ${presetNameInput || 'নামহীন'}` : 'নতুন নিয়মিত কেনাকাটা প্রি-সেট তৈরি করুন'}
               </span>
               <button type="button" onClick={() => setIsEditingPreset(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={16} />
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
               <div>
                 <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
                   প্রি-সেটের নাম *
@@ -534,6 +749,7 @@ export const RoutineShoppingPresetsModal = ({
                 />
                 <button
                   type="button"
+                  title="এই পণ্যটি বাদ দিন"
                   onClick={() => setNewPresetItems(newPresetItems.filter((_, i) => i !== idx))}
                   style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}
                 >
@@ -544,7 +760,7 @@ export const RoutineShoppingPresetsModal = ({
 
             <button
               type="button"
-              onClick={() => setNewPresetItems([...newPresetItems, { name: '', unit: 'কেজি', defaultAmount: '' }])}
+              onClick={() => setNewPresetItems([...newPresetItems, { id: `it-new-${Date.now()}`, name: '', unit: 'কেজি', defaultAmount: '' }])}
               style={{
                 alignSelf: 'flex-start',
                 padding: '4px 8px',
@@ -559,22 +775,73 @@ export const RoutineShoppingPresetsModal = ({
               + আরও আইটেম যোগ করুন
             </button>
 
-            <button
-              type="submit"
-              style={{
-                marginTop: '6px',
-                padding: '8px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
-                color: '#fff',
-                border: 'none',
-                fontWeight: '800',
-                fontSize: '0.82rem',
-                cursor: 'pointer'
-              }}
-            >
-              সেভ করুন
-            </button>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="submit"
+                style={{
+                  flex: 2,
+                  minWidth: '140px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: '800',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <CheckCircle2 size={15} />
+                <span>{editingPresetId ? 'পরিবর্তন সেভ করুন' : 'প্রি-সেট তৈরি করুন'}</span>
+              </button>
+
+              {editingPresetId && (
+                <button
+                  type="button"
+                  onClick={() => handleDeletePreset(editingPresetId, presetNameInput)}
+                  style={{
+                    flex: 1,
+                    minWidth: '110px',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    color: '#ef4444',
+                    fontWeight: '800',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Trash2 size={14} />
+                  <span>মুছে ফেলুন</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsEditingPreset(false)}
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-muted)',
+                  fontWeight: '700',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer'
+                }}
+              >
+                বাতিল
+              </button>
+            </div>
           </form>
         )}
 
@@ -727,6 +994,117 @@ export const RoutineShoppingPresetsModal = ({
               : `⚡ Add Routine Expenses (৳${currentTotal.toLocaleString('en-IN')})`}
           </span>
         </button>
+
+        {/* Quick Rename Dialog Overlay */}
+        {quickRenameTarget && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1450,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+            onClick={() => setQuickRenameTarget(null)}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '380px',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '14px',
+                padding: '18px',
+                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.45)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Tag size={16} color="#0ea5e9" />
+                  <span>প্রি-সেটের নাম পরিবর্তন (রিনেম)</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setQuickRenameTarget(null)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                নতুন নাম লিখুন:
+              </label>
+              <input
+                type="text"
+                value={quickRenameName}
+                onChange={(e) => setQuickRenameName(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSaveQuickRename();
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #0ea5e9',
+                  background: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.88rem',
+                  fontWeight: '700',
+                  marginBottom: '16px',
+                  outline: 'none'
+                }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setQuickRenameTarget(null)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    fontWeight: '700',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickRename}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                    color: '#fff',
+                    fontWeight: '800',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  নাম সেভ করুন
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
