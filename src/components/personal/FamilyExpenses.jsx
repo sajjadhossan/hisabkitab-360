@@ -1039,12 +1039,26 @@ export const FamilyExpenses = () => {
 
                       {/* Actions */}
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '4px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                           <button
                             className="btn-icon"
-                            title={lang === 'bn' ? 'সম্পাদনা করুন' : 'Edit'}
+                            title={lang === 'bn' ? 'রিনেম / নাম সংশোধন' : 'Rename'}
+                            onClick={() => {
+                              const cur = item.item || item.title || '';
+                              const next = window.prompt(lang === 'bn' ? 'আইটেম বা খরচের বিবরণ রিনেম করুন:' : 'Rename expense item:', cur);
+                              if (next && next.trim() && next.trim() !== cur) {
+                                updatePersonalExpense(item.id, { item: next.trim(), title: next.trim() });
+                              }
+                            }}
+                            style={{ color: '#06b6d4', padding: '4px' }}
+                          >
+                            <span style={{ fontSize: '12px' }}>🏷️</span>
+                          </button>
+                          <button
+                            className="btn-icon"
+                            title={lang === 'bn' ? 'সম্পাদনা / রি-এডিট' : 'Edit'}
                             onClick={() => handleOpenEditModal(item)}
-                            style={{ color: 'var(--text-muted)' }}
+                            style={{ color: 'var(--text-muted)', padding: '4px' }}
                           >
                             <Edit2 size={14} />
                           </button>
@@ -1056,7 +1070,7 @@ export const FamilyExpenses = () => {
                                 deletePersonalExpense(item.id);
                               }
                             }}
-                            style={{ color: '#f43f5e' }}
+                            style={{ color: '#f43f5e', padding: '4px' }}
                           >
                             <Trash2 size={14} />
                           </button>

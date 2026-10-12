@@ -2064,6 +2064,20 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ যুক্ত করা হয়েছে' : 'Business expense recorded');
   };
 
+  const updateBusinessExpense = (id, updatedFields) => {
+    setBusinessExpenses(prev => prev.map(e => e.id === id ? {
+      ...e,
+      ...updatedFields,
+      amount: updatedFields.amount !== undefined ? Number(updatedFields.amount) : e.amount
+    } : e));
+    showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ আপডেট করা হয়েছে' : 'Business expense updated');
+  };
+
+  const deleteBusinessExpense = (id) => {
+    setBusinessExpenses(prev => prev.filter(e => e.id !== id));
+    showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ মুছে ফেলা হয়েছে' : 'Business expense deleted');
+  };
+
   const paySupplier = (supplierId, amount) => {
     const amt = Number(amount);
     setSuppliers(suppliers.map(s => {
@@ -3698,6 +3712,8 @@ export const AppProvider = ({ children }) => {
         markOrderFullyDelivered,
         deleteFieldOrder,
         addBusinessExpense,
+        updateBusinessExpense,
+        deleteBusinessExpense,
         paySupplier,
         updateBusinessSettings,
 

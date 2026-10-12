@@ -1164,68 +1164,165 @@ export const parsePdfFile = async (file, onProgress) => {
   // Currency/Number regex: handles 1,500.00, ৳১,৫০০, 500, etc.
   const numberRegex = /(?:[৳$€£]\s*)?([0-9০-৯]{1,3}(?:[, ][0-9০-৯]{3})*(?:\.[0-9০-৯]+)?|[0-9০-৯]+(?:\.[0-9০-৯]+)?)/g;
 
+  // Track contextual state across PDF pages/lines
+  let lastSeenDate = new Date().toISOString().split('T')[0];
+  let currentContextFolder = '';
+
+  // Pre-scan for document statement date or month in initial 25 lines
+  const initialSnippet = allLines.slice(0, 25).join(' ');
+  const docDateMatch = initialSnippet.match(dateRegex);
+  if (docDateMatch) {
+    try {
+      lastSeenDate = normalizeDate(docDateMatch[0]);
+    } catch {}
+  }
+
   const totalLines = allLines.length;
   allLines.forEach((line, idx) => {
     if (idx % 20 === 0 && totalLines > 0) {
       const lineProgress = Math.round(65 + ((idx / totalLines) * 25));
-      reportProgress(lineProgress, `লেনদেনের বিবরণ ও ক্যাটাগরি তৈরি হচ্ছে (${idx}/${totalLines})...`);
+      reportProgress(lineProgress, `আইটেম ও টাকার বিবরণ আলাদাভাবে সংগ্রহ হচ্ছে (${idx}/${totalLines})...`);
     }
 
-    // Ignore lines that are strictly header or summary totals
+    const trimmedLine = line.trim();
+    if (!trimmedLine) return;
+
+    // 1. Ignore lines that are strictly page numbers, document titles or table headers
     if (
-      line.includes('Page ') || 
-      (line.includes('Total') && line.includes('Report')) ||
-      line.includes('Statement Period') ||
-      line.toLowerCase().includes('generated on')
+      trimmedLine.match(/^page\s+[0-9০-৯]+/i) ||
+      trimmedLine.includes('Page ') ||
+      trimmedLine.toLowerCase().includes('generated on') ||
+      trimmedLine.toLowerCase().includes('hisabkitab') ||
+      trimmedLine.match(/^(ক্রমিক|তারিখ|বিবরণ|নাম|পরিমাণ|দর|একক|মোট|খাত|ক্যাটাগরি|sl|date|description|item|qty|amount|total|rate)\b/i)
     ) {
+      // Check if it has a date we can use for upcoming lines
+      const headerDateMatch = trimmedLine.match(dateRegex);
+      if (headerDateMatch) {
+        lastSeenDate = normalizeDate(headerDateMatch[0]);
+      }
       return;
     }
 
-    const dateMatch = line.match(dateRegex);
-    const rawMatches = line.match(numberRegex) || [];
+    // 2. Check if this line is purely a Grand Total / Summary line
+    const isTotalSummaryLine = (
+      trimmedLine.startsWith('সর্বমোট') ||
+      trimmedLine.startsWith('মোট খরচ') ||
+      trimmedLine.startsWith('মোট টাকা') ||
+      trimmedLine.startsWith('মোট বিক্রয়') ||
+      trimmedLine.startsWith('মোট ব্যয়') ||
+      trimmedLine.toLowerCase().startsWith('grand total') ||
+      trimmedLine.toLowerCase().startsWith('sub total') ||
+      trimmedLine.toLowerCase().startsWith('total:') ||
+      trimmedLine.toLowerCase().startsWith('net total')
+    );
+    if (isTotalSummaryLine) {
+      return; // Do not create an expense item for grand total
+    }
 
-    // If line has a date and at least one number, it's likely a transaction
-    if (dateMatch && rawMatches.length > 0) {
-      // Pick the last number on the line as the amount (typical for expense/statement sheets)
-      const lastNumStr = rawMatches[rawMatches.length - 1];
-      const amountVal = parseAmountSafely(lastNumStr);
-
-      if (amountVal > 0) {
-        const foundDate = dateMatch[0];
-        // Clean description: strip date and amount from the line
-        let desc = line
-          .replace(foundDate, '')
-          .replace(lastNumStr, '')
-          .replace(/[৳$€£,]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        // Extract possible quantity & unit (e.g. 5 kg, 2 pcs, 500 g)
-        const qtyMatch = desc.match(/([0-9০-৯]+(?:\.[0-9০-৯]+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টিপ|ডজন|kg|g|gm|ltr|l|pcs|ft)/i);
-        let quantity = null;
-        let unit = '';
-
-        if (qtyMatch) {
-          quantity = parseAmountSafely(qtyMatch[1]);
-          unit = qtyMatch[2];
-        }
-
-        if (desc.length > 1) {
-          parsedRecords.push({
-            date: normalizeDate(foundDate),
-            item: desc,
-            amount: amountVal,
-            quantity: quantity,
-            unit: unit,
-            folder: guessFolderFromText(desc, 'family'),
-            note: 'PDF থেকে ইমপোর্টকৃত'
-          });
-        }
+    // 3. Check if line is a Category Section Header (e.g., "ক্যাটাগরি: গৃহস্থালি ও নিত্য কেনাকাটা" or "খাত: বাজার খরচ")
+    const isCategoryHeaderLine = (
+      trimmedLine.includes('ক্যাটাগরি:') ||
+      trimmedLine.includes('খাত:') ||
+      trimmedLine.includes('বিভাগ:') ||
+      trimmedLine.toLowerCase().includes('category:') ||
+      trimmedLine.startsWith('📁') ||
+      trimmedLine.startsWith('📂')
+    );
+    if (isCategoryHeaderLine) {
+      const cleanCat = trimmedLine
+        .replace(/^(ক্যাটাগরি|খাত|বিভাগ|category|📁|📂)[:\s-]*/i, '')
+        .replace(/[-_–:].*$/, '')
+        .trim();
+      if (cleanCat.length > 1) {
+        currentContextFolder = guessFolderFromText(cleanCat, 'family');
       }
+      return;
+    }
+
+    // 4. Update contextual date if present on this line
+    const lineDateMatch = trimmedLine.match(dateRegex);
+    let rowDate = lastSeenDate;
+    if (lineDateMatch) {
+      try {
+        rowDate = normalizeDate(lineDateMatch[0]);
+        lastSeenDate = rowDate; // carry forward to subsequent lines
+      } catch {}
+    }
+
+    // 5. Look for numbers (quantities, amounts)
+    const rawMatches = trimmedLine.match(numberRegex) || [];
+    if (rawMatches.length === 0) {
+      // Check if line represents standalone category or section title
+      const possibleFolder = guessFolderFromText(trimmedLine, 'family');
+      if (possibleFolder && possibleFolder !== 'অন্যান্য পারিবারিক খরচ') {
+        currentContextFolder = possibleFolder;
+      }
+      return;
+    }
+
+    // Pick the last number on the line as the candidate amount
+    const lastNumStr = rawMatches[rawMatches.length - 1];
+    const amountVal = parseAmountSafely(lastNumStr);
+
+    if (amountVal > 0) {
+      // Clean description: strip date and amount from the line
+      let desc = trimmedLine;
+      if (lineDateMatch) {
+        desc = desc.replace(lineDateMatch[0], '');
+      }
+      desc = desc.replace(lastNumStr, '');
+
+      // Strip leading serial number e.g. "১.", "1.", "#1", "১)", "1)"
+      desc = desc.replace(/^[#№]?\s*[0-9০-৯]+[\.\)\-\:\s]+/i, '').trim();
+
+      // Clean currency symbols, words like টাকা, tk, /-
+      desc = desc
+        .replace(/[৳$€£,]/g, '')
+        .replace(/\b(টাকা|টাকার|টাকায়|tk|bdt|taka|\/-)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Extract possible quantity & unit (e.g. 5 kg, 2 pcs, 500 g, ২ লিটার)
+      const qtyMatch = desc.match(/([0-9০-৯]+(?:\.[0-9০-৯]+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টি|ডজন|ব্যাগ|প্যাকেট|kg|g|gm|ltr|l|pcs|pc|ft|box|pkt)/i);
+      let quantity = null;
+      let unit = '';
+
+      if (qtyMatch) {
+        quantity = parseAmountSafely(qtyMatch[1]);
+        unit = qtyMatch[2];
+        // Remove qty from title so item title is clean: "আলু ২ কেজি" -> "আলু"
+        desc = desc.replace(qtyMatch[0], '').replace(/\s+/g, ' ').trim();
+      }
+
+      // If desc became empty or was just punctuation, give meaningful fallback
+      if (desc.length < 2) {
+        desc = currentContextFolder ? `${currentContextFolder} আইটেম` : `খরচের আইটেম #${parsedRecords.length + 1}`;
+      }
+
+      // Double-check desc is not a summary row word
+      if (
+        desc === 'মোট' || 
+        desc === 'সর্বমোট' || 
+        desc.toLowerCase() === 'total' || 
+        desc.toLowerCase() === 'subtotal'
+      ) {
+        return;
+      }
+
+      parsedRecords.push({
+        serial: parsedRecords.length + 1,
+        date: rowDate,
+        item: desc,
+        amount: amountVal,
+        quantity: quantity,
+        unit: unit,
+        folder: currentContextFolder || guessFolderFromText(desc, 'family'),
+        note: 'PDF থেকে ইমপোর্টকৃত'
+      });
     }
   });
 
-  reportProgress(100, `অ্যানালাইসিস সম্পন্ন! মোট ${parsedRecords.length}টি লেনদেন পাওয়া গেছে।`);
+  reportProgress(100, `অ্যানালাইসিস সম্পন্ন! মোট ${parsedRecords.length}টি আইটেম-ভিত্তিক খরচ পাওয়া গেছে।`);
 
   return {
     rawLinesCount: allLines.length,

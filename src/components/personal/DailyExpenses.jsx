@@ -1087,12 +1087,26 @@ export const DailyExpenses = () => {
                         -৳{Number(item.amount).toLocaleString('en-IN')}
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '4px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <button
+                            className="btn-icon"
+                            onClick={() => {
+                              const cur = item.item || item.title || '';
+                              const next = window.prompt(lang === 'bn' ? 'আইটেম বা খরচের বিবরণ রিনেম করুন:' : 'Rename expense item:', cur);
+                              if (next && next.trim() && next.trim() !== cur) {
+                                updatePersonalExpense(item.id, { item: next.trim(), title: next.trim() });
+                              }
+                            }}
+                            title={lang === 'bn' ? 'রিনেম / নাম সংশোধন' : 'Rename Item'}
+                            style={{ color: '#06b6d4', padding: '4px' }}
+                          >
+                            <span style={{ fontSize: '12px' }}>🏷️</span>
+                          </button>
                           <button
                             className="btn-icon"
                             onClick={() => handleOpenEditModal(item)}
-                            title={lang === 'bn' ? 'সম্পাদনা করুন' : 'Edit'}
-                            style={{ color: 'var(--text-muted)' }}
+                            title={lang === 'bn' ? 'সম্পাদনা / রি-এডিট' : 'Edit'}
+                            style={{ color: 'var(--text-muted)', padding: '4px' }}
                           >
                             <Edit2 size={14} />
                           </button>
@@ -1104,7 +1118,7 @@ export const DailyExpenses = () => {
                               }
                             }}
                             title={t.delete}
-                            style={{ color: '#ef4444' }}
+                            style={{ color: '#ef4444', padding: '4px' }}
                           >
                             <Trash2 size={14} />
                           </button>

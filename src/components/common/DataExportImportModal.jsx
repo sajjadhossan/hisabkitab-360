@@ -482,6 +482,7 @@ export const DataExportImportModal = ({
           const finalFolder = rec.folder || guessFolderFromText(rec.item, importDestination);
           return {
             id: `cand-pdf-${i}-${Date.now()}`,
+            serial: rec.serial || (i + 1),
             selected: true,
             date: finalDate,
             item: rec.item || 'অজ্ঞাত খরচ',
@@ -537,6 +538,7 @@ export const DataExportImportModal = ({
 
         candidates.push({
           id: `cand-xls-${i}-${Date.now()}`,
+          serial: i + 1,
           selected: true,
           date: dateVal,
           item: itemVal,
@@ -1589,20 +1591,22 @@ export const DataExportImportModal = ({
                     </span>
                   </div>
 
-                  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', textAlign: 'left' }}>
                       <thead>
                         <tr style={{ background: 'var(--bg-main)', position: 'sticky', top: 0, borderBottom: '1px solid var(--border-color)', zIndex: 10 }}>
-                          <th style={{ padding: '8px 6px', width: '32px', textAlign: 'center' }}>✓</th>
-                          <th style={{ padding: '8px 8px', width: '110px' }}>তারিখ</th>
-                          <th style={{ padding: '8px 8px' }}>খরচের বিবরণ / আইটেম</th>
-                          <th style={{ padding: '8px 8px', width: '140px' }}>ক্যাটাগরি</th>
-                          <th style={{ padding: '8px 8px', width: '100px', textAlign: 'right' }}>টাকা (৳)</th>
-                          <th style={{ padding: '8px 6px', width: '36px', textAlign: 'center' }}>মুছুন</th>
+                          <th style={{ padding: '8px 6px', width: '30px', textAlign: 'center' }}>✓</th>
+                          <th style={{ padding: '8px 4px', width: '38px', textAlign: 'center' }}>#</th>
+                          <th style={{ padding: '8px 8px', width: '95px' }}>তারিখ</th>
+                          <th style={{ padding: '8px 8px' }}>খরচের আইটেম / বিবরণ</th>
+                          <th style={{ padding: '8px 6px', width: '90px' }}>পরিমাণ/একক</th>
+                          <th style={{ padding: '8px 8px', width: '130px' }}>ক্যাটাগরি</th>
+                          <th style={{ padding: '8px 8px', width: '95px', textAlign: 'right' }}>টাকা (৳)</th>
+                          <th style={{ padding: '8px 6px', width: '65px', textAlign: 'center' }}>অ্যাকশন</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {candidateRows.map((r) => (
+                        {candidateRows.map((r, idx) => (
                           <tr
                             key={r.id}
                             style={{
@@ -1622,6 +1626,11 @@ export const DataExportImportModal = ({
                               />
                             </td>
 
+                            {/* Serial Number */}
+                            <td style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                              #{r.serial || (idx + 1)}
+                            </td>
+
                             {/* Editable Date */}
                             <td style={{ padding: '6px 4px' }}>
                               <input
@@ -1635,7 +1644,7 @@ export const DataExportImportModal = ({
                                   border: '1px solid var(--border-color)',
                                   background: 'var(--bg-primary)',
                                   color: 'var(--text-main)',
-                                  fontSize: '0.74rem',
+                                  fontSize: '0.72rem',
                                   fontFamily: 'monospace'
                                 }}
                               />
@@ -1647,6 +1656,7 @@ export const DataExportImportModal = ({
                                 type="text"
                                 value={r.item}
                                 onChange={(e) => updateCandidateRow(r.id, 'item', e.target.value)}
+                                placeholder="কী কেনা হয়েছে"
                                 style={{
                                   width: '100%',
                                   padding: '4px 6px',
@@ -1658,6 +1668,44 @@ export const DataExportImportModal = ({
                                   fontWeight: '700'
                                 }}
                               />
+                            </td>
+
+                            {/* Editable Qty & Unit */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <div style={{ display: 'flex', gap: '2px' }}>
+                                <input
+                                  type="text"
+                                  value={r.quantity || ''}
+                                  placeholder="পরিমাণ"
+                                  onChange={(e) => updateCandidateRow(r.id, 'quantity', e.target.value)}
+                                  style={{
+                                    width: '45px',
+                                    padding: '4px 4px',
+                                    borderRadius: '5px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-primary)',
+                                    color: 'var(--text-main)',
+                                    fontSize: '0.72rem',
+                                    textAlign: 'center'
+                                  }}
+                                />
+                                <input
+                                  type="text"
+                                  value={r.unit || ''}
+                                  placeholder="একক"
+                                  onChange={(e) => updateCandidateRow(r.id, 'unit', e.target.value)}
+                                  style={{
+                                    width: '40px',
+                                    padding: '4px 4px',
+                                    borderRadius: '5px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-primary)',
+                                    color: '#06b6d4',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '700'
+                                  }}
+                                />
+                              </div>
                             </td>
 
                             {/* Editable Category Dropdown */}
@@ -1672,7 +1720,7 @@ export const DataExportImportModal = ({
                                   border: '1px solid var(--border-color)',
                                   background: 'var(--bg-primary)',
                                   color: 'var(--text-main)',
-                                  fontSize: '0.74rem'
+                                  fontSize: '0.72rem'
                                 }}
                               >
                                 {availableFolders.map((f, fIdx) => (
@@ -1690,7 +1738,7 @@ export const DataExportImportModal = ({
                                 value={r.amount}
                                 onChange={(e) => updateCandidateRow(r.id, 'amount', e.target.value)}
                                 style={{
-                                  width: '90px',
+                                  width: '85px',
                                   textAlign: 'right',
                                   padding: '4px 6px',
                                   borderRadius: '6px',
@@ -1703,26 +1751,45 @@ export const DataExportImportModal = ({
                               />
                             </td>
 
-                            {/* Delete Button */}
-                            <td style={{ padding: '6px 6px', textAlign: 'center' }}>
-                              <button
-                                type="button"
-                                onClick={() => deleteCandidateRow(r.id)}
-                                title="এই সারিটি বাদ দিন"
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#ef4444',
-                                  cursor: 'pointer',
-                                  padding: '2px',
-                                  borderRadius: '4px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center'
-                                }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                            {/* Actions (Rename prompt + Delete) */}
+                            <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newName = window.prompt(lang === 'bn' ? 'আইটেমের নাম রিনেম বা পরিবর্তন করুন:' : 'Rename item:', r.item);
+                                    if (newName && newName.trim()) {
+                                      updateCandidateRow(r.id, 'item', newName.trim());
+                                    }
+                                  }}
+                                  title={lang === 'bn' ? 'নাম রিনেম করুন' : 'Rename'}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#06b6d4',
+                                    cursor: 'pointer',
+                                    padding: '3px',
+                                    borderRadius: '4px'
+                                  }}
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCandidateRow(r.id)}
+                                  title={lang === 'bn' ? 'বাদ দিন' : 'Delete'}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#ef4444',
+                                    cursor: 'pointer',
+                                    padding: '3px',
+                                    borderRadius: '4px'
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}

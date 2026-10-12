@@ -3054,3 +3054,43 @@ body.low-power-mode .glass-card {
 .overflow-x-auto { overflow-x: auto; }
 .overflow-y-auto { overflow-y: auto; }
 .divide-y > :not([hidden]) ~ :not([hidden]) { border-top-width: 1px; border-top-style: solid; border-color: var(--border-color); }
+
+/* ====================================================
+   📱 MOBILE & ANDROID APK ONE-WAY DISPLAY HARDENING
+   Guarantees zero horizontal blowout, clean vertical stacking
+   ==================================================== */
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  .glass-card,
+  .stat-card,
+  .card {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .table-responsive {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+  }
+
+  /* Prevent button squeezing */
+  .btn-icon {
+    min-width: 28px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

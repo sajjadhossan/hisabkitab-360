@@ -243,6 +243,122 @@ export const BusinessDashboard = () => {
   // Daily target completion
   const targetAchievedPct = Math.min(100, Math.round((todaySalesTotal / (dailySalesTarget || 1)) * 100));
 
+  // 🕒 Multi-Timeframe Detailed Performance Intelligence (Today, Yesterday, 7 Days Day-by-Day, Weeks, Months, Years)
+  const timeframeAnalytics = useMemo(() => {
+    const now = new Date();
+    const toYMD = (d) => d.toISOString().split('T')[0];
+
+    const todayStr = toYMD(now);
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(now.getDate() - 1);
+    const yesterdayStr = toYMD(yesterdayDate);
+
+    const getSalesForDate = (dateStr) => filteredSales.filter(s => (s.date || '').startsWith(dateStr));
+    const getExpForDate = (dateStr) => businessExpenses.filter(e => (e.date || '').startsWith(dateStr));
+
+    const todaySales = getSalesForDate(todayStr).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+    const todayExp = getExpForDate(todayStr).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+    const yesterdaySales = getSalesForDate(yesterdayStr).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+    const yesterdayExp = getExpForDate(yesterdayStr).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+    // 7 Days Day-by-day Breakdown (Today and past 6 days)
+    const bnDayNames = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+    const past7Days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dStr = toYMD(d);
+      const daySales = getSalesForDate(dStr).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+      const dayExp = getExpForDate(dStr).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const dayMargin = daySales - dayExp;
+      let label = bnDayNames[d.getDay()];
+      if (i === 0) label = lang === 'bn' ? 'আজ' : 'Today';
+      else if (i === 1) label = lang === 'bn' ? 'গতকাল' : 'Yesterday';
+
+      past7Days.push({
+        date: dStr,
+        dayLabel: label,
+        sales: daySales,
+        expenses: dayExp,
+        margin: dayMargin,
+        txCount: getSalesForDate(dStr).length
+      });
+    }
+
+    // Weekly calculations:
+    // This Week: past 0-6 days
+    // Last Week: past 7-13 days
+    // 3rd Last Week (2 weeks ago): past 14-20 days
+    const getRangeTotal = (startDaysAgo, endDaysAgo) => {
+      const startD = new Date(now);
+      startD.setDate(now.getDate() - endDaysAgo);
+      const endD = new Date(now);
+      endD.setDate(now.getDate() - startDaysAgo);
+
+      const startStr = toYMD(startD);
+      const endStr = toYMD(endD);
+
+      const rSales = filteredSales
+        .filter(s => {
+          const d = (s.date || '').split('T')[0];
+          return d >= startStr && d <= endStr;
+        })
+        .reduce((sum, s) => sum + (Number(s.grandTotal) || 0), 0);
+
+      const rExp = businessExpenses
+        .filter(e => {
+          const d = (e.date || '').split('T')[0];
+          return d >= startStr && d <= endStr;
+        })
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+      return { sales: rSales, expenses: rExp, margin: rSales - rExp };
+    };
+
+    const thisWeek = getRangeTotal(0, 6);
+    const lastWeek = getRangeTotal(7, 13);
+    const thirdLastWeek = getRangeTotal(14, 20);
+
+    // Monthly calculations:
+    const thisYear = now.getFullYear();
+    const thisMonth = now.getMonth();
+    const pad = (n) => String(n).padStart(2, '0');
+
+    const thisMonthPrefix = `${thisYear}-${pad(thisMonth + 1)}`;
+    const lastMonthDate = new Date(thisYear, thisMonth - 1, 1);
+    const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${pad(lastMonthDate.getMonth() + 1)}`;
+
+    const thisMonthSales = filteredSales.filter(s => (s.date || '').startsWith(thisMonthPrefix)).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+    const thisMonthExp = businessExpenses.filter(e => (e.date || '').startsWith(thisMonthPrefix)).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+    const lastMonthSales = filteredSales.filter(s => (s.date || '').startsWith(lastMonthPrefix)).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+    const lastMonthExp = businessExpenses.filter(e => (e.date || '').startsWith(lastMonthPrefix)).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+    // Yearly calculations:
+    const thisYearPrefix = `${thisYear}`;
+    const lastYearPrefix = `${thisYear - 1}`;
+
+    const thisYearSales = filteredSales.filter(s => (s.date || '').startsWith(thisYearPrefix)).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+    const thisYearExp = businessExpenses.filter(e => (e.date || '').startsWith(thisYearPrefix)).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+    const lastYearSales = filteredSales.filter(s => (s.date || '').startsWith(lastYearPrefix)).reduce((s, x) => s + (Number(x.grandTotal) || 0), 0);
+    const lastYearExp = businessExpenses.filter(e => (e.date || '').startsWith(lastYearPrefix)).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+    return {
+      today: { sales: todaySales, expenses: todayExp, margin: todaySales - todayExp },
+      yesterday: { sales: yesterdaySales, expenses: yesterdayExp, margin: yesterdaySales - yesterdayExp },
+      past7Days,
+      thisWeek,
+      lastWeek,
+      thirdLastWeek,
+      thisMonth: { sales: thisMonthSales, expenses: thisMonthExp, margin: thisMonthSales - thisMonthExp },
+      lastMonth: { sales: lastMonthSales, expenses: lastMonthExp, margin: lastMonthSales - lastMonthExp },
+      thisYear: { sales: thisYearSales, expenses: thisYearExp, margin: thisYearSales - thisYearExp },
+      lastYear: { sales: lastYearSales, expenses: lastYearExp, margin: lastYearSales - lastYearExp }
+    };
+  }, [filteredSales, businessExpenses, lang]);
+
   const handleSaveTarget = () => {
     const val = Math.max(1000, Number(tempTargetInput) || 50000);
     setDailySalesTarget(val);
@@ -970,7 +1086,217 @@ export const BusinessDashboard = () => {
         </div>
       </div>
 
-      {/* 2. QUICK ACTION POWER MATRIX */}
+      {/* 📊 সময়কালভিত্তিক বিস্তারিত বিক্রি ও খরচ (Timeframe Performance Intelligence) */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '16px',
+          borderRadius: '16px',
+          marginBottom: '1.25rem',
+          background: 'var(--bg-card)',
+          border: '1.5px solid rgba(16, 185, 129, 0.25)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.2rem' }}>📊</span>
+              <span>{lang === 'bn' ? 'সময়কালভিত্তিক বিস্তারিত বিক্রি ও খরচ (লাইভ অডিট)' : 'Multi-Period Sales & Expense Intelligence'}</span>
+            </h3>
+            <p style={{ margin: '3px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn'
+                ? 'আজ, গতকাল, বিগত ৭ দিনের দিনভিত্তিক হিসাব, সপ্তাহভিত্তিক এবং মাস ও বাৎসরিক তুলনামূলক পরিসংখ্যান'
+                : 'Today, yesterday, 7-day breakdown, weekly shifts, monthly & yearly comparisons'}
+            </p>
+          </div>
+        </div>
+
+        {/* 1. Comparison Metrics Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+          {/* Card A: Today (আজ) */}
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981' }}>
+                🟢 {lang === 'bn' ? 'আজ (Today)' : 'Today'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{timeframeAnalytics.today.date || 'আজকের দিন'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'বিক্রি:' : 'Sales:'}</span>
+              <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.today.sales.toLocaleString('en-IN')}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'খরচ:' : 'Expenses:'}</span>
+              <strong style={{ color: '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.today.expenses.toLocaleString('en-IN')}</strong>
+            </div>
+            <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+              <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{lang === 'bn' ? 'মার্জিন/উদ্বৃত্ত:' : 'Net:'}</span>
+              <strong style={{ color: timeframeAnalytics.today.margin >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>
+                {timeframeAnalytics.today.margin >= 0 ? '+' : ''}৳{timeframeAnalytics.today.margin.toLocaleString('en-IN')}
+              </strong>
+            </div>
+          </div>
+
+          {/* Card B: Yesterday (গতকাল) */}
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#6366f1' }}>
+                🕒 {lang === 'bn' ? 'গতকাল (Yesterday)' : 'Yesterday'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'বিক্রি:' : 'Sales:'}</span>
+              <strong style={{ color: '#6366f1', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.yesterday.sales.toLocaleString('en-IN')}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'খরচ:' : 'Expenses:'}</span>
+              <strong style={{ color: '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.yesterday.expenses.toLocaleString('en-IN')}</strong>
+            </div>
+            <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+              <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{lang === 'bn' ? 'মার্জিন/উদ্বৃত্ত:' : 'Net:'}</span>
+              <strong style={{ color: timeframeAnalytics.yesterday.margin >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>
+                {timeframeAnalytics.yesterday.margin >= 0 ? '+' : ''}৳{timeframeAnalytics.yesterday.margin.toLocaleString('en-IN')}
+              </strong>
+            </div>
+          </div>
+
+          {/* Card C: Weekly Comparison (This Week vs Last Week vs 3rd Last Week) */}
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0ea5e9', marginBottom: '6px' }}>
+              📅 {lang === 'bn' ? 'সপ্তাহভিত্তিক তুলনা (Weekly)' : 'Weekly Performance'}
+            </div>
+            <div style={{ fontSize: '0.76rem', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'চলতি সপ্তাহ:' : 'This Week:'}</span>
+                <span>
+                  <strong style={{ color: '#10b981' }}>৳{timeframeAnalytics.thisWeek.sales.toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.thisWeek.expenses.toLocaleString('en-IN')})</span>
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'লাস্ট উইক (বিগত সপ্তাহ):' : 'Last Week:'}</span>
+                <span>
+                  <strong style={{ color: 'var(--text-main)' }}>৳{timeframeAnalytics.lastWeek.sales.toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.lastWeek.expenses.toLocaleString('en-IN')})</span>
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'পূর্ববর্তী সপ্তাহ (৩য় লাস্ট উইক):' : '2 Wks Ago:'}</span>
+                <span>
+                  <strong style={{ color: 'var(--text-main)' }}>৳{timeframeAnalytics.thirdLastWeek.sales.toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.thirdLastWeek.expenses.toLocaleString('en-IN')})</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card D: Month & Year Comparison */}
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#f59e0b', marginBottom: '6px' }}>
+              📆 {lang === 'bn' ? 'মাস ও বাৎসরিক তুলনা' : 'Monthly & Yearly'}
+            </div>
+            <div style={{ fontSize: '0.76rem', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'চলতি মাস:' : 'This Month:'}</span>
+                <span>
+                  <strong style={{ color: '#10b981' }}>৳{timeframeAnalytics.thisMonth.sales.toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.thisMonth.expenses.toLocaleString('en-IN')})</span>
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'গত মাস (Last Month):' : 'Last Month:'}</span>
+                <span>
+                  <strong style={{ color: '#3b82f6' }}>৳{timeframeAnalytics.lastMonth.sales.toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.lastMonth.expenses.toLocaleString('en-IN')})</span>
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-color)', paddingTop: '3px', marginTop: '2px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'চলতি বছর vs গত বছর:' : 'Yearly:'}</span>
+                <span>
+                  <strong style={{ color: '#10b981' }}>৳{timeframeAnalytics.thisYear.sales.toLocaleString('en-IN')}</strong> / <span style={{ color: 'var(--text-muted)' }}>৳{timeframeAnalytics.lastYear.sales.toLocaleString('en-IN')}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Last 7 Days Day-by-Day Detailed Audit Table */}
+        <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ padding: '8px 12px', background: 'var(--bg-main)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🗓️</span>
+              <span>{lang === 'bn' ? 'বিগত ৭ দিনের দিনভিত্তিক বিস্তারিত বিক্রি, খরচ ও মার্জিন' : 'Day-by-Day 7 Days Performance Breakdown'}</span>
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn' ? 'সর্বশেষ ৭ দিনের লাইভ রেকর্ড' : 'Last 7 Days'}
+            </span>
+          </div>
+
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                  <th style={{ padding: '8px 12px' }}>{lang === 'bn' ? 'তারিখ ও বার' : 'Date & Day'}</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>{lang === 'bn' ? 'মোট বিক্রি (৳)' : 'Sales (৳)'}</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>{lang === 'bn' ? 'মোট খরচ (৳)' : 'Expenses (৳)'}</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>{lang === 'bn' ? 'প্রাক্কলিত মার্জিন (৳)' : 'Net Margin (৳)'}</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'center' }}>{lang === 'bn' ? 'মেমো সংখ্যা' : 'Invoices'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timeframeAnalytics.past7Days.map((row, idx) => (
+                  <tr
+                    key={row.date}
+                    style={{
+                      borderBottom: idx < 6 ? '1px solid var(--border-color)' : 'none',
+                      background: idx === 0 ? 'rgba(16, 185, 129, 0.04)' : (idx === 1 ? 'rgba(99, 102, 241, 0.04)' : 'transparent'),
+                      transition: 'background 0.15s ease'
+                    }}
+                  >
+                    <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: idx < 2 ? '800' : '600', color: 'var(--text-main)' }}>
+                        {row.dayLabel}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {row.date}
+                      </div>
+                    </td>
+
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '800', fontFamily: 'var(--font-mono)', color: row.sales > 0 ? '#10b981' : 'var(--text-muted)' }}>
+                      ৳{row.sales.toLocaleString('en-IN')}
+                    </td>
+
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '800', fontFamily: 'var(--font-mono)', color: row.expenses > 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                      ৳{row.expenses.toLocaleString('en-IN')}
+                    </td>
+
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '900', fontFamily: 'var(--font-mono)', color: row.margin >= 0 ? '#10b981' : '#ef4444' }}>
+                      {row.margin >= 0 ? '+' : ''}৳{row.margin.toLocaleString('en-IN')}
+                    </td>
+
+                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          background: row.txCount > 0 ? 'rgba(14, 165, 233, 0.12)' : 'rgba(255,255,255,0.05)',
+                          color: row.txCount > 0 ? '#0ea5e9' : 'var(--text-dim)'
+                        }}
+                      >
+                        {row.txCount} {lang === 'bn' ? 'টি' : ''}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <div
         style={{
           display: 'grid',

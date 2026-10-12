@@ -32,6 +32,7 @@ export const PersonalDashboard = () => {
     personalIncomes,
     personalSavings,
     personalEvents = [],
+    updatePersonalExpense,
     deletePersonalExpense,
     t,
     lang
@@ -40,6 +41,7 @@ export const PersonalDashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [modalType, setModalType] = useState('daily'); // 'daily' | 'family'
+  const [showAllEntries, setShowAllEntries] = useState(false);
 
   // Category 7 Modals
   const [showCashflowModal, setShowCashflowModal] = useState(false);
@@ -63,6 +65,70 @@ export const PersonalDashboard = () => {
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0), [personalExpenses]);
 
   const familySharePercent = totalExpense > 0 ? Math.round((familyExpensesTotal / totalExpense) * 100) : 0;
+
+  // 🕒 Multi-Timeframe Personal Expense Intelligence (Today, This Month, Last Month - with imported records)
+  const timeframeExpenses = useMemo(() => {
+    const now = new Date();
+    const toYMD = (d) => d.toISOString().split('T')[0];
+    const todayStr = toYMD(now);
+
+    const thisYear = now.getFullYear();
+    const thisMonth = now.getMonth();
+    const pad = (n) => String(n).padStart(2, '0');
+
+    const thisMonthPrefix = `${thisYear}-${pad(thisMonth + 1)}`;
+    const lastMonthDate = new Date(thisYear, thisMonth - 1, 1);
+    const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${pad(lastMonthDate.getMonth() + 1)}`;
+
+    const todayList = personalExpenses.filter(e => (e.date || '').startsWith(todayStr));
+    const todayTotal = todayList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    const thisMonthList = personalExpenses.filter(e => (e.date || '').startsWith(thisMonthPrefix));
+    const thisMonthTotal = thisMonthList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    const lastMonthList = personalExpenses.filter(e => (e.date || '').startsWith(lastMonthPrefix));
+    const lastMonthTotal = lastMonthList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    // 7-day breakdown
+    const bnDayNames = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+    const past7Days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dStr = toYMD(d);
+      const dayList = personalExpenses.filter(e => (e.date || '').startsWith(dStr));
+      const total = dayList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      let label = bnDayNames[d.getDay()];
+      if (i === 0) label = lang === 'bn' ? 'আজ' : 'Today';
+      else if (i === 1) label = lang === 'bn' ? 'গতকাল' : 'Yesterday';
+      past7Days.push({ date: dStr, label, total, count: dayList.length });
+    }
+
+    const lastMonthName = lastMonthDate.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'long', year: 'numeric' });
+
+    return {
+      todayTotal,
+      todayCount: todayList.length,
+      thisMonthTotal,
+      thisMonthCount: thisMonthList.length,
+      lastMonthTotal,
+      lastMonthCount: lastMonthList.length,
+      lastMonthName,
+      past7Days
+    };
+  }, [personalExpenses, lang]);
+
+  // Quick Rename Handler
+  const handleQuickRename = (expense) => {
+    const cur = expense.item || expense.title || '';
+    const next = window.prompt(lang === 'bn' ? 'খরচের আইটেম বা বিবরণ রিনেম করুন:' : 'Rename expense item:', cur);
+    if (next && next.trim() && next.trim() !== cur) {
+      updatePersonalExpense(expense.id, {
+        item: next.trim(),
+        title: next.trim()
+      });
+    }
+  };
 
   // Category breakdown for chart (Memoized)
   const categories = useMemo(() => [
@@ -236,6 +302,107 @@ export const PersonalDashboard = () => {
         </div>
       </div>
 
+      {/* 🕒 সময়কালভিত্তিক ব্যক্তিগত ও পারিবারিক খরচের তুলনা (Timeframe Comparison) */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '16px',
+          borderRadius: '16px',
+          marginBottom: '1.5rem',
+          background: 'var(--bg-card)',
+          border: '1.5px solid rgba(6, 182, 212, 0.25)',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.05)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🕒</span>
+              <span>{lang === 'bn' ? 'সময়কালভিত্তিক খরচের বিস্তারিত বিবরণ' : 'Timeframe Expense Comparison'}</span>
+            </h3>
+            <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn'
+                ? 'আজকের খরচ, চলতি মাসের হিসাব এবং আগের মাসের ইমপোর্টকৃত মোট ব্যয়ের পরিসংখ্যান'
+                : "Today's spending, current month total, and previous month imported records"}
+            </p>
+          </div>
+        </div>
+
+        {/* 3 Metric Comparison Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+          {/* Card 1: Today */}
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981' }}>
+                🟢 {lang === 'bn' ? 'আজকের খরচ (Today)' : 'Today'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{timeframeExpenses.todayCount} {lang === 'bn' ? 'টি' : 'items'}</span>
+            </div>
+            <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+              ৳{timeframeExpenses.todayTotal.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          {/* Card 2: This Month */}
+          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0ea5e9' }}>
+                📆 {lang === 'bn' ? 'চলতি মাসের মোট খরচ' : 'This Month'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{timeframeExpenses.thisMonthCount} {lang === 'bn' ? 'টি' : 'items'}</span>
+            </div>
+            <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#0ea5e9', fontFamily: 'var(--font-mono)' }}>
+              ৳{timeframeExpenses.thisMonthTotal.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          {/* Card 3: Last Month (Pre-imported Month) */}
+          <div style={{ background: 'var(--bg-main)', border: '1.5px solid rgba(245, 158, 11, 0.4)', borderRadius: '12px', padding: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#f59e0b' }}>
+                📂 {lang === 'bn' ? `গত মাস (${timeframeExpenses.lastMonthName})` : 'Last Month'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: '700' }}>
+                {timeframeExpenses.lastMonthCount} {lang === 'bn' ? 'টি (ইমপোর্টকৃত)' : 'imported'}
+              </span>
+            </div>
+            <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+              ৳{timeframeExpenses.lastMonthTotal.toLocaleString('en-IN')}
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {lang === 'bn' ? 'পিডিএফ থেকে ইমপোর্টকৃত খরচসমূহ অন্তর্ভুক্ত' : 'Includes imported PDF records'}
+            </div>
+          </div>
+        </div>
+
+        {/* 7-Day Day-by-Day Strip */}
+        <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
+          <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            {lang === 'bn' ? '📊 বিগত ৭ দিনের দিনভিত্তিক খরচ:' : 'Past 7 Days Daily Breakdown:'}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+            {timeframeExpenses.past7Days.map((d) => (
+              <div
+                key={d.date}
+                style={{
+                  flex: '1 0 90px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '6px 8px',
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)' }}>{d.label}</div>
+                <div style={{ fontSize: '0.82rem', fontWeight: '900', color: d.total > 0 ? '#ef4444' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                  ৳{d.total.toLocaleString('en-IN')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Grid: Charts & Savings Goals */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
         
@@ -303,13 +470,34 @@ export const PersonalDashboard = () => {
 
       {/* Recent Personal Transactions Table */}
       <div className="glass-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: '700' }}>
-            {lang === 'bn' ? 'সাম্প্রতিক ব্যক্তিগত ও পারিবারিক খরচের তালিকা' : 'Recent Personal & Family Expenses'}
-          </h3>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {personalExpenses.length} {lang === 'bn' ? 'টি এন্ট্রি' : 'entries'}
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: '700', margin: 0 }}>
+              {lang === 'bn' ? 'ব্যক্তিগত ও পারিবারিক খরচের তালিকা (এডিট ও রিনেম সুবিধা সহ)' : 'Personal & Family Expenses (Editable)'}
+            </h3>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              {personalExpenses.length} {lang === 'bn' ? 'টি মোট এন্ট্রি' : 'total entries'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAllEntries(!showAllEntries)}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
+              fontSize: '0.76rem',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            {showAllEntries
+              ? (lang === 'bn' ? 'সংক্ষিপ্ত দেখুন (১০টি)' : 'Show 10')
+              : (lang === 'bn' ? `সবগুলো দেখুন (${personalExpenses.length}টি)` : `Show All (${personalExpenses.length})`)}
+          </button>
         </div>
 
         <div className="table-responsive">
@@ -318,14 +506,14 @@ export const PersonalDashboard = () => {
               <tr>
                 <th>{t.date}</th>
                 <th>{t.category}</th>
-                <th>{t.note}</th>
+                <th>{lang === 'bn' ? 'আইটেম / কী কিনছি' : 'Item Description'}</th>
                 <th>{lang === 'bn' ? 'ধরন' : 'Type'}</th>
                 <th style={{ textAlign: 'right' }}>{t.amount}</th>
                 <th style={{ textAlign: 'center' }}>{t.actions}</th>
               </tr>
             </thead>
             <tbody>
-              {personalExpenses.slice(0, 8).map((exp) => (
+              {(showAllEntries ? personalExpenses : personalExpenses.slice(0, 10)).map((exp) => (
                 <tr key={exp.id}>
                   <td style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                     <Calendar size={13} style={{ display: 'inline', marginRight: '4px' }} />
@@ -334,17 +522,17 @@ export const PersonalDashboard = () => {
                   <td>
                     <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-main)' }}>
                       <Tag size={12} />
-                      {t.personal.expenseCategories[exp.category] || exp.category}
+                      {t.personal.expenseCategories[exp.category] || exp.folder || exp.category}
                     </span>
                   </td>
                   <td>
-                    <div style={{ fontWeight: '600' }}>{exp.item || exp.title}</div>
+                    <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{exp.item || exp.title}</div>
                     {exp.quantity !== null && exp.quantity !== undefined && exp.quantity !== '' && (
                       <div style={{ fontSize: '0.75rem', color: '#06b6d4', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', fontWeight: '600' }}>
                         <span>⚖️ {exp.quantity} {exp.unit}</span>
                       </div>
                     )}
-                    {exp.note && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{exp.note}</div>}
+                    {exp.note && <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{exp.note}</div>}
                   </td>
                   <td>
                     <span className={`badge ${exp.type === 'family' ? 'badge-warning' : 'badge-mode'}`}>
@@ -355,14 +543,22 @@ export const PersonalDashboard = () => {
                     -৳{exp.amount.toLocaleString()}
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <button
+                        className="btn-icon"
+                        onClick={() => handleQuickRename(exp)}
+                        title={lang === 'bn' ? 'রিনেম / নাম পরিবর্তন' : 'Rename Expense'}
+                        style={{ color: '#06b6d4', padding: '4px' }}
+                      >
+                        <span style={{ fontSize: '13px' }}>🏷️</span>
+                      </button>
                       <button
                         className="btn-icon"
                         onClick={() => handleEditExpense(exp)}
-                        title={lang === 'bn' ? 'এডিট বা পরিবর্তন' : 'Edit Expense'}
-                        style={{ color: '#06b6d4' }}
+                        title={lang === 'bn' ? 'সম্পাদনা / রি-এডিট' : 'Edit Expense'}
+                        style={{ color: '#10b981', padding: '4px' }}
                       >
-                        <Edit2 size={15} />
+                        <Edit2 size={14} />
                       </button>
                       <button
                         className="btn-icon"
@@ -372,9 +568,9 @@ export const PersonalDashboard = () => {
                           }
                         }}
                         title={t.delete}
-                        style={{ color: '#ef4444' }}
+                        style={{ color: '#ef4444', padding: '4px' }}
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>
