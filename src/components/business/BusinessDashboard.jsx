@@ -472,21 +472,114 @@ export const BusinessDashboard = () => {
     return { identifiedCustomerKeys: keys, repeatCustomerCount: repeatCount, customerRetentionRate: rate };
   }, [filteredSales]);
 
-  // Item 87: Lightweight Pure SVG Interactive Chart (Last 7 Days)
+  // 🎨 7-Day Jewel-Tone Color Palettes & Modular Tiles Definition
   const [selectedChartDay, setSelectedChartDay] = useState(null);
+  const [trendViewMode, setTrendViewMode] = useState('both'); // 'both' | 'tiles' | 'curve'
+
   const last7DaysTrend = useMemo(() => {
+    const DAY_PALETTES = [
+      {
+        id: 'day-0',
+        primary: '#6366f1',
+        accent: '#a5b4fc',
+        lightBg: 'rgba(99, 102, 241, 0.14)',
+        border: 'rgba(99, 102, 241, 0.4)',
+        gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+        glow: '0 8px 25px rgba(99, 102, 241, 0.35)'
+      },
+      {
+        id: 'day-1',
+        primary: '#0284c7',
+        accent: '#7dd3fc',
+        lightBg: 'rgba(2, 132, 199, 0.14)',
+        border: 'rgba(2, 132, 199, 0.4)',
+        gradient: 'linear-gradient(135deg, #0284c7, #0369a1)',
+        glow: '0 8px 25px rgba(2, 132, 199, 0.35)'
+      },
+      {
+        id: 'day-2',
+        primary: '#06b6d4',
+        accent: '#67e8f9',
+        lightBg: 'rgba(6, 182, 212, 0.14)',
+        border: 'rgba(6, 182, 212, 0.4)',
+        gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+        glow: '0 8px 25px rgba(6, 182, 212, 0.35)'
+      },
+      {
+        id: 'day-3',
+        primary: '#f59e0b',
+        accent: '#fde68a',
+        lightBg: 'rgba(245, 158, 11, 0.14)',
+        border: 'rgba(245, 158, 11, 0.4)',
+        gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+        glow: '0 8px 25px rgba(245, 158, 11, 0.35)'
+      },
+      {
+        id: 'day-4',
+        primary: '#f43f5e',
+        accent: '#fda4af',
+        lightBg: 'rgba(244, 63, 94, 0.14)',
+        border: 'rgba(244, 63, 94, 0.4)',
+        gradient: 'linear-gradient(135deg, #f43f5e, #e11d48)',
+        glow: '0 8px 25px rgba(244, 63, 94, 0.35)'
+      },
+      {
+        id: 'day-5',
+        primary: '#8b5cf6',
+        accent: '#c4b5fd',
+        lightBg: 'rgba(139, 92, 246, 0.16)',
+        border: 'rgba(139, 92, 246, 0.45)',
+        gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+        glow: '0 8px 25px rgba(139, 92, 246, 0.35)'
+      },
+      {
+        id: 'day-6',
+        primary: '#10b981',
+        accent: '#6ee7b7',
+        lightBg: 'rgba(16, 185, 129, 0.18)',
+        border: 'rgba(16, 185, 129, 0.55)',
+        gradient: 'linear-gradient(135deg, #10b981, #059669)',
+        glow: '0 8px 28px rgba(16, 185, 129, 0.45)'
+      }
+    ];
+
+    const bnDayNames = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
     const days = [];
+
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const daySales = (filteredSales || []).filter(s => s.date && s.date.startsWith(dateStr));
       const total = daySales.reduce((sum, s) => sum + (Number(s.grandTotal) || 0), 0);
+      const cashTotal = daySales.reduce((sum, s) => sum + (Number(s.paidAmount || s.actualPaid || s.grandTotal) || 0), 0);
+      const dueTotal = daySales.reduce((sum, s) => sum + (Number(s.dueAmount) || 0), 0);
+      const idx = 6 - i;
+
+      let dayBadge = '';
+      if (i === 0) {
+        dayBadge = lang === 'bn' ? '⚡ আজ' : '⚡ Today';
+      } else if (i === 1) {
+        dayBadge = lang === 'bn' ? 'গতকাল' : 'Yesterday';
+      } else {
+        dayBadge = lang === 'bn' ? bnDayNames[d.getDay()] : d.toLocaleDateString('en-US', { weekday: 'short' });
+      }
+
+      const shortDate = d.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short' });
+
       days.push({
         date: dateStr,
-        label: d.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { weekday: 'short', day: 'numeric' }),
+        dayBadge,
+        shortDate,
+        label: `${dayBadge} (${shortDate})`,
         total,
-        count: daySales.length
+        count: daySales.length,
+        cashTotal,
+        dueTotal,
+        salesList: daySales,
+        isToday: i === 0,
+        isYesterday: i === 1,
+        palette: DAY_PALETTES[idx]
       });
     }
     return days;
@@ -982,109 +1075,419 @@ export const BusinessDashboard = () => {
         </div>
       </div>
 
-      {/* Item 87: INTERACTIVE PURE SVG SALES TREND CHART */}
-      <div className="glass-card" style={{ padding: '16px', borderRadius: '16px', marginBottom: '1.25rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+      {/* Item 87: ULTRA-MODERN 7-COLOR MODULAR TILES & INTERACTIVE SALES TREND HUD */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '18px',
+          borderRadius: '20px',
+          marginBottom: '1.25rem',
+          background: 'var(--bg-card)',
+          border: '1.5px solid rgba(16, 185, 129, 0.3)',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Top Header & View Controls */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <TrendingUp size={18} style={{ color: '#10b981' }} />
-              <span>{lang === 'bn' ? 'বিগত ৭ দিনের বিক্রয় প্রবাহ (ইন্টারঅ্যাক্টিভ SVG চার্ট)' : 'Last 7 Days Sales Trend (Interactive SVG Chart)'}</span>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={20} style={{ color: '#10b981' }} />
+              <span>{lang === 'bn' ? 'বিগত ৭ দিনের বিক্রয় প্রবাহ (৭ রঙের আধুনিক খোপ ও ট্রেন্ড)' : 'Last 7 Days Sales Trend (7-Color Modular HUD)'}</span>
             </h3>
-            <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              {lang === 'bn' ? 'যেকোনো বারে ক্লিক করে ঐ দিনের বিস্তারিত বিক্রয় ও অর্ডার দেখুন' : 'Click any bar to inspect daily orders and revenue'}
+            <p style={{ margin: '3px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn' ? 'আলাদা রঙের ৭টি চারকোণা খোপে দৈনিক বিক্রয়—ক্লিক করে ঐ দিনের বিস্তারিত দেখুন' : '7 distinct jewel-tone modular tiles. Tap any tile to inspect daily breakdown.'}
             </p>
           </div>
-          {selectedChartDay && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(99, 102, 241, 0.1)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#818cf8' }}>
-                📅 {selectedChartDay.date}: ৳{selectedChartDay.total.toLocaleString()} ({selectedChartDay.count} {lang === 'bn' ? 'টি অর্ডার' : 'orders'})
-              </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* View Mode Toggle Pill */}
+            <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                onClick={() => setTrendViewMode('tiles')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: trendViewMode === 'tiles' ? '#10b981' : 'transparent',
+                  color: trendViewMode === 'tiles' ? '#ffffff' : 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'bn' ? '🎴 ৭ খোপ' : 'Tiles'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrendViewMode('curve')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: trendViewMode === 'curve' ? '#10b981' : 'transparent',
+                  color: trendViewMode === 'curve' ? '#ffffff' : 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'bn' ? '📈 ওয়েভ' : 'Wave'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrendViewMode('both')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: trendViewMode === 'both' ? '#10b981' : 'transparent',
+                  color: trendViewMode === 'both' ? '#ffffff' : 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'bn' ? '⚡ উভয়' : 'Both'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 🎴 7 DISTINCT COLOR-CODED MODULAR TILES (আধা ইঞ্চি করে খোপ খোপ বানায়ে ডিফারেন্ট ডিফারেন্ট কালার) */}
+        {(trendViewMode === 'tiles' || trendViewMode === 'both') && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+              gap: '10px',
+              marginBottom: trendViewMode === 'both' ? '18px' : '8px'
+            }}
+          >
+            {last7DaysTrend.map((d) => {
+              const palette = d.palette;
+              const isSelected = selectedChartDay?.date === d.date;
+              const pctOfPeak = maxTrendTotal > 0 ? Math.round((d.total / maxTrendTotal) * 100) : 0;
+
+              return (
+                <div
+                  key={d.date}
+                  className="press-scale"
+                  onClick={() => {
+                    hapticFeedback.light();
+                    setSelectedChartDay(isSelected ? null : d);
+                  }}
+                  style={{
+                    background: isSelected ? palette.gradient : palette.lightBg,
+                    border: isSelected ? `2px solid ${palette.primary}` : `1.5px solid ${palette.border}`,
+                    boxShadow: isSelected ? palette.glow : '0 4px 16px rgba(0, 0, 0, 0.05)',
+                    borderRadius: '16px',
+                    padding: '12px 10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: '120px',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    transform: isSelected ? 'translateY(-3px)' : 'none',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
+                >
+                  {/* Subtle Glow Accent Top Border */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '3px',
+                      background: palette.gradient
+                    }}
+                  />
+
+                  {/* Top: Day Badge & Date */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: '800',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        background: isSelected
+                          ? 'rgba(0, 0, 0, 0.3)'
+                          : d.isToday
+                          ? palette.primary
+                          : 'rgba(255, 255, 255, 0.1)',
+                        color: isSelected
+                          ? '#ffffff'
+                          : d.isToday
+                          ? '#ffffff'
+                          : palette.accent
+                      }}
+                    >
+                      {d.dayBadge}
+                    </span>
+                    <span style={{ fontSize: '0.66rem', color: isSelected ? 'rgba(255, 255, 255, 0.85)' : 'var(--text-muted)', fontWeight: '600' }}>
+                      {d.shortDate}
+                    </span>
+                  </div>
+
+                  {/* Center: Sales Amount */}
+                  <div style={{ margin: '4px 0 6px' }}>
+                    <div
+                      style={{
+                        fontSize: '1.05rem',
+                        fontWeight: '900',
+                        color: isSelected ? '#ffffff' : 'var(--text-main)',
+                        fontFamily: 'var(--font-mono)',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      ৳{d.total.toLocaleString()}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: '700',
+                        color: isSelected ? 'rgba(255, 255, 255, 0.9)' : palette.accent,
+                        marginTop: '3px'
+                      }}
+                    >
+                      {d.count} {lang === 'bn' ? 'টি মেমো' : 'orders'}
+                    </div>
+                  </div>
+
+                  {/* Bottom: Progress Bar vs 7-day Peak */}
+                  <div>
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '5px',
+                        background: isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        marginBottom: '3px'
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.max(6, pctOfPeak)}%`,
+                          background: isSelected ? '#ffffff' : palette.gradient,
+                          borderRadius: '4px',
+                          transition: 'width 0.4s ease'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.62rem', color: isSelected ? '#ffffff' : 'var(--text-muted)' }}>
+                      <span>{pctOfPeak}% {lang === 'bn' ? 'সর্বোচ্চ' : 'peak'}</span>
+                      {d.dueTotal > 0 && (
+                        <span style={{ color: isSelected ? '#fed7aa' : '#f97316', fontWeight: '700' }}>
+                          ৳{d.dueTotal} {lang === 'bn' ? 'বকেয়া' : 'due'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 🔍 INTERACTIVE SELECTED DAY INSPECTION DRAWER */}
+        {selectedChartDay && (
+          <div
+            className="animate-fade-in"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: `1.5px solid ${selectedChartDay.palette?.primary || 'var(--border-color)'}`,
+              borderRadius: '16px',
+              padding: '14px 16px',
+              marginBottom: trendViewMode === 'both' ? '18px' : '8px',
+              boxShadow: selectedChartDay.palette?.glow || 'var(--shadow-md)',
+              position: 'relative'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    background: selectedChartDay.palette?.gradient || '#10b981',
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  📅 {selectedChartDay.label}
+                </span>
+                <span style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'বিস্তারিত অডিট ও পরিসংখ্যান' : 'Detailed Day Performance'}
+                </span>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedChartDay(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '12px'
+                }}
               >
-                ✕
+                ✕ {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
               </button>
             </div>
-          )}
-        </div>
 
-        {/* Pure SVG Responsive Bars */}
-        <div style={{ width: '100%', height: '140px' }}>
-          <svg width="100%" height="100%" viewBox="0 0 700 140" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
-            <defs>
-              <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" />
-                <stop offset="100%" stopColor="#059669" stopOpacity="0.6" />
-              </linearGradient>
-              <linearGradient id="barGradSelected" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6366f1" />
-                <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.8" />
-              </linearGradient>
-            </defs>
+            {/* Quick 4 Metrics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+              <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'মোট বিক্রয়' : 'Total Sales'}</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: '900', color: selectedChartDay.palette?.primary || '#10b981', fontFamily: 'var(--font-mono)' }}>
+                  ৳{selectedChartDay.total.toLocaleString()}
+                </div>
+              </div>
 
-            {/* Horizontal Grid lines */}
-            <line x1="0" y1="30" x2="700" y2="30" stroke="var(--border-color)" strokeDasharray="3 3" opacity="0.4" />
-            <line x1="0" y1="75" x2="700" y2="75" stroke="var(--border-color)" strokeDasharray="3 3" opacity="0.4" />
-            <line x1="0" y1="120" x2="700" y2="120" stroke="var(--border-color)" opacity="0.6" />
+              <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'অর্ডার সংখ্যা' : 'Total Invoices'}</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: '900', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                  {selectedChartDay.count} {lang === 'bn' ? 'টি' : 'orders'}
+                </div>
+              </div>
 
-            {/* Bars */}
-            {last7DaysTrend.map((d, idx) => {
-              const barWidth = 60;
-              const x = 30 + idx * 95;
-              const heightRatio = d.total / maxTrendTotal;
-              const barHeight = Math.max(8, heightRatio * 90);
-              const y = 120 - barHeight;
-              const isSelected = selectedChartDay?.date === d.date;
+              <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'গড় মেমো সাইজ' : 'Avg Order Value'}</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                  ৳{selectedChartDay.count > 0 ? Math.round(selectedChartDay.total / selectedChartDay.count).toLocaleString() : '0'}
+                </div>
+              </div>
 
-              return (
-                <g
-                  key={d.date}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => {
-                    hapticFeedback.light();
-                    setSelectedChartDay(d);
-                  }}
-                >
-                  <rect
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={barHeight}
-                    rx="6"
-                    fill={isSelected ? 'url(#barGradSelected)' : 'url(#barGrad)'}
-                    style={{ transition: 'all 0.2s ease' }}
-                  />
-                  {/* Amount above bar */}
-                  <text
-                    x={x + barWidth / 2}
-                    y={y - 6}
-                    textAnchor="middle"
-                    fill={isSelected ? '#818cf8' : 'var(--text-main)'}
-                    fontSize="11"
-                    fontWeight="700"
-                    fontFamily="monospace"
-                  >
-                    ৳{d.total > 0 ? (d.total >= 1000 ? `${(d.total / 1000).toFixed(1)}k` : d.total) : '0'}
-                  </text>
-                  {/* Date Label */}
-                  <text
-                    x={x + barWidth / 2}
-                    y="135"
-                    textAnchor="middle"
-                    fill="var(--text-muted)"
-                    fontSize="10"
-                    fontWeight="600"
-                  >
-                    {d.label}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
+              <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'নগদ আদায়' : 'Cash Collected'}</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+                  ৳{selectedChartDay.cashTotal.toLocaleString()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 📈 ULTRA-MODERN GLOWING SMOOTH WAVE / CURVE AREA SVG CHART */}
+        {(trendViewMode === 'curve' || trendViewMode === 'both') && (
+          <div style={{ width: '100%', height: '150px', position: 'relative', marginTop: '6px' }}>
+            <svg width="100%" height="100%" viewBox="0 0 700 150" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+              <defs>
+                <linearGradient id="trendWaveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
+                  <stop offset="60%" stopColor="#6366f1" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#059669" stopOpacity="0.0" />
+                </linearGradient>
+                <linearGradient id="strokeLineGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#6366f1" />
+                  <stop offset="35%" stopColor="#06b6d4" />
+                  <stop offset="70%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#10b981" />
+                </linearGradient>
+              </defs>
+
+              {/* Grid Lines */}
+              <line x1="0" y1="30" x2="700" y2="30" stroke="var(--border-color)" strokeDasharray="3 3" opacity="0.35" />
+              <line x1="0" y1="75" x2="700" y2="75" stroke="var(--border-color)" strokeDasharray="3 3" opacity="0.35" />
+              <line x1="0" y1="120" x2="700" y2="120" stroke="var(--border-color)" opacity="0.6" />
+
+              {/* Area Wave Fill & Curve Line */}
+              {(() => {
+                const points = last7DaysTrend.map((d, idx) => {
+                  const x = 40 + idx * 103;
+                  const ratio = maxTrendTotal > 0 ? d.total / maxTrendTotal : 0;
+                  const y = 120 - Math.max(10, ratio * 95);
+                  return { x, y, d };
+                });
+
+                // Generate Smooth Cubic Bezier SVG Path
+                let pathD = `M ${points[0].x} ${points[0].y}`;
+                for (let i = 0; i < points.length - 1; i++) {
+                  const curr = points[i];
+                  const next = points[i + 1];
+                  const mx = (curr.x + next.x) / 2;
+                  pathD += ` C ${mx} ${curr.y}, ${mx} ${next.y}, ${next.x} ${next.y}`;
+                }
+
+                // Closed Area Path
+                const areaD = `${pathD} L ${points[points.length - 1].x} 120 L ${points[0].x} 120 Z`;
+
+                return (
+                  <>
+                    <path d={areaD} fill="url(#trendWaveGrad)" />
+                    <path d={pathD} fill="none" stroke="url(#strokeLineGrad)" strokeWidth="3.5" strokeLinecap="round" />
+
+                    {/* Nodes at each day */}
+                    {points.map((pt) => {
+                      const isSelected = selectedChartDay?.date === pt.d.date;
+                      return (
+                        <g
+                          key={pt.d.date}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            hapticFeedback.light();
+                            setSelectedChartDay(isSelected ? null : pt.d);
+                          }}
+                        >
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={isSelected ? 8 : 5}
+                            fill={pt.d.palette?.primary || '#10b981'}
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                            style={{ filter: isSelected ? 'drop-shadow(0 0 6px #10b981)' : 'none', transition: 'all 0.2s ease' }}
+                          />
+                          {/* Top Amount Badge */}
+                          <text
+                            x={pt.x}
+                            y={pt.y - 10}
+                            textAnchor="middle"
+                            fill={isSelected ? pt.d.palette?.primary : 'var(--text-main)'}
+                            fontSize="10"
+                            fontWeight="800"
+                            fontFamily="monospace"
+                          >
+                            ৳{pt.d.total > 0 ? (pt.d.total >= 1000 ? `${(pt.d.total / 1000).toFixed(1)}k` : pt.d.total) : '0'}
+                          </text>
+
+                          {/* Bottom Day Label */}
+                          <text
+                            x={pt.x}
+                            y="138"
+                            textAnchor="middle"
+                            fill={isSelected ? pt.d.palette?.primary : 'var(--text-muted)'}
+                            fontSize="10"
+                            fontWeight={isSelected ? '800' : '600'}
+                          >
+                            {pt.d.dayBadge}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+            </svg>
+          </div>
+        )}
       </div>
+
 
       {/* 📊 সময়কালভিত্তিক বিস্তারিত বিক্রি ও খরচ (Timeframe Performance Intelligence) */}
       <div
