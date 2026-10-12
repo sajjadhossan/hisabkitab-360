@@ -1,5 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, X, Sparkles, CheckCircle2 } from 'lucide-react';
+import {
+  Wallet,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownLeft,
+  GripVertical,
+  RotateCcw
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { BottomSheet } from './BottomSheet';
 import { hapticFeedback } from '../../services/nativeAppService';
@@ -11,23 +18,22 @@ import { useDraggableWidget } from '../../utils/useDraggableWidget';
  * -------------------------------------------
  * Provides real-time instant visibility into the physical cash drawer.
  * Updates dynamically on every sale, refund, or cash expense.
- * Fully movable / draggable across the screen on both Desktop and Mobile.
+ * Fully movable / draggable across the screen on both Desktop and Android / iOS Touch.
+ * Persists position in localStorage with edge boundary clamping.
  * Tap opens a sleek bottom sheet breakdown.
  */
 export const LiveCashCounterWidget = () => {
   const {
     salesHistory = [],
     dailyExpenses = [],
-    branchCashRecords = [],
     lang,
-    setActiveTab,
-    isModuleActive
+    setActiveTab
   } = useApp();
 
   const [isOpen, setIsOpen] = useState(false);
   const isLive = isLiveSyncConnected();
 
-  const { ref: dragRef, isDragging, hasMoved, style: dragStyle, bind } = useDraggableWidget(
+  const { ref: dragRef, isDragging, hasMoved, style: dragStyle, bind, resetPosition } = useDraggableWidget(
     'hk360_live_cash_widget_pos',
     { right: 16, bottom: 84 }
   );
@@ -49,28 +55,48 @@ export const LiveCashCounterWidget = () => {
 
   const netDrawerCash = Math.max(0, todaySalesCash - todayExpensesCash);
 
-  // If both sales and expenses are zero, we can still show a minimal pill or badge
   return (
     <>
       <aside
         ref={dragRef}
         {...bind}
         aria-label={lang === 'bn' ? 'লাইভ ক্যাশ কাউন্টার' : 'Live Cash Counter'}
-        className="live-cash-widget"
+        className={`live-cash-widget ${isDragging ? 'is-dragging' : ''}`}
         style={{
           ...dragStyle,
           cursor: isDragging ? 'grabbing' : 'grab'
         }}
         onClick={() => {
-          if (hasMoved) return;
+          if (hasMoved || isDragging) return;
           hapticFeedback.light();
           setIsOpen(true);
         }}
         title={lang === 'bn' ? 'লাইভ ক্যাশ ড্রয়ার ট্র্যাকার (টেনে যেকোনো জায়গায় রাখুন)' : 'Live Cash Drawer Tracker (Draggable)'}
       >
-        <span className="live-pulse-dot" style={{ backgroundColor: isLive ? '#10b981' : '#f59e0b' }} />
-        <Wallet size={15} style={{ color: 'var(--personal-primary)' }} />
-        <span style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '0.2px' }}>
+        {/* Grip Affordance for Touch & Mouse */}
+        <span style={{ display: 'inline-flex', alignItems: 'center', opacity: 0.55, pointerEvents: 'none' }}>
+          <GripVertical size={13} />
+        </span>
+
+        <span
+          className="live-pulse-dot"
+          style={{ backgroundColor: isLive ? '#10b981' : '#f59e0b', pointerEvents: 'none' }}
+        />
+
+        <span style={{ display: 'inline-flex', alignItems: 'center', pointerEvents: 'none' }}>
+          <Wallet size={15} style={{ color: 'var(--personal-primary)' }} />
+        </span>
+
+        <span
+          style={{
+            fontSize: '0.82rem',
+            fontWeight: '800',
+            color: 'var(--text-main)',
+            letterSpacing: '0.2px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
           ৳{netDrawerCash.toLocaleString()}
         </span>
       </aside>
@@ -179,6 +205,31 @@ export const LiveCashCounterWidget = () => {
             >
               <Wallet size={16} />
               <span>{lang === 'bn' ? 'ক্যাশ ক্লোজিং' : 'Cash Closing'}</span>
+            </button>
+          </div>
+
+          {/* Reset Position Option */}
+          <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                resetPosition();
+                hapticFeedback.light();
+                setIsOpen(false);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <RotateCcw size={13} />
+              <span>{lang === 'bn' ? 'ড্রয়ার উইজেটের অবস্থান রিসেট করুন (মূল ডকে ফেরত)' : 'Reset Drawer Widget Position'}</span>
             </button>
           </div>
         </div>
