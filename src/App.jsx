@@ -77,6 +77,7 @@ const CustomerMirrorDisplay = lazyNamed(() => import('./components/pos/CustomerM
 const FloatingQuickPad = lazyNamed(() => import('./components/common/FloatingQuickPad'), 'FloatingQuickPad');
 const LiveCashCounterWidget = lazyNamed(() => import('./components/common/LiveCashCounterWidget'), 'LiveCashCounterWidget');
 const AuditTrailModal = lazyNamed(() => import('./components/admin/AuditTrailModal'), 'AuditTrailModal');
+const KeyboardShortcutsModal = lazyNamed(() => import('./components/common/KeyboardShortcutsModal'), 'KeyboardShortcutsModal');
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
@@ -135,14 +136,17 @@ const AppContent = () => {
 
   const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
   const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [allowOfflineAccess, setAllowOfflineAccess] = useState(() => {
     return localStorage.getItem('hk360_offline_mode') === 'true';
   });
 
   React.useEffect(() => {
     window.__openAuditTrail = () => setShowAuditTrailModal(true);
+    window.__openShortcutsGuide = () => setShowShortcutsModal(true);
     return () => {
       delete window.__openAuditTrail;
+      delete window.__openShortcutsGuide;
     };
   }, []);
 
@@ -332,6 +336,9 @@ const AppContent = () => {
         if (cur.closeBarcodePrint) cur.closeBarcodePrint();
         if (cur.closeScanner) cur.closeScanner();
         if (cur.closeHelpSupport) cur.closeHelpSupport();
+      },
+      onOpenShortcutsGuide: () => {
+        setShowShortcutsModal(true);
       },
       lang
     });
@@ -803,6 +810,25 @@ const AppContent = () => {
         <AuditTrailModal
           isOpen={showAuditTrailModal}
           onClose={() => setShowAuditTrailModal(false)}
+          lang={lang}
+        />
+
+        {/* Desktop & PC Keyboard Shortcuts Guide Modal */}
+        <KeyboardShortcutsModal
+          isOpen={showShortcutsModal}
+          onClose={() => setShowShortcutsModal(false)}
+          onNavigate={(tab) => {
+            if (tab === 'quickpad') {
+              const btn = document.querySelector('button[aria-label="floating-quickpad"], .floating-quickpad-trigger');
+              if (btn) btn.click();
+            } else if (tab === 'voice') {
+              const btn = document.querySelector('button[aria-label="voice-assistant"], .global-voice-trigger');
+              if (btn) btn.click();
+            } else {
+              setActiveTab(tab);
+            }
+          }}
+          onToggleLock={() => lockScreen && lockScreen()}
           lang={lang}
         />
 

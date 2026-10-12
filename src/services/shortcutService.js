@@ -90,6 +90,17 @@ export function initGlobalShortcuts({
       return;
     }
 
+    // Shift + ? or ?: Show Keyboard Shortcuts Guide
+    if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      if (!isInput && typeof onOpenShortcutsGuide === 'function') {
+        e.preventDefault();
+        playButtonClick();
+        hapticFeedback.light();
+        onOpenShortcutsGuide();
+        return;
+      }
+    }
+
     // Escape: Close open modals
     if (e.key === 'Escape') {
       if (!isInput && typeof onCloseModals === 'function') {
