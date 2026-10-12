@@ -65,7 +65,9 @@ import { VoiceBillingModal } from '../pos/VoiceBillingModal';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { IndustryVariationsBar } from '../pos/IndustryVariationsBar';
-import { CattleFarmModal, FARM_POS_CATALOG } from '../pos/modals/CattleFarmModal';
+import { AdaptivePosSwitcherBar } from '../pos/AdaptivePosSwitcherBar';
+import { CattleFarmModal, CattleFarmHubView, FARM_POS_CATALOG } from '../pos/modals/CattleFarmModal';
+import PharmacyFEFOManager from '../healthcare/PharmacyFEFOManager';
 import { HoldCartManagerModal } from '../pos/HoldCartManagerModal';
 import { DenominationCalculatorModal } from '../pos/DenominationCalculatorModal';
 import { SplitPaymentModal } from '../pos/SplitPaymentModal';
@@ -285,7 +287,56 @@ export const POSTerminal = () => {
   const [showCattleModal, setShowCattleModal] = useState(false);
   const [cattleModalInitialTab, setCattleModalInitialTab] = useState('overview');
 
-  const isCattleMode = activeIndustryId?.includes('cattle') || activeIndustryId?.includes('dairy') || activeIndustryId?.includes('milk') || activeIndustryId?.includes('agro') || activeIndustryId?.includes('cow');
+  // --- TEMPLATE-ADAPTIVE POS ENGINE ARCHITECTURE ---
+  const isCattleIndustry = Boolean(
+    activeIndustryId?.includes('cattle') ||
+    activeIndustryId?.includes('dairy') ||
+    activeIndustryId?.includes('milk') ||
+    activeIndustryId?.includes('agro') ||
+    activeIndustryId?.includes('cow')
+  );
+
+  const isPharmacyIndustry = Boolean(
+    activeIndustryId?.includes('pharmacy') ||
+    activeIndustryId?.includes('health') ||
+    activeIndustryId?.includes('medic')
+  );
+
+  const autoDefaultEngine = isCattleIndustry ? 'cattle' : (isPharmacyIndustry ? 'pharmacy' : 'retail');
+
+  const [activePosEngine, setActivePosEngine] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_active_pos_engine');
+      if (saved && ['retail', 'cattle', 'pharmacy'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return autoDefaultEngine;
+  });
+
+  // Automatically adapt POS engine when business template switches
+  useEffect(() => {
+    const targetEngine = isCattleIndustry ? 'cattle' : (isPharmacyIndustry ? 'pharmacy' : 'retail');
+    setActivePosEngine(targetEngine);
+    try {
+      localStorage.setItem('hk360_active_pos_engine', targetEngine);
+    } catch {}
+  }, [activeIndustryId, isCattleIndustry, isPharmacyIndustry]);
+
+  const handleSwitchPosEngine = (engine) => {
+    hapticFeedback.light();
+    playButtonClick();
+    setActivePosEngine(engine);
+    try {
+      localStorage.setItem('hk360_active_pos_engine', engine);
+    } catch {}
+    if (showToast) {
+      const label = engine === 'cattle' ? '🐄 খামার ও ডেইরি POS' : engine === 'pharmacy' ? '💊 ফার্মেসি ও মেডিকেল POS' : '🏪 সাধারণ রিটেইল POS';
+      showToast(`${label} সক্রিয় হয়েছে`, 'info');
+    }
+  };
+
+  const isCattleMode = isCattleIndustry;
   const [cattlePosSubTab, setCattlePosSubTab] = useState('milk'); // 'milk' | 'live' | 'compost_feed' | 'custom_milk'
   const [customMilkLiters, setCustomMilkLiters] = useState('10');
   const [customMilkRate, setCustomMilkRate] = useState('80');
@@ -1176,11 +1227,107 @@ export const POSTerminal = () => {
     setPendingSplitPayments(null);
   };
 
-  // Dedicated Mobile-First POS View for Android & Mobile Phones
+  // ====================================================
+  // 1. TEMPLATE-ADAPTIVE SPECIALIZED POS ENGINES ROUTING
+  // ====================================================
+
+  // If Cattle Farm POS Engine is active (Auto from Cattle/Dairy template or switched manually)
+  if (activePosEngine === 'cattle') {
+    return (
+      <div className="animate-fade-in pos-terminal-view" style={{ width: '100%', boxSizing: 'border-box' }}>
+        <AdaptivePosSwitcherBar
+          activeEngine={activePosEngine}
+          onSwitchEngine={handleSwitchPosEngine}
+          activeIndustryId={activeIndustryId}
+          onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
+          onBackToDashboard={() => setActiveTab('dashboard')}
+        />
+        <CattleFarmHubView
+          isPageMode={true}
+          initialTab="farm_pos"
+          onClose={() => handleSwitchPosEngine('retail')}
+        />
+
+        {/* Counter Shift Closing Modal */}
+        {showClosingModal && (
+          <CounterShiftClosingModal
+            isOpen={showClosingModal}
+            onClose={() => setShowClosingModal(false)}
+          />
+        )}
+
+        {/* Counter Shift Opening Modal */}
+        {showOpeningModal && (
+          <CounterShiftOpeningModal
+            isOpen={showOpeningModal}
+            onClose={() => setShowOpeningModal(false)}
+            onShiftOpened={() => setIsShiftActive(true)}
+          />
+        )}
+
+        {/* Template Review Modal */}
+        {showTemplateReviewModal && (
+          <TemplateReviewModal
+            isOpen={showTemplateReviewModal}
+            onClose={() => setShowTemplateReviewModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // If Pharmacy & Healthcare FEFO POS Engine is active (Auto from Pharmacy template or switched manually)
+  if (activePosEngine === 'pharmacy') {
+    return (
+      <div className="animate-fade-in pos-terminal-view" style={{ width: '100%', boxSizing: 'border-box' }}>
+        <AdaptivePosSwitcherBar
+          activeEngine={activePosEngine}
+          onSwitchEngine={handleSwitchPosEngine}
+          activeIndustryId={activeIndustryId}
+          onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
+          onBackToDashboard={() => setActiveTab('dashboard')}
+        />
+        <PharmacyFEFOManager
+          initialTab="pos"
+          isPageMode={true}
+          onBackToRetail={() => handleSwitchPosEngine('retail')}
+        />
+
+        {/* Counter Shift Closing Modal */}
+        {showClosingModal && (
+          <CounterShiftClosingModal
+            isOpen={showClosingModal}
+            onClose={() => setShowClosingModal(false)}
+          />
+        )}
+
+        {/* Counter Shift Opening Modal */}
+        {showOpeningModal && (
+          <CounterShiftOpeningModal
+            isOpen={showOpeningModal}
+            onClose={() => setShowOpeningModal(false)}
+            onShiftOpened={() => setIsShiftActive(true)}
+          />
+        )}
+
+        {/* Template Review Modal */}
+        {showTemplateReviewModal && (
+          <TemplateReviewModal
+            isOpen={showTemplateReviewModal}
+            onClose={() => setShowTemplateReviewModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Dedicated Mobile-First Retail POS View for Android & Mobile Phones
   if (isMobileScreen && !forceDesktopMode) {
     return (
       <div className="animate-fade-in pos-terminal-view" style={{ width: '100%', boxSizing: 'border-box' }}>
         <MobilePOSView
+          activePosEngine={activePosEngine}
+          onSwitchPosEngine={handleSwitchPosEngine}
           cart={cart}
           addToCart={addToCart}
           updateCartQty={updateCartQty}
@@ -1342,6 +1489,15 @@ export const POSTerminal = () => {
         zoom: zoomLevel !== 100 ? `${zoomLevel}%` : undefined
       }}
     >
+      {/* 🌟 TEMPLATE-ADAPTIVE POS MODE SWITCHER BAR */}
+      <AdaptivePosSwitcherBar
+        activeEngine={activePosEngine}
+        onSwitchEngine={handleSwitchPosEngine}
+        activeIndustryId={activeIndustryId}
+        onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
+        onBackToDashboard={() => setActiveTab('dashboard')}
+      />
+
       {/* Floating Return-to-Mobile Pill when Desktop Mode is forced on Mobile */}
       {isMobileScreen && forceDesktopMode && (
         <button

@@ -43,8 +43,11 @@ import { NetworkQualityIndicator } from '../common/NetworkQualityIndicator';
 import { DigitalMemoShareModal } from './DigitalMemoShareModal';
 import { MobilePOSProductCard } from './MobilePOSProductCard';
 import { IndustryVariationsBar } from './IndustryVariationsBar';
+import { AdaptivePosSwitcherBar } from './AdaptivePosSwitcherBar';
 
 export const MobilePOSView = ({
+  activePosEngine = 'retail',
+  onSwitchPosEngine,
   cart,
   addToCart,
   updateCartQty,
@@ -84,7 +87,7 @@ export const MobilePOSView = ({
   onClose,
   onNavigate
 }) => {
-  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {}, setActiveTab: setGlobalTab } = useApp();
+  const { lang, t, showToast, cashMovements = [], salesHistory = [], setCart, businessSettings = {}, setActiveTab: setGlobalTab, activeIndustryId } = useApp();
   const { user } = useAuth();
   const posPerms = businessSettings?.posPermissions || {};
 
@@ -766,6 +769,15 @@ export const MobilePOSView = ({
           <span>{todaySalesCount} {lang === 'bn' ? 'টি মেমো' : 'Orders'}</span>
         </div>
       </div>
+
+      {/* ADAPTIVE POS MODE SWITCHER BAR */}
+      <AdaptivePosSwitcherBar
+        activeEngine={activePosEngine}
+        onSwitchEngine={onSwitchPosEngine}
+        activeIndustryId={activeIndustryId}
+        onOpenTemplateManager={onOpenTemplateManager}
+        onBackToDashboard={handleExit}
+      />
 
       {/* ADAPTIVE INDUSTRY VARIATIONS BAR (GOLD, BUS, FOOD, CFT, PHARMA) */}
       <IndustryVariationsBar

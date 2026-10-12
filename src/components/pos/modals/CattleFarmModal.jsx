@@ -147,7 +147,7 @@ export const FARM_POS_CATALOG = [
 ];
 
 export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview', isPageMode = false }) => {
-  const { lang, showToast, addToCart, addExpense } = useApp();
+  const { lang, showToast, addToCart, addExpense, setSalesHistory } = useApp();
 
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
 
@@ -592,6 +592,33 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     });
 
     setFarmPosSales(prev => [saleRecord, ...prev]);
+
+    if (setSalesHistory) {
+      const centralSale = {
+        id: saleRecord.id,
+        invoiceNo: `COW-${Date.now().toString().slice(-6)}`,
+        date: saleRecord.date,
+        customerName: saleRecord.customerName,
+        customerPhone: saleRecord.customerPhone,
+        items: saleRecord.items.map(it => ({
+          name: it.name,
+          quantity: it.qty,
+          price: it.price,
+          total: it.price * it.qty
+        })),
+        subtotal: saleRecord.totalAmount,
+        discount: 0,
+        grandTotal: saleRecord.totalAmount,
+        paidAmount: saleRecord.paymentMethod === 'due' ? 0 : saleRecord.totalAmount,
+        dueAmount: saleRecord.paymentMethod === 'due' ? saleRecord.totalAmount : 0,
+        paymentMethod: saleRecord.paymentMethod,
+        cashierName: 'খামার বিক্রয় সহকারী',
+        status: saleRecord.paymentMethod === 'due' ? 'unpaid' : 'paid',
+        industry: 'agro_cattle_farm'
+      };
+      setSalesHistory(prev => [centralSale, ...(prev || [])]);
+    }
+
     setFarmPosCart([]);
     setFarmCustomer({ name: '', phone: '', note: '' });
     if (showToast) showToast(`✅ ৳${farmPosTotal.toLocaleString()} টাকার খামার বিক্রয় মেমো সফল হয়েছে!`, 'success');

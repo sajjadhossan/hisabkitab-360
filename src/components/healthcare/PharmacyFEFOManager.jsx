@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useHealthcare } from '../../context/HealthcareContext';
+import { useApp } from '../../context/AppContext';
 import { generateHealthcareId } from '../../services/healthcareIdService';
 import {
   Pill,
@@ -34,10 +35,11 @@ import {
   UserCheck,
   Award,
   RefreshCw,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ArrowLeft
 } from 'lucide-react';
 
-export default function PharmacyFEFOManager() {
+export default function PharmacyFEFOManager({ initialTab = 'pos', isPageMode = false, onBackToRetail } = {}) {
   const {
     pharmacyMedicines = [],
     patients = [],
@@ -48,9 +50,11 @@ export default function PharmacyFEFOManager() {
     updatePrescriptionDispensingStatus
   } = useHealthcare();
 
+  const { setSalesHistory, showToast: showAppToast } = useApp() || {};
+
   // Active Tab:
   // 'pos' | 'prescriptions' | 'catalog' | 'inventory' | 'alerts' | 'sales_return' | 'purchases' | 'stock_count' | 'branch_transfer'
-  const [activeTab, setActiveTab] = useState('pos');
+  const [activeTab, setActiveTab] = useState(initialTab || 'pos');
   const [salesMode, setSalesMode] = useState('counter'); // 'counter' | 'prescription'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -491,6 +495,33 @@ export default function PharmacyFEFOManager() {
       updatePrescriptionDispensingStatus(activePrescriptionId, 'Fully Dispensed');
     }
 
+    if (setSalesHistory) {
+      const centralSale = {
+        id: saleId,
+        invoiceNo: `RX-${Date.now().toString().slice(-6)}`,
+        date: new Date().toISOString(),
+        customerName: selectedPatient?.full_name || 'সাধারণ ফার্মেসি ক্রেতা (Walk-in)',
+        customerPhone: selectedPatient?.mobile_number || selectedPatient?.phone || '',
+        items: cart.map(it => ({
+          name: `${it.brand_name} (${it.strength || ''}) [${it.unit}]`,
+          quantity: it.qty,
+          price: it.price,
+          total: it.total
+        })),
+        subtotal,
+        discount: discountVal,
+        grandTotal: netPayable,
+        paidAmount: Number(paidAmount) || netPayable,
+        dueAmount,
+        paymentMethod,
+        cashierName: sellerName,
+        status: dueAmount === 0 ? 'paid' : (Number(paidAmount) > 0 ? 'partial' : 'unpaid'),
+        industry: 'health_pharmacy'
+      };
+      setSalesHistory(prev => [centralSale, ...prev]);
+      if (showAppToast) showAppToast(`💊 ৳${netPayable.toLocaleString()} টাকার ফার্মেসি ইনভয়েস (${saleId}) সফল হয়েছে!`, 'success');
+    }
+
     setLastInvoice(invoiceData);
     setViewingReceipt(invoiceData);
     setCart([]);
@@ -592,6 +623,31 @@ export default function PharmacyFEFOManager() {
               <Award size={14} />
               <span>বিক্রেতা: {sellerName.split(' ')[1]}</span>
             </div>
+
+            {onBackToRetail && (
+              <button
+                type="button"
+                onClick={onBackToRetail}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  background: 'var(--bg-secondary)',
+                  border: '1.5px solid var(--border-color)',
+                  color: 'var(--text-main)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}
+                title="সাধারণ রিটেইল POS-এ ফিরে যান"
+              >
+                <ArrowLeft size={14} />
+                <span>রিটেইল POS</span>
+              </button>
+            )}
           </div>
         </div>
 
