@@ -125,6 +125,7 @@ export const Navbar = () => {
   const [showMasterPinModal, setShowMasterPinModal] = useState(false);
   const [activeTool, setActiveTool] = useState(null); // 'calculator' | 'cash' | 'notes' | 'backup_hub' | 'shortcuts'
   const [showExportImportHub, setShowExportImportHub] = useState(false);
+  const [exportImportDefaultTab, setExportImportDefaultTab] = useState('cloud_drive');
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showTemplateReviewModal, setShowTemplateReviewModal] = useState(false);
@@ -272,7 +273,8 @@ export const Navbar = () => {
 
   const handleQuickDriveSync = async () => {
     if (!isDriveConnected && !businessSettings.googleDriveWebhookUrl) {
-      setActiveTool('backup_hub');
+      setExportImportDefaultTab('cloud_drive');
+      setShowExportImportHub(true);
       setShowMoreMenu(false);
       return;
     }
@@ -476,7 +478,7 @@ export const Navbar = () => {
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Manager', desc: lang === 'bn' ? 'সকল ক্যাটাগরি ম্যানেজ' : 'Manage all categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
         { id: 'tool_price_tracker', label: lang === 'bn' ? '🏷️ মার্কেট প্রাইস ও উইশলিস্ট' : 'Market Price & Wishlist', desc: lang === 'bn' ? 'বাজার দর ট্র্যাকিং ও কেনার তালিকা' : 'Price log & buy wishlist', icon: Tag, color: '#ec4899', badge: 'NEW', isAction: () => { setShowMobileDrawer(false); setShowPriceTrackerModal(true); } },
         { id: 'tool_routine_presets', label: lang === 'bn' ? '⚡ নিয়মিত কেনাকাটা ১-ক্লিক' : '1-Click Routine Presets', desc: lang === 'bn' ? '১-ক্লিকে নিয়মিত বাজার ও সাপ্লাই খরচ' : 'Batch recurring supplies', icon: Zap, color: '#8b5cf6', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowRoutinePresetsModal(true); } },
-        { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowExportImportHub(true); } },
+        { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setExportImportDefaultTab('cloud_drive'); setShowExportImportHub(true); } },
         { id: 'tool_drive', label: lang === 'bn' ? 'গুগল ড্রাইভ সিঙ্ক' : 'Google Drive Sync', desc: lang === 'bn' ? 'ক্লাউডে অটো ব্যাকআপ' : 'Direct cloud backup', icon: Cloud, color: '#3b82f6', isAction: handleQuickDriveSync },
         { id: 'tool_calc', label: lang === 'bn' ? 'ডিজিটাল ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত হিসাব ও যোগ-বিয়োগ' : 'Popup calculator', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটবুক' : 'Quick Scratchpad', desc: lang === 'bn' ? 'জরুরি খসড়া ও মেমো' : 'Autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
@@ -514,7 +516,7 @@ export const Navbar = () => {
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Hub', desc: lang === 'bn' ? 'খরচের ক্যাটাগরি তৈরি ও এডিট' : 'Manage categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
         { id: 'tool_price_tracker_util', label: lang === 'bn' ? '🏷️ বাজার দর ও উইশলিস্ট' : 'Market Price & Wishlist', desc: lang === 'bn' ? 'দর ট্র্যাকিং ও কেনার তালিকা' : 'Market price logs', icon: Tag, color: '#ec4899', badge: 'NEW', isAction: () => { setShowMobileDrawer(false); setShowPriceTrackerModal(true); } },
         { id: 'tool_routine_presets_util', label: lang === 'bn' ? '⚡ নিয়মিত বাজার প্রি-সেট' : '1-Click Routine Presets', desc: lang === 'bn' ? '১-ক্লিকে নিয়মিত বাজার ফর্দ' : 'Batch groceries', icon: Zap, color: '#8b5cf6', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowRoutinePresetsModal(true); } },
-        { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setShowExportImportHub(true); } },
+        { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ' : 'Smart Excel/PDF Ingest & Full Backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setExportImportDefaultTab('cloud_drive'); setShowExportImportHub(true); } },
         { id: 'tool_calc', label: lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত যোগ-বিয়োগ' : 'Fast digital math', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটপ্যাড' : 'Sticky Notes', desc: lang === 'bn' ? 'বাজারের ফর্দ ও জরুরি নোট' : 'Quick autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
         { id: 'tool_shortcuts_personal', label: lang === 'bn' ? '⌨️ কীবোর্ড শর্টকাট' : 'Keyboard Shortcuts', desc: lang === 'bn' ? 'F1-F8 ও দ্রুত হটকি গাইড' : 'Desktop hotkey guide', icon: Keyboard, color: '#6366f1', badge: 'PC', isAction: () => { setShowMobileDrawer(false); if (window.__openShortcutsGuide) window.__openShortcutsGuide(); } },
@@ -1015,6 +1017,7 @@ export const Navbar = () => {
               className="btn-icon press-scale"
               onClick={() => {
                 hapticFeedback.light();
+                setExportImportDefaultTab('cloud_drive');
                 setShowExportImportHub(true);
               }}
               title={lang === 'bn' ? '💾 স্মার্ট ব্যাকআপ ও ডেটা সেন্টার (Excel/PDF খরচ ইমপোর্ট, রিকনসিল ও ব্যাকআপ)' : 'Smart Backup & Data Center'}
@@ -1396,7 +1399,7 @@ export const Navbar = () => {
       <DataExportImportModal
         isOpen={showExportImportHub}
         onClose={() => setShowExportImportHub(false)}
-        defaultTab="import"
+        defaultTab={exportImportDefaultTab}
         initialTarget={profile === 'business' ? 'business_inventory' : 'family'}
       />
 

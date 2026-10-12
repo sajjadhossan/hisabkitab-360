@@ -24,7 +24,14 @@ import {
   Archive,
   History,
   CheckCheck,
-  Tag
+  Tag,
+  Cloud,
+  CloudUpload,
+  LogOut,
+  Copy,
+  Check,
+  Clock,
+  Globe
 } from 'lucide-react';
 import {
   exportFamilyExpensesExcel,
@@ -51,7 +58,7 @@ import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 export const DataExportImportModal = ({
   isOpen,
   onClose,
-  defaultTab = 'import',
+  defaultTab = 'cloud_drive',
   initialTarget = 'business_inventory'
 }) => {
   const {
@@ -68,10 +75,86 @@ export const DataExportImportModal = ({
     addBusinessExpense,
     categories = {},
     showToast,
-    lang
+    lang,
+    businessSettings = {},
+    updateBusinessSettings,
+    syncToGoogleDrive,
+    isDriveConnected,
+    driveUser,
+    connectDriveOAuth,
+    disconnectDriveOAuth,
+    switchDriveOAuth
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState(defaultTab); // 'import' | 'encrypted_backup' | 'export' | 'history'
+  const [activeTab, setActiveTab] = useState(defaultTab || 'cloud_drive'); // 'cloud_drive' | 'encrypted_backup' | 'import' | 'export' | 'history'
+
+  // GOOGLE DRIVE & WEBHOOK CLOUD HUB STATE
+  const [webhookUrlInput, setWebhookUrlInput] = useState(businessSettings?.googleDriveWebhookUrl || '');
+  const [driveFolderInput, setDriveFolderInput] = useState(businessSettings?.googleDriveFolder || 'HisabKitab360_Master_Backups');
+  const [isSyncingDrive, setIsSyncingDrive] = useState(false);
+  const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
+  const [showDriveScriptGuide, setShowDriveScriptGuide] = useState(false);
+  const [copiedScript, setCopiedScript] = useState(false);
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab, isOpen]);
+
+  React.useEffect(() => {
+    if (businessSettings?.googleDriveWebhookUrl) {
+      setWebhookUrlInput(businessSettings.googleDriveWebhookUrl);
+    }
+    if (businessSettings?.googleDriveFolder) {
+      setDriveFolderInput(businessSettings.googleDriveFolder);
+    }
+  }, [businessSettings]);
+
+  const handleSaveWebhook = () => {
+    if (!webhookUrlInput || !webhookUrlInput.trim()) {
+      showToast(lang === 'bn' ? 'দয়া করে একটি সঠিক Webhook URL দিন' : 'Please enter a valid Webhook URL', 'warning');
+      return;
+    }
+    updateBusinessSettings({
+      googleDriveWebhookUrl: webhookUrlInput.trim(),
+      googleDriveFolder: driveFolderInput.trim() || 'HisabKitab360_Master_Backups',
+      googleDriveEnabled: true
+    });
+    showToast(lang === 'bn' ? '✅ সেন্ট্রাল গুগল ড্রাইভ Webhook লিঙ্ক সংরক্ষিত হয়েছে!' : 'Webhook URL saved successfully!', 'success');
+  };
+
+  const handleTestWebhookSync = async () => {
+    const url = webhookUrlInput.trim() || businessSettings?.googleDriveWebhookUrl;
+    if (!url) {
+      showToast(lang === 'bn' ? 'আগে আপনার Webhook URL পেস্ট করে সংরক্ষণ করুন' : 'Please enter and save Webhook URL first', 'warning');
+      return;
+    }
+    setIsSyncingDrive(true);
+    try {
+      updateBusinessSettings({
+        googleDriveWebhookUrl: url,
+        googleDriveFolder: driveFolderInput.trim() || 'HisabKitab360_Master_Backups',
+        googleDriveEnabled: true
+      });
+      const res = await syncToGoogleDrive(url);
+      if (res && res.success) {
+        showToast(lang === 'bn' ? '🎉 অভিনন্দন! আপনার গুগল ড্রাইভে সফলভাবে ব্যাকআপ পাঠানো হয়েছে!' : 'Backup successfully uploaded to your Google Drive!', 'success');
+      }
+    } catch (err) {
+      showToast(lang === 'bn' ? 'সিঙ্ক ব্যর্থ: ' + err.message : 'Sync failed: ' + err.message, 'danger');
+    } finally {
+      setIsSyncingDrive(false);
+    }
+  };
+
+  const handleCopyScriptCode = () => {
+    const scriptCode = `function doPost(e) {\\n  try {\\n    var folderName = "HisabKitab360_Master_Backups";\\n    var folders = DriveApp.getFoldersByName(folderName);\\n    var targetFolder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);\\n    var payload = JSON.parse(e.postData.contents);\\n    var now = new Date();\\n    var timeStr = Utilities.formatDate(now, "Asia/Dhaka", "yyyy-MM-dd_HH-mm-ss");\\n    var storeName = (payload.companyName || "Store").replace(/[^a-zA-Z0-9]/g, "_");\\n    var fileName = "backup_" + storeName + "_" + timeStr + ".json";\\n    var file = targetFolder.createFile(fileName, JSON.stringify(payload, null, 2), MimeType.PLAIN_TEXT);\\n    var files = targetFolder.getFiles();\\n    var fileList = [];\\n    while (files.hasNext()) { fileList.push(files.next()); }\\n    fileList.sort(function(a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });\\n    if (fileList.length > 30) { for (var i = 30; i < fileList.length; i++) { fileList[i].setTrashed(true); } }\\n    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Saved to Google Drive", fileName: fileName })).setMimeType(ContentService.MimeType.JSON);\\n  } catch (err) {\\n    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);\\n  }\\n}`;
+    navigator.clipboard.writeText(scriptCode);
+    setCopiedScript(true);
+    setTimeout(() => setCopiedScript(false), 2500);
+    showToast(lang === 'bn' ? '📋 গুগল অ্যাপস স্ক্রিপ্ট কোড কপি হয়েছে!' : 'Google Apps Script code copied!', 'info');
+  };
 
   // EXPORT STATE
   const [exportTarget, setExportTarget] = useState(initialTarget);
@@ -822,17 +905,17 @@ export const DataExportImportModal = ({
           </button>
         </div>
 
-        {/* Unified 4-Tab Switcher */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px', marginBottom: '1.25rem', background: 'var(--bg-main)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+        {/* Unified 5-Tab Central Backup Switcher */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '6px', marginBottom: '1.25rem', background: 'var(--bg-main)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <button
             type="button"
-            onClick={() => setActiveTab('import')}
+            onClick={() => setActiveTab('cloud_drive')}
             style={{
               padding: '8px 10px',
               borderRadius: '8px',
               border: 'none',
-              background: activeTab === 'import' ? 'var(--bg-card)' : 'transparent',
-              color: activeTab === 'import' ? '#0ea5e9' : 'var(--text-muted)',
+              background: activeTab === 'cloud_drive' ? 'var(--bg-card)' : 'transparent',
+              color: activeTab === 'cloud_drive' ? '#3b82f6' : 'var(--text-muted)',
               fontWeight: '800',
               fontSize: '0.82rem',
               cursor: 'pointer',
@@ -840,12 +923,12 @@ export const DataExportImportModal = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              boxShadow: activeTab === 'import' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              boxShadow: activeTab === 'cloud_drive' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.15s ease'
             }}
           >
-            <Upload size={15} style={{ color: '#0ea5e9' }} />
-            <span>{lang === 'bn' ? '📥 খরচ ইমপোর্ট ও ব্যাকআপ' : 'Smart Ingest'}</span>
+            <Cloud size={15} style={{ color: '#3b82f6' }} />
+            <span>{lang === 'bn' ? '☁️ ক্লাউড ও ড্রাইভ' : 'Cloud & Drive'}</span>
           </button>
 
           <button
@@ -869,7 +952,31 @@ export const DataExportImportModal = ({
             }}
           >
             <ShieldCheck size={15} style={{ color: '#10b981' }} />
-            <span>{lang === 'bn' ? '🔐 ফুল সিস্টেম ব্যাকআপ' : 'Full Backup'}</span>
+            <span>{lang === 'bn' ? '🔐 অফলাইন ব্যাকআপ' : 'Offline File'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('import')}
+            style={{
+              padding: '8px 10px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeTab === 'import' ? 'var(--bg-card)' : 'transparent',
+              color: activeTab === 'import' ? '#0ea5e9' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: activeTab === 'import' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Upload size={15} style={{ color: '#0ea5e9' }} />
+            <span>{lang === 'bn' ? '📥 খরচ ইমপোর্ট' : 'Smart Ingest'}</span>
           </button>
 
           <button
@@ -893,7 +1000,7 @@ export const DataExportImportModal = ({
             }}
           >
             <Download size={15} style={{ color: '#f59e0b' }} />
-            <span>{lang === 'bn' ? '📤 রিপোর্ট এক্সপোর্ট' : 'Export Reports'}</span>
+            <span>{lang === 'bn' ? '📤 রিপোর্ট এক্সপোর্ট' : 'Reports'}</span>
           </button>
 
           <button
@@ -917,9 +1024,398 @@ export const DataExportImportModal = ({
             }}
           >
             <History size={15} style={{ color: '#8b5cf6' }} />
-            <span>{lang === 'bn' ? `📜 ব্যাকআপ হিস্ট্রি (${importHistory.length})` : `History (${importHistory.length})`}</span>
+            <span>{lang === 'bn' ? `📜 হিস্ট্রি (${importHistory.length})` : `History (${importHistory.length})`}</span>
           </button>
         </div>
+
+        {/* ======================================================== */}
+        {/* TAB 0: CLOUD & GOOGLE DRIVE DEDICATED BACKUP HUB          */}
+        {/* ======================================================== */}
+        {activeTab === 'cloud_drive' && (
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Top Status Banner */}
+            <div
+              className="glass-card"
+              style={{
+                padding: '1rem 1.25rem',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%)',
+                border: '1px solid rgba(66, 133, 244, 0.25)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(66, 133, 244, 0.3)' }}>
+                  <CloudUpload size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                      {lang === 'bn' ? 'গুগল ড্রাইভ ও ক্লাউড অটো ব্যাকআপ হাব' : 'Google Drive Cloud Backup Hub'}
+                    </h4>
+                    <span
+                      className="badge"
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: '800',
+                        background: (isDriveConnected || businessSettings.googleDriveWebhookUrl) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                        color: (isDriveConnected || businessSettings.googleDriveWebhookUrl) ? '#10b981' : '#f59e0b',
+                        border: `1px solid ${(isDriveConnected || businessSettings.googleDriveWebhookUrl) ? '#10b981' : '#f59e0b'}`
+                      }}
+                    >
+                      {isDriveConnected
+                        ? (lang === 'bn' ? '✓ ডাইরেক্ট জিমেইল সংযুক্ত' : 'Direct OAuth Active')
+                        : (businessSettings.googleDriveWebhookUrl
+                          ? (lang === 'bn' ? '✓ সেন্ট্রাল Webhook সক্রিয়' : 'Webhook Active')
+                          : (lang === 'bn' ? 'সেটআপ প্রয়োজন' : 'Setup Required'))}
+                    </span>
+                  </div>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn'
+                      ? 'এখানে সেন্ট্রাল ওয়েবহুক এবং ক্লায়েন্টের ব্যক্তিগত জিমেইল ব্যাকআপ আলাদা আলাদা কার্ডে সাজানো রয়েছে।'
+                      : 'Separate modules for central master webhook and client personal direct Google account.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Sync Button & Time */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right' }}>
+                  <span>{lang === 'bn' ? 'সর্বশেষ সিঙ্ক:' : 'Last Sync:'}</span>
+                  <div style={{ fontWeight: '800', color: 'var(--text-main)' }}>
+                    {businessSettings.googleDriveLastSync || (lang === 'bn' ? 'এখনও সিঙ্ক হয়নি' : 'Never')}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestWebhookSync}
+                  disabled={isSyncingDrive}
+                  className="btn btn-primary press-scale"
+                  style={{
+                    background: 'linear-gradient(135deg, #4285F4, #1a73e8)',
+                    borderColor: '#4285F4',
+                    padding: '8px 14px',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <RefreshCw size={14} className={isSyncingDrive ? 'animate-spin' : ''} />
+                  <span>{isSyncingDrive ? (lang === 'bn' ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (lang === 'bn' ? 'ড্রাইভে ব্যাকআপ পাঠান' : 'Sync to Drive')}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SEPARATE BACKUP OPTIONS GRID */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+              {/* ======================================================== */}
+              {/* OPTION 1: CENTRAL MASTER DRIVE BACKUP (WEBHOOK)         */}
+              {/* ======================================================== */}
+              <div
+                style={{
+                  background: 'var(--bg-main)',
+                  border: '1.5px solid rgba(66, 133, 244, 0.3)',
+                  borderRadius: '14px',
+                  padding: '1.15rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(66, 133, 244, 0.15)', color: '#4285F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Globe size={18} />
+                    </div>
+                    <div>
+                      <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                        {lang === 'bn' ? '১. সেন্ট্রাল মাস্টার ড্রাইভ ব্যাকআপ' : '1. Central Master Drive Webhook'}
+                      </h5>
+                      <span style={{ fontSize: '0.68rem', color: '#4285F4', fontWeight: '800' }}>
+                        Google Apps Script Webhook (মাস্টার কন্ট্রোল)
+                      </span>
+                    </div>
+                  </div>
+                  <span className="badge" style={{ background: 'rgba(66, 133, 244, 0.15)', color: '#4285F4', fontSize: '0.65rem', fontWeight: '800' }}>
+                    মাস্টার ব্যাকআপ
+                  </span>
+                </div>
+
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  {lang === 'bn'
+                    ? 'আপনার ব্যক্তিগত জিমেইলে তৈরি করা Webhook স্ক্রিপ্ট। এটি সক্রিয় থাকলে সব ক্লায়েন্টের ব্যাকআপ স্বয়ংক্রিয়ভাবে আপনার ড্রাইভের HisabKitab360_Master_Backups ফোল্ডারে এসে জমা হবে। ক্লায়েন্টকে কোনো লগইন করতে হবে না।'
+                    : 'Sends backups directly to your central Google Drive folder via Apps Script without requiring client authentication.'}
+                </p>
+
+                {/* Webhook Input Field */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
+                    {lang === 'bn' ? 'আপনার Google Apps Script Webhook URL:' : 'Your Apps Script Webhook URL:'}
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    value={webhookUrlInput}
+                    onChange={(e) => setWebhookUrlInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.78rem',
+                      fontFamily: 'monospace'
+                    }}
+                  />
+                </div>
+
+                {/* Folder Name Field */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
+                    {lang === 'bn' ? 'গুগল ড্রাইভে ফোল্ডারের নাম:' : 'Google Drive Folder Name:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={driveFolderInput}
+                    onChange={(e) => setDriveFolderInput(e.target.value)}
+                    placeholder="HisabKitab360_Master_Backups"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.8rem'
+                    }}
+                  />
+                </div>
+
+                {/* Buttons: Save & Test */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveWebhook}
+                    className="btn btn-secondary press-scale"
+                    style={{ flex: 1, padding: '7px 12px', fontSize: '0.78rem', fontWeight: '800' }}
+                  >
+                    <span>💾 লিঙ্ক সংরক্ষণ করুন</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestWebhookSync}
+                    disabled={isSyncingDrive}
+                    className="btn btn-primary press-scale"
+                    style={{ flex: 1.2, padding: '7px 12px', fontSize: '0.78rem', fontWeight: '800', background: '#4285F4', borderColor: '#4285F4' }}
+                  >
+                    <span>🚀 টেস্ট সিঙ্ক পাঠান</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Setup Guide with Copy Code */}
+                <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '8px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowDriveScriptGuide(!showDriveScriptGuide)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#4285F4',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: 0
+                    }}
+                  >
+                    <span>{showDriveScriptGuide ? '▼ স্ক্রিপ্ট কোড ও গাইড লুকান' : '► গুগল স্ক্রিপ্ট কোড ও ২ মিনিটের গাইড (ক্লিক করুন)'}</span>
+                  </button>
+
+                  {showDriveScriptGuide && (
+                    <div style={{ marginTop: '8px', padding: '10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.74rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: '800', color: 'var(--text-main)' }}>Google Apps Script Code:</span>
+                        <button
+                          type="button"
+                          onClick={handleCopyScriptCode}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            background: copiedScript ? '#10b981' : '#4285F4',
+                            color: '#fff',
+                            border: 'none',
+                            fontSize: '0.68rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          {copiedScript ? <Check size={12} /> : <Copy size={12} />}
+                          <span>{copiedScript ? 'কপি হয়েছে' : 'কোড কপি করুন'}</span>
+                        </button>
+                      </div>
+                      <ol style={{ margin: '0 0 8px 16px', padding: 0, color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                        <li>ব্রাউজারে <strong>script.google.com</strong>-এ গিয়ে "New project" চাপুন।</li>
+                        <li>আগের কোড মুছে উপরের "কোড কপি করুন" বাটন চেপে কোডটি পেস্ট করুন এবং সেভ করুন।</li>
+                        <li>ডানপাশে <strong>Deploy ➔ New deployment</strong>-এ গিয়ে <strong>Web app</strong> সিলেক্ট করুন।</li>
+                        <li><strong>Who has access: Anyone</strong> দিয়ে Deploy চাপুন এবং প্রাপ্ত লিঙ্কটি এখানে বসান।</li>
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ======================================================== */}
+              {/* OPTION 2: CLIENT PERSONAL GOOGLE DRIVE (DIRECT OAUTH)   */}
+              {/* ======================================================== */}
+              <div
+                style={{
+                  background: 'var(--bg-main)',
+                  border: '1.5px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '14px',
+                  padding: '1.15rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.05)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Key size={18} />
+                    </div>
+                    <div>
+                      <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                        {lang === 'bn' ? '২. ক্লায়েন্টের নিজস্ব গুগল ড্রাইভ' : '2. Client Personal Google Drive'}
+                      </h5>
+                      <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: '800' }}>
+                        Google OAuth 2.0 (ডাইরেক্ট জিমেইল সাইন-ইন)
+                      </span>
+                    </div>
+                  </div>
+                  <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.65rem', fontWeight: '800' }}>
+                    ব্যক্তিগত ড্রাইভ
+                  </span>
+                </div>
+
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  {lang === 'bn'
+                    ? 'যে ক্লায়েন্ট চায় তার হিসাব একান্তই তার নিজস্ব জিমেইলে সুরক্ষিত থাকুক। সে এখানে ১-ক্লিক সাইন-ইন করে অনুমোদন দেবে। তার ড্রাইভের HisabKitab ফোল্ডারে ফাইল জমা হবে।'
+                    : 'Client signs in directly with their personal Google account. Data stays 100% private in their own Google Drive.'}
+                </p>
+
+                {/* Connection Box */}
+                <div style={{ marginTop: 'auto', background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  {isDriveConnected ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {driveUser?.picture ? (
+                            <img src={driveUser.picture} alt="Avatar" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+                          ) : (
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                              G
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                              {driveUser?.name || 'Google User'}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {driveUser?.email || 'কানেক্টেড জিমেইল'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.65rem', fontWeight: '800' }}>
+                          🟢 সংযুক্ত
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIsConnectingOAuth(true);
+                            try {
+                              await switchDriveOAuth();
+                            } finally {
+                              setIsConnectingOAuth(false);
+                            }
+                          }}
+                          disabled={isConnectingOAuth}
+                          className="btn btn-secondary press-scale"
+                          style={{ flex: 1, padding: '5px 8px', fontSize: '0.72rem', fontWeight: '700' }}
+                        >
+                          <RefreshCw size={12} className={isConnectingOAuth ? 'animate-spin' : ''} />
+                          <span>অ্যাকাউন্ট বদল</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={disconnectDriveOAuth}
+                          className="btn btn-secondary press-scale"
+                          style={{ padding: '5px 8px', fontSize: '0.72rem', color: '#ef4444', fontWeight: '700' }}
+                        >
+                          <LogOut size={12} />
+                          <span>সংযোগ বিচ্ছিন্ন</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '6px 0' }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsConnectingOAuth(true);
+                          try {
+                            await connectDriveOAuth();
+                          } finally {
+                            setIsConnectingOAuth(false);
+                          }
+                        }}
+                        disabled={isConnectingOAuth}
+                        className="btn btn-primary press-scale"
+                        style={{
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          borderColor: '#10b981',
+                          width: '100%',
+                          padding: '8px 14px',
+                          fontSize: '0.82rem',
+                          fontWeight: '800',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <RefreshCw size={14} className={isConnectingOAuth ? 'animate-spin' : ''} />
+                        <span>{isConnectingOAuth ? 'সংযোগ হচ্ছে...' : 'Sign in with Google (ব্যক্তিগত ড্রাইভ)'}</span>
+                      </button>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '5px' }}>
+                        লগইন করলে ডেটা সরাসরি আপনার ব্যক্তিগত গুগল ড্রাইভে যাবে
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ======================================================== */}
         {/* TAB 1: EXPORT SECTION                                    */}
