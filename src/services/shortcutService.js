@@ -64,6 +64,24 @@ export function initGlobalShortcuts({
       return;
     }
 
+    // F7: Switch to Inventory Manager (স্টক ও ইনভেন্টরি)
+    if (e.key === 'F7') {
+      e.preventDefault();
+      playButtonClick();
+      hapticFeedback.light();
+      if (typeof onNavigate === 'function') onNavigate('inventory');
+      return;
+    }
+
+    // F8: Switch to Invoices Manager (বিক্রি ও মেমো তালিকা)
+    if (e.key === 'F8') {
+      e.preventDefault();
+      playButtonClick();
+      hapticFeedback.light();
+      if (typeof onNavigate === 'function') onNavigate('invoices');
+      return;
+    }
+
     // Ctrl+Shift+L: Quick Counter Screen Lock
     if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
       e.preventDefault();
