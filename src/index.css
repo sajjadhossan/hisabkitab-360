@@ -527,8 +527,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   line-height: 1.5;
-  overflow-y: visible;
-  overflow-x: hidden;
+  overflow: visible;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -2496,10 +2495,6 @@ body.low-ram-power-saver .shimmer-skeleton {
 /* =========================================================
    120Hz FLUID GESTURE PHYSICS & OVERSCROLL BOUNCE
    ========================================================= */
-html, body {
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-}
 
 .virtual-scroll-container {
   will-change: transform, scroll-position;
@@ -3064,9 +3059,14 @@ body.low-power-mode .glass-card {
    📱 MOBILE & ANDROID APK ONE-WAY DISPLAY HARDENING
    Guarantees zero horizontal blowout, clean vertical stacking
    ==================================================== */
-html, body {
+html {
   max-width: 100%;
   overflow-x: hidden;
+}
+
+body {
+  max-width: 100%;
+  overflow: visible;
 }
 
 @media (max-width: 768px) {
