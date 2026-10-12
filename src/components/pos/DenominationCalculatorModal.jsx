@@ -28,8 +28,6 @@ export const DenominationCalculatorModal = ({
     return init;
   });
 
-  if (!isOpen) return null;
-
   const totalCounted = useMemo(() => {
     return BDT_DENOMINATIONS.reduce((sum, denom) => {
       return sum + (denom * (counts[denom] || 0));
@@ -97,6 +95,8 @@ export const DenominationCalculatorModal = ({
       if (showToast) showToast(lang === 'bn' ? 'ক্যাশ ব্রেকডাউন ক্লিপবোর্ডে কপি হয়েছে' : 'Copied breakdown to clipboard', 'success');
     } catch {}
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

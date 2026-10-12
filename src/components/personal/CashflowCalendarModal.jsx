@@ -26,8 +26,6 @@ export const CashflowCalendarModal = ({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayDate, setSelectedDayDate] = useState(null);
 
-  if (!isOpen) return null;
-
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -101,6 +99,8 @@ export const CashflowCalendarModal = ({
   const weekDayLabels = lang === 'bn'
     ? ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি']
     : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  if (!isOpen) return null;
 
   return (
     <div

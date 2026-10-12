@@ -55,7 +55,8 @@ import {
   Tv,
   ArrowLeft,
   Truck,
-  Gift
+  Gift,
+  Zap
 } from 'lucide-react';
 import { QuickFilterManagerModal } from '../pos/QuickFilterManagerModal';
 import { POSProductCard } from '../pos/POSProductCard';

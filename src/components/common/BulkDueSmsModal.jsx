@@ -23,8 +23,6 @@ export const BulkDueSmsModal = ({
   lang = 'bn',
   showToast
 }) => {
-  if (!isOpen) return null;
-
   const storeName = businessSettings?.storeName || businessSettings?.shopName || (lang === 'bn' ? 'আমাদের দোকান' : 'Our Store');
   const storePhone = businessSettings?.phone || businessSettings?.contactNumber || '';
 
@@ -133,6 +131,8 @@ export const BulkDueSmsModal = ({
       if (showToast) showToast(lang === 'bn' ? 'নমুনা এসএমএস টেক্সট কপি করা হয়েছে!' : 'Sample SMS copied!', 'info');
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1200, backdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.75)' }}>

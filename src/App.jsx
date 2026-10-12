@@ -398,6 +398,12 @@ const AppContent = () => {
     setViewParam(null);
   };
 
+  const handlePullRefresh = React.useCallback(async () => {
+    if (showToast) {
+      showToast(lang === 'bn' ? 'সিস্টেম ডাটা রিফ্রেশ সম্পন্ন!' : 'System data refreshed!', 'success');
+    }
+  }, [showToast, lang]);
+
   // If opened in Customer-Facing Mirror Screen mode
   if (viewParam === 'customer_mirror') {
     return (
@@ -600,7 +606,11 @@ const AppContent = () => {
         case 'events':
           return <PersonalEventsManager />;
         case 'debts':
-          return <DebtKhataManager profile="personal" />;
+          return (
+            <ErrorBoundary>
+              <DebtKhataManager profile="personal" />
+            </ErrorBoundary>
+          );
         case 'income':
           return <PersonalIncome />;
         case 'analytics':
@@ -621,7 +631,11 @@ const AppContent = () => {
             </ErrorBoundary>
           );
         case 'debts':
-          return <DebtKhataManager profile="business" />;
+          return (
+            <ErrorBoundary>
+              <DebtKhataManager profile="business" />
+            </ErrorBoundary>
+          );
         case 'invoices':
           return <InvoicesManager />;
         case 'quotations':
@@ -657,12 +671,6 @@ const AppContent = () => {
       }
     }
   };
-
-  const handlePullRefresh = React.useCallback(async () => {
-    if (showToast) {
-      showToast(lang === 'bn' ? 'সিস্টেম ডাটা রিফ্রেশ সম্পন্ন!' : 'System data refreshed!', 'success');
-    }
-  }, [showToast, lang]);
 
   return (
     <div className="app-container">

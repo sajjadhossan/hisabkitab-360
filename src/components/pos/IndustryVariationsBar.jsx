@@ -49,11 +49,8 @@ export const IndustryVariationsBar = ({
   onOpenTemplateManager
 }) => {
   const { activeIndustryId, setActiveIndustryId, lang, MASTER_INDUSTRY_TEMPLATES, showToast, setActiveTab } = useApp();
-  let setActiveLinkedApp = null;
-  try {
-    const hc = useHealthcare();
-    setActiveLinkedApp = hc?.setActiveLinkedApp;
-  } catch {}
+  const hc = useHealthcare();
+  const setActiveLinkedApp = hc?.setActiveLinkedApp;
 
   // Modals
   const [showGoldModal, setShowGoldModal] = useState(false);

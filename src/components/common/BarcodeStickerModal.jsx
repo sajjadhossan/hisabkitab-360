@@ -21,8 +21,6 @@ export const BarcodeStickerModal = ({
   lang = 'bn',
   showToast
 }) => {
-  if (!isOpen) return null;
-
   const [selectedProductId, setSelectedProductId] = useState(
     initialProduct?.id || (products[0]?.id || '')
   );
@@ -176,6 +174,8 @@ export const BarcodeStickerModal = ({
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1250 }}>

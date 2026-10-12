@@ -510,6 +510,10 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
     };
   }, []);
 
+  const farmPosTotal = useMemo(() => {
+    return farmPosCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  }, [farmPosCart]);
+
   if (!isOpen && !isPageMode) return null;
 
   // --- Computations ---
@@ -565,10 +569,6 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
       setFarmPosCart(prev => prev.map(item => item.id === id ? { ...item, qty: newQty } : item));
     }
   };
-
-  const farmPosTotal = useMemo(() => {
-    return farmPosCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  }, [farmPosCart]);
 
   const handleCompleteFarmSale = () => {
     if (farmPosCart.length === 0) return;

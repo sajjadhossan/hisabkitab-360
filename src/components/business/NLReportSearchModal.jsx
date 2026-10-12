@@ -31,8 +31,6 @@ export const NLReportSearchModal = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedExample, setSelectedExample] = useState('');
 
-  if (!isOpen) return null;
-
   const sampleQueries = [
     'সবচেয়ে বেশি বিক্রি হওয়া পণ্যগুলো দেখাও',
     'আজকের মোট বিক্রি ও কালেকশন কত',
@@ -128,6 +126,8 @@ export const NLReportSearchModal = ({ isOpen, onClose }) => {
       matchedCusts
     };
   }, [query, salesHistory, products, customers, dailyExpenses, lang]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }}>

@@ -31,8 +31,6 @@ export const ThermalLabelPrinterModal = ({
   lang = 'bn',
   showToast
 }) => {
-  if (!isOpen) return null;
-
   const [selectedProductId, setSelectedProductId] = useState(
     initialProduct?.id || (products[0]?.id || '')
   );
@@ -197,6 +195,8 @@ export const ThermalLabelPrinterModal = ({
       );
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

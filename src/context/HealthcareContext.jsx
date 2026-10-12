@@ -33,10 +33,7 @@ const HealthcareContext = createContext();
 
 export const useHealthcare = () => {
   const context = useContext(HealthcareContext);
-  if (!context) {
-    throw new Error('useHealthcare must be used within a HealthcareProvider');
-  }
-  return context;
+  return context || {};
 };
 
 export const HealthcareProvider = ({ children }) => {

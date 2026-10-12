@@ -28,8 +28,6 @@ import { useApp } from '../../context/AppContext';
 export const BusinessHealthScoreModal = ({ isOpen, onClose }) => {
   const { salesHistory = [], products = [], customers = [], dailyExpenses = [], lang } = useApp();
 
-  if (!isOpen) return null;
-
   const healthAudit = useMemo(() => {
     // 1. Inventory Value & Dead Stock
     const totalInventoryValue = products.reduce((sum, p) => sum + ((Number(p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
@@ -89,6 +87,8 @@ export const BusinessHealthScoreModal = ({ isOpen, onClose }) => {
 
   const scoreColor = healthAudit.totalScore >= 80 ? '#10b981' : (healthAudit.totalScore >= 60 ? '#f59e0b' : '#ef4444');
   const scoreLabel = healthAudit.totalScore >= 80 ? (lang === 'bn' ? 'অত্যন্ত শক্তিশালী ও লাভজনক' : 'Excellent & Robust') : (healthAudit.totalScore >= 60 ? (lang === 'bn' ? 'সন্তোষজনক ও স্বাভাবিক' : 'Moderate & Stable') : (lang === 'bn' ? 'সতর্কতা প্রয়োজন' : 'Needs Attention'));
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }}>

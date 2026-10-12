@@ -39,8 +39,6 @@ export const SplitPaymentModal = ({
     };
   });
 
-  if (!isOpen) return null;
-
   const totalAllocated = useMemo(() => {
     return Object.values(allocations).reduce((sum, v) => sum + (Number(v) || 0), 0);
   }, [allocations]);
@@ -102,6 +100,8 @@ export const SplitPaymentModal = ({
     }
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

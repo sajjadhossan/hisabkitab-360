@@ -40,8 +40,6 @@ export const SalesReturnModal = ({ isOpen, onClose }) => {
     ).slice(0, 10);
   }, [salesHistory, searchInvoice]);
 
-  if (!isOpen) return null;
-
   const handleSelectSale = (sale) => {
     setSelectedSale(sale);
     const initialReturns = {};
@@ -140,6 +138,8 @@ export const SalesReturnModal = ({ isOpen, onClose }) => {
     setSelectedSale(null);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>

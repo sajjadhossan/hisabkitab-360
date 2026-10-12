@@ -29,8 +29,6 @@ import { useApp } from '../../context/AppContext';
 export const EODSummaryModal = ({ isOpen, onClose }) => {
   const { salesHistory = [], dailyExpenses = [], businessSettings = {}, lang, showToast } = useApp();
 
-  if (!isOpen) return null;
-
   const todayStr = new Date().toISOString().split('T')[0];
 
   const todayStats = useMemo(() => {
@@ -82,6 +80,8 @@ export const EODSummaryModal = ({ isOpen, onClose }) => {
     window.open(url, '_blank', 'noopener,noreferrer');
     if (showToast) showToast(lang === 'bn' ? 'হোয়াটসঅ্যাপ চালু হচ্ছে...' : 'Opening WhatsApp...');
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }}>
