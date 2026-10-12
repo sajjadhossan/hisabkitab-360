@@ -7,8 +7,6 @@ import {
   FileSpreadsheet,
   FileText,
   CheckCircle2,
-  AlertCircle,
-  Folder,
   Calendar,
   Sparkles,
   Home,
@@ -18,7 +16,6 @@ import {
   RefreshCw,
   Trash2,
   Layers,
-  ArrowRight,
   Filter,
   Lock,
   Key,
@@ -34,13 +31,20 @@ import {
   exportDailyExpensesExcel,
   exportBusinessProductsExcel,
   exportBusinessSalesExcel,
-  exportTableToPrintablePdf,
+  exportDebtsExcel,
+  exportFullBusinessExcel,
+  generateStockReportHtml,
+  generateDebtReportHtml,
+  generateFullBusinessReportHtml,
+  generateFamilyExpenseReportHtml,
+  buildModernDocumentHtml,
   parseExcelFile,
   parsePdfFile,
   normalizeDate,
   parseAmountSafely,
   guessFolderFromText
 } from '../../services/exportImportService';
+import { printHtmlContent } from '../../services/printService';
 import { encryptData, decryptData, downloadEncryptedBackupFile } from '../../services/cryptoService';
 import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 
@@ -48,14 +52,17 @@ export const DataExportImportModal = ({
   isOpen,
   onClose,
   defaultTab = 'import',
-  initialTarget = 'family'
+  initialTarget = 'business_inventory'
 }) => {
   const {
-    personalExpenses,
+    personalExpenses = [],
     personalEvents = [],
-    products,
-    salesHistory,
-    businessExpenses,
+    products = [],
+    salesHistory = [],
+    businessExpenses = [],
+    personalDebts = [],
+    businessDebts = [],
+    customers = [],
     addPersonalExpense,
     addProduct,
     addBusinessExpense,
@@ -68,8 +75,44 @@ export const DataExportImportModal = ({
 
   // EXPORT STATE
   const [exportTarget, setExportTarget] = useState(initialTarget);
-  const [exportFormat, setExportFormat] = useState('excel'); // 'excel' | 'pdf'
+  const [exportFormat, setExportFormat] = useState('pdf'); // 'excel' | 'pdf'
   const [exportDateRange, setExportDateRange] = useState('all'); // 'all' | 'this_month' | 'last_month'
+
+  // IN-APP DOCUMENT PREVIEW STATE (Android Freeze-Proof)
+  const [previewDoc, setPreviewDoc] = useState(null); // { title, subtitle, html, exportTarget }
+
+  // Combined Debts
+  const allDebts = useMemo(() => {
+    const list = [...(businessDebts || []), ...(personalDebts || [])];
+    const seen = new Set();
+    return list.filter(d => {
+      if (!d || seen.has(d.id || d.name)) return false;
+      seen.add(d.id || d.name);
+      return true;
+    });
+  }, [businessDebts, personalDebts]);
+
+  // Handle Android Hardware Back Button & Escape Key
+  React.useEffect(() => {
+    if (!previewDoc) return;
+    try {
+      window.history.pushState({ modal: 'pdf_preview' }, '');
+    } catch {}
+
+    const handlePopState = () => {
+      setPreviewDoc(null);
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setPreviewDoc(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [previewDoc]);
 
   // IMPORT STATE
   const [importFile, setImportFile] = useState(null);
@@ -85,6 +128,7 @@ export const DataExportImportModal = ({
   const [columnMapping, setColumnMapping] = useState({
     date: -1,
     item: -1,
+    member: -1,
     amount: -1,
     quantity: -1,
     unit: -1,
@@ -93,7 +137,7 @@ export const DataExportImportModal = ({
   });
 
   // PDF parsing state
-  const [pdfData, setPdfData] = useState(null); // { rawLinesCount, parsedRecords }
+  const [_pdfData, setPdfData] = useState(null); // { rawLinesCount, parsedRecords }
 
   // Candidate rows to import (with checked status)
   const [candidateRows, setCandidateRows] = useState([]);
@@ -242,6 +286,7 @@ export const DataExportImportModal = ({
   };
 
   // ----------------------------------------------------
+  // ----------------------------------------------------
   // EXPORT EXECUTION
   // ----------------------------------------------------
   const handleExecuteExport = () => {
@@ -267,111 +312,113 @@ export const DataExportImportModal = ({
       };
 
       if (exportFormat === 'excel') {
-        if (exportTarget === 'family') {
+        if (exportTarget === 'business_inventory') {
+          exportBusinessProductsExcel(products, lang);
+          showToast(lang === 'bn' ? 'দোকানের ইনভেন্টরি ও ড্যামেজ স্টক এক্সেল ডাউনলোড সম্পন্ন!' : 'Inventory & Damage exported');
+        } else if (exportTarget === 'debts') {
+          exportDebtsExcel(allDebts, lang);
+          showToast(lang === 'bn' ? 'দেনা-পাওনা খাতার এক্সেল ফাইল ডাউনলোড সম্পন্ন!' : 'Debts ledger exported');
+        } else if (exportTarget === 'full_business') {
+          exportFullBusinessExcel({ products, debts: allDebts, salesHistory, lang });
+          showToast(lang === 'bn' ? 'সম্পূর্ণ ব্যবসায়িক আর্থিক ব্যাকআপ এক্সেল ডাউনলোড সম্পন্ন!' : 'Full business backup exported');
+        } else if (exportTarget === 'family') {
           const filtered = personalExpenses.filter(e => e.type === 'family' && filterByDate(e.date));
           exportFamilyExpensesExcel(filtered, lang);
-          showToast(lang === 'bn' ? 'পারিবারিক খরচের এক্সেল ফাইল ডাউনলোড হয়েছে' : 'Family expenses exported');
+          showToast(lang === 'bn' ? 'পারিবারিক বিস্তারিত খরচের এক্সেল ফাইল ডাউনলোড সম্পন্ন!' : 'Family expenses exported');
         } else if (exportTarget === 'daily') {
           const filtered = personalExpenses.filter(e => e.type === 'daily' && filterByDate(e.date));
           exportDailyExpensesExcel(filtered, lang);
-          showToast(lang === 'bn' ? 'দৈনিক খরচের এক্সেল ফাইল ডাউনলোড হয়েছে' : 'Daily expenses exported');
+          showToast(lang === 'bn' ? 'দৈনিক খরচের এক্সেল ফাইল ডাউনলোড সম্পন্ন!' : 'Daily expenses exported');
         } else if (exportTarget === 'events') {
           const filtered = personalExpenses.filter(e => e.eventId && filterByDate(e.date));
           exportFamilyExpensesExcel(filtered, lang);
-          showToast(lang === 'bn' ? 'ইভেন্ট খরচের এক্সেল ফাইল ডাউনলোড হয়েছে' : 'Event expenses exported');
-        } else if (exportTarget === 'business_inventory') {
-          exportBusinessProductsExcel(products, lang);
-          showToast(lang === 'bn' ? 'দোকানের ইনভেন্টরি এক্সেল ডাউনলোড হয়েছে' : 'Inventory exported');
+          showToast(lang === 'bn' ? 'ইভেন্ট খরচের এক্সেল ফাইল ডাউনলোড সম্পন্ন!' : 'Event expenses exported');
         } else if (exportTarget === 'business_sales') {
           const filtered = salesHistory.filter(s => filterByDate(s.date));
           exportBusinessSalesExcel(filtered, lang);
-          showToast(lang === 'bn' ? 'বিক্রয় খাতা এক্সেল ডাউনলোড হয়েছে' : 'Sales history exported');
+          showToast(lang === 'bn' ? 'বিক্রয় খাতা এক্সেল ডাউনলোড সম্পন্ন!' : 'Sales history exported');
         }
       } else {
-        // PDF Export via Printable Engine
+        // PDF Export via Modern In-App Preview Engine (Freeze-Proof on Android)
         let title = '';
-        let columns = [];
-        let rows = [];
-        let summaryRows = [];
+        const subtitle = lang === 'bn' ? `হিসাবের সময়কাল: ${exportDateRange === 'all' ? 'সকল লেনদেন' : exportDateRange === 'this_month' ? 'চলতি মাস' : 'গত মাস'}` : `Period: ${exportDateRange}`;
+        let generatedHtml = '';
 
-        if (exportTarget === 'family') {
-          title = lang === 'bn' ? 'পারিবারিক খরচের পূর্ণাঙ্গ বিবরণী' : 'Family Expense Statement';
+        if (exportTarget === 'business_inventory') {
+          title = lang === 'bn' ? 'দোকানের বর্তমান পণ্য স্টক ও ড্যামেজ রিপোর্ট' : 'Business Inventory & Damage Report';
+          generatedHtml = generateStockReportHtml({ products, lang });
+        } else if (exportTarget === 'debts') {
+          title = lang === 'bn' ? 'দেনা-পাওনা ও বাকির খাতার পূর্ণাঙ্গ বিবরণী' : 'Debt & Credit Ledger Statement';
+          generatedHtml = generateDebtReportHtml({ debts: allDebts, lang });
+        } else if (exportTarget === 'full_business') {
+          title = lang === 'bn' ? 'সম্পূর্ণ ব্যবসায়িক আর্থিক হিসাব ব্যাকআপ' : 'Full Business Financial Backup Report';
+          generatedHtml = generateFullBusinessReportHtml({ products, debts: allDebts, salesHistory, lang });
+        } else if (exportTarget === 'family') {
+          title = lang === 'bn' ? 'পারিবারিক খরচের বিস্তারিত লাইন-বাই-লাইন হিসাব' : 'Detailed Family Household Expense Report';
           const filtered = personalExpenses.filter(e => e.type === 'family' && filterByDate(e.date));
-          const total = filtered.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-          columns = [
-            { header: lang === 'bn' ? 'তারিখ' : 'Date', key: 'date' },
-            { header: lang === 'bn' ? 'ফোল্ডার' : 'Folder', key: 'folder' },
-            { header: lang === 'bn' ? 'কি কিনলেন / বিবরণ' : 'Item Description', key: 'item' },
-            { header: lang === 'bn' ? 'পরিমাণ ও একক' : 'Quantity', key: 'qty' },
-            { header: lang === 'bn' ? 'টাকার পরিমাণ (৳)' : 'Amount (BDT)', key: 'amount', align: 'right' }
-          ];
-
-          rows = filtered.map(item => ({
-            date: item.date,
-            folder: item.folder || 'অন্যান্য',
-            item: item.item || item.title,
-            qty: item.quantity ? `${item.quantity} ${item.unit || ''}` : '—',
-            amount: `৳${Number(item.amount).toLocaleString('en-IN')}`
-          }));
-
-          summaryRows = [
-            { label: lang === 'bn' ? 'মোট পারিবারিক ব্যয়:' : 'Total Household Expense:', value: `৳${total.toLocaleString('en-IN')}` }
-          ];
+          generatedHtml = generateFamilyExpenseReportHtml({ expenses: filtered, lang });
         } else if (exportTarget === 'daily') {
           title = lang === 'bn' ? 'দৈনন্দিন খরচের বিবরণী' : 'Daily Expense Statement';
           const filtered = personalExpenses.filter(e => e.type === 'daily' && filterByDate(e.date));
           const total = filtered.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-          columns = [
-            { header: lang === 'bn' ? 'তারিখ' : 'Date', key: 'date' },
-            { header: lang === 'bn' ? 'ক্যাটাগরি' : 'Category', key: 'category' },
-            { header: lang === 'bn' ? 'আইটেম' : 'Item', key: 'item' },
-            { header: lang === 'bn' ? 'পরিমাণ' : 'Qty', key: 'qty' },
-            { header: lang === 'bn' ? 'টাকা (৳)' : 'Amount', key: 'amount', align: 'right' }
+          const cols = [
+            { header: 'তারিখ', key: 'date' },
+            { header: 'ক্যাটাগরি', key: 'cat' },
+            { header: 'আইটেম', key: 'item' },
+            { header: 'টাকা (৳)', key: 'amount', align: 'right' }
           ];
-
-          rows = filtered.map(item => ({
+          const rows = filtered.map(item => ({
             date: item.date,
-            category: item.category || 'bazaar',
+            cat: item.category || 'সাধারণ',
             item: item.item || item.title,
-            qty: item.quantity ? `${item.quantity} ${item.unit || ''}` : '—',
-            amount: `৳${Number(item.amount).toLocaleString('en-IN')}`
+            amount: `৳${(Number(item.amount) || 0).toLocaleString('en-IN')}`
           }));
-
-          summaryRows = [
-            { label: lang === 'bn' ? 'মোট দৈনিক খরচ:' : 'Total Daily Expense:', value: `৳${total.toLocaleString('en-IN')}` }
+          generatedHtml = buildModernDocumentHtml({
+            title,
+            subtitle,
+            tables: [{ columns: cols, rows }],
+            summaryRows: [{ label: 'মোট দৈনিক খরচ:', value: `৳${total.toLocaleString('en-IN')}` }],
+            lang
+          });
+        } else if (exportTarget === 'business_sales') {
+          title = lang === 'bn' ? 'বিক্রয় খাতা রিপোর্ট' : 'Sales History Report';
+          const filtered = salesHistory.filter(s => filterByDate(s.date));
+          const total = filtered.reduce((s, e) => s + (Number(e.grandTotal) || 0), 0);
+          const cols = [
+            { header: 'ইনভয়েস নং', key: 'inv' },
+            { header: 'তারিখ', key: 'date' },
+            { header: 'কাস্টমার', key: 'cust' },
+            { header: 'পেমেন্ট মেথড', key: 'method' },
+            { header: 'মোট মূল্য (৳)', key: 'total', align: 'right' }
           ];
-        } else if (exportTarget === 'business_inventory') {
-          title = lang === 'bn' ? 'দোকানের বর্তমান পণ্য স্টক রিপোর্ট' : 'Business Inventory Report';
-          columns = [
-            { header: lang === 'bn' ? 'বারকোড/SKU' : 'Barcode', key: 'sku' },
-            { header: lang === 'bn' ? 'পণ্যের নাম' : 'Product Name', key: 'name' },
-            { header: lang === 'bn' ? 'ক্যাটাগরি' : 'Category', key: 'cat' },
-            { header: lang === 'bn' ? 'বর্তমান স্টক' : 'Stock', key: 'stock', align: 'center' },
-            { header: lang === 'bn' ? 'বিক্রয় মূল্য (৳)' : 'Sell Price', key: 'price', align: 'right' }
-          ];
-
-          rows = products.map(p => ({
-            sku: p.barcode || p.sku || '—',
-            name: p.name,
-            cat: p.category,
-            stock: `${p.stock} টি`,
-            price: `৳${Number(p.sellingPrice).toLocaleString('en-IN')}`
+          const rows = filtered.map(s => ({
+            inv: s.invoiceNo || `INV-${s.id}`,
+            date: (s.date || '').split('T')[0],
+            cust: s.customerName || 'খুচরা ক্রেতা',
+            method: s.paymentMethod || 'cash',
+            total: `৳${(Number(s.grandTotal) || 0).toLocaleString('en-IN')}`
           }));
+          generatedHtml = buildModernDocumentHtml({
+            title,
+            subtitle,
+            tables: [{ columns: cols, rows }],
+            summaryRows: [{ label: 'মোট বিক্রয়:', value: `৳${total.toLocaleString('en-IN')}` }],
+            lang
+          });
+        } else {
+          // Default fallback
+          title = lang === 'bn' ? 'হিসাব রিপোর্ট' : 'General Report';
+          generatedHtml = buildModernDocumentHtml({ title, subtitle, tables: [], lang });
         }
 
-        exportTableToPrintablePdf({
+        // Open in-app freeze-proof preview sheet
+        setPreviewDoc({
           title,
-          subtitle: lang === 'bn' ? `হিসাবের সময়কাল: ${exportDateRange === 'all' ? 'সকল লেনদেন' : exportDateRange === 'this_month' ? 'চলতি মাস' : 'গত মাস'}` : `Period: ${exportDateRange}`,
-          columns,
-          rows,
-          summaryRows,
-          lang
+          subtitle,
+          html: generatedHtml,
+          exportTarget
         });
       }
-
-      onClose();
     } catch (err) {
       console.error(err);
       showToast(lang === 'bn' ? 'এক্সপোর্টে সমস্যা হয়েছে' : 'Export failed', 'danger');
@@ -480,6 +527,7 @@ export const DataExportImportModal = ({
       if (itemVal && amountVal > 0) {
         const rawDate = mapping.date !== -1 && row[mapping.date] ? row[mapping.date] : null;
         const dateVal = normalizeDate(rawDate);
+        const memberVal = mapping.member !== -1 && row[mapping.member] ? String(row[mapping.member]).trim() : '';
         const qtyVal = mapping.quantity !== -1 && row[mapping.quantity] ? parseAmountSafely(row[mapping.quantity]) : null;
         const unitVal = mapping.unit !== -1 && row[mapping.unit] ? String(row[mapping.unit]).trim() : '';
         const folderVal = mapping.folder !== -1 && row[mapping.folder]
@@ -492,6 +540,7 @@ export const DataExportImportModal = ({
           selected: true,
           date: dateVal,
           item: itemVal,
+          member: memberVal,
           amount: amountVal,
           quantity: qtyVal,
           unit: unitVal,
@@ -585,6 +634,7 @@ export const DataExportImportModal = ({
           unit: row.unit,
           folder: row.folder || defaultFolder,
           category: row.folder || defaultFolder,
+          member: row.member || row.person || '',
           type: 'family',
           date: row.date,
           note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
@@ -597,6 +647,7 @@ export const DataExportImportModal = ({
           amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
+          member: row.member || row.person || '',
           category: 'bazaar',
           type: 'daily',
           date: row.date,
@@ -881,11 +932,12 @@ export const DataExportImportModal = ({
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
                 {[
-                  { id: 'family', label: lang === 'bn' ? 'পারিবারিক খরচ' : 'Family Expenses', icon: Home, color: '#f97316' },
-                  { id: 'daily', label: lang === 'bn' ? 'দৈনন্দিন খরচ' : 'Daily Expenses', icon: ShoppingCart, color: '#10b981' },
-                  { id: 'events', label: lang === 'bn' ? 'ইভেন্ট ও অনুষ্ঠান' : 'Events & Occasions', icon: Sparkles, color: '#ec4899' },
-                  { id: 'business_inventory', label: lang === 'bn' ? 'দোকানের স্টক পণ্য' : 'Business Stock', icon: Boxes, color: '#6366f1' },
-                  { id: 'business_sales', label: lang === 'bn' ? 'বিক্রয় খাতা (Sales)' : 'Sales History', icon: TrendingDown, color: '#06b6d4' }
+                  { id: 'business_inventory', label: lang === 'bn' ? '📦 শুধু স্টক ও ক্ষতি ব্যাকআপ' : 'Stock & Damage', sub: lang === 'bn' ? 'স্টক ভ্যালু, ড্যামেজ ক্ষতি ও রিস্টক সতর্কতা' : 'Stock value, damage loss & restock', icon: Boxes, color: '#6366f1' },
+                  { id: 'debts', label: lang === 'bn' ? '🤝 শুধু দেনা-পাওনা ব্যাকআপ' : 'Debts & Receivables', sub: lang === 'bn' ? 'কার কাছে কত পাবো/দেবো ও তাগাদার তারিখ' : 'Receivables, payables & due dates', icon: Layers, color: '#0f766e' },
+                  { id: 'full_business', label: lang === 'bn' ? '💎 সম্পূর্ণ ব্যাকআপ (All-in-One)' : 'Full Business Backup', sub: lang === 'bn' ? 'স্টক, ড্যামেজ, দেনা-পাওনা ও সার্বিক স্থিতি' : 'Consolidated business financial summary', icon: Database, color: '#3b82f6' },
+                  { id: 'family', label: lang === 'bn' ? '🏠 পারিবারিক খরচ (আইটেম বাই আইটেম)' : 'Family Expenses', sub: lang === 'bn' ? 'তেল, চাল, ডালসহ সদস্যভিত্তিক বিস্তারিত ব্যয়' : 'Itemized household expenses', icon: Home, color: '#f97316' },
+                  { id: 'daily', label: lang === 'bn' ? '🛒 দৈনন্দিন খরচ' : 'Daily Expenses', sub: lang === 'bn' ? 'দৈনিক পকেট ও সাধারণ খরচ' : 'General daily expenses', icon: ShoppingCart, color: '#10b981' },
+                  { id: 'business_sales', label: lang === 'bn' ? '📈 বিক্রয় খাতা (Sales)' : 'Sales History', sub: lang === 'bn' ? 'ইনভয়েস ও মোট বিক্রির হিসাব' : 'Invoice history', icon: TrendingDown, color: '#06b6d4' }
                 ].map((item) => {
                   const isSelected = exportTarget === item.id;
                   const Icon = item.icon;
@@ -894,21 +946,30 @@ export const DataExportImportModal = ({
                       key={item.id}
                       onClick={() => setExportTarget(item.id)}
                       style={{
-                        padding: '12px',
-                        borderRadius: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '12px',
                         border: isSelected ? `2px solid ${item.color}` : '1px solid var(--border-color)',
                         background: isSelected ? 'rgba(15, 118, 110, 0.08)' : 'var(--bg-main)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
+                        gap: '12px',
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <Icon size={18} style={{ color: item.color }} />
-                      <span style={{ fontSize: '0.86rem', fontWeight: isSelected ? '800' : '600', color: 'var(--text-main)' }}>
-                        {item.label}
-                      </span>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={18} style={{ color: item.color }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.86rem', fontWeight: isSelected ? '800' : '700', color: 'var(--text-main)' }}>
+                          {item.label}
+                        </span>
+                        {item.sub && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {item.sub}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -2084,6 +2145,165 @@ export const DataExportImportModal = ({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* In-App Interactive PDF/Report Preview Modal (Android Freeze-Proof) */}
+        {previewDoc && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.88)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 100000,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Sticky Mobile-Friendly Header with Safe Back Button */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                backgroundColor: '#0f172a',
+                color: '#ffffff',
+                borderBottom: '1px solid #334155',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                zIndex: 10,
+                gap: '10px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '800',
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                  }}
+                >
+                  <X size={18} />
+                  <span>{lang === 'bn' ? '✕ ফিরে যান' : '✕ Back / Close'}</span>
+                </button>
+                <div>
+                  <div style={{ fontSize: '0.98rem', fontWeight: '800', color: '#f8fafc' }}>
+                    {previewDoc.title}
+                  </div>
+                  {previewDoc.subtitle && (
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                      {previewDoc.subtitle}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (previewDoc.exportTarget === 'business_inventory') {
+                      exportBusinessProductsExcel(products, lang);
+                    } else if (previewDoc.exportTarget === 'debts') {
+                      exportDebtsExcel(allDebts, lang);
+                    } else if (previewDoc.exportTarget === 'full_business') {
+                      exportFullBusinessExcel({ products, debts: allDebts, salesHistory, lang });
+                    } else if (previewDoc.exportTarget === 'family') {
+                      const filtered = personalExpenses.filter(e => e.type === 'family');
+                      exportFamilyExpensesExcel(filtered, lang);
+                    } else if (previewDoc.exportTarget === 'daily') {
+                      const filtered = personalExpenses.filter(e => e.type === 'daily');
+                      exportDailyExpensesExcel(filtered, lang);
+                    } else if (previewDoc.exportTarget === 'business_sales') {
+                      exportBusinessSalesExcel(salesHistory, lang);
+                    }
+                    showToast(lang === 'bn' ? 'Excel ব্যাকআপ ফাইল ডাউনলোড সম্পন্ন!' : 'Downloaded Excel backup!', 'success');
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '0.84rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <FileSpreadsheet size={16} />
+                  <span>{lang === 'bn' ? 'Excel ডাউনলোড' : 'Download Excel'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    printHtmlContent(previewDoc.html, { title: previewDoc.title, paperType: 'a4' });
+                    showToast(lang === 'bn' ? '🖨️ প্রিন্ট ও PDF সংরক্ষণ ডায়ালগ ওপেন হয়েছে' : 'Print dialog triggered', 'info');
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    backgroundColor: '#0f766e',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '800',
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(15, 118, 110, 0.4)'
+                  }}
+                >
+                  <FileText size={16} />
+                  <span>{lang === 'bn' ? '🖨️ প্রিন্ট / PDF সংরক্ষণ' : 'Print / Save PDF'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Document Live Preview Canvas */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: '#e2e8f0',
+                overflow: 'hidden',
+                display: 'flex',
+                justifyContent: 'center',
+                padding: '0'
+              }}
+            >
+              <iframe
+                title="Report Document Preview"
+                srcDoc={previewDoc.html}
+                style={{
+                  width: '100%',
+                  maxWidth: '920px',
+                  height: '100%',
+                  border: 'none',
+                  backgroundColor: '#ffffff',
+                  boxShadow: '0 0 24px rgba(0,0,0,0.15)'
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
