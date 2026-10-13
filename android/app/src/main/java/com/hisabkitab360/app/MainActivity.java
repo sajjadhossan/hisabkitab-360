@@ -15,11 +15,12 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQ_CODE = 1001;
+    private boolean bridgesConfigured = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestNativeAppPermissions();
+        setupWebViewAndBridges();
 
         // 100% Robust Android Hardware & Gesture Back Button Dispatcher
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -63,62 +64,28 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    private void requestNativeAppPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            java.util.List<String> permList = new java.util.ArrayList<>();
-            permList.add(Manifest.permission.CAMERA);
-            permList.add(Manifest.permission.RECORD_AUDIO);
-            permList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                permList.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                permList.add(Manifest.permission.BLUETOOTH_CONNECT);
-                permList.add(Manifest.permission.BLUETOOTH_SCAN);
-            }
-
-            java.util.List<String> needed = new java.util.ArrayList<>();
-            for (String perm : permList) {
-                if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                    needed.add(perm);
-                }
-            }
-
-            if (!needed.isEmpty()) {
-                ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), PERMISSION_REQ_CODE);
-            }
-        }
-    }
-
     @Override
     public void onStart() {
         super.onStart();
+        setupWebViewAndBridges();
+    }
+
+    private synchronized void setupWebViewAndBridges() {
+        if (bridgesConfigured) return;
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 WebView webView = getBridge().getWebView();
-                webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
                 webView.getSettings().setDomStorageEnabled(true);
                 webView.getSettings().setDatabaseEnabled(true);
                 webView.getSettings().setAllowFileAccess(true);
                 webView.getSettings().setAllowContentAccess(true);
-                webView.getSettings().setRenderPriority(android.webkit.WebSettings.RenderPriority.HIGH);
-                webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
-                webView.setScrollBarStyle(WebView.SCROLLBARS_INSIDE_OVERLAY);
-                // Hardware GPU compositor acceleration
-                webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
-
-                // Strip '; wv' and 'Version/X.X' to prevent Google OAuth 403 disallowed_useragent error
-                String defaultUserAgent = webView.getSettings().getUserAgentString();
-                if (defaultUserAgent != null) {
-                    String cleanUserAgent = defaultUserAgent.replaceAll(";\\s*wv\\b", "").replaceAll("Version\\/[0-9.]+\\s*", "");
-                    webView.getSettings().setUserAgentString(cleanUserAgent);
-                }
+                webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
 
                 // 1. Android Native Print Bridge for Invoices, Prescriptions & Reports
                 webView.addJavascriptInterface(new AndroidNativePrintBridge(), "AndroidPrintBridge");
 
                 // 2. Android Native File Bridge for Downloads, Excel & Backups
+                webView.addJavascriptInterface(new AndroidNativeFileBridge(), "AndroidNativeFileBridge");
                 webView.addJavascriptInterface(new AndroidNativeFileBridge(), "AndroidFileBridge");
 
                 // 3. Android Native High-Accuracy Speech Recognition Bridge
@@ -130,21 +97,10 @@ public class MainActivity extends BridgeActivity {
                 // 5. Android Native High-Priority Notification Bridge
                 webView.addJavascriptInterface(new AndroidNativeNotificationBridge(), "AndroidNotificationBridge");
 
-                // 6. Explicit Camera & Microphone WebRTC Permission Grant
-                webView.setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(getBridge()) {
-                    @Override
-                    public void onPermissionRequest(final PermissionRequest request) {
-                        runOnUiThread(() -> {
-                            try {
-                                request.grant(request.getResources());
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        });
-                    }
-                });
+                // 6. Android Native On-Demand Permission Bridge
+                webView.addJavascriptInterface(new AndroidNativePermissionBridge(), "AndroidPermissionBridge");
 
-                // 5. Android WebView Download Listener Fallback
+                // 7. Android WebView Download Listener Fallback
                 webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
                     try {
                         android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW);
@@ -154,6 +110,8 @@ public class MainActivity extends BridgeActivity {
                         ex.printStackTrace();
                     }
                 });
+
+                bridgesConfigured = true;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -258,6 +216,13 @@ public class MainActivity extends BridgeActivity {
         public void startListening(String lang) {
             runOnUiThread(() -> {
                 try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO}, 1002);
+                            notifySpeechError("মাইক্রোফোন অনুমতি দিন");
+                            return;
+                        }
+                    }
                     if (!android.speech.SpeechRecognizer.isRecognitionAvailable(MainActivity.this)) {
                         notifySpeechError("ডিভাইসে ভয়েস রিকগনিশন উপলব্ধ নেই");
                         return;
@@ -490,6 +455,50 @@ public class MainActivity extends BridgeActivity {
             } catch (Exception e) {
                 e.printStackTrace();
                 return false;
+            }
+        }
+    }
+
+    // =========================================================================
+    // 6. NATIVE ANDROID ON-DEMAND PERMISSION BRIDGE
+    // =========================================================================
+    public class AndroidNativePermissionBridge {
+        @android.webkit.JavascriptInterface
+        public boolean hasPermission(String permName) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
+            String androidPerm = resolvePermission(permName);
+            if (androidPerm == null) return true;
+            return ContextCompat.checkSelfPermission(MainActivity.this, androidPerm) == PackageManager.PERMISSION_GRANTED;
+        }
+
+        @android.webkit.JavascriptInterface
+        public void requestPermission(String permName) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+            String androidPerm = resolvePermission(permName);
+            if (androidPerm != null && ContextCompat.checkSelfPermission(MainActivity.this, androidPerm) != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> {
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{androidPerm}, PERMISSION_REQ_CODE);
+                });
+            }
+        }
+
+        private String resolvePermission(String permName) {
+            if (permName == null) return null;
+            switch (permName.toLowerCase()) {
+                case "camera": return Manifest.permission.CAMERA;
+                case "microphone":
+                case "audio": return Manifest.permission.RECORD_AUDIO;
+                case "notification":
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        return Manifest.permission.POST_NOTIFICATIONS;
+                    }
+                    return null;
+                case "bluetooth":
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        return Manifest.permission.BLUETOOTH_CONNECT;
+                    }
+                    return null;
+                default: return null;
             }
         }
     }
