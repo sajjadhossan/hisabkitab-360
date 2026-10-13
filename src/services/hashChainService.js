@@ -210,6 +210,8 @@ export function generateSupervisorAuthStampSync(supervisorPin, actionType, invoi
   };
 }
 
+export const verifyInvoiceHashChain = verifyAuditLedgerIntegritySync;
+
 export const hashChainService = {
   getChain: () => {
     try {
@@ -229,13 +231,13 @@ export const hashChainService = {
   verifyIntegrity: (invoices) => {
     try {
       const list = invoices || JSON.parse(localStorage.getItem('hk360_sales_history') || '[]');
-      return verifyInvoiceHashChain(list);
+      return verifyAuditLedgerIntegritySync(list);
     } catch {
       return { isValid: true, totalChecked: 0 };
     }
   },
   sha256: sha256Sync,
-  verifyInvoiceHashChain,
+  verifyInvoiceHashChain: verifyAuditLedgerIntegritySync,
   generateSupervisorAuthStampSync
 };
 

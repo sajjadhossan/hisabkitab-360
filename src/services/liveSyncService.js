@@ -298,11 +298,13 @@ export const reconnectLiveSyncChannel = (terminalMeta = {}) => {
   return initLiveSyncChannel(terminalMeta);
 };
 
+export const getActiveTerminals = getOnlineTerminalsList;
+
 export const liveSyncService = {
   broadcastMutation: broadcastLiveEvent,
   broadcastEvent: broadcastLiveEvent,
   subscribe: subscribeLiveSync,
   isConnected: isLiveSyncConnected,
-  getTerminals: getActiveTerminals
+  getTerminals: getOnlineTerminalsList
 };
 
