@@ -5,6 +5,7 @@
  * and online/offline push notification permission.
  */
 
+import { Capacitor } from '@capacitor/core';
 import { offlineSyncQueue } from './offlineSyncQueue';
 
 class PWASyncManager {
@@ -18,8 +19,23 @@ class PWASyncManager {
       return false;
     }
 
+    // CRITICAL: Disable Service Worker in Native Capacitor Android/iOS apps!
+    // In native apps, assets are already bundled locally. Service workers hijack
+    // localhost requests and cause a black/blank screen.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          await reg.unregister();
+        }
+      } catch (e) {
+        // ignore
+      }
+      return false;
+    }
+
     try {
-      this.registration = await navigator.serviceWorker.register('/sw.js', { scope: './' });
+      this.registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
       this.hasRegistered = true;
 
       // Listen for messages from SW
