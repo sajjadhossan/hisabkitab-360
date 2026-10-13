@@ -45,6 +45,8 @@ jobs:
           cp -r dist/* android/app/src/main/assets/public/
           cp capacitor.config.json android/app/src/main/assets/
           chmod +x android/gradlew
+          mkdir -p ~/.android
+          cp android/app/debug.keystore ~/.android/debug.keystore || true
 
       - name: Build Android APK (Debug / Standalone Installable)
         run: |
