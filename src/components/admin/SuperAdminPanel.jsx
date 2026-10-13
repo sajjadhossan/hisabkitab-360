@@ -61,6 +61,7 @@ import AuditLedgerViewer from './AuditLedgerViewer';
 import Phase1AutomationHub from '../business/Phase1AutomationHub';
 import Phase2DatabaseHub from '../business/Phase2DatabaseHub';
 import Phase3UltraUxHub from '../business/Phase3UltraUxHub';
+import Phase4SecurityHub from '../business/Phase4SecurityHub';
 
 export const SuperAdminPanel = () => {
   const {
@@ -1173,6 +1174,7 @@ export const SuperAdminPanel = () => {
             { id: 'phase1_hub', label: lang === 'bn' ? '🚀 ফেজ ১ অটোমেশন হাব' : '🚀 Phase 1 Automation Hub', icon: Zap },
             { id: 'phase2_hub', label: lang === 'bn' ? '⚡ ফেজ ২ ডেটাবেস হাব' : '⚡ Phase 2 Database Hub', icon: Database },
             { id: 'phase3_hub', label: lang === 'bn' ? '⚡ ফেজ ৩ আল্ট্রা ইউএক্স হাব' : '⚡ Phase 3 Ultra UX Hub', icon: Sparkles },
+            { id: 'phase4_hub', label: lang === 'bn' ? '🛡️ ফেজ ৪ সিকিউরিটি হাব' : '🛡️ Phase 4 Security Hub', icon: ShieldCheck },
             { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
             { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
@@ -3411,6 +3413,19 @@ export const SuperAdminPanel = () => {
       {activeSubTab === 'phase3_hub' && (
         <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <Phase3UltraUxHub
+            products={products}
+            salesHistory={salesHistory}
+            businessSettings={businessSettings}
+          />
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: PHASE 4 ENTERPRISE SECURITY & COMPLIANCE HUB    */}
+      {/* ======================================================== */}
+      {activeSubTab === 'phase4_hub' && (
+        <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Phase4SecurityHub
             products={products}
             salesHistory={salesHistory}
             businessSettings={businessSettings}
