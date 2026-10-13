@@ -33,8 +33,22 @@ export const getTelegramBackupConfig = () => {
 export const saveTelegramBackupConfig = (config) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hk360_telegram_config_updated', { detail: config }));
+    }
   } catch (err) {
     console.warn('Failed to save telegram backup config:', err);
+  }
+};
+
+// Delete active webhook to prevent 409 Conflict with getUpdates
+export const deleteTelegramWebhook = async (botToken) => {
+  const token = (botToken || '').trim().replace(/^bot/i, '');
+  if (!token) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=false`);
+  } catch (err) {
+    console.debug('deleteTelegramWebhook error:', err);
   }
 };
 
@@ -58,6 +72,8 @@ export const testTelegramBackupBot = async (botToken, chatId = null) => {
     }
     const meData = await meRes.json();
     botInfo = meData.result;
+    // Auto-clear conflicting webhook if any exists
+    await deleteTelegramWebhook(cleanToken);
   } catch (err) {
     if (err.message && err.message.includes('টোকেন')) {
       throw err;
@@ -203,7 +219,19 @@ export const sendTelegramMessage = async (text, customConfig = null) => {
         parse_mode: 'Markdown'
       })
     });
-    return res.ok;
+    if (!res.ok) {
+      // If Markdown parse failed (status 400), retry immediately without parse_mode
+      const fallbackRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text
+        })
+      });
+      return fallbackRes.ok;
+    }
+    return true;
   } catch (err) {
     console.warn('sendTelegramMessage error:', err);
     return false;
@@ -346,12 +374,18 @@ export const pollTelegramBotCommands = async ({
 }) => {
   const token = (botToken || '').trim().replace(/^bot/i, '');
   const cleanChatId = (chatId || '').trim();
-  if (!token || !cleanChatId) return;
+  if (!token) return;
 
   try {
     const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastTelegramUpdateId ? lastTelegramUpdateId + 1 : 0}&timeout=0`;
     const res = await fetch(url);
-    if (!res.ok) return;
+    if (!res.ok) {
+      if (res.status === 409) {
+        // Active webhook conflict! Automatically clear webhook so polling works
+        await deleteTelegramWebhook(token);
+      }
+      return;
+    }
     const data = await res.json();
     if (!data.ok || !data.result || data.result.length === 0) return;
 
@@ -362,50 +396,23 @@ export const pollTelegramBotCommands = async ({
       const msg = update.message;
       if (!msg || !msg.text) continue;
 
-      // Ensure command is from authorized chatId
-      if (String(msg.chat.id) !== cleanChatId) continue;
-
+      const targetChatId = String(msg.chat.id);
+      const senderId = String(msg.from?.id || '');
       const rawText = msg.text.trim();
       const lower = rawText.toLowerCase();
 
-      // 1. SMART EXPENSE PARSER (ক্যাটাগরি, সাবক্যাটাগরি, ব্যক্তি, নোট সহ যেকোনো ফরম্যাটে)
-      const parsedExpense = parseSmartExpenseMessage(rawText);
-      if (parsedExpense && onAddExpenseRequested) {
-        await onAddExpenseRequested(parsedExpense);
-        continue;
-      }
+      // Check authorization
+      // 1. Matches targetChatId
+      // 2. Matches senderId
+      // 3. Or cleanChatId contains targetChatId
+      const isAuthorized = cleanChatId && (
+        targetChatId === cleanChatId ||
+        senderId === cleanChatId ||
+        cleanChatId.includes(targetChatId)
+      );
 
-      // 2. BACKUP COMMAND
-      if (lower === '/backup' || lower === 'backup' || lower === 'ব্যাকআপ') {
-        if (onBackupRequested) await onBackupRequested();
-      }
-      // 3. SALES / TODAY SUMMARY
-      else if (lower === '/today' || lower === '/sales' || lower === '/summary' || lower === 'হিসাব' || lower === 'বিক্রি') {
-        if (onSummaryRequested) await onSummaryRequested();
-      }
-      // 4. STOCK & INVENTORY COMMAND
-      else if (lower.startsWith('/stock') || lower.startsWith('/search') || lower.startsWith('স্টক')) {
-        let query = '';
-        if (lower.startsWith('/stock')) query = rawText.replace(/^\/stock\s*/i, '').trim();
-        else if (lower.startsWith('/search')) query = rawText.replace(/^\/search\s*/i, '').trim();
-        else if (lower.startsWith('স্টক')) query = rawText.replace(/^স্টক\s*/i, '').trim();
-        
-        if (onStockRequested) await onStockRequested(query);
-      }
-      // 5. PROFIT & LOSS COMMAND
-      else if (lower === '/profit' || lower === '/লাভ' || lower === 'লাভ' || lower === 'লাভ লস' || lower === 'লাভ-ক্ষতি') {
-        if (onProfitRequested) await onProfitRequested();
-      }
-      // 6. DUE / BAKI COMMAND
-      else if (lower === '/due' || lower === '/বাকি' || lower === 'বাকি' || lower === 'বকেয়া' || lower === 'বকেয়া') {
-        if (onDueRequested) await onDueRequested();
-      }
-      // 7. EXPENSE LIST COMMAND
-      else if (lower === '/expense' || lower === '/expenses' || lower === '/খরচ' || lower === 'খরচ') {
-        if (onExpenseListRequested) await onExpenseListRequested();
-      }
-      // 8. HELP / START COMMAND
-      else if (lower === '/start' || lower === '/help' || lower === 'help' || lower === 'সাহায্য') {
+      // 8. HELP / START COMMAND - Always respond, even to new users!
+      if (lower === '/start' || lower === '/help' || lower === 'help' || lower === 'সাহায্য' || lower === 'হেল্প' || lower === 'menu') {
         const helpText = `🤖 *হিসাবকিতাব ৩৬০ - স্মার্ট টেলিগ্রাম সহকারী*
 ━━━━━━━━━━━━━━━━━━━━━
 দোকান চালু থাকা অবস্থায় ফোন থেকেই হিসাব নিয়ন্ত্রণ করুন:
@@ -414,7 +421,7 @@ export const pollTelegramBotCommands = async ({
 • */today* বা *হিসাব* - আজকের মোট বিক্রি ও ইনভয়েস
 • */profit* বা *লাভ* - আজকের মোট লাভ-ক্ষতি ও নিট প্রফিট
 • */stock* বা *স্টক* - মোট পণ্যের স্টক ও লো-স্টক অ্যালার্ট
-• */stock [নাম]* - নির্দিষ্ট পণ্যের স্টক ও দাম (যেমন: \`/stock নাপা\`)
+• */stock <পণ্য>* - নির্দিষ্ট পণ্যের স্টক ও দাম (যেমন: \`/stock নাপা\`)
 • */due* বা *বাকি* - মোট বকেয়া ও বাকিদারদের তালিকা
 • */expense* বা *খরচ* - আজকের খরচের বিবরণী
 
@@ -425,9 +432,55 @@ export const pollTelegramBotCommands = async ({
 📥 *ডাটা ব্যাকআপ নিতে:*
 • */backup* ➔ সম্পূর্ণ ডাটাবেজ ব্যাকআপ ফাইল ডাউনলোড
 ━━━━━━━━━━━━━━━━━━━━━
-⚡ _হিসাবকিতাব ৩৬০ লাইভ কানেক্টেড রয়েছে!_`;
+🆔 *আপনার এই চ্যাটের আইডি (Chat ID):* \`${targetChatId}\`
+${isAuthorized ? '✅ _এই চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!_' : '⚠️ _হিসাবকিতাব ৩৬০-এর "ক্লাউড ব্যাকআপ" সেটিংসে এই চ্যাট আইডিটি সংরক্ষণ করুন।_'}`;
 
-        await sendTelegramMessage(helpText, { botToken: token, chatId: cleanChatId });
+        await sendTelegramMessage(helpText, { botToken: token, chatId: targetChatId });
+        continue;
+      }
+
+      // If unauthorized for shop data operations, guide user to set chat ID
+      if (!isAuthorized) {
+        const unauthMsg = `🔒 *অননুমোদিত চ্যাট আইডি (Unauthorized)*\n━━━━━━━━━━━━━━━━━━━━━\nআপনার চ্যাট আইডি: \`${targetChatId}\`\nহিসাবের নিরাপত্তা রক্ষায় শুধুমাত্র অনুমোদিত চ্যাট থেকে কমান্ড গ্রহণ করা হয়।\n\n💡 এই আইডিটি আপনার হিসাবকিতাব ৩৬০ এর 'ক্লাউড ব্যাকআপ' সেটিংসে Chat ID হিসেবে সংরক্ষণ করুন। সাহায্য পেতে লিখুন: */help*`;
+        await sendTelegramMessage(unauthMsg, { botToken: token, chatId: targetChatId });
+        continue;
+      }
+
+      // 1. SMART EXPENSE PARSER (ক্যাটাগরি, সাবক্যাটাগরি, ব্যক্তি, নোট সহ যেকোনো ফরম্যাটে)
+      const parsedExpense = parseSmartExpenseMessage(rawText);
+      if (parsedExpense && onAddExpenseRequested) {
+        await onAddExpenseRequested(parsedExpense, targetChatId);
+        continue;
+      }
+
+      // 2. BACKUP COMMAND
+      if (lower === '/backup' || lower === 'backup' || lower === 'ব্যাকআপ') {
+        if (onBackupRequested) await onBackupRequested(targetChatId);
+      }
+      // 3. SALES / TODAY SUMMARY
+      else if (lower === '/today' || lower === '/sales' || lower === '/summary' || lower === 'হিসাব' || lower === 'বিক্রি') {
+        if (onSummaryRequested) await onSummaryRequested(targetChatId);
+      }
+      // 4. STOCK & INVENTORY COMMAND
+      else if (lower.startsWith('/stock') || lower.startsWith('/search') || lower.startsWith('স্টক')) {
+        let query = '';
+        if (lower.startsWith('/stock')) query = rawText.replace(/^\/stock\s*/i, '').trim();
+        else if (lower.startsWith('/search')) query = rawText.replace(/^\/search\s*/i, '').trim();
+        else if (lower.startsWith('স্টক')) query = rawText.replace(/^স্টক\s*/i, '').trim();
+        
+        if (onStockRequested) await onStockRequested(query, targetChatId);
+      }
+      // 5. PROFIT & LOSS COMMAND
+      else if (lower === '/profit' || lower === '/লাভ' || lower === 'লাভ' || lower === 'লাভ লস' || lower === 'লাভ-ক্ষতি') {
+        if (onProfitRequested) await onProfitRequested(targetChatId);
+      }
+      // 6. DUE / BAKI COMMAND
+      else if (lower === '/due' || lower === '/বাকি' || lower === 'বাকি' || lower === 'বকেয়া' || lower === 'বকেয়া') {
+        if (onDueRequested) await onDueRequested(targetChatId);
+      }
+      // 7. EXPENSE LIST COMMAND
+      else if (lower === '/expense' || lower === '/expenses' || lower === '/খরচ' || lower === 'খরচ') {
+        if (onExpenseListRequested) await onExpenseListRequested(targetChatId);
       }
     }
   } catch (err) {

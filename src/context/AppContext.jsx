@@ -3489,15 +3489,23 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   // Live Interactive Telegram Bot Command Listener (/backup, /today, /summary, /help)
+  const [telegramConfigTrigger, setTelegramConfigTrigger] = useState(0);
+
+  useEffect(() => {
+    const onTgConfigUpdate = () => setTelegramConfigTrigger(t => t + 1);
+    window.addEventListener('hk360_telegram_config_updated', onTgConfigUpdate);
+    return () => window.removeEventListener('hk360_telegram_config_updated', onTgConfigUpdate);
+  }, []);
+
   useEffect(() => {
     const tgConfig = getTelegramBackupConfig();
-    if (!tgConfig.enabled || !tgConfig.botToken || !tgConfig.chatId) return;
+    if (!tgConfig.enabled || !tgConfig.botToken) return;
 
     let isPolling = false;
     const pollTimer = setInterval(async () => {
       if (isPolling) return;
       const liveConfig = getTelegramBackupConfig();
-      if (!liveConfig.enabled || !liveConfig.botToken || !liveConfig.chatId) return;
+      if (!liveConfig.enabled || !liveConfig.botToken) return;
 
       isPolling = true;
       try {
@@ -3535,12 +3543,13 @@ export const AppProvider = ({ children }) => {
         await pollTelegramBotCommands({
           botToken: liveConfig.botToken,
           chatId: liveConfig.chatId,
-          onBackupRequested: async () => {
+          onBackupRequested: async (replyChatId) => {
             console.log('🤖 Telegram bot requested on-demand backup!');
             await syncToTelegram(null, true);
           },
-          onSummaryRequested: async () => {
+          onSummaryRequested: async (replyChatId) => {
             console.log('🤖 Telegram bot requested on-demand sales summary!');
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
             await sendTelegramSalesSummary({
               shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
               dateStr: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -3548,18 +3557,20 @@ export const AppProvider = ({ children }) => {
               todayInvoices,
               totalCustomers: customers.length,
               totalProducts: products.length
-            }, liveConfig);
+            }, targetConfig);
           },
-          onStockRequested: async (query) => {
+          onStockRequested: async (query, replyChatId) => {
             console.log('🤖 Telegram bot requested stock report. Query:', query);
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
             await sendTelegramStockReport({
               products,
               query,
               shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান'
-            }, liveConfig);
+            }, targetConfig);
           },
-          onProfitRequested: async () => {
+          onProfitRequested: async (replyChatId) => {
             console.log('🤖 Telegram bot requested profit & loss report!');
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
             const netProfit = Math.round(todaySales - todayCost - todayBizExpenseTotal);
             await sendTelegramProfitReport({
               todaySales,
@@ -3568,19 +3579,21 @@ export const AppProvider = ({ children }) => {
               netProfit,
               shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
               dateStr: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })
-            }, liveConfig);
+            }, targetConfig);
           },
-          onDueRequested: async () => {
+          onDueRequested: async (replyChatId) => {
             console.log('🤖 Telegram bot requested due / baki report!');
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
             await sendTelegramDueReport({
               totalDue: totalDueAmount,
               customerCount: dueCustomers.length,
               topDebtors: sortedDebtors,
               shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান'
-            }, liveConfig);
+            }, targetConfig);
           },
-          onExpenseListRequested: async () => {
+          onExpenseListRequested: async (replyChatId) => {
             console.log('🤖 Telegram bot requested expense list!');
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
             const combinedExpenses = [
               ...todayBizExpenses.map(e => ({ ...e, title: `[দোকান] ${e.title || e.category || 'খরচ'}` })),
               ...todayPersonalExpenses.map(e => ({ ...e, title: `[ব্যক্তিগত] ${e.title || e.category || 'খরচ'}` }))
@@ -3590,9 +3603,9 @@ export const AppProvider = ({ children }) => {
               totalAmount: todayBizExpenseTotal + todayPersonalExpenseTotal,
               shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
               dateStr: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })
-            }, liveConfig);
+            }, targetConfig);
           },
-          onAddExpenseRequested: async (parsed) => {
+          onAddExpenseRequested: async (parsed, replyChatId) => {
             const { amount, title, category, subCategory, familyMember, note, isPersonal } = parsed;
             console.log(`🤖 Telegram bot adding ${isPersonal ? 'personal' : 'business'} expense:`, parsed);
             if (isPersonal) {
@@ -3632,6 +3645,7 @@ export const AppProvider = ({ children }) => {
               });
             }
 
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
             await sendTelegramExpenseAddedConfirmation({
               amount,
               title,
@@ -3640,7 +3654,7 @@ export const AppProvider = ({ children }) => {
               familyMember,
               note,
               isPersonal
-            }, liveConfig);
+            }, targetConfig);
 
             showToast(
               lang === 'bn'
@@ -3655,10 +3669,11 @@ export const AppProvider = ({ children }) => {
       } finally {
         isPolling = false;
       }
-    }, 12000); // Poll every 12 seconds
+    }, 3000); // Poll every 3 seconds for fast interactive response
 
     return () => clearInterval(pollTimer);
   }, [
+    telegramConfigTrigger,
     salesHistory,
     customers,
     products,
