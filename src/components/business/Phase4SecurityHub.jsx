@@ -167,7 +167,7 @@ export default function Phase4SecurityHub({ products = [], salesHistory = [], bu
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
-                  ফেজ ৪: এন্টারপ্রাইজ সিকিউরিটি ও কমপ্লায়েন্স হাব
+                  এন্টারপ্রাইজ সিকিউরিটি ও কমপ্লায়েন্স হাব
                 </h2>
                 <span style={{
                   padding: '3px 8px',
@@ -178,7 +178,7 @@ export default function Phase4SecurityHub({ products = [], salesHistory = [], bu
                   fontSize: '0.72rem',
                   fontWeight: 800
                 }}>
-                  টিপস ৩১ - ৪০ সক্রিয়
+                  হাই-সিকিউরিটি এনক্রিপশন সক্রিয়
                 </span>
               </div>
               <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted, #94a3b8)' }}>
@@ -262,11 +262,11 @@ export default function Phase4SecurityHub({ products = [], salesHistory = [], bu
         borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.1))'
       }}>
         {[
-          { id: 'aes_vault', label: '১. AES-256 ও জিরো-নলেজ ব্যাকআপ (Tips 31, 33)', icon: Lock },
-          { id: 'qr_signature', label: '২. কিউআর ডিজিটাল সিগনেচার (Tip 32)', icon: QrCode },
-          { id: 'fraud_drawer', label: '৩. ফ্রড ডিটেক্টর ও ড্রয়ার অডিট (Tips 34, 37)', icon: AlertTriangle },
-          { id: 'pitr_timetravel', label: '৪. PITR টাইম-ট্রাভেল রিকভারি (Tip 36)', icon: RotateCcw },
-          { id: 'nbr_hardware', label: '৫. এনবিআর মূসক ৬.৩ ও হার্ডওয়্যার লক (Tips 38, 39, 40)', icon: FileText }
+          { id: 'aes_vault', label: 'AES-256 ও জিরো-নলেজ ভল্ট', icon: Lock },
+          { id: 'qr_signature', label: 'কিউআর ডিজিটাল সিগনেচার', icon: QrCode },
+          { id: 'fraud_drawer', label: 'ফ্রড ডিটেক্টর ও ড্রয়ার অডিট', icon: AlertTriangle },
+          { id: 'pitr_timetravel', label: 'PITR টাইম-ট্রাভেল রিকভারি', icon: RotateCcw },
+          { id: 'nbr_hardware', label: 'এনবিআর মূসক ৬.৩ ও ডিভাইস লক', icon: FileText }
         ].map(t => {
           const Icon = t.icon;
           const isActive = activeTab === t.id;

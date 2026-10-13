@@ -157,7 +157,7 @@ export const LocalDatabaseManager = () => {
             <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>{lang === 'bn' ? 'লোকাল-ফার্স্ট IndexedDB স্টোরেজ হাব' : 'Local-First IndexedDB Engine'}</span>
               <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontWeight: '800' }}>
-                PHASE 2
+                OFFLINE ENGINE
               </span>
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>

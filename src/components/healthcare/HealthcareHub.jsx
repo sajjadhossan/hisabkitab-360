@@ -142,7 +142,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
     { num: 15, title: 'নিরাপত্তা ও অডিট লগ', desc: 'কে লগইন করেছে, কে বিল বা প্রেসক্রিপশন বদলেছে তার ট্রেইল', key: 'staff', icon: '🛡️', color: '#ef4444' },
     { num: 16, title: 'প্রিন্ট ও কাগজপত্র', desc: 'প্রেসক্রিপশন প্যাড, মানি রিসিট, টোকেন ও ল্যাব রিপোর্ট প্রিন্ট', key: 'print', icon: '🖨️', color: '#8b5cf6' },
     { num: 17, title: 'সেটিংস ও প্রতিষ্ঠানের ধরন', desc: 'নাম, লোগো, স্লিপ সাইজ, শাখা ও প্রতিষ্ঠানের প্রোফাইল', key: 'settings', icon: '⚙️', color: '#6b7280' },
-    { num: 18, title: 'প্রথম সংস্করণ রোডম্যাপ', desc: 'লাইভ ফিচারসমূহ ও পরবর্তী ফেজের অগ্রগতি ট্র্যাকার', key: 'hub', icon: '🚀', color: '#ec4899' }
+    { num: 18, title: 'সিস্টেম ফিচার রোডম্যাপ', desc: 'লাইভ ফিচারসমূহ ও ভবিষ্যৎ আপগ্রেড ট্র্যাকার', key: 'hub', icon: '🚀', color: '#ec4899' }
   ];
 
   const handleLaunchModule = (modKey) => {

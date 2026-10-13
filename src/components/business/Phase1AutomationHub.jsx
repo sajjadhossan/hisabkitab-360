@@ -119,7 +119,7 @@ export default function Phase1AutomationHub({ products = [], salesHistory = [], 
         <div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-500 text-white uppercase tracking-wider">
-              Phase 1 Suite
+              স্মার্ট অটোমেশন হাব
             </span>
             <h2 className="text-2xl font-black text-slate-800 dark:text-white">
               রিয়েল-টাইম অটোমেশন ও পেমেন্ট ইকোসিস্টেম হাব
@@ -138,7 +138,7 @@ export default function Phase1AutomationHub({ products = [], salesHistory = [], 
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm">
               <Zap className="w-5 h-5 text-rose-500" />
-              ১. bKash / Nagad লাইভ Webhook সিমুলেটর
+              bKash / Nagad লাইভ Webhook সিমুলেটর
             </h3>
             <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
               Active Listener
@@ -198,7 +198,7 @@ export default function Phase1AutomationHub({ products = [], salesHistory = [], 
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm">
               <QrCode className="w-5 h-5 text-indigo-500" />
-              ২. বাংলাদেশ ব্যাংক ইন্টারঅপারেবল বাংলা QR
+              বাংলাদেশ ব্যাংক ইন্টারঅপারেবল বাংলা QR
             </h3>
             <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
               EMVCo Standard
@@ -235,7 +235,7 @@ export default function Phase1AutomationHub({ products = [], salesHistory = [], 
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm">
               <Package className="w-5 h-5 text-amber-500" />
-              ৩. ঘাটতি পণ্য অটো-রিঅর্ডার ইঞ্জিন (PO Auto-Gen)
+              ঘাটতি পণ্য অটো-রিঅর্ডার ইঞ্জিন (PO Auto-Gen)
             </h3>
             <button
               onClick={handleScanAutoReorder}
@@ -273,7 +273,7 @@ export default function Phase1AutomationHub({ products = [], salesHistory = [], 
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm">
               <Scale className="w-5 h-5 text-teal-500" />
-              ৪. দৈনিক ক্যাশ ও পেমেন্ট রিকনসিলিয়েশন
+              দৈনিক ক্যাশ ও পেমেন্ট রিকনসিলিয়েশন
             </h3>
             <button
               onClick={handleRunReconciliation}

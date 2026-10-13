@@ -187,7 +187,7 @@ export default function Phase5AiIntelligenceHub({
             </span>
             <div>
               <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
-                ফেজ ৫: এআই ও বিজনেস ইন্টেলিজেন্স হাব (Tips 41–50)
+                এআই ও বিজনেস ইন্টেলিজেন্স হাব
               </h2>
               <p className="text-xs md:text-sm text-slate-400">
                 স্বয়ংক্রিয় স্টক পূর্বাভাস, এআই ভয়েস কমান্ড, ঝুড়ি অ্যানালাইসিস ও গ্রাহক ঝুঁকি রেটিং
@@ -206,16 +206,16 @@ export default function Phase5AiIntelligenceHub({
       {/* Modern Tabs Navigation */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 bg-slate-950/60 p-1.5 rounded-xl border border-slate-800">
         {[
-          { id: 'stock_forecasting', label: 'স্টক পূর্বাভাস (Tip 41)', icon: TrendingDown },
-          { id: 'credit_scoring', label: 'ক্রেডিট স্কোর (Tip 42)', icon: CreditCard },
-          { id: 'cross_sell', label: 'ঝুড়ি ক্রস-সেল (Tip 43)', icon: ShoppingCart },
-          { id: 'ocr_parser', label: 'ওসিআর ইনভয়েস (Tip 44)', icon: Scan },
-          { id: 'voice_dispatcher', label: 'বাংলা ভয়েস (Tip 45)', icon: Mic },
-          { id: 'expiry_markdown', label: 'মেয়াদ ক্লিয়ারেন্স (Tip 46)', icon: Clock },
-          { id: 'churn_retention', label: 'কাস্টমার চার্ন (Tip 47)', icon: UserX },
-          { id: 'supplier_score', label: 'ভেন্ডর রেটিং (Tip 48)', icon: Award },
-          { id: 'expense_classifier', label: 'খরচ ক্লাসিফায়ার (Tip 49)', icon: Tags },
-          { id: 'tier_pricing', label: 'হোলসেল রেট (Tip 50)', icon: DollarSign }
+          { id: 'stock_forecasting', label: 'স্টক পূর্বাভাস', icon: TrendingDown },
+          { id: 'credit_scoring', label: 'স্মার্ট ক্রেডিট স্কোর', icon: CreditCard },
+          { id: 'cross_sell', label: 'ঝুড়ি ক্রস-সেলিং', icon: ShoppingCart },
+          { id: 'ocr_parser', label: 'ওসিআর ইনভয়েস রিডার', icon: Scan },
+          { id: 'voice_dispatcher', label: 'বাংলা ভয়েস সহকারী', icon: Mic },
+          { id: 'expiry_markdown', label: 'মেয়াদ ক্লিয়ারেন্স', icon: Clock },
+          { id: 'churn_retention', label: 'কাস্টমার চার্ন', icon: UserX },
+          { id: 'supplier_score', label: 'ভেন্ডর রেটিং', icon: Award },
+          { id: 'expense_classifier', label: 'খরচ ক্লাসিফায়ার', icon: Tags },
+          { id: 'tier_pricing', label: 'হোলসেল রেট', icon: DollarSign }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -236,14 +236,14 @@ export default function Phase5AiIntelligenceHub({
         })}
       </div>
 
-      {/* TAB CONTENT 1: PREDICTIVE STOCK FORECASTING (TIP 41) */}
+      {/* TAB CONTENT 1: PREDICTIVE STOCK FORECASTING */}
       {activeTab === 'stock_forecasting' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div>
               <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
                 <TrendingDown className="w-4 h-4" />
-                প্রিডিক্টিভ স্টকআউট ও রি-অর্ডার ক্যালকুলেটর (Tip 41)
+                প্রিডিক্টিভ স্টকআউট ও রি-অর্ডার ক্যালকুলেটর
               </h3>
               <p className="text-xs text-slate-400">
                 বিক্রয় গতিবেগ ও সরবরাহকারী লিড-টাইম বিশ্লেষণ করে মাল ফুরিয়ে যাওয়ার সম্ভাব্য দিন গণনা
@@ -314,13 +314,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 2: CUSTOMER CREDIT SCORING (TIP 42) */}
+      {/* TAB CONTENT 2: CUSTOMER CREDIT SCORING */}
       {activeTab === 'credit_scoring' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
-              স্মার্ট ক্রেডিট স্কোরিং ও ঝুঁকি মূল্যায়ন (Tip 42)
+              স্মার্ট ক্রেডিট স্কোরিং ও ঝুঁকি মূল্যায়ন
             </h3>
             <p className="text-xs text-slate-400">
               পরিশোধের ধারাবাহিকতা, বকেয়া-টার্নওভার অনুপাত ও লয়ালটি অনুযায়ী ০-১০০ স্কেলে গ্রাহক মূল্যায়ন
@@ -361,13 +361,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 3: BASKET CROSS-SELL ENGINE (TIP 43) */}
+      {/* TAB CONTENT 3: BASKET CROSS-SELL ENGINE */}
       {activeTab === 'cross_sell' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" />
-              স্মার্ট ঝুড়ি বিশ্লেষণ ও ক্রস-সেলিং ইঞ্জিন (Tip 43)
+              স্মার্ট ঝুড়ি বিশ্লেষণ ও ক্রস-সেলিং ইঞ্জিন
             </h3>
             <p className="text-xs text-slate-400">
               Apriori অ্যালগরিদম ভিত্তিক কো-পারচেজ সম্পর্ক - ক্যাশিয়ারের সামনে স্বয়ংক্রিয় অ্যাড-অন প্রস্তাবনা
@@ -433,13 +433,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 4: OCR INVOICE PARSER (TIP 44) */}
+      {/* TAB CONTENT 4: OCR INVOICE PARSER */}
       {activeTab === 'ocr_parser' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <Scan className="w-4 h-4" />
-              ওসিআর ইনভয়েস ও ক্রয় মেমো পার্সার (Tip 44)
+              ওসিআর ইনভয়েস ও ক্রয় মেমো পার্সার
             </h3>
             <p className="text-xs text-slate-400">
               ক্যামেরা বা স্ক্যানার থেকে ক্রয় চালানের টেক্সট পড়ে স্বয়ংক্রিয় আইটেম, দর ও ভ্যাট এক্সট্রাক্ট করুন
@@ -499,13 +499,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 5: BENGALI VOICE COMMAND DISPATCHER (TIP 45) */}
+      {/* TAB CONTENT 5: BENGALI VOICE COMMAND DISPATCHER */}
       {activeTab === 'voice_dispatcher' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <Mic className="w-4 h-4" />
-              এআই বাংলা ভয়েস কমান্ড ও পিওএস ডিসপ্যাচার (Tip 45)
+              এআই বাংলা ভয়েস কমান্ড ও পিওএস ডিসপ্যাচার
             </h3>
             <p className="text-xs text-slate-400">
               বাংলা প্রাকৃতিক ভাষায় কথা বলে কার্টে পণ্য যোগ, বাকি অনুসন্ধান ও মেমো প্রিন্ট করুন
@@ -590,14 +590,14 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 6: EXPIRY MARKDOWN CLEARANCE (TIP 46) */}
+      {/* TAB CONTENT 6: EXPIRY MARKDOWN CLEARANCE */}
       {activeTab === 'expiry_markdown' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div>
               <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                ডায়নামিক এক্সপায়রি ডিসকাউন্ট ও ক্লিয়ারেন্স সেল (Tip 46)
+                ডায়নামিক এক্সপায়রি ডিসকাউন্ট ও ক্লিয়ারেন্স সেল
               </h3>
               <p className="text-xs text-slate-400">
                 মেয়াদ শেষের আর কতদিন বাকি তা অনুযায়ী স্বয়ংক্রিয় ১০%, ২৫%, ৫০% ছাড় দিয়ে মোট ক্ষতি প্রতিরোধ
@@ -646,13 +646,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 7: CHURN PREDICTION (TIP 47) */}
+      {/* TAB CONTENT 7: CHURN PREDICTION */}
       {activeTab === 'churn_retention' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <UserX className="w-4 h-4" />
-              কাস্টমার চার্ন প্রেডিকশন ও রিভাইভাল এসএমএস (Tip 47)
+              কাস্টমার চার্ন প্রেডিকশন ও রিভাইভাল এসএমএস
             </h3>
             <p className="text-xs text-slate-400">
               RFM মডেলের মাধ্যমে নিষ্ক্রিয় গ্রাহকদের চিহ্নিত করে স্বয়ংক্রিয় অফার ও রি-এনগেজমেন্ট এসএমএস তৈরি
@@ -699,13 +699,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 8: SUPPLIER SCORECARD (TIP 48) */}
+      {/* TAB CONTENT 8: SUPPLIER SCORECARD */}
       {activeTab === 'supplier_score' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <Award className="w-4 h-4" />
-              ভেন্ডর পারফরম্যান্স স্কোরকার্ড ও লিড-টাইম অ্যানালিটিক্স (Tip 48)
+              ভেন্ডর পারফরম্যান্স স্কোরকার্ড ও লিড-টাইম অ্যানালিটিক্স
             </h3>
             <p className="text-xs text-slate-400">
               সময়মতো ডেলিভারি হার, পূরণকৃত পণ্যের অনুপাত ও রিটার্ন হারের ভিত্তিতে ভেন্ডর গ্রেডিং (A+, A, B, C)
@@ -759,13 +759,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 9: EXPENSE AUTO CLASSIFIER (TIP 49) */}
+      {/* TAB CONTENT 9: EXPENSE AUTO CLASSIFIER */}
       {activeTab === 'expense_classifier' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <Tags className="w-4 h-4" />
-              স্মার্ট খরচ ক্যাটাগরাইজার ও লেজার হেড ক্লাসিফায়ার (Tip 49)
+              স্মার্ট খরচ ক্যাটাগরাইজার ও লেজার হেড ক্লাসিফায়ার
             </h3>
             <p className="text-xs text-slate-400">
               অসংগঠিত খরচের বিবরণী পড়ে স্বয়ংক্রিয় হিসাবের খতিয়ানে (Utility, Rent, Entertainment ইত্যাদি) ম্যাপিং
@@ -827,13 +827,13 @@ export default function Phase5AiIntelligenceHub({
         </div>
       )}
 
-      {/* TAB CONTENT 10: DYNAMIC TIER PRICING (TIP 50) */}
+      {/* TAB CONTENT 10: DYNAMIC TIER PRICING */}
       {activeTab === 'tier_pricing' && (
         <div className="space-y-4">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
             <h3 className="text-base font-semibold text-cyan-300 flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
-              পাইকারি বনাম খুচরা ভলিউম টিয়ার প্রাইসিং ইঞ্জিন (Tip 50)
+              পাইকারি বনাম খুচরা ভলিউম টিয়ার প্রাইসিং ইঞ্জিন
             </h3>
             <p className="text-xs text-slate-400">
               পরিমাণের ওপর ভিত্তি করে স্বয়ংক্রিয় টিয়ার পরিবর্তন (১-৫ খুচরা, ৬-২৪ সেমি-হোলসেল, ২৫+ মাস্টার হোলসেল)

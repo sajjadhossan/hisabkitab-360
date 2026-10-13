@@ -165,7 +165,7 @@ export default function Phase2DatabaseHub({ products = [], salesHistory = [], bu
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
-                  ফেজ ২: ডেটাবেস অপ্টিমাইজেশন ও হাইপার-স্কেলিং হাব
+                  ডেটাবেস অপ্টিমাইজেশন ও হাইপার-স্কেলিং হাব
                 </h2>
                 <span style={{
                   padding: '3px 8px',
@@ -176,7 +176,7 @@ export default function Phase2DatabaseHub({ products = [], salesHistory = [], bu
                   fontSize: '0.72rem',
                   fontWeight: 800
                 }}>
-                  টিপস ১১ - ২০ সক্রিয়
+                  হাইপার স্কেলিং সক্রিয়
                 </span>
               </div>
               <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted, #94a3b8)' }}>
@@ -265,11 +265,11 @@ export default function Phase2DatabaseHub({ products = [], salesHistory = [], bu
         borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.1))'
       }}>
         {[
-          { id: 'partitioning', label: '১. টেবিল পার্টিশনিং (Tip 11)', icon: Layers },
-          { id: 'pool', label: '২. PgBouncer পুল (Tip 12)', icon: Cpu },
-          { id: 'materialized', label: '৩. ম্যাটেরিয়ালাইজড ভিউ (Tip 13)', icon: Activity },
-          { id: 'search', label: '৪. ট্রাইগ্রাম ও ভেক্টর সার্চ (Tips 14-15)', icon: Search },
-          { id: 'concurrency_ops', label: '৫. লক, CDC, RBAC ও ফেইলওভার (Tips 16-20)', icon: Shield }
+          { id: 'partitioning', label: 'টেবিল পার্টিশনিং', icon: Layers },
+          { id: 'pool', label: 'PgBouncer কানেকশন পুল', icon: Cpu },
+          { id: 'materialized', label: 'ম্যাটেরিয়ালাইজড ভিউ', icon: Activity },
+          { id: 'search', label: 'ট্রাইগ্রাম ও ভেক্টর সার্চ', icon: Search },
+          { id: 'concurrency_ops', label: 'লক, CDC, RBAC ও ফেইলওভার', icon: Shield }
         ].map(t => {
           const Icon = t.icon;
           const isActive = activeTab === t.id;

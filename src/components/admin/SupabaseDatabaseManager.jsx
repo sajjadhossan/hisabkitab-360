@@ -669,11 +669,11 @@ export const SupabaseDatabaseManager = () => {
       >
         {[
           { id: 'overview', icon: <Server size={14} />, labelBn: 'ক্লাউড ও ডেল্টা সিঙ্ক', labelEn: 'Cloud & Sync', badge: 'Postgres' },
-          { id: 'hash_chain', icon: <Link2 size={14} />, labelBn: '১. হ্যাশ-চেইন অডিট', labelEn: '1. Hash-Chain', badge: 'SHA-256' },
-          { id: 'fefo_expiry', icon: <Calendar size={14} />, labelBn: '২. FEFO ও ব্যাচ ট্র্যাকিং', labelEn: '2. FEFO Batches', badge: `${expiryAlerts.length} এলার্ট` },
-          { id: 'alerts_hub', icon: <MessageSquare size={14} />, labelBn: '৩. হোয়াটসঅ্যাপ/এসএমএস', labelEn: '3. Alerts Hub', badge: 'WhatsApp' },
-          { id: 'omnichannel', icon: <ShoppingBag size={14} />, labelBn: '৪. ওমনি-চ্যানেল ই-কমার্স', labelEn: '4. Omni-Channel', badge: 'Woo/Shopify' },
-          { id: 'enterprise_perf', icon: <Cpu size={14} />, labelBn: '৫. পারফরম্যান্স ও স্কেলিং', labelEn: '5. Perf & Scaling', badge: 'Virtualization' }
+          { id: 'hash_chain', icon: <Link2 size={14} />, labelBn: 'হ্যাশ-চেইন অডিট', labelEn: 'Hash-Chain Audit', badge: 'SHA-256' },
+          { id: 'fefo_expiry', icon: <Calendar size={14} />, labelBn: 'FEFO ও ব্যাচ ট্র্যাকিং', labelEn: 'FEFO Batches', badge: `${expiryAlerts.length} এলার্ট` },
+          { id: 'alerts_hub', icon: <MessageSquare size={14} />, labelBn: 'হোয়াটসঅ্যাপ ও এসএমএস হাব', labelEn: 'Alerts & Messages', badge: 'WhatsApp' },
+          { id: 'omnichannel', icon: <ShoppingBag size={14} />, labelBn: 'ওমনি-চ্যানেল ই-কমার্স', labelEn: 'Omni-Channel Sync', badge: 'Woo/Shopify' },
+          { id: 'enterprise_perf', icon: <Cpu size={14} />, labelBn: 'পারফরম্যান্স ও স্কেলিং', labelEn: 'Performance & Scaling', badge: 'Virtualization' }
         ].map((tab) => {
           const isActive = activeSubTab === tab.id;
           return (
@@ -805,7 +805,7 @@ export const SupabaseDatabaseManager = () => {
                   <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span>{lang === 'bn' ? 'দ্বি-মুখী ডেল্টা সিঙ্ক ও কনফ্লিক্ট নিরসন ইঞ্জিন' : 'Bi-Directional Delta Sync'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', fontWeight: '800' }}>
-                      PHASE 4
+                      DELTA SYNC
                     </span>
                   </h4>
                   <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -935,7 +935,7 @@ export const SupabaseDatabaseManager = () => {
                   <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span>{lang === 'bn' ? 'মাল্টি-ব্রাঞ্চ এন্টারপ্রাইজ আইসোলেশন ও স্টক ট্রান্সফার' : 'Multi-Branch Isolation'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '800' }}>
-                      PHASE 5
+                      MULTI-BRANCH
                     </span>
                   </h4>
                   <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -1062,7 +1062,7 @@ export const SupabaseDatabaseManager = () => {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{lang === 'bn' ? 'ফিচার ১: ক্রিপ্টোগ্রাফিক হ্যাশ-চেইন ও টেম্পার-প্রুফ অডিট' : 'Feature 1: Hash-Chained Invoicing & Audit Chain'}</span>
+                    <span>{lang === 'bn' ? 'ক্রিপ্টোগ্রাফিক হ্যাশ-চেইন ও টেম্পার-প্রুফ অডিট' : 'Cryptographic Hash-Chained Invoicing & Audit Chain'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: '800' }}>
                       SHA-256
                     </span>
@@ -1298,7 +1298,7 @@ export const SupabaseDatabaseManager = () => {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{lang === 'bn' ? 'ফিচার ২: FEFO ও লট/মেয়াদোত্তীর্ণ ব্যাচ ট্র্যাকিং ইঞ্জিন' : 'Feature 2: FEFO / Lot & Expiry Batch Engine'}</span>
+                    <span>{lang === 'bn' ? 'FEFO ও লট/মেয়াদোত্তীর্ণ ব্যাচ ট্র্যাকিং ইঞ্জিন' : 'FEFO / Lot & Expiry Batch Tracking Engine'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.2)', color: '#d97706', fontWeight: '800' }}>
                       First-Expiry-First-Out
                     </span>
@@ -1461,7 +1461,7 @@ export const SupabaseDatabaseManager = () => {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{lang === 'bn' ? 'ফিচার ৩: অটোমেটেড হোয়াটসঅ্যাপ/এসএমএস এলার্ট হাব ও বাকি তাগাদা' : 'Feature 3: WhatsApp/SMS Alert Hub'}</span>
+                    <span>{lang === 'bn' ? 'অটোমেটেড হোয়াটসঅ্যাপ ও এসএমএস এলার্ট হাব' : 'Automated WhatsApp & SMS Alert Hub'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(37, 211, 102, 0.2)', color: '#128c7e', fontWeight: '800' }}>
                       Auto Digest
                     </span>
@@ -1706,7 +1706,7 @@ export const SupabaseDatabaseManager = () => {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{lang === 'bn' ? 'ফিচার ৪: ওমনি-চ্যানেল ওয়েবহুক ও ই-কমার্স সিঙ্ক কানেক্টর' : 'Feature 4: Omni-Channel E-Commerce Sync'}</span>
+                    <span>{lang === 'bn' ? 'ওমনি-চ্যানেল ওয়েবহুক ও ই-কমার্স সিঙ্ক কানেক্টর' : 'Omni-Channel Webhook & E-Commerce Sync'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.2)', color: '#6366f1', fontWeight: '800' }}>
                       Woo & Shopify
                     </span>
@@ -1858,7 +1858,7 @@ export const SupabaseDatabaseManager = () => {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{lang === 'bn' ? 'ফিচার ৫: পারফরম্যান্স অপ্টিমাইজেশন ও এন্টারপ্রাইজ স্কেলিং হাব' : 'Feature 5: High-Performance Virtualization & Scaling'}</span>
+                    <span>{lang === 'bn' ? 'পারফরম্যান্স অপ্টিমাইজেশন ও এন্টারপ্রাইজ স্কেলিং হাব' : 'High-Performance Virtualization & Enterprise Scaling'}</span>
                     <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.2)', color: '#6366f1', fontWeight: '800' }}>
                       60-120 FPS
                     </span>

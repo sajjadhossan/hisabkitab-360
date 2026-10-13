@@ -204,7 +204,7 @@ export default function Phase3UltraUxHub({ products = [], salesHistory = [], bus
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
-                  ফেজ ৩: ফ্রন্টএন্ড আল্ট্রা-পারফরম্যান্স ও আধুনিক ইউএক্স হাব
+                  সিস্টেম ডিজাইন ও আল্ট্রা-পারফরম্যান্স ইউএক্স হাব
                 </h2>
                 <span style={{
                   padding: '3px 8px',
@@ -215,7 +215,7 @@ export default function Phase3UltraUxHub({ products = [], salesHistory = [], bus
                   fontSize: '0.72rem',
                   fontWeight: 800
                 }}>
-                  টিপস ২১ - ৩০ সক্রিয় (120 FPS)
+                  হাই-স্পিড স্মুথ রেন্ডারিং (120 FPS)
                 </span>
               </div>
               <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted, #94a3b8)' }}>
@@ -324,11 +324,11 @@ export default function Phase3UltraUxHub({ products = [], salesHistory = [], bus
         borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.1))'
       }}>
         {[
-          { id: 'canvas_receipt', label: '১. ক্যানভাস ২ডি আল্ট্রা রসিদ (Tip 22)', icon: Printer },
-          { id: 'inline_grid', label: '২. এক্সেল কুইক-এডিট গ্রিড (Tip 28)', icon: Table },
-          { id: 'split_screen', label: '৩. স্প্লিট-স্ক্রিন মাল্টিটাস্কিং (Tip 29)', icon: Columns },
-          { id: 'hotkeys_mobile', label: '৪. হটকিজ V2 ও থাম্ব মোড (Tips 23-24)', icon: Keyboard },
-          { id: 'worker_storage', label: '৫. ওয়ার্কার, ওলেড ও ড্রাফট সেভার (Tips 21, 25, 27, 30)', icon: Zap }
+          { id: 'canvas_receipt', label: 'ক্যানভাস ২ডি থার্মাল রসিদ', icon: Printer },
+          { id: 'inline_grid', label: 'এক্সেল কুইক-এডিট গ্রিড', icon: Table },
+          { id: 'split_screen', label: 'স্প্লিট-স্ক্রিন মাল্টিটাস্কিং', icon: Columns },
+          { id: 'hotkeys_mobile', label: 'হটকিজ ও থাম্ব নেভিগেশন', icon: Keyboard },
+          { id: 'worker_storage', label: 'ওয়েব ওয়ার্কার ও ড্রাফট সেভার', icon: Zap }
         ].map(t => {
           const Icon = t.icon;
           const isActive = activeTab === t.id;

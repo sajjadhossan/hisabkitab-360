@@ -600,7 +600,7 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
                 <span>
                   {isDeltaSyncing
                     ? (lang === 'bn' ? 'দ্বি-মুখী ডেল্টা সিঙ্ক হচ্ছে...' : 'Delta Syncing...')
-                    : (lang === 'bn' ? '🔄 দ্বি-মুখী ডেল্টা সিঙ্ক চালান (Phase 4)' : 'Run Bi-Directional Delta Sync')}
+                    : (lang === 'bn' ? '🔄 দ্বি-মুখী ডেল্টা সিঙ্ক চালান' : 'Run Bi-Directional Delta Sync')}
                 </span>
               </button>
             </div>
