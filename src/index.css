@@ -3113,3 +3113,42 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: 48px;
 }
+
+/* ====================================================
+   Modern Glassmorphism & Micro-Interaction Tokens (Tip 5)
+   ==================================================== */
+.glass-panel-elevated {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glow-border-emerald {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.25);
+}
+
+.glow-border-indigo {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 15px -3px rgba(99, 102, 241, 0.25);
+}
+
+.tactile-btn {
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.12s;
+  will-change: transform;
+}
+
+.tactile-btn:active {
+  transform: scale(0.96);
+}
+
+.optimistic-pulsing {
+  animation: pulse-optimistic 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-optimistic {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}

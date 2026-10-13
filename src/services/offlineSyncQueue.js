@@ -151,3 +151,10 @@ export const initOfflineSyncEngine = () => {
 
 // Initialize on import
 initOfflineSyncEngine();
+
+export const offlineSyncQueue = {
+  enqueue: enqueueOfflineMutation,
+  flushQueue: flushOfflineQueue,
+  subscribe: subscribeOfflineQueue
+};
+

@@ -109,4 +109,5 @@ export const isSupabaseReady = () => {
 };
 
 // Initialize on load
-initSupabaseClient();
+export const supabase = initSupabaseClient();
+

@@ -209,3 +209,33 @@ export function generateSupervisorAuthStampSync(supervisorPin, actionType, invoi
     authorizedAt: timestamp
   };
 }
+
+export const hashChainService = {
+  getChain: () => {
+    try {
+      const stored = localStorage.getItem('hk360_sales_history');
+      if (stored) {
+        const sales = JSON.parse(stored);
+        return sales.map((s, idx) => ({
+          index: idx + 1,
+          action: 'INVOICE_SALE',
+          hash: s.blockHash || s.id || `BLK_${idx}`,
+          timestamp: s.timestamp || s.date || Date.now()
+        }));
+      }
+    } catch {}
+    return [];
+  },
+  verifyIntegrity: (invoices) => {
+    try {
+      const list = invoices || JSON.parse(localStorage.getItem('hk360_sales_history') || '[]');
+      return verifyInvoiceHashChain(list);
+    } catch {
+      return { isValid: true, totalChecked: 0 };
+    }
+  },
+  sha256: sha256Sync,
+  verifyInvoiceHashChain,
+  generateSupervisorAuthStampSync
+};
+

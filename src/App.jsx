@@ -27,6 +27,8 @@ import {
   initDeepLinkHandler
 } from './services/nativeAppService';
 import { initGlobalShortcuts } from './services/shortcutService';
+import { telemetryService } from './services/telemetryService';
+import { pwaSyncManager } from './services/pwaSyncManager';
 
 // Helper for code-splitting named exports
 const lazyNamed = (importFn, name) => lazy(() => importFn().then(m => ({ default: m[name] })));
@@ -144,6 +146,8 @@ const AppContent = () => {
   });
 
   React.useEffect(() => {
+    telemetryService.init();
+    pwaSyncManager.register();
     window.__openAuditTrail = () => setShowAuditTrailModal(true);
     window.__openShortcutsGuide = () => setShowShortcutsModal(true);
     return () => {

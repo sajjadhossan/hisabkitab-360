@@ -126,3 +126,4 @@ class CircuitBreakerService {
 }
 
 export const circuitBreaker = new CircuitBreakerService();
+export const circuitBreakerService = circuitBreaker;

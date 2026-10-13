@@ -56,6 +56,7 @@ import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
 import { SupabaseDatabaseManager } from './SupabaseDatabaseManager';
 import { LocalDatabaseManager } from './LocalDatabaseManager';
+import AuditLedgerViewer from './AuditLedgerViewer';
 
 export const SuperAdminPanel = () => {
   const {
@@ -1165,6 +1166,7 @@ export const SuperAdminPanel = () => {
             { id: 'license', label: lang === 'bn' ? '📜 লাইসেন্স ও মেয়াদ লক' : '📜 License & Subscription', icon: Award },
             { id: 'branding', label: lang === 'bn' ? '🏢 ভেন্ডর ব্র্যান্ডিং' : '🏢 Vendor White-Label', icon: Building2 },
             { id: 'cloud_backup', label: lang === 'bn' ? '☁️ ক্লাউড ও ড্রাইভ ব্যাকআপ' : '☁️ Cloud & Drive Backup', icon: Cloud },
+            { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
             { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
           ].map(tab => (
@@ -3367,6 +3369,15 @@ export const SuperAdminPanel = () => {
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: CRYPTOGRAPHIC AUDIT LEDGER & HASH CHAIN         */}
+      {/* ======================================================== */}
+      {activeSubTab === 'audit_ledger' && (
+        <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <AuditLedgerViewer organizationId={businessSettings?.organizationId} />
         </div>
       )}
 
