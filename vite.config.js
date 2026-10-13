@@ -6,7 +6,7 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: {
-    target: 'es2020',
+    target: ['chrome65', 'es2018'],
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {

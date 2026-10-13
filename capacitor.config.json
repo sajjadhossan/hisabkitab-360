@@ -4,11 +4,14 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https",
+    "hostname": "app",
     "cleartext": true
   },
   "android": {
     "allowMixedContent": true,
-    "backgroundColor": "#0f172a"
+    "backgroundColor": "#0f172a",
+    "webContentsDebuggingEnabled": true,
+    "resolveServiceWorkerRequests": false
   },
   "plugins": {
     "SplashScreen": {

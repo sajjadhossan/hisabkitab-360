@@ -14,9 +14,46 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Android WebView Safe Error Trap & Fast Boot Helper -->
+    <script>
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        try {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            for (var i = 0; i < regs.length; i++) {
+              regs[i].unregister();
+            }
+          });
+        } catch (e) {}
+      }
+
+      window.onerror = function(msg, url, line, col, err) {
+        var errText = (msg || 'Error') + '\n' + (url || '') + ':' + (line || '') + ':' + (col || '');
+        console.error('[HK-Fatal]', errText, err);
+        var fallback = document.getElementById('app-boot-fallback');
+        if (fallback) {
+          fallback.innerHTML = '<div style="background:#7f1d1d;border:2px solid #ef4444;padding:16px;border-radius:12px;max-width:92%;margin:20px auto;text-align:left;box-shadow:0 10px 25px rgba(0,0,0,0.5);">' +
+            '<h3 style="color:#fecaca;margin:0 0 8px;font-size:16px;">⚠️ অ্যাপ লোড ত্রুটি (JS Error)</h3>' +
+            '<pre style="color:#fee2e2;font-size:11px;white-space:pre-wrap;word-break:break-all;margin:0;font-family:monospace;">' + errText + '\n' + (err && err.stack ? err.stack : '') + '</pre>' +
+            '<button onclick="location.reload()" style="margin-top:14px;padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">পুনরায় চালু করুন</button>' +
+            '</div>';
+        }
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        var errText = 'Async: ' + (e.reason ? (e.reason.stack || e.reason.message || e.reason) : 'Unknown');
+        console.error('[HK-UnhandledRejection]', errText);
+      });
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-boot-fallback" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0f172a;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;padding:20px;text-align:center;">
+        <div style="font-size:44px;margin-bottom:12px;">💼</div>
+        <div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;margin-bottom:6px;">হিসাবকিতাব ৩৬০</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:18px;">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
+        <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top:3px solid #10b981;border-radius:50%;animation:hkSpin 0.8s linear infinite;"></div>
+        <style>@keyframes hkSpin { to { transform: rotate(360deg); } }</style>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
