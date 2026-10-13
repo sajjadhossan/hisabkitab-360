@@ -53,6 +53,9 @@ import {
   Zap
 } from 'lucide-react';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
+import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
+import { SupabaseDatabaseManager } from './SupabaseDatabaseManager';
+import { LocalDatabaseManager } from './LocalDatabaseManager';
 
 export const SuperAdminPanel = () => {
   const {
@@ -84,7 +87,9 @@ export const SuperAdminPanel = () => {
     counterClosings = [],
     approveCounterClosing,
     cashMovements = [],
-    adjustCounterCash
+    adjustCounterCash,
+    businessSettings = {},
+    updateBusinessSettings
   } = useApp();
 
   const {
@@ -99,7 +104,14 @@ export const SuperAdminPanel = () => {
     getMasterPin
   } = useAuth();
 
-  const [activeSubTab, setActiveSubTab] = useState('executive_ops'); // 'executive_ops' | 'modules' | 'templates' | 'license' | 'branding' | 'onboarding' | 'security'
+  const [activeSubTab, setActiveSubTab] = useState('executive_ops'); // 'executive_ops' | 'modules' | 'templates' | 'license' | 'branding' | 'cloud_backup' | 'onboarding' | 'security'
+  const [driveFormState, setDriveFormState] = useState(() => ({ ...businessSettings }));
+
+  useEffect(() => {
+    if (businessSettings) {
+      setDriveFormState(prev => ({ ...prev, ...businessSettings }));
+    }
+  }, [businessSettings]);
   const [templateSearch, setTemplateSearch] = useState('');
   const [selectedSector, setSelectedSector] = useState('all');
   const [copiedKey, setCopiedKey] = useState(false);
@@ -1152,6 +1164,7 @@ export const SuperAdminPanel = () => {
             { id: 'templates', label: lang === 'bn' ? '🏢 ১০০+ ইন্ডাস্ট্রি টেমপ্লেট' : '🏢 100+ Industry Templates', icon: Store },
             { id: 'license', label: lang === 'bn' ? '📜 লাইসেন্স ও মেয়াদ লক' : '📜 License & Subscription', icon: Award },
             { id: 'branding', label: lang === 'bn' ? '🏢 ভেন্ডর ব্র্যান্ডিং' : '🏢 Vendor White-Label', icon: Building2 },
+            { id: 'cloud_backup', label: lang === 'bn' ? '☁️ ক্লাউড ও ড্রাইভ ব্যাকআপ' : '☁️ Cloud & Drive Backup', icon: Cloud },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
             { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
           ].map(tab => (
@@ -3090,6 +3103,30 @@ export const SuperAdminPanel = () => {
               ভেন্ডর ব্র্যান্ডিং তথ্য সংরক্ষণ করুন
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: GOOGLE DRIVE CLOUD BACKUP & INTEGRATION          */}
+      {/* ======================================================== */}
+      {/* ======================================================== */}
+      {/* SUBTAB 3: CLOUD & DRIVE BACKUP / SUPABASE POSTGRESQL HUB   */}
+      {/* ======================================================== */}
+      {activeSubTab === 'cloud_backup' && (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Phase 1: Enterprise Supabase PostgreSQL Backend Hub */}
+          <SupabaseDatabaseManager />
+
+          {/* Phase 2: High-Performance Local-First IndexedDB Engine */}
+          <LocalDatabaseManager />
+
+          {/* Google Drive Automated Backup Manager */}
+          <GoogleDriveBackupManager
+            formState={driveFormState}
+            setFormState={setDriveFormState}
+            updateBusinessSettings={updateBusinessSettings}
+            onSave={() => updateBusinessSettings(driveFormState)}
+          />
         </div>
       )}
 

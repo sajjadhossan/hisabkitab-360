@@ -156,6 +156,21 @@ export const clearIndexedDbStore = async (storeName) => {
   }
 };
 
+export const removeIndexedDbItem = async (storeName, id) => {
+  try {
+    const db = await openOfflineDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction([storeName], 'readwrite');
+      const store = tx.objectStore(storeName);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
+};
+
 // ============================================================================
 // NON-BLOCKING DEBOUNCED SNAPSHOT CACHING (Zero-lag React rendering)
 // ============================================================================

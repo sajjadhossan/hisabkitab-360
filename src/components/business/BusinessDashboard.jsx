@@ -35,7 +35,8 @@ import {
   ChevronDown,
   ChevronUp,
   Activity,
-  Check
+  Check,
+  BarChart3
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { NLReportSearchModal } from './NLReportSearchModal';
@@ -604,6 +605,23 @@ export const BusinessDashboard = () => {
 
         {/* Quick Launch Buttons */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setActiveTab('reports')}
+            style={{
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              color: '#ffffff',
+              fontWeight: '800',
+              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
+              border: 'none'
+            }}
+            title={lang === 'bn' ? 'ডেইলি, উইকলি, মান্থলি ও ইয়ারলি পূর্ণাঙ্গ রিপোর্ট' : 'Periodic Business Reports'}
+          >
+            <BarChart3 size={16} />
+            <span>{lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট হাব' : '📊 Reports Hub'}</span>
+          </button>
+
           <button
             type="button"
             className="btn btn-secondary"

@@ -59,7 +59,8 @@ import {
   Wheat,
   GitBranch,
   ExternalLink,
-  Zap
+  Zap,
+  BarChart3
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -70,6 +71,7 @@ import { TemplateReviewModal } from './common/TemplateReviewModal';
 import { PermissionManagerModal } from './common/PermissionManagerModal';
 import { MarketPriceTrackerModal } from './common/MarketPriceTrackerModal';
 import { RoutineShoppingPresetsModal } from './common/RoutineShoppingPresetsModal';
+import { RealtimeSyncBadge } from './common/RealtimeSyncBadge';
 
 export const Navbar = () => {
   const {
@@ -329,7 +331,7 @@ export const Navbar = () => {
 
   const isModEnabled = useCallback((modId) => {
     // Core retail and management hubs are permanently active and fast-loaded
-    if (['dashboard', 'branch_control', 'pos', 'debts', 'invoices', 'quotations', 'inventory', 'master_hub', 'erp', 'crm', 'hr', 'sr', 'settings', 'super_admin'].includes(modId)) {
+    if (['dashboard', 'branch_control', 'pos', 'debts', 'invoices', 'quotations', 'inventory', 'master_hub', 'erp', 'crm', 'hr', 'sr', 'settings', 'super_admin', 'reports'].includes(modId)) {
       return true;
     }
     if (!licenseInfo?.modules) return true;
@@ -346,6 +348,7 @@ export const Navbar = () => {
     ...(isModEnabled('inventory') ? [{ id: 'inventory', label: t.businessNav?.inventory || '📦 ইনভেন্টরি স্টক', icon: Boxes }] : []),
     ...(isModEnabled('master_hub') ? [{ id: 'master_hub', label: lang === 'bn' ? '📁 মাস্টার ডাটা' : '📁 Master Setup Hub', icon: FolderOpen, highlight: true }] : []),
     ...(isModEnabled('erp') ? [{ id: 'erp', label: t.businessNav?.erp || '💹 হিসাব ও লাভ-ক্ষতি', icon: Calculator }] : []),
+    ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট' : '📊 Periodic Reports', icon: BarChart3, highlight: true }] : []),
     ...(isModEnabled('crm') ? [{ id: 'crm', label: t.businessNav?.crm || '👥 কাস্টমার ডিরেক্টরি', icon: Users }] : []),
     ...(isModEnabled('hr') ? [{ id: 'hr', label: t.businessNav?.hr || '👔 স্টাফ ও বেতন', icon: BadgeDollarSign }] : []),
     ...(isModEnabled('sr') ? [{ id: 'sr', label: lang === 'bn' ? '🛵 এসআর ফিল্ড' : 'SR Field', icon: Users }] : []),
@@ -375,6 +378,7 @@ export const Navbar = () => {
     if (profile === 'business') {
       const candidates = [
         { id: 'dashboard', label: t.businessNav?.dashboard || (lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'), icon: LayoutDashboard },
+        { id: 'reports', label: lang === 'bn' ? '📊 রিপোর্ট হাব' : '📊 Reports', icon: BarChart3 },
         { id: 'pos', label: t.businessNav?.pos || (lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'), icon: ScanLine },
         { id: 'inventory', label: t.businessNav?.inventory || (lang === 'bn' ? '📦 ইনভেন্টরি স্টক' : '📦 Inventory'), icon: Boxes },
         { id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger'), icon: HandCoins },
@@ -445,6 +449,7 @@ export const Navbar = () => {
     {
       title: lang === 'bn' ? '💰 হিসাব, দেনা-পাওনা ও ক্যাশ' : '💰 Ledger & Finance',
       items: [
+        { id: 'reports', label: lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট হাব' : '📊 Periodic Reports Hub', desc: lang === 'bn' ? 'ডেইলি, উইকলি, মান্থলি ও ইয়ারলি লাভ-ক্ষতি' : 'Daily, weekly, monthly & yearly reports', icon: BarChart3, color: '#6366f1', badge: 'NEW' },
         { id: 'debts', label: lang === 'bn' ? 'নগদ দেনা-পাওনা খাতা' : 'Debt & Credit Ledger', desc: lang === 'bn' ? 'কাস্টমার ও মহাজন বাকি' : 'Cash dues & credit', icon: HandCoins, color: '#f59e0b', badge: lang === 'bn' ? 'জরুরি' : 'Ledger' },
         { id: 'erp', label: lang === 'bn' ? 'ইআরপি ও লাভ-ক্ষতি' : 'ERP & Accounting', desc: lang === 'bn' ? 'ব্যবসায়িক খরচ ও প্রফিট' : 'Profit & loss overview', icon: Calculator, color: '#14b8a6' },
         { id: 'tool_cash', label: lang === 'bn' ? 'আজকের ক্যাশ ড্রয়ার' : 'Today Drawer Balance', desc: lang === 'bn' ? 'ক্যাশ ইন/আউট হিসাব' : 'Cash register status', icon: Wallet, color: '#10b981', isTool: 'cash' }
@@ -801,6 +806,9 @@ export const Navbar = () => {
 
           {/* Right Controls: Auth, Language, Theme, and 3-Dot Menu */}
           <div className="navbar-right-controls">
+            {/* Realtime WebSocket Multi-Counter Sync Pill */}
+            <RealtimeSyncBadge />
+
             {/* Prominent Login Status Indicator (সবুজ বাতি = লগইন সক্রিয়, লাল বাতি = লগইন নেই) */}
             {user ? (
               <div

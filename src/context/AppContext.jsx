@@ -13,6 +13,19 @@ import {
   saveGoogleClientId,
   switchGoogleDriveAccount
 } from '../services/googleDriveService';
+import {
+  getTelegramBackupConfig,
+  saveTelegramBackupConfig,
+  testTelegramBackupBot,
+  sendBackupToTelegram,
+  pollTelegramBotCommands,
+  sendTelegramSalesSummary,
+  sendTelegramStockReport,
+  sendTelegramProfitReport,
+  sendTelegramDueReport,
+  sendTelegramExpenseReport,
+  sendTelegramExpenseAddedConfirmation
+} from '../services/telegramBackupService';
 import { kickCashDrawer } from '../services/printService';
 import {
   MASTER_INDUSTRY_TEMPLATES,
@@ -40,6 +53,23 @@ import { auditService, AUDIT_ACTIONS } from '../services/auditService';
 import { hapticFeedback } from '../services/nativeAppService';
 import { enqueueOfflineAction } from '../utils/syncQueue';
 import { notifyLowStockAlert, notifySaleCompleted } from '../services/localNotificationService';
+import { submitPosSaleToCloud } from '../services/supabaseBackendService';
+import { idbGet, idbSet, idbBulkSet } from '../utils/idbStorage';
+import {
+  initLiveSyncChannel,
+  subscribeLiveSync,
+  broadcastLiveEvent,
+  isLiveSyncConnected
+} from '../services/liveSyncService';
+import {
+  registerDeltaSyncContextHooks,
+  executeBiDirectionalSync,
+  initAutoDeltaSyncScheduler,
+  getLastDeltaSyncTime
+} from '../services/deltaSyncService';
+import { sealInvoiceInChainSync } from '../services/hashChainService';
+import { allocateFefoStockDeduction } from '../services/fefoInventoryService';
+import { broadcastStockUpdateToChannels } from '../services/omniChannelService';
 
 const AppContext = createContext();
 
@@ -74,6 +104,7 @@ const STORAGE_KEYS = {
   CASH_MOVEMENTS: 'hk360_cash_movements',
   BAZAAR_SHOPPING_LIST: 'hk360_bazaar_shopping_list',
   BIZ_REORDER_LIST: 'hk360_biz_reorder_list',
+  BIZ_PURCHASE_ORDERS: 'hk360_purchase_orders',
   OPERATING_MODE: 'hk360_operating_mode',
   CLIENT_LICENSES_REGISTRY: 'hk360_client_licenses_registry',
 };
@@ -118,7 +149,8 @@ export const DEFAULT_MODULES = {
   sr: true,
   branch_control: true,
   healthcare: true,
-  google_drive_sync: true
+  google_drive_sync: true,
+  reports: true
 };
 
 export const MODULE_PRESETS = {
@@ -139,7 +171,8 @@ export const MODULE_PRESETS = {
       sr: false,
       branch_control: false,
       healthcare: false,
-      google_drive_sync: false
+      google_drive_sync: false,
+      reports: true
     }
   },
   basic: {
@@ -159,7 +192,8 @@ export const MODULE_PRESETS = {
       sr: false,
       branch_control: false,
       healthcare: false,
-      google_drive_sync: false
+      google_drive_sync: false,
+      reports: true
     }
   },
   standard: {
@@ -179,7 +213,8 @@ export const MODULE_PRESETS = {
       sr: true,
       branch_control: true,
       healthcare: false,
-      google_drive_sync: true
+      google_drive_sync: true,
+      reports: true
     }
   },
   enterprise: {
@@ -199,7 +234,8 @@ export const MODULE_PRESETS = {
       sr: true,
       branch_control: true,
       healthcare: true,
-      google_drive_sync: true
+      google_drive_sync: true,
+      reports: true
     }
   }
 };
@@ -695,6 +731,31 @@ export const AppProvider = ({ children }) => {
     }
   });
 
+  // Purchase Orders & Supplier Purchases
+  const [purchaseOrders, setPurchaseOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.BIZ_PURCHASE_ORDERS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 'PO-2026-001',
+        supplierId: 'sup-1',
+        supplierName: 'মেঘনা গ্রুপ অব ইন্ডাস্ট্রিজ',
+        date: '2026-10-05',
+        expectedDate: '2026-10-12',
+        status: 'ordered',
+        items: [
+          { productId: 'prod-1', name: 'প্রিমিয়াম মিনিকেট চাল (২৫ কেজি)', quantity: 20, unitCost: 1750, total: 35000 }
+        ],
+        totalAmount: 35000,
+        paidAmount: 15000,
+        dueAmount: 20000,
+        note: 'অগ্রিম ১৫,০০০ টাকা প্রদান করা হয়েছে।'
+      }
+    ];
+  });
+
   // Dynamic Custom Categories Management
   const [categories, setCategories] = useState(() => {
     try {
@@ -955,6 +1016,10 @@ export const AppProvider = ({ children }) => {
   }, [fieldOrders]);
 
   useEffect(() => {
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_PURCHASE_ORDERS, purchaseOrders);
+  }, [purchaseOrders]);
+
+  useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BAZAAR_SHOPPING_LIST, bazaarShoppingList);
   }, [bazaarShoppingList]);
 
@@ -982,6 +1047,46 @@ export const AppProvider = ({ children }) => {
     return () => unsubQuota();
   }, []);
 
+  // Phase 2: Local-First IndexedDB Hydration (Protects against localStorage quota / eviction)
+  useEffect(() => {
+    let isMounted = true;
+    const hydrateFromIndexedDb = async () => {
+      try {
+        const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts] = await Promise.all([
+          idbGet(STORAGE_KEYS.BIZ_PRODUCTS),
+          idbGet(STORAGE_KEYS.BIZ_SALES),
+          idbGet(STORAGE_KEYS.BIZ_INVOICES),
+          idbGet(STORAGE_KEYS.BIZ_CUSTOMERS),
+          idbGet(STORAGE_KEYS.BIZ_DEBTS)
+        ]);
+
+        if (!isMounted) return;
+
+        if (Array.isArray(idbProducts) && idbProducts.length > products.length) {
+          console.debug(`[LocalFirst] Hydrated ${idbProducts.length} products from IndexedDB`);
+          setProducts(idbProducts);
+        }
+        if (Array.isArray(idbSales) && idbSales.length > salesHistory.length) {
+          console.debug(`[LocalFirst] Hydrated ${idbSales.length} sales from IndexedDB`);
+          setSalesHistory(idbSales);
+        }
+        if (Array.isArray(idbInvoices) && idbInvoices.length > invoices.length) {
+          setInvoices(idbInvoices);
+        }
+        if (Array.isArray(idbCustomers) && idbCustomers.length > customers.length) {
+          setCustomers(idbCustomers);
+        }
+        if (Array.isArray(idbDebts) && idbDebts.length > businessDebts.length) {
+          setBusinessDebts(idbDebts);
+        }
+      } catch (err) {
+        console.debug('[LocalFirst] Hydration complete:', err);
+      }
+    };
+    hydrateFromIndexedDb();
+    return () => { isMounted = false; };
+  }, []);
+
   // Multi-terminal / Cross-tab Local Sync
   useEffect(() => {
     const unsubLan = subscribeLocalTerminalSync((msg) => {
@@ -994,6 +1099,99 @@ export const AppProvider = ({ children }) => {
     });
     return () => unsubLan();
   }, []);
+
+  // Phase 3: Supabase Realtime Multi-Counter & Multi-Branch WebSocket Live Sync
+  useEffect(() => {
+    const activeBr = branches.find((b) => b.id === activeBranchId) || branches[0];
+    const activeCnt = activeBr?.counters?.find((c) => c.id === activeCounterId) || activeBr?.counters?.[0];
+    initLiveSyncChannel({
+      branchId: activeBranchId,
+      counterName: activeCnt?.name || 'কাউন্টার ০১',
+      operatorName: businessSettings.currentCashierName || 'ক্যাশিয়ার'
+    });
+
+    const unsubLive = subscribeLiveSync((msg) => {
+      const { eventType, data, senderCounter } = msg;
+
+      if (eventType === 'SALE_COMPLETED' && data) {
+        const sale = data.sale || data;
+        if (!sale?.id) return;
+
+        setSalesHistory((prev) => {
+          if (prev.some((s) => s.id === sale.id)) return prev;
+          return [sale, ...prev];
+        });
+
+        setInvoices((prev) => {
+          if (prev.some((s) => s.id === sale.id)) return prev;
+          return [sale, ...prev];
+        });
+
+        const soldItems = Array.isArray(data.items) ? data.items : (Array.isArray(sale.items) ? sale.items : []);
+        if (soldItems.length > 0) {
+          setProducts((prev) =>
+            prev.map((p) => {
+              const matched = soldItems.find((it) => it.id === p.id || it.product_id === p.id);
+              if (matched) {
+                const qty = Number(matched.qty || matched.quantity || 1);
+                return { ...p, stock: Math.max(0, p.stock - qty) };
+              }
+              return p;
+            })
+          );
+        }
+
+        if (sale.customerId && Number(sale.dueAmount) > 0) {
+          setCustomers((prev) =>
+            prev.map((c) => (c.id === sale.customerId ? { ...c, outstandingDue: (Number(c.outstandingDue) || 0) + Number(sale.dueAmount) } : c))
+          );
+        }
+
+        showToast(
+          lang === 'bn'
+            ? `⚡ ${senderCounter || 'অন্য কাউন্টার'} এ ভাউচার #${sale.invoiceNumber || sale.id} সম্পন্ন হয়েছে`
+            : `⚡ Sale #${sale.invoiceNumber || sale.id} completed on ${senderCounter || 'other counter'}`,
+          'info'
+        );
+      } else if (eventType === 'STOCK_ADJUSTED' && data) {
+        setProducts((prev) =>
+          prev.map((p) => {
+            if (p.id === data.productId) {
+              const delta = Number(data.qtyDelta) || 0;
+              const next = data.type === 'in' ? p.stock + delta : Math.max(0, p.stock - delta);
+              return { ...p, stock: next };
+            }
+            return p;
+          })
+        );
+      } else if (eventType === 'CDC_PRODUCT_CHANGE' && msg.record) {
+        const rec = msg.record;
+        setProducts((prev) =>
+          prev.map((p) => {
+            if (p.cloud_id === rec.id || p.id === rec.id) {
+              return { ...p, stock: Number(rec.stock ?? p.stock), sellPrice: Number(rec.sell_price ?? p.sellPrice) };
+            }
+            return p;
+          })
+        );
+      }
+    });
+
+    return () => unsubLive();
+  }, [activeBranchId, activeCounterId, businessSettings.currentCashierName]);
+
+  // Phase 4: Register Delta Sync & LWW Conflict Resolution Engine Hooks
+  useEffect(() => {
+    registerDeltaSyncContextHooks({
+      getProducts: () => products,
+      setProducts,
+      getCustomers: () => customers,
+      setCustomers,
+      getSalesHistory: () => salesHistory,
+      setSalesHistory
+    });
+    initAutoDeltaSyncScheduler();
+  }, [products, customers, salesHistory]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.LICENSE_INFO, licenseInfo);
@@ -1677,6 +1875,21 @@ export const AppProvider = ({ children }) => {
       }];
     }
 
+    // Feature 1: Cryptographic Hash Chain Seal
+    const previousSale = (salesHistory && salesHistory[0]) || null;
+    const saleDateStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const chainSeal = sealInvoiceInChainSync(
+      {
+        id: invoiceId,
+        grandTotal,
+        date: saleDateStr,
+        branchId: activeBranchId,
+        cashierName: cashierName || businessSettings.currentCashierName || (lang === 'bn' ? 'কাউন্টার ক্যাশিয়ার' : 'Counter Cashier'),
+        items: cart
+      },
+      previousSale?.blockHash || null
+    );
+
     const saleRecord = {
       id: invoiceId,
       branchId: activeBranchId,
@@ -1689,7 +1902,7 @@ export const AppProvider = ({ children }) => {
       customerId: customerId || null,
       table: table || null,
       orderType: orderType || null,
-      date: `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      date: saleDateStr,
       items: cart.map(item => ({
         id: item.id,
         name: item.name,
@@ -1707,20 +1920,30 @@ export const AppProvider = ({ children }) => {
       paymentMethod,
       splitPayments: Array.isArray(splitPayments) && splitPayments.length > 0 ? splitPayments : null,
       paymentHistory: paymentHistoryList,
-      status: saleStatus
+      status: saleStatus,
+      prevHash: chainSeal.prevHash,
+      blockHash: chainSeal.blockHash,
+      signedAt: chainSeal.signedAt
     };
 
-    // Deduct stock & trigger Low-Stock alerts
+    // Deduct stock & trigger Low-Stock alerts (Feature 2: FEFO Batch Allocation)
     setProducts(prevProducts => {
       const updated = prevProducts.map(p => {
         const cartItem = cart.find(ci => ci.id === p.id);
         if (cartItem) {
-          const nextStock = Math.max(0, p.stock - cartItem.qty);
+          const { updatedProduct } = allocateFefoStockDeduction(p, cartItem.qty);
+          const nextStock = updatedProduct.stock;
           const minStockThreshold = Number(p.minStock) || 5;
           if (nextStock <= minStockThreshold && p.stock > minStockThreshold) {
             notifyLowStockAlert(p.name, nextStock);
           }
-          return { ...p, stock: nextStock };
+          // Feature 4: Broadcast stock update to omni-channel e-commerce stores
+          try {
+            broadcastStockUpdateToChannels(p.id, nextStock, p.barcode || p.sku);
+          } catch (e) {
+            // non-blocking
+          }
+          return updatedProduct;
         }
         return p;
       });
@@ -1773,6 +1996,13 @@ export const AppProvider = ({ children }) => {
     // Guaranteed Offline Sync Queue
     try {
       enqueueOfflineAction('SALE_COMPLETED', saleRecord);
+    } catch {}
+
+    // Enterprise Cloud Backend ACID Sync (Phase 1)
+    try {
+      submitPosSaleToCloud(saleRecord).catch((err) => {
+        console.debug('[CloudSync] Deferred background sync:', err);
+      });
     } catch {}
 
     // Auto-open cash drawer for cash transaction if enabled
@@ -2528,6 +2758,43 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? 'কোটেশন মুছে ফেলা হয়েছে' : 'Quotation deleted');
   };
 
+  // Purchase Order & Supplier Purchases Helpers
+  const addPurchaseOrder = (order) => {
+    const newOrder = {
+      id: order.id || `PO-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+      date: order.date || new Date().toISOString().split('T')[0],
+      status: order.status || 'ordered',
+      paidAmount: Number(order.paidAmount) || 0,
+      totalAmount: Number(order.totalAmount) || 0,
+      dueAmount: Math.max(0, (Number(order.totalAmount) || 0) - (Number(order.paidAmount) || 0)),
+      items: order.items || [],
+      ...order
+    };
+    setPurchaseOrders(prev => [newOrder, ...prev]);
+
+    // Automatically adjust inventory stock if products were specified
+    if (order.items && order.items.length > 0) {
+      order.items.forEach(it => {
+        if (it.productId) {
+          adjustStock(it.productId, Number(it.quantity) || 1, 'in');
+        }
+      });
+    }
+
+    showToast(lang === 'bn' ? 'মাল ক্রয়ের তথ্য সংরক্ষিত হয়েছে এবং স্টক হালনাগাদ হয়েছে!' : 'Purchase order saved and stock updated!');
+    return newOrder;
+  };
+
+  const updatePurchaseOrderStatus = (id, newStatus) => {
+    setPurchaseOrders(prev => prev.map(po => po.id === id ? { ...po, status: newStatus } : po));
+    showToast(lang === 'bn' ? 'ক্রয় স্ট্যাটাস আপডেট হয়েছে' : 'Purchase status updated');
+  };
+
+  const deletePurchaseOrder = (id) => {
+    setPurchaseOrders(prev => prev.filter(po => po.id !== id));
+    showToast(lang === 'bn' ? 'ক্রয় অর্ডার মুছে ফেলা হয়েছে' : 'Purchase order deleted');
+  };
+
   const convertQuotationToInvoice = (quotationId) => {
     const quote = quotations.find(q => q.id === quotationId);
     if (!quote) return;
@@ -3121,21 +3388,74 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // 1-Minute Smart Auto-Sync Loop to Google Drive (strictly maintains max 30 backups)
+  // Telegram Cloud Bot Auto-Sync
+  const isTelegramSyncingRef = useRef(false);
+
+  const syncToTelegram = async (customConfig = null, silent = false) => {
+    if (isTelegramSyncingRef.current) return { success: false, inProgress: true };
+    isTelegramSyncingRef.current = true;
+
+    try {
+      const backupPayload = {
+        source: "HisabKitab 360 OS",
+        appName: "HisabKitab 360",
+        version: "2.0.0",
+        backupDate: new Date().toISOString(),
+        companyName: businessSettings.companyName || "HisabKitab Store",
+        summary: {
+          totalInvoices: invoices.length,
+          totalCustomers: customers.length,
+          totalProducts: products.length,
+          totalSales: salesHistory.length,
+          totalDamaged: damagedGoods.length
+        },
+        data: {
+          personal: { personalExpenses, personalIncomes, personalSavings, personalDebts, personalEvents },
+          business: { products, salesHistory, customers, employees, suppliers, businessExpenses, businessSettings, invoices, quotations, damagedGoods, businessDebts }
+        }
+      };
+
+      const res = await sendBackupToTelegram(backupPayload, customConfig);
+      if (res?.success) {
+        createAutoSnapshot(lang === 'bn' ? 'টেলিগ্রাম ক্লাউড ব্যাকআপ' : 'Telegram Cloud Backup');
+        if (!silent) {
+          showToast(lang === 'bn' ? `টেলিগ্রামে ব্যাকআপ সফলভাবে পাঠানো হয়েছে: ${res.fileName}` : `Backup sent to Telegram: ${res.fileName}`, 'success');
+        }
+        return res;
+      }
+    } catch (err) {
+      console.error('Telegram backup error:', err);
+      if (!silent) {
+        showToast(lang === 'bn' ? 'টেলিগ্রাম ব্যাকআপ ত্রুটি: ' + err.message : 'Telegram backup error: ' + err.message, 'danger');
+      }
+      throw err;
+    } finally {
+      isTelegramSyncingRef.current = false;
+    }
+  };
+
+  // 1-Minute Smart Auto-Sync Loop to Google Drive & Telegram (strictly maintains max 30 backups)
   useEffect(() => {
     // Runs every 60 seconds (1 minute)
     const intervalTimer = setInterval(() => {
       const autoSyncActive = businessSettings.autoBackupEnabled !== false && businessSettings.googleDriveEnabled !== false;
-      const canSync = isGoogleDriveConnected() || !!businessSettings.googleDriveWebhookUrl;
+      const canSyncDrive = isGoogleDriveConnected() || !!businessSettings.googleDriveWebhookUrl;
+      const tgConfig = getTelegramBackupConfig();
+      const canSyncTelegram = tgConfig.enabled && tgConfig.autoSync && tgConfig.botToken && tgConfig.chatId;
 
-      if (autoSyncActive && canSync && !isSyncingRef.current) {
+      if (autoSyncActive && (canSyncDrive || canSyncTelegram)) {
         const currentSig = `${salesHistory.length}_${products.length}_${customers.length}_${businessExpenses.length}_${invoices.length}_${personalExpenses.length}_${personalEvents?.length || 0}`;
         if (currentSig !== lastSyncSignatureRef.current) {
-          syncToGoogleDrive(null, true).then((res) => {
-            if (res?.success) {
-              lastSyncSignatureRef.current = currentSig;
-            }
-          });
+          if (canSyncDrive && !isSyncingRef.current) {
+            syncToGoogleDrive(null, true).then((res) => {
+              if (res?.success) {
+                lastSyncSignatureRef.current = currentSig;
+              }
+            });
+          }
+          if (canSyncTelegram && !isTelegramSyncingRef.current) {
+            syncToTelegram(null, true).catch(() => {});
+          }
         }
       }
     }, 60000); // 1 minute (60,000 ms)
@@ -3167,6 +3487,186 @@ export const AppProvider = ({ children }) => {
       }
     }
   }, []);
+
+  // Live Interactive Telegram Bot Command Listener (/backup, /today, /summary, /help)
+  useEffect(() => {
+    const tgConfig = getTelegramBackupConfig();
+    if (!tgConfig.enabled || !tgConfig.botToken || !tgConfig.chatId) return;
+
+    let isPolling = false;
+    const pollTimer = setInterval(async () => {
+      if (isPolling) return;
+      const liveConfig = getTelegramBackupConfig();
+      if (!liveConfig.enabled || !liveConfig.botToken || !liveConfig.chatId) return;
+
+      isPolling = true;
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const todaySalesList = (salesHistory || []).filter(s => (s.date || '').startsWith(today));
+        const todaySales = todaySalesList.reduce((sum, s) => sum + (Number(s.finalTotal) || Number(s.total) || 0), 0);
+        const todayInvoices = todaySalesList.length;
+
+        // Cost of goods sold for today
+        const todayCost = todaySalesList.reduce((sum, s) => {
+          if (Array.isArray(s.items)) {
+            const cost = s.items.reduce((itemSum, it) => {
+              const matchedProduct = (products || []).find(p => p.id === it.id || p.barcode === it.barcode);
+              const unitCost = Number(matchedProduct?.buyPrice || matchedProduct?.costPrice || matchedProduct?.purchasePrice || it.costPrice || 0);
+              return itemSum + (unitCost * (Number(it.qty) || Number(it.quantity) || 1));
+            }, 0);
+            return sum + cost;
+          }
+          return sum + ((Number(s.finalTotal) || Number(s.total) || 0) * 0.7); // Fallback ~30% margin
+        }, 0);
+
+        // Today's business expenses
+        const todayBizExpenses = (businessExpenses || []).filter(e => (e.date || '').startsWith(today));
+        const todayBizExpenseTotal = todayBizExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+        // Today's personal expenses
+        const todayPersonalExpenses = (personalExpenses || []).filter(e => (e.date || '').startsWith(today));
+        const todayPersonalExpenseTotal = todayPersonalExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+        // Total dues & debtors
+        const dueCustomers = (customers || []).filter(c => (Number(c.due) || Number(c.balance) || 0) > 0);
+        const totalDueAmount = dueCustomers.reduce((sum, c) => sum + (Number(c.due) || Number(c.balance) || 0), 0);
+        const sortedDebtors = [...dueCustomers].sort((a, b) => (Number(b.due || b.balance || 0)) - (Number(a.due || a.balance || 0)));
+
+        await pollTelegramBotCommands({
+          botToken: liveConfig.botToken,
+          chatId: liveConfig.chatId,
+          onBackupRequested: async () => {
+            console.log('🤖 Telegram bot requested on-demand backup!');
+            await syncToTelegram(null, true);
+          },
+          onSummaryRequested: async () => {
+            console.log('🤖 Telegram bot requested on-demand sales summary!');
+            await sendTelegramSalesSummary({
+              shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
+              dateStr: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
+              todaySales,
+              todayInvoices,
+              totalCustomers: customers.length,
+              totalProducts: products.length
+            }, liveConfig);
+          },
+          onStockRequested: async (query) => {
+            console.log('🤖 Telegram bot requested stock report. Query:', query);
+            await sendTelegramStockReport({
+              products,
+              query,
+              shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান'
+            }, liveConfig);
+          },
+          onProfitRequested: async () => {
+            console.log('🤖 Telegram bot requested profit & loss report!');
+            const netProfit = Math.round(todaySales - todayCost - todayBizExpenseTotal);
+            await sendTelegramProfitReport({
+              todaySales,
+              todayCost: Math.round(todayCost),
+              todayExpenses: todayBizExpenseTotal,
+              netProfit,
+              shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
+              dateStr: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })
+            }, liveConfig);
+          },
+          onDueRequested: async () => {
+            console.log('🤖 Telegram bot requested due / baki report!');
+            await sendTelegramDueReport({
+              totalDue: totalDueAmount,
+              customerCount: dueCustomers.length,
+              topDebtors: sortedDebtors,
+              shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান'
+            }, liveConfig);
+          },
+          onExpenseListRequested: async () => {
+            console.log('🤖 Telegram bot requested expense list!');
+            const combinedExpenses = [
+              ...todayBizExpenses.map(e => ({ ...e, title: `[দোকান] ${e.title || e.category || 'খরচ'}` })),
+              ...todayPersonalExpenses.map(e => ({ ...e, title: `[ব্যক্তিগত] ${e.title || e.category || 'খরচ'}` }))
+            ];
+            await sendTelegramExpenseReport({
+              todayExpenses: combinedExpenses,
+              totalAmount: todayBizExpenseTotal + todayPersonalExpenseTotal,
+              shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
+              dateStr: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })
+            }, liveConfig);
+          },
+          onAddExpenseRequested: async (parsed) => {
+            const { amount, title, category, subCategory, familyMember, note, isPersonal } = parsed;
+            console.log(`🤖 Telegram bot adding ${isPersonal ? 'personal' : 'business'} expense:`, parsed);
+            if (isPersonal) {
+              const newExpense = {
+                id: 'pexp-' + Date.now(),
+                title: title || note || 'টেলিগ্রাম খরচ',
+                category: category || 'transport',
+                subCategory: subCategory || '',
+                familyMember: familyMember || 'নিজে (Self)',
+                amount: Number(amount),
+                date: today,
+                note: note || '',
+                source: 'telegram_bot',
+                createdAt: new Date().toISOString()
+              };
+              setPersonalExpenses(prev => {
+                const next = [newExpense, ...(prev || [])];
+                localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(next));
+                return next;
+              });
+            } else {
+              const newExpense = {
+                id: 'bexp-' + Date.now(),
+                title: title || note || 'টেলিগ্রাম দোকান খরচ',
+                category: category || 'অফিস/দোকান খরচ',
+                subCategory: subCategory || '',
+                amount: Number(amount),
+                date: today,
+                note: note || '',
+                source: 'telegram_bot',
+                createdAt: new Date().toISOString()
+              };
+              setBusinessExpenses(prev => {
+                const next = [newExpense, ...(prev || [])];
+                localStorage.setItem(STORAGE_KEYS.BIZ_EXPENSES, JSON.stringify(next));
+                return next;
+              });
+            }
+
+            await sendTelegramExpenseAddedConfirmation({
+              amount,
+              title,
+              category,
+              subCategory,
+              familyMember,
+              note,
+              isPersonal
+            }, liveConfig);
+
+            showToast(
+              lang === 'bn'
+                ? `টেলিগ্রাম থেকে ৳${Number(amount).toLocaleString()} খরচ যোগ হয়েছে (${title || note})`
+                : `Expense ৳${amount} added via Telegram (${title || note})`,
+              'success'
+            );
+          }
+        });
+      } catch (err) {
+        console.debug('Telegram bot command listener error:', err);
+      } finally {
+        isPolling = false;
+      }
+    }, 12000); // Poll every 12 seconds
+
+    return () => clearInterval(pollTimer);
+  }, [
+    salesHistory,
+    customers,
+    products,
+    businessExpenses,
+    personalExpenses,
+    businessSettings.companyName,
+    lang
+  ]);
 
   // Manual Backup & Restore (Zero-Lag Streaming & Portable Migration)
   const exportAllData = async () => {
@@ -3711,6 +4211,11 @@ export const AppProvider = ({ children }) => {
         updateFieldOrderDelivery,
         markOrderFullyDelivered,
         deleteFieldOrder,
+        purchaseOrders,
+        setPurchaseOrders,
+        addPurchaseOrder,
+        updatePurchaseOrderStatus,
+        deletePurchaseOrder,
         addBusinessExpense,
         updateBusinessExpense,
         deleteBusinessExpense,
@@ -3760,6 +4265,12 @@ export const AppProvider = ({ children }) => {
         listDriveBackups,
         MAX_DRIVE_BACKUP_RETENTION,
 
+        // Telegram Bot Cloud Backup
+        syncToTelegram,
+        getTelegramBackupConfig,
+        saveTelegramBackupConfig,
+        testTelegramBackupBot,
+
         // Partial Payments on Invoices
         recordInvoicePayment,
 
@@ -3795,6 +4306,10 @@ export const AppProvider = ({ children }) => {
         setIsScreenLocked,
         lockScreen,
         unlockScreen,
+
+        // Phase 4: Bi-Directional Delta Sync & Conflict Resolution
+        executeBiDirectionalSync,
+        getLastDeltaSyncTime,
 
         // Robust AppContext Aliases & Fallbacks
         debtRecords: personalDebts,

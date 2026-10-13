@@ -6,7 +6,7 @@
  * as soon as network connectivity is restored.
  */
 
-import { openOfflineDB, getAllIndexedDbItems, setIndexedDbItem, clearIndexedDbStore } from './indexedDbCache';
+import { openOfflineDB, getAllIndexedDbItems, setIndexedDbItem, clearIndexedDbStore, removeIndexedDbItem } from './indexedDbCache';
 import { broadcastLiveEvent } from './liveSyncService';
 import { broadcastLocalTerminalEvent } from './lanSyncProtocol';
 import { resolveConflictLWW } from './conflictResolver';
@@ -60,10 +60,21 @@ export const enqueueOfflineMutation = async (actionType, payload) => {
 };
 
 /**
+ * Get all raw pending mutations for inspector UI
+ */
+export const getPendingMutationsList = async () => {
+  try {
+    return await getAllIndexedDbItems(QUEUE_STORE);
+  } catch {
+    return [];
+  }
+};
+
+/**
  * Flush and synchronize pending offline mutations
  */
 export const flushOfflineQueue = async () => {
-  if (isSyncing || !isOnline) return;
+  if (isSyncing || !isOnline) return { syncedCount: 0, skipped: true };
 
   try {
     isSyncing = true;
@@ -77,27 +88,44 @@ export const flushOfflineQueue = async () => {
     }
 
     let successCount = 0;
+    const { pushMutationToCloud } = await import('./supabaseBackendService');
+
     for (const mutation of pendingMutations) {
-      // Broadcast or push to backend
       try {
-        await broadcastLiveEvent(mutation.actionType, mutation.payload);
+        // 1. Submit mutation to Supabase PostgreSQL Backend
+        let cloudOk = false;
+        if (pushMutationToCloud) {
+          const res = await pushMutationToCloud(mutation);
+          cloudOk = Boolean(res?.success);
+        }
+
+        // 2. Broadcast live event to any sibling devices
+        try {
+          await broadcastLiveEvent(mutation.actionType, mutation.payload);
+        } catch {}
+
+        // 3. If synced to cloud or already acknowledged, remove from local queue
+        if (cloudOk && removeIndexedDbItem && mutation.id) {
+          await removeIndexedDbItem(QUEUE_STORE, mutation.id);
+        }
+
         successCount++;
       } catch (err) {
         console.debug('[OfflineQueue] Mutation sync deferred:', err);
       }
     }
 
-    // Clear resolved store
-    await clearIndexedDbStore(QUEUE_STORE);
+    // Refresh remaining pending count
+    const remaining = await getAllIndexedDbItems(QUEUE_STORE);
     isSyncing = false;
-    notifyStatusChange(0);
+    notifyStatusChange(remaining.length);
 
-    return { syncedCount: successCount };
+    return { syncedCount: successCount, remainingCount: remaining.length };
   } catch (err) {
     console.warn('[OfflineQueue] Flush error:', err);
     isSyncing = false;
     notifyStatusChange();
-    return { syncedCount: 0 };
+    return { syncedCount: 0, error: err.message };
   }
 };
 

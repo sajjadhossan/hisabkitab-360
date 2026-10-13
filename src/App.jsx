@@ -57,6 +57,7 @@ const HRPayroll = lazyNamed(() => import('./components/business/HRPayroll'), 'HR
 const SRFieldManager = lazyNamed(() => import('./components/business/SRFieldManager'), 'SRFieldManager');
 const SalesmanOrderBooking = lazyNamed(() => import('./components/business/SalesmanOrderBooking'), 'SalesmanOrderBooking');
 const SRDeliveryHub = lazyNamed(() => import('./components/business/SRDeliveryHub'), 'SRDeliveryHub');
+const BusinessPeriodicReportHub = lazyNamed(() => import('./components/business/BusinessPeriodicReportHub'), 'BusinessPeriodicReportHub');
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
 import { CattleFarmHubView } from './components/pos/modals/CattleFarmModal';
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
@@ -99,40 +100,41 @@ const ViewLoadingFallback = () => (
 );
 
 const AppContent = () => {
+  const appContext = useApp() || {};
   const {
-    profile,
-    activeTab,
+    profile = 'business',
+    activeTab = 'pos',
     licenseInfo,
-    setActiveTab,
-    lang,
-    theme,
-    isModuleActive,
-    activeReceipt,
-    setActiveReceipt,
-    activeInvoicePrint,
-    closeInvoicePrint,
-    activeQuotationPrint,
-    closeQuotationPrint,
-    activeBarcodePrint,
-    closeBarcodePrint,
-    activeShareInvoice,
-    closeShareInvoice,
-    isHelpSupportOpen,
-    closeHelpSupport,
-    isScannerOpen,
-    closeScanner,
-    openScanner,
-    showToast,
-    isScreenLocked,
-    lockScreen,
-    unlockScreen,
-    businessSettings,
-    handleBarcodeScanned,
+    setActiveTab = () => {},
+    lang = 'bn',
+    theme = 'dark',
+    isModuleActive = () => true,
+    activeReceipt = null,
+    setActiveReceipt = () => {},
+    activeInvoicePrint = null,
+    closeInvoicePrint = () => {},
+    activeQuotationPrint = null,
+    closeQuotationPrint = () => {},
+    activeBarcodePrint = null,
+    closeBarcodePrint = () => {},
+    activeShareInvoice = null,
+    closeShareInvoice = () => {},
+    isHelpSupportOpen = false,
+    closeHelpSupport = () => {},
+    isScannerOpen = false,
+    closeScanner = () => {},
+    openScanner = () => {},
+    showToast = () => {},
+    isScreenLocked = false,
+    lockScreen = () => {},
+    unlockScreen = () => {},
+    businessSettings = {},
+    handleBarcodeScanned = () => {},
     products = [],
     salesHistory = [],
     debtRecords = []
-  } = useApp();
-  const { user, openAuthModal, isAuthModalOpen, closeAuthModal, isSuperAdmin } = useAuth();
+  } = appContext;
+  const { user = null, openAuthModal = () => {}, isAuthModalOpen = false, closeAuthModal = () => {}, isSuperAdmin = false } = useAuth() || {};
 
   const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
   const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
@@ -671,6 +673,8 @@ const AppContent = () => {
           return <HealthcareHub />;
         case 'master_hub':
           return <MasterHub onNavigateToPos={() => setActiveTab('pos')} onNavigateToInventory={() => setActiveTab('inventory')} />;
+        case 'reports':
+          return <BusinessPeriodicReportHub />;
         case 'super_admin':
           return <SuperAdminPanel />;
         default:

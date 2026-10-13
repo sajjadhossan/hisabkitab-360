@@ -54,6 +54,8 @@ import {
   Coins,
   Tv,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Truck,
   Gift,
   Zap
@@ -708,6 +710,7 @@ export const POSTerminal = () => {
 
   // Active UX: Search ref, Undo state & Sound Feedback
   const searchInputRef = useRef(null);
+  const layer1ScrollRef = useRef(null);
   const [undoState, setUndoState] = useState(null);
 
   useEffect(() => {
@@ -1880,372 +1883,396 @@ export const POSTerminal = () => {
           </div>
         </div>
 
-        {/* Counter Closing / Handover Button (Swipeable on Mobile) */}
-        <div className="horizontal-touch-strip" style={{ alignItems: 'center' }}>
-          {isSalesman ? (
-            <div style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Sparkles size={14} />
-              <span>{lang === 'bn' ? 'সেলসম্যান কার্ট মোড (কাস্টমার ট্রলি প্রস্তুত)' : 'Salesman Cart Mode'}</span>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowOpeningModal(true)}
-                className="btn btn-secondary"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  border: isShiftActive ? '1px solid rgba(16, 185, 129, 0.4)' : '1.5px solid #f59e0b',
-                  background: isShiftActive ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.15)',
-                  color: isShiftActive ? '#10b981' : '#f59e0b'
-                }}
-                title={isShiftActive ? 'শিফট সক্রিয় রয়েছে' : 'সকালের শিফট শুরু ও ক্যাশ ড্রয়ার ওপেন'}
-              >
-                <Sun size={15} />
-                <span>{isShiftActive ? (lang === 'bn' ? '🟢 শিফট সক্রিয়' : 'Shift Active') : (lang === 'bn' ? '🌅 ক্যাশ ওপেন' : 'Open Cash')}</span>
-              </button>
+        {/* Top Action Clusters: Shift, Operations, Hardware & Utilities */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          
+          {/* Cluster 1: Shift & Cash Management */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '8px', borderRight: '1px solid var(--border-color)' }}>
+            {isSalesman ? (
+              <div style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={14} />
+                <span>{lang === 'bn' ? 'সেলসম্যান ট্রলি মোড' : 'Salesman Mode'}</span>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowOpeningModal(true)}
+                  className="btn btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '5px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    border: isShiftActive ? '1px solid rgba(16, 185, 129, 0.4)' : '1.5px solid #f59e0b',
+                    background: isShiftActive ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.15)',
+                    color: isShiftActive ? '#10b981' : '#f59e0b'
+                  }}
+                  title={isShiftActive ? 'শিফট সক্রিয় রয়েছে' : 'সকালের শিফট শুরু ও ক্যাশ ড্রয়ার ওপেন'}
+                >
+                  <Sun size={14} />
+                  <span>{isShiftActive ? (lang === 'bn' ? '🟢 শিফট সক্রিয়' : 'Shift Active') : (lang === 'bn' ? '🌅 ক্যাশ ওপেন' : 'Open Cash')}</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => setShowClosingModal(true)}
+                  className="btn btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '5px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderRadius: '8px',
+                    border: '1px solid #10b981',
+                    color: '#10b981'
+                  }}
+                  title={lang === 'bn' ? 'কাউন্টার শিফট ক্লোজিং ও নগদ ক্যাশ বুঝিয়ে দিন' : 'Counter shift closing and handover'}
+                >
+                  <Banknote size={14} />
+                  <span>{lang === 'bn' ? 'শিফট ক্লোজিং' : 'Closing'}</span>
+                </button>
+              </>
+            )}
+
+            {isOwner && (
               <button
                 type="button"
-                onClick={() => setShowClosingModal(true)}
+                onClick={() => setActiveTab('branch_control')}
                 className="btn btn-secondary"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  border: '1px solid #10b981',
+                  gap: '5px',
+                  padding: '5px 10px',
+                  fontSize: '0.78rem',
+                  fontWeight: '800',
+                  borderRadius: '8px',
+                  border: '1.5px solid #10b981',
+                  background: 'rgba(16, 185, 129, 0.12)',
                   color: '#10b981'
                 }}
-                title={lang === 'bn' ? 'কাউন্টার শিফট ক্লোজিং ও নগদ ক্যাশ বুঝিয়ে দিন' : 'Counter shift closing and handover'}
+                title={lang === 'bn' ? 'মালিকের সেন্ট্রাল ক্যাশ ও ব্রাঞ্চ কন্ট্রোল হাব' : 'Owner Central Cash & Branch Control'}
               >
-                <Banknote size={15} />
-                <span>{lang === 'bn' ? 'শিফট ক্লোজিং / ক্যাশ হ্যান্ডওভার' : 'Shift Closing'}</span>
+                <Building2 size={13} />
+                <span>{lang === 'bn' ? '👑 ক্যাশ হাব' : '👑 Cash Hub'}</span>
               </button>
-            </>
-          )}
+            )}
+          </div>
 
-          {isOwner && (
+          {/* Cluster 2: POS Operational Quick Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '8px', borderRight: '1px solid var(--border-color)' }}>
+            {/* Hold Cart / Split Bill Manager (Item 56) */}
             <button
               type="button"
-              onClick={() => setActiveTab('branch_control')}
+              onClick={() => {
+                refreshHeldCount();
+                setShowHoldModal(true);
+              }}
               className="btn btn-secondary"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                fontSize: '0.8rem',
-                fontWeight: '800',
-                border: '1.5px solid #10b981',
-                background: 'rgba(16, 185, 129, 0.12)',
-                color: '#10b981'
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: heldCartsCount > 0 ? '1.5px solid #f59e0b' : '1px solid var(--border-color)',
+                background: heldCartsCount > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                color: heldCartsCount > 0 ? '#f59e0b' : 'var(--text-muted)'
               }}
-              title={lang === 'bn' ? 'মালিকের সেন্ট্রাল ক্যাশ ও ব্রাঞ্চ কন্ট্রোল হাব' : 'Owner Central Cash & Branch Control'}
+              title={lang === 'bn' ? 'হোল্ড করা বিলের তালিকা দেখুন ও কার্ট হোল্ড করুন (F6)' : 'View & manage held carts (F6)'}
             >
-              <Building2 size={14} />
-              <span>{lang === 'bn' ? '👑 ক্যাশ ও ব্রাঞ্চ হাব' : '👑 Cash Hub'}</span>
+              <PauseCircle size={14} />
+              <span>{lang === 'bn' ? `হোল্ড (${heldCartsCount})` : `Hold (${heldCartsCount})`}</span>
             </button>
-          )}
 
-          {/* Industry Template Review & Customizer Hub Button */}
-          <button
-            type="button"
-            onClick={() => setShowTemplateReviewModal(true)}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: '1.5px solid #6366f1',
-              background: 'rgba(99, 102, 241, 0.12)',
-              color: '#6366f1'
-            }}
-            title={lang === 'bn' ? 'ইন্ডাস্ট্রি টেমপ্লেট রিভিউ ও কাস্টমাইজ করুন' : 'Review & Customize Industry Template'}
-          >
-            <Sparkles size={14} />
-            <span>{lang === 'bn' ? '🎨 টেমপ্লেট রিভিউ' : '🎨 Templates'}</span>
-          </button>
-
-          {/* Smart Soundbox Payment Chime & Voice Announcer Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              const next = !soundboxActive;
-              setSoundboxActive(next);
-              setSoundboxEnabled(next);
-              if (next) {
-                playSoundboxChime();
-                showToast(lang === 'bn' ? '🔊 ডিজিটাল ভয়েস সাউন্ডবক্স সক্রিয় করা হয়েছে' : 'Digital Soundbox Enabled', 'success');
-              } else {
-                showToast(lang === 'bn' ? '🔇 সাউন্ডবক্স নিঃশব্দ করা হয়েছে' : 'Soundbox Muted', 'info');
-              }
-            }}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: soundboxActive ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-              background: soundboxActive ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-              color: soundboxActive ? '#10b981' : 'var(--text-muted)'
-            }}
-            title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু আছে (ক্লিক করে বন্ধ করুন)' : 'ভয়েস সাউন্ডবক্স বন্ধ (ক্লিক করে চালু করুন)'}
-          >
-            {soundboxActive ? <Volume2 size={15} /> : <VolumeX size={15} />}
-            <span>{soundboxActive ? (lang === 'bn' ? '🔊 সাউন্ডবক্স চালু' : 'Soundbox ON') : (lang === 'bn' ? '🔇 সাউন্ডবক্স' : 'Soundbox OFF')}</span>
-          </button>
-
-          {/* Dual Screen Customer Display Popout (Item 54) */}
-          <button
-            type="button"
-            onClick={openCustomerMirrorWindow}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: '1px solid #38bdf8',
-              background: 'rgba(56, 189, 248, 0.1)',
-              color: '#38bdf8'
-            }}
-            title={lang === 'bn' ? 'দ্বিতীয় গ্রাহক স্ক্রিন উইন্ডো খুলুন (F11)' : 'Open Customer Display Window (F11)'}
-          >
-            <Tv size={15} />
-            <span>{lang === 'bn' ? '🖥️ গ্রাহক স্ক্রিন' : 'Dual Screen'}</span>
-          </button>
-
-          {/* Hold Cart / Split Bill Manager (Item 56) */}
-          <button
-            type="button"
-            onClick={() => {
-              refreshHeldCount();
-              setShowHoldModal(true);
-            }}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: heldCartsCount > 0 ? '1.5px solid #f59e0b' : '1px solid var(--border-color)',
-              background: heldCartsCount > 0 ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-              color: heldCartsCount > 0 ? '#f59e0b' : 'var(--text-muted)'
-            }}
-            title={lang === 'bn' ? 'হোল্ড করা বিলের তালিকা দেখুন ও কার্ট হোল্ড করুন (F6)' : 'View & manage held carts (F6)'}
-          >
-            <PauseCircle size={15} />
-            <span>{lang === 'bn' ? `⏸️ হোল্ড (${heldCartsCount})` : `Hold (${heldCartsCount})`}</span>
-          </button>
-
-          {/* Digital Weight Scale Support (Item 55) */}
-          <button
-            type="button"
-            onClick={() => setShowScaleModal(true)}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: hwStatus.weightScale ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-              background: hwStatus.weightScale ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-              color: hwStatus.weightScale ? '#10b981' : 'var(--text-muted)'
-            }}
-            title={lang === 'bn' ? 'ডিজিটাল ওজন স্কেল টার্মিনাল খুলুন (F7)' : 'Digital Weight Scale Terminal (F7)'}
-          >
-            <Scale size={15} />
-            <span>{hwStatus.weightScale ? '🟢 স্কেল যুক্ত' : (lang === 'bn' ? '⚖️ স্কেল' : 'Scale')}</span>
-          </button>
-
-          {/* Direct Thermal Label Printing (Item 60) */}
-          <button
-            type="button"
-            onClick={() => setShowThermalLabelModal(true)}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-muted)'
-            }}
-            title={lang === 'bn' ? '৫২x৩৮ থার্মাল স্টিকার ও বারকোড লেবেল প্রিন্টার' : 'Print Thermal Barcode Labels'}
-          >
-            <Printer size={15} />
-            <span>{lang === 'bn' ? '🏷️ স্টিকার' : 'Labels'}</span>
-          </button>
-
-          {/* Electronic Cash Drawer Kick Button (Item 52) */}
-          <button
-            type="button"
-            onClick={() => openCashDrawer('manual')}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-muted)'
-            }}
-            title={lang === 'bn' ? 'ক্যাশ ড্রয়ার খুলুন (F9)' : 'Kick Cash Drawer (F9)'}
-          >
-            <span>🗄️ {lang === 'bn' ? 'ড্রয়ার (F9)' : 'Drawer'}</span>
-          </button>
-
-          {/* Direct USB/Bluetooth ESC/POS Thermal Printer Connect (Item 51) */}
-          <button
-            type="button"
-            onClick={async () => {
-              if (hwStatus.serialPrinter) {
-                await disconnectSerialPrinter();
-                showToast(lang === 'bn' ? 'USB প্রিন্টার সংযোগ বিচ্ছিন্ন করা হয়েছে' : 'Serial printer disconnected', 'info');
-              } else {
-                try {
-                  await connectSerialPrinter();
-                  showToast(lang === 'bn' ? '✓ USB থার্মাল প্রিন্টার সরাসরি কানেক্ট হয়েছে!' : 'Serial printer connected!', 'success');
-                } catch (err) {
-                  showToast(err.message || 'Printer connect failed', 'warning');
-                }
-              }
-            }}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              border: hwStatus.serialPrinter ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-              background: hwStatus.serialPrinter ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-              color: hwStatus.serialPrinter ? '#10b981' : 'var(--text-muted)'
-            }}
-            title={hwStatus.serialPrinter ? 'সরাসরি USB প্রিন্টার সংযুক্ত (ক্লিক করে বিচ্ছিন্ন করুন)' : 'Web Serial দিয়ে USB থার্মাল প্রিন্টার সংযুক্ত করুন'}
-          >
-            <Printer size={15} />
-            <span>{hwStatus.serialPrinter ? '🟢 USB প্রিন্টার' : (lang === 'bn' ? '🔌 USB প্রিন্ট' : 'USB Print')}</span>
-          </button>
-
-          {/* Screen Zoom Control (Desktop & Tablet) */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              padding: '4px 8px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              fontSize: '0.78rem'
-            }}
-          >
+            {/* Electronic Cash Drawer Kick Button (Item 52) */}
             <button
               type="button"
-              onClick={() => handleZoomChange(-5)}
+              onClick={() => openCashDrawer('manual')}
+              className="btn btn-secondary"
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                padding: '2px 5px',
-                borderRadius: '4px',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-muted)'
               }}
-              title={lang === 'bn' ? 'জুম আউট (স্ক্রিন ছোট করুন)' : 'Zoom Out'}
+              title={lang === 'bn' ? 'ক্যাশ ড্রয়ার খুলুন (F9)' : 'Kick Cash Drawer (F9)'}
             >
-              <ZoomOut size={14} />
+              <span>🗄️ {lang === 'bn' ? 'ড্রয়ার (F9)' : 'Drawer'}</span>
             </button>
 
+            {/* Dual Screen Customer Display Popout (Item 54) */}
             <button
               type="button"
-              onClick={handleResetZoom}
+              onClick={openCustomerMirrorWindow}
+              className="btn btn-secondary"
               style={{
-                background: zoomLevel !== 100 ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
-                border: 'none',
-                color: zoomLevel !== 100 ? '#818cf8' : 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: '700'
-              }}
-              title={lang === 'bn' ? 'রিসেট ১০০%' : 'Reset to 100%'}
-            >
-              🔍 {zoomLevel}%
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleZoomChange(5)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                padding: '2px 5px',
-                borderRadius: '4px',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: '1px solid #38bdf8',
+                background: 'rgba(56, 189, 248, 0.1)',
+                color: '#38bdf8'
               }}
-              title={lang === 'bn' ? 'জুম ইন (স্ক্রিন বড় করুন)' : 'Zoom In'}
+              title={lang === 'bn' ? 'দ্বিতীয় গ্রাহক স্ক্রিন উইন্ডো খুলুন (F11)' : 'Open Customer Display Window (F11)'}
             >
-              <ZoomIn size={14} />
+              <Tv size={14} />
+              <span>{lang === 'bn' ? 'গ্রাহক স্ক্রিন' : 'Dual Screen'}</span>
             </button>
           </div>
 
-          {/* Prominent Red Exit Cross Button for Desktop POS */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1.5px solid rgba(239, 68, 68, 0.5)',
-              color: '#ef4444',
-              cursor: 'pointer',
-              transition: 'all 0.18s ease',
-              flexShrink: 0
-            }}
-            title={lang === 'bn' ? 'পজ বন্ধ করে ড্যাশবোর্ডে ফিরে যান' : 'Exit POS Terminal to Dashboard'}
-          >
-            <X size={18} />
-          </button>
+          {/* Cluster 3: Hardware & Peripherals */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '8px', borderRight: '1px solid var(--border-color)' }}>
+            {/* Direct USB/Bluetooth ESC/POS Thermal Printer Connect (Item 51) */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (hwStatus.serialPrinter) {
+                  await disconnectSerialPrinter();
+                  showToast(lang === 'bn' ? 'USB প্রিন্টার সংযোগ বিচ্ছিন্ন করা হয়েছে' : 'Serial printer disconnected', 'info');
+                } else {
+                  try {
+                    await connectSerialPrinter();
+                    showToast(lang === 'bn' ? '✓ USB থার্মাল প্রিন্টার সরাসরি কানেক্ট হয়েছে!' : 'Serial printer connected!', 'success');
+                  } catch (err) {
+                    showToast(err.message || 'Printer connect failed', 'warning');
+                  }
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: hwStatus.serialPrinter ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                background: hwStatus.serialPrinter ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                color: hwStatus.serialPrinter ? '#10b981' : 'var(--text-muted)'
+              }}
+              title={hwStatus.serialPrinter ? 'সরাসরি USB প্রিন্টার সংযুক্ত (ক্লিক করে বিচ্ছিন্ন করুন)' : 'Web Serial দিয়ে USB থার্মাল প্রিন্টার সংযুক্ত করুন'}
+            >
+              <Printer size={14} />
+              <span>{hwStatus.serialPrinter ? '🟢 USB প্রিন্টার' : (lang === 'bn' ? '🔌 USB' : 'USB')}</span>
+            </button>
+
+            {/* Smart Soundbox Payment Chime & Voice Announcer Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !soundboxActive;
+                setSoundboxActive(next);
+                setSoundboxEnabled(next);
+                if (next) {
+                  playSoundboxChime();
+                  showToast(lang === 'bn' ? '🔊 ডিজিটাল ভয়েস সাউন্ডবক্স সক্রিয় করা হয়েছে' : 'Digital Soundbox Enabled', 'success');
+                } else {
+                  showToast(lang === 'bn' ? '🔇 সাউন্ডবক্স নিঃশব্দ করা হয়েছে' : 'Soundbox Muted', 'info');
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: soundboxActive ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                background: soundboxActive ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                color: soundboxActive ? '#10b981' : 'var(--text-muted)'
+              }}
+              title={soundboxActive ? 'ভয়েস সাউন্ডবক্স চালু আছে (ক্লিক করে বন্ধ করুন)' : 'ভয়েস সাউন্ডবক্স বন্ধ (ক্লিক করে চালু করুন)'}
+            >
+              {soundboxActive ? <Volume2 size={14} /> : <VolumeX size={14} />}
+              <span>{soundboxActive ? (lang === 'bn' ? 'সাউন্ডবক্স' : 'Sound ON') : (lang === 'bn' ? 'নিঃশব্দ' : 'Muted')}</span>
+            </button>
+
+            {/* Digital Weight Scale Support (Item 55) */}
+            <button
+              type="button"
+              onClick={() => setShowScaleModal(true)}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: hwStatus.weightScale ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                background: hwStatus.weightScale ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                color: hwStatus.weightScale ? '#10b981' : 'var(--text-muted)'
+              }}
+              title={lang === 'bn' ? 'ডিজিটাল ওজন স্কেল টার্মিনাল খুলুন (F7)' : 'Digital Weight Scale Terminal (F7)'}
+            >
+              <Scale size={14} />
+              <span>{hwStatus.weightScale ? '🟢 স্কেল' : (lang === 'bn' ? '⚖️ স্কেল' : 'Scale')}</span>
+            </button>
+
+            {/* Direct Thermal Label Printing (Item 60) */}
+            <button
+              type="button"
+              onClick={() => setShowThermalLabelModal(true)}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-muted)'
+              }}
+              title={lang === 'bn' ? '৫২x৩৮ থার্মাল স্টিকার ও বারকোড লেবেল প্রিন্টার' : 'Print Thermal Barcode Labels'}
+            >
+              <Tag size={13} />
+              <span>{lang === 'bn' ? 'স্টিকার' : 'Labels'}</span>
+            </button>
+
+            {/* Industry Template Review Button */}
+            <button
+              type="button"
+              onClick={() => setShowTemplateReviewModal(true)}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: '1px solid #6366f1',
+                background: 'rgba(99, 102, 241, 0.1)',
+                color: '#6366f1'
+              }}
+              title={lang === 'bn' ? 'ইন্ডাস্ট্রি টেমপ্লেট রিভিউ ও কাস্টমাইজ করুন' : 'Review & Customize Industry Template'}
+            >
+              <Sparkles size={13} />
+              <span>{lang === 'bn' ? 'টেমপ্লেট' : 'Templates'}</span>
+            </button>
+          </div>
+
+          {/* Cluster 4: Screen Zoom & Exit Utility Dock */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Screen Zoom Control (Desktop & Tablet) */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                padding: '3px 6px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.75rem'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => handleZoomChange(-5)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={lang === 'bn' ? 'জুম আউট' : 'Zoom Out'}
+              >
+                <ZoomOut size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                style={{
+                  background: zoomLevel !== 100 ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                  border: 'none',
+                  color: zoomLevel !== 100 ? '#818cf8' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '2px 5px',
+                  borderRadius: '4px',
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: '700'
+                }}
+                title={lang === 'bn' ? 'রিসেট ১০০%' : 'Reset to 100%'}
+              >
+                {zoomLevel}%
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleZoomChange(5)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={lang === 'bn' ? 'জুম ইন' : 'Zoom In'}
+              >
+                <ZoomIn size={13} />
+              </button>
+            </div>
+
+            {/* Prominent Red Exit Cross Button for Desktop POS */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                color: '#ef4444',
+                cursor: 'pointer',
+                transition: 'all 0.18s ease',
+                flexShrink: 0
+              }}
+              title={lang === 'bn' ? 'পজ বন্ধ করে ড্যাশবোর্ডে ফিরে যান' : 'Exit POS Terminal to Dashboard'}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -3552,157 +3579,265 @@ export const POSTerminal = () => {
           {/* MULTI-LAYER QUICK SHORTCUT & FILTER SYSTEM               */}
           {/* ======================================================== */}
 
-          {/* LAYER 1: PRIMARY QUICK FILTER SHORTCUTS */}
-          <div style={{ marginBottom: '8px' }}>
-            {/* Desktop Layer 1 Header */}
-            <div className="hide-mobile" style={{ marginBottom: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+          {/* LAYER 1: MODERN PROFESSIONAL QUICK FILTER SHORTCUTS */}
+          <div
+            className="pos-layer1-shortcuts-card"
+            style={{
+              marginBottom: '10px',
+              padding: '10px 14px',
+              borderRadius: '14px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)'
+            }}
+          >
+            {/* Header: Title, Total Groups, Reset Button & Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  color: '#10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <Layers size={15} />
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Layers size={14} style={{ color: 'var(--business-primary)' }} />
-                  <span style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                    {lang === 'bn' ? '১ম স্তর: দ্রুত পণ্য গ্রুপ / শর্টকাট' : 'Layer 1: Quick Shortcuts'}
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '0.02em' }}>
+                    {lang === 'bn' ? 'কুইক শর্টকাট ও পণ্য গ্রুপ' : 'Quick Category Shortcuts'}
                   </span>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    ({quickFilters.length}টি)
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: '700',
+                    padding: '2px 7px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    {quickFilters.length}টি গ্রুপ
                   </span>
                 </div>
 
-                {/* Company / Brand Filter Dropdown & Manager Button */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {detectedBrands.length > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>কোম্পানি:</span>
-                      <select
-                        value={selectedBrand}
-                        onChange={(e) => setSelectedBrand(e.target.value)}
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
-                          fontWeight: '700',
-                          background: 'var(--bg-secondary)',
-                          color: selectedBrand !== 'all' ? 'var(--business-primary)' : 'var(--text-main)',
-                          border: selectedBrand !== 'all' ? '1px solid var(--business-primary)' : '1px solid var(--border-color)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="all">🏢 {lang === 'bn' ? 'সকল কোম্পানি / ব্র্যান্ড' : 'All Brands'}</option>
-                        {detectedBrands.filter(b => b !== 'all').map(b => (
-                          <option key={b} value={b}>🏢 {b}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
+                {/* Quick Reset Button when an active filter is selected */}
+                {activeFilterId !== 'all' && (
                   <button
-                    type="button"
-                    onClick={() => setShowMasterHubModal(true)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '3px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.72rem',
-                      fontWeight: '800',
-                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.15))',
-                      color: '#6366f1',
-                      border: '1px solid rgba(99, 102, 241, 0.4)',
-                      cursor: 'pointer'
-                    }}
-                    title={lang === 'bn' ? 'সকল ফোল্ডার, ইউনিট, ক্যাটাগরি ও ব্র্যান্ডের কেন্দ্রীয় সেটআপ হাব' : 'Open Master Setup Hub'}
-                  >
-                    <span>📁</span>
-                    <span>{lang === 'bn' ? 'মাস্টার ডাটা হাব' : 'Master Hub'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowFilterManagerModal(true)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.72rem',
-                      fontWeight: '800',
-                      background: 'rgba(99, 102, 241, 0.12)',
-                      color: '#6366f1',
-                      border: '1px solid rgba(99, 102, 241, 0.3)',
-                      cursor: 'pointer'
-                    }}
-                    title={lang === 'bn' ? 'নতুন শর্টকাট বাটন যোগ করুন বা ডিলিট করুন' : 'Manage & Add Shortcuts'}
-                  >
-                    <SlidersHorizontal size={12} />
-                    <span>{lang === 'bn' ? '⚙️ ফিল্টার সাজান' : '⚙️ Manage'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile Layer 1 Header (Matching Reference Screenshot) */}
-            <div className="show-mobile-only" style={{ marginBottom: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.85rem' }}>🥞</span>
-                <span style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  LAYER 1: QUICK SHORTCUTS ({quickFilters.length}টি)
-                </span>
-              </div>
-            </div>
-
-            {/* Layer 1 Buttons Scroll Row (Swipeable on Mobile) */}
-            <div className="horizontal-touch-strip" style={{ paddingBottom: '4px' }}>
-              {quickFilters.map((qf) => {
-                const isActive = activeFilterId === qf.id;
-                const count = getFilterItemCount(qf);
-                return (
-                  <button
-                    key={qf.id}
                     type="button"
                     onClick={() => {
-                      if (isActive && qf.id !== 'all') {
-                        // toggle off to all
-                        setActiveFilterId('all');
-                        setActiveSubFilterKeyword('');
-                      } else {
-                        setActiveFilterId(qf.id);
-                        setActiveSubFilterKeyword('');
-                      }
+                      setActiveFilterId('all');
+                      setActiveSubFilterKeyword('');
                     }}
                     style={{
-                      padding: '5px 12px',
-                      borderRadius: '10px',
-                      fontSize: '0.78rem',
-                      fontWeight: isActive ? '800' : '600',
-                      border: '1.5px solid',
-                      borderColor: isActive ? 'var(--business-primary)' : 'var(--border-color)',
-                      background: isActive ? 'var(--business-primary)' : 'var(--bg-secondary)',
-                      color: isActive ? '#ffffff' : 'var(--text-main)',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: isActive ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
-                      transition: 'all 0.15s ease'
+                      gap: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.7rem',
+                      fontWeight: '700',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      cursor: 'pointer'
                     }}
+                    title={lang === 'bn' ? 'সকল পণ্য দেখুন' : 'Reset filter'}
                   >
-                    <span>{qf.icon || '🏷️'}</span>
-                    <span>{qf.label}</span>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      padding: '1px 6px',
-                      borderRadius: '8px',
-                      background: isActive ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.08)',
-                      color: isActive ? '#fff' : 'var(--text-muted)',
-                      fontWeight: '700'
-                    }}>
-                      {count}
-                    </span>
+                    <X size={12} />
+                    <span>{lang === 'bn' ? 'সব পণ্য' : 'Clear'}</span>
                   </button>
-                );
-              })}
+                )}
+              </div>
+
+              {/* Controls: Company Filter Dropdown, Master Hub, and Filter Manager */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {detectedBrands.length > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <select
+                      value={selectedBrand}
+                      onChange={(e) => setSelectedBrand(e.target.value)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        fontSize: '0.74rem',
+                        fontWeight: '700',
+                        background: 'var(--bg-primary)',
+                        color: selectedBrand !== 'all' ? 'var(--business-primary)' : 'var(--text-main)',
+                        border: selectedBrand !== 'all' ? '1.5px solid var(--business-primary)' : '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="all">🏢 {lang === 'bn' ? 'সকল ব্র্যান্ড' : 'All Brands'}</option>
+                      {detectedBrands.filter(b => b !== 'all').map(b => (
+                        <option key={b} value={b}>🏢 {b}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowMasterHubModal(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.73rem',
+                    fontWeight: '800',
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.12))',
+                    color: '#6366f1',
+                    border: '1px solid rgba(99, 102, 241, 0.35)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={lang === 'bn' ? 'সকল ফোল্ডার, ইউনিট, ক্যাটাগরি ও ব্র্যান্ডের কেন্দ্রীয় সেটআপ হাব' : 'Open Master Setup Hub'}
+                >
+                  <FolderOpen size={13} />
+                  <span>{lang === 'bn' ? 'মাস্টার ডাটা হাব' : 'Master Hub'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFilterManagerModal(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.73rem',
+                    fontWeight: '800',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-color)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={lang === 'bn' ? 'নতুন শর্টকাট বাটন যোগ করুন বা ডিলিট করুন' : 'Manage & Add Shortcuts'}
+                >
+                  <SlidersHorizontal size={13} />
+                  <span>{lang === 'bn' ? 'ফিল্টার সাজান' : 'Manage'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Layer 1 Buttons Scroll Row with Smooth Left/Right Navigator */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => layer1ScrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+                className="hide-mobile"
+                style={{
+                  flexShrink: 0,
+                  width: '28px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s ease'
+                }}
+                title={lang === 'bn' ? 'বামে স্ক্রোল করুন' : 'Scroll left'}
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div
+                ref={layer1ScrollRef}
+                className="horizontal-touch-strip"
+                style={{
+                  flex: 1,
+                  padding: '4px 2px',
+                  gap: '8px',
+                  scrollBehavior: 'smooth'
+                }}
+              >
+                {quickFilters.map((qf) => {
+                  const isActive = activeFilterId === qf.id;
+                  const count = getFilterItemCount(qf);
+                  return (
+                    <button
+                      key={qf.id}
+                      type="button"
+                      onClick={() => {
+                        if (isActive && qf.id !== 'all') {
+                          setActiveFilterId('all');
+                          setActiveSubFilterKeyword('');
+                        } else {
+                          setActiveFilterId(qf.id);
+                          setActiveSubFilterKeyword('');
+                        }
+                      }}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '10px',
+                        fontSize: '0.8rem',
+                        fontWeight: isActive ? '800' : '600',
+                        border: isActive ? '1.5px solid var(--business-primary)' : '1px solid var(--border-color)',
+                        background: isActive
+                          ? 'linear-gradient(135deg, var(--business-primary), #059669)'
+                          : 'var(--bg-primary)',
+                        color: isActive ? '#ffffff' : 'var(--text-main)',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        boxShadow: isActive ? '0 3px 12px rgba(16, 185, 129, 0.3)' : '0 1px 3px rgba(0,0,0,0.03)',
+                        transition: 'all 0.16s ease',
+                        flexShrink: 0
+                      }}
+                    >
+                      <span style={{ fontSize: '0.95rem', lineHeight: 1 }}>{qf.icon || '🏷️'}</span>
+                      <span>{qf.label}</span>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        padding: '1px 6px',
+                        borderRadius: '8px',
+                        background: isActive ? 'rgba(0,0,0,0.24)' : 'rgba(255,255,255,0.08)',
+                        color: isActive ? '#ffffff' : 'var(--text-muted)',
+                        fontWeight: '700'
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => layer1ScrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+                className="hide-mobile"
+                style={{
+                  flexShrink: 0,
+                  width: '28px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.15s ease'
+                }}
+                title={lang === 'bn' ? 'ডানে স্ক্রোল করুন' : 'Scroll right'}
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
           </div>
 

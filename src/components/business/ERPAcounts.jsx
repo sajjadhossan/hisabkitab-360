@@ -10,7 +10,8 @@ import {
   Truck,
   Calendar,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  BarChart3
 } from 'lucide-react';
 import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
@@ -24,6 +25,7 @@ export const ERPAcounts = () => {
     addBusinessExpense,
     suppliers,
     paySupplier,
+    setActiveTab,
     t,
     lang
   } = useApp();
@@ -105,10 +107,24 @@ export const ERPAcounts = () => {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setShowExpenseModal(true)}>
-          <Plus size={16} />
-          <span>{t.business.addBizExpense}</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setActiveTab('reports')}
+            style={{
+              borderColor: 'rgba(99, 102, 241, 0.4)',
+              color: '#6366f1',
+              fontWeight: '800'
+            }}
+          >
+            <BarChart3 size={16} />
+            <span>{lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট হাব' : '📊 Periodic Reports'}</span>
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowExpenseModal(true)}>
+            <Plus size={16} />
+            <span>{t.business.addBizExpense}</span>
+          </button>
+        </div>
       </div>
 
       {/* P&L Financial Summary Cards */}

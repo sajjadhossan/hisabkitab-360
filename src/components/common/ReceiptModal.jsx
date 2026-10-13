@@ -7,17 +7,18 @@ import { generatePaymentQrDataUrl } from '../../services/barcodeService';
 import { shareNativeSheet } from '../../services/nativeAppService';
 
 export const ReceiptModal = () => {
+  const appContext = useApp() || {};
   const {
-    activeReceipt,
-    setActiveReceipt,
-    openInvoicePrint,
-    openShareInvoice,
-    openCashDrawer,
-    businessSettings,
-    t,
-    lang,
-    showToast
-  } = useApp();
+    activeReceipt = null,
+    setActiveReceipt = () => {},
+    openInvoicePrint = () => {},
+    openShareInvoice = () => {},
+    openCashDrawer = () => {},
+    businessSettings = {},
+    t = (k) => k,
+    lang = 'bn',
+    showToast = () => {}
+  } = appContext;
 
   const [qrMode, setQrMode] = useState('payload'); // 'payload' | 'url' | 'bkash'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
