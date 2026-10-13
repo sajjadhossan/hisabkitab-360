@@ -33,4 +33,5 @@ dist-electron
 .kilo/
 latest_run.json
 scratch/
+telegram_config.json
 

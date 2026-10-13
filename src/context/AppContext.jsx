@@ -3494,18 +3494,42 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     const onTgConfigUpdate = () => setTelegramConfigTrigger(t => t + 1);
     window.addEventListener('hk360_telegram_config_updated', onTgConfigUpdate);
+
+    // Initial bi-directional sync with local preview server
+    const syncWithServer = async () => {
+      try {
+        const localCfg = getTelegramBackupConfig();
+        if (localCfg?.botToken) {
+          await fetch('/api/telegram/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(localCfg)
+          }).catch(() => {});
+        } else {
+          const res = await fetch('/api/telegram/config').catch(() => null);
+          if (res?.ok) {
+            const data = await res.json().catch(() => null);
+            if (data?.config?.botToken) {
+              saveTelegramBackupConfig(data.config);
+            }
+          }
+        }
+      } catch {}
+    };
+    syncWithServer();
+
     return () => window.removeEventListener('hk360_telegram_config_updated', onTgConfigUpdate);
   }, []);
 
   useEffect(() => {
     const tgConfig = getTelegramBackupConfig();
-    if (!tgConfig.enabled || !tgConfig.botToken) return;
+    if (!tgConfig?.botToken) return;
 
     let isPolling = false;
     const pollTimer = setInterval(async () => {
       if (isPolling) return;
       const liveConfig = getTelegramBackupConfig();
-      if (!liveConfig.enabled || !liveConfig.botToken) return;
+      if (!liveConfig?.botToken) return;
 
       isPolling = true;
       try {

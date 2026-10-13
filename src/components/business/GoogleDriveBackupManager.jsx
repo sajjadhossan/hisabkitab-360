@@ -33,6 +33,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { hapticFeedback } from '../../services/nativeAppService';
+import { registerTelegramCommands } from '../../services/telegramBackupService';
 
 export const GoogleDriveBackupManager = ({
   formState,
@@ -263,6 +264,7 @@ export const GoogleDriveBackupManager = ({
     try {
       const res = await testTelegramBackupBot(tgConfig.botToken, tgConfig.chatId);
       setTgTestSuccess(res.botUsername);
+      registerTelegramCommands(tgConfig.botToken).catch(() => {});
       hapticFeedback?.success?.();
       if (showToast) showToast(lang === 'bn' ? `✅ টেলিগ্রাম বট @${res.botUsername} সফলভাবে ভেরিফাই হয়েছে এবং টেস্ট মেসেজ পাঠানো হয়েছে!` : `Bot @${res.botUsername} verified!`, 'success');
     } catch (err) {
@@ -275,9 +277,16 @@ export const GoogleDriveBackupManager = ({
   };
 
   const handleSaveTelegram = (updated = null) => {
-    const configToSave = updated || tgConfig;
+    const raw = updated || tgConfig;
+    const configToSave = {
+      ...raw,
+      enabled: raw.botToken ? true : Boolean(raw.enabled)
+    };
     saveTelegramBackupConfig(configToSave);
     setTgConfig(configToSave);
+    if (configToSave.botToken) {
+      registerTelegramCommands(configToSave.botToken).catch(() => {});
+    }
     hapticFeedback?.success?.();
     if (showToast) showToast(lang === 'bn' ? 'টেলিগ্রাম ব্যাকআপ কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Telegram configuration saved!', 'success');
   };

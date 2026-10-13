@@ -30,11 +30,25 @@ export const getTelegramBackupConfig = () => {
   }
 };
 
-export const saveTelegramBackupConfig = (config) => {
+export const saveTelegramBackupConfig = async (config) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    const payload = {
+      ...config,
+      enabled: config?.botToken ? true : Boolean(config?.enabled)
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('hk360_telegram_config_updated', { detail: config }));
+      window.dispatchEvent(new CustomEvent('hk360_telegram_config_updated', { detail: payload }));
+      // Notify preview server / local host daemon immediately
+      try {
+        await fetch('/api/telegram/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        // Silently catch if running client-only
+      }
     }
   } catch (err) {
     console.warn('Failed to save telegram backup config:', err);
@@ -51,6 +65,68 @@ export const deleteTelegramWebhook = async (botToken) => {
     console.debug('deleteTelegramWebhook error:', err);
   }
 };
+
+// Register Native Commands with Telegram API (creates native /help button & command menu in Telegram)
+export const registerTelegramCommands = async (botToken) => {
+  const token = (botToken || '').trim().replace(/^bot/i, '');
+  if (!token) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: [
+          { command: 'help', description: '❓ সকল কমান্ড ও সাহায্য মেনু' },
+          { command: 'today', description: '📊 আজকের বিক্রি ও সারসংক্ষেপ' },
+          { command: 'profit', description: '📈 আজকের লাভ-ক্ষতি হিসাব' },
+          { command: 'stock', description: '📦 স্টক ও পণ্যের তথ্য' },
+          { command: 'due', description: '📒 কাস্টমার বকেয়া খাতা' },
+          { command: 'expense', description: '💸 আজকের খরচের তালিকা' },
+          { command: 'backup', description: '📥 ডাটাবেজ ব্যাকআপ ডাউনলোড' }
+        ]
+      })
+    });
+    return res.ok;
+  } catch (err) {
+    console.debug('registerTelegramCommands error:', err);
+    return false;
+  }
+};
+
+// Persistent touchable keyboard buttons for mobile & desktop Telegram (Bottom Sheet)
+export const TELEGRAM_REPLY_KEYBOARD = {
+  keyboard: [
+    [{ text: '❓ হেল্প ও সাহায্য' }, { text: '📊 আজকের বিক্রি' }],
+    [{ text: '📈 লাভ-ক্ষতি' }, { text: '📦 স্টক রিপোর্ট' }],
+    [{ text: '📒 বকেয়া খাতা' }, { text: '💸 খরচের তালিকা' }],
+    [{ text: '📥 ব্যাকআপ' }]
+  ],
+  resize_keyboard: true,
+  is_persistent: true
+};
+
+// Interactive Inline Buttons (Attached directly inside chat messages)
+export const TELEGRAM_INLINE_KEYBOARD = {
+  inline_keyboard: [
+    [
+      { text: '📊 আজকের বিক্রি', callback_data: 'cmd_today' },
+      { text: '📈 লাভ-ক্ষতি', callback_data: 'cmd_profit' }
+    ],
+    [
+      { text: '📦 স্টক রিপোর্ট', callback_data: 'cmd_stock' },
+      { text: '📒 বকেয়া খাতা', callback_data: 'cmd_due' }
+    ],
+    [
+      { text: '💸 খরচের তালিকা', callback_data: 'cmd_expense' },
+      { text: '📥 ডাটা ব্যাকআপ', callback_data: 'cmd_backup' }
+    ],
+    [
+      { text: '❓ হেল্প ও সকল কমান্ড', callback_data: 'cmd_help' }
+    ]
+  ]
+};
+
+export const TELEGRAM_KEYBOARD = TELEGRAM_REPLY_KEYBOARD;
 
 // Test Telegram Bot Token & Chat ID with Detailed Diagnostic Feedback
 export const testTelegramBackupBot = async (botToken, chatId = null) => {
@@ -203,30 +279,38 @@ export const sendBackupToTelegram = async (backupPayload, customConfig = null) =
 // =========================================================================
 let lastTelegramUpdateId = 0;
 
-export const sendTelegramMessage = async (text, customConfig = null) => {
+export const sendTelegramMessage = async (text, customConfig = null, customMarkup = null, parseMode = 'HTML') => {
   const config = customConfig || getTelegramBackupConfig();
   const token = (config.botToken || '').trim().replace(/^bot/i, '');
   const chatId = (config.chatId || '').trim();
   if (!token || !chatId) return false;
 
+  const reply_markup = customMarkup !== undefined ? customMarkup : TELEGRAM_KEYBOARD;
+
   try {
+    const payload = {
+      chat_id: chatId,
+      text,
+      reply_markup: reply_markup || undefined
+    };
+    if (parseMode) payload.parse_mode = parseMode;
+
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: 'Markdown'
-      })
+      body: JSON.stringify(payload)
     });
+
     if (!res.ok) {
-      // If Markdown parse failed (status 400), retry immediately without parse_mode
+      // If HTML parse failed (status 400), strip formatting and send as plain text
+      const cleanText = text.replace(/<[^>]+>/g, '').replace(/[*_`]/g, '');
       const fallbackRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text
+          text: cleanText,
+          reply_markup: reply_markup || undefined
         })
       });
       return fallbackRes.ok;
@@ -376,6 +460,12 @@ export const pollTelegramBotCommands = async ({
   const cleanChatId = (chatId || '').trim();
   if (!token) return;
 
+  // Auto register commands once per session
+  if (!pollTelegramBotCommands.commandsRegistered) {
+    registerTelegramCommands(token);
+    pollTelegramBotCommands.commandsRegistered = true;
+  }
+
   try {
     const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastTelegramUpdateId ? lastTelegramUpdateId + 1 : 0}&timeout=0`;
     const res = await fetch(url);
@@ -393,56 +483,92 @@ export const pollTelegramBotCommands = async ({
       if (update.update_id) {
         lastTelegramUpdateId = Math.max(lastTelegramUpdateId, update.update_id);
       }
-      const msg = update.message;
-      if (!msg || !msg.text) continue;
 
-      const targetChatId = String(msg.chat.id);
-      const senderId = String(msg.from?.id || '');
-      const rawText = msg.text.trim();
+      let msg = update.message || update.channel_post || update.edited_message;
+      let rawText = '';
+      let targetChatId = '';
+      let senderId = '';
+
+      // Handle Telegram Inline Keyboard Taps (callback_query)
+      if (update.callback_query) {
+        const cb = update.callback_query;
+        rawText = (cb.data || '').trim();
+        targetChatId = String(cb.message?.chat?.id || cb.from?.id || '');
+        senderId = String(cb.from?.id || '');
+
+        // Immediately acknowledge Telegram callback to stop loading spinner on mobile
+        try {
+          await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callback_query_id: cb.id })
+          });
+        } catch {}
+      } else if (msg) {
+        rawText = (msg.text || msg.caption || '').trim();
+        targetChatId = String(msg.chat.id);
+        senderId = String(msg.from?.id || '');
+      }
+
+      if (!rawText || !targetChatId) continue;
       const lower = rawText.toLowerCase();
 
       // Check authorization
-      // 1. Matches targetChatId
-      // 2. Matches senderId
-      // 3. Or cleanChatId contains targetChatId
       const isAuthorized = cleanChatId && (
         targetChatId === cleanChatId ||
         senderId === cleanChatId ||
         cleanChatId.includes(targetChatId)
       );
 
-      // 8. HELP / START COMMAND - Always respond, even to new users!
-      if (lower === '/start' || lower === '/help' || lower === 'help' || lower === 'সাহায্য' || lower === 'হেল্প' || lower === 'menu') {
-        const helpText = `🤖 *হিসাবকিতাব ৩৬০ - স্মার্ট টেলিগ্রাম সহকারী*
+      // 8. HELP / START COMMAND OR TOUCH BUTTON (❓ হেল্প ও সাহায্য, cmd_help)
+      const isHelpCommand = (
+        lower === 'cmd_help' ||
+        lower === '/start' ||
+        lower.startsWith('/start') ||
+        lower === '/help' ||
+        lower.startsWith('/help') ||
+        lower === 'help' ||
+        lower.includes('help') ||
+        lower === 'সাহায্য' ||
+        lower.includes('সাহায্য') ||
+        lower === 'হেল্প' ||
+        lower.includes('হেল্প') ||
+        lower.includes('কমান্ড') ||
+        lower === 'menu' ||
+        lower.startsWith('/menu')
+      );
+
+      if (isHelpCommand) {
+        const helpHtml = `🤖 <b>হিসাবকিতাব ৩৬০ - স্মার্ট টেলিগ্রাম সহকারী</b>
 ━━━━━━━━━━━━━━━━━━━━━
 দোকান চালু থাকা অবস্থায় ফোন থেকেই হিসাব নিয়ন্ত্রণ করুন:
 
-📊 *হিসাব ও রিপোর্ট দেখতে লিখুন:*
-• */today* বা *হিসাব* - আজকের মোট বিক্রি ও ইনভয়েস
-• */profit* বা *লাভ* - আজকের মোট লাভ-ক্ষতি ও নিট প্রফিট
-• */stock* বা *স্টক* - মোট পণ্যের স্টক ও লো-স্টক অ্যালার্ট
-• */stock <পণ্য>* - নির্দিষ্ট পণ্যের স্টক ও দাম (যেমন: \`/stock নাপা\`)
-• */due* বা *বাকি* - মোট বকেয়া ও বাকিদারদের তালিকা
-• */expense* বা *খরচ* - আজকের খরচের বিবরণী
+📊 <b>হিসাব ও রিপোর্ট দেখতে বাটনে চাপুন অথবা লিখুন:</b>
+• <b>/today</b> বা <b>আজকের বিক্রি</b> - আজকের মোট বিক্রি ও ইনভয়েস
+• <b>/profit</b> বা <b>লাভ-ক্ষতি</b> - আজকের মোট লাভ-ক্ষতি ও নিট প্রফিট
+• <b>/stock</b> বা <b>স্টক রিপোর্ট</b> - মোট পণ্যের স্টক ও লো-স্টক অ্যালার্ট
+• <b>/stock &lt;পণ্য&gt;</b> - নির্দিষ্ট পণ্যের স্টক ও দাম (যেমন: <code>/stock নাপা</code>)
+• <b>/due</b> বা <b>বাকি খাতা</b> - মোট বকেয়া ও বাকিদারদের তালিকা
+• <b>/expense</b> বা <b>খরচ</b> - আজকের খরচের বিবরণী
 
-➕ *টেলিগ্রাম থেকেই খরচ যোগ করতে লিখুন:*
-• \`খরচ ৫০০ নাস্তা\` ➔ দোকানের খরচে যোগ হবে
-• \`ব্যক্তিগত খরচ ২০০ রিকশা\` ➔ পার্সোনাল খরচে যোগ হবে
+➕ <b>টেলিগ্রাম থেকেই খরচ যোগ করতে লিখুন:</b>
+• <code>খরচ ৫০০ নাস্তা</code> ➔ দোকানের খরচে যোগ হবে
+• <code>ব্যক্তিগত খরচ ২০০ রিকশা</code> ➔ পার্সোনাল খরচে যোগ হবে
 
-📥 *ডাটা ব্যাকআপ নিতে:*
-• */backup* ➔ সম্পূর্ণ ডাটাবেজ ব্যাকআপ ফাইল ডাউনলোড
+📥 <b>ডাটা ব্যাকআপ নিতে:</b>
+• <b>/backup</b> বা <b>ব্যাকআপ</b> ➔ সম্পূর্ণ ডাটাবেজ ব্যাকআপ ফাইল ডাউনলোড
 ━━━━━━━━━━━━━━━━━━━━━
-🆔 *আপনার এই চ্যাটের আইডি (Chat ID):* \`${targetChatId}\`
-${isAuthorized ? '✅ _এই চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!_' : '⚠️ _হিসাবকিতাব ৩৬০-এর "ক্লাউড ব্যাকআপ" সেটিংসে এই চ্যাট আইডিটি সংরক্ষণ করুন।_'}`;
+🆔 <b>আপনার এই চ্যাটের আইডি (Chat ID):</b> <code>${targetChatId}</code>
+${isAuthorized ? '✅ <i>এই চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!</i>' : '⚠️ <i>হিসাবকিতাব ৩৬০-এর ক্লাউড ব্যাকআপ সেটিংসে এই চ্যাট আইডি সংরক্ষণ করুন।</i>'}`;
 
-        await sendTelegramMessage(helpText, { botToken: token, chatId: targetChatId });
+        await sendTelegramMessage(helpHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_INLINE_KEYBOARD, 'HTML');
         continue;
       }
 
       // If unauthorized for shop data operations, guide user to set chat ID
       if (!isAuthorized) {
-        const unauthMsg = `🔒 *অননুমোদিত চ্যাট আইডি (Unauthorized)*\n━━━━━━━━━━━━━━━━━━━━━\nআপনার চ্যাট আইডি: \`${targetChatId}\`\nহিসাবের নিরাপত্তা রক্ষায় শুধুমাত্র অনুমোদিত চ্যাট থেকে কমান্ড গ্রহণ করা হয়।\n\n💡 এই আইডিটি আপনার হিসাবকিতাব ৩৬০ এর 'ক্লাউড ব্যাকআপ' সেটিংসে Chat ID হিসেবে সংরক্ষণ করুন। সাহায্য পেতে লিখুন: */help*`;
-        await sendTelegramMessage(unauthMsg, { botToken: token, chatId: targetChatId });
+        const unauthHtml = `🔒 <b>অননুমোদিত চ্যাট আইডি (Unauthorized)</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার চ্যাট আইডি: <code>${targetChatId}</code>\nহিসাবের নিরাপত্তা রক্ষায় শুধুমাত্র অনুমোদিত চ্যাট থেকে কমান্ড গ্রহণ করা হয়।\n\n💡 এই আইডিটি আপনার হিসাবকিতাব ৩৬০ এর 'ক্লাউড ব্যাকআপ' সেটিংসে Chat ID হিসেবে সংরক্ষণ করুন। সাহায্য পেতে লিখুন: <b>/help</b>`;
+        await sendTelegramMessage(unauthHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_INLINE_KEYBOARD, 'HTML');
         continue;
       }
 
@@ -454,32 +580,34 @@ ${isAuthorized ? '✅ _এই চ্যাটটি হিসাবকিতা�
       }
 
       // 2. BACKUP COMMAND
-      if (lower === '/backup' || lower === 'backup' || lower === 'ব্যাকআপ') {
+      if (lower === 'cmd_backup' || lower.startsWith('/backup') || lower.includes('backup') || lower.includes('ব্যাকআপ')) {
         if (onBackupRequested) await onBackupRequested(targetChatId);
       }
       // 3. SALES / TODAY SUMMARY
-      else if (lower === '/today' || lower === '/sales' || lower === '/summary' || lower === 'হিসাব' || lower === 'বিক্রি') {
+      else if (lower === 'cmd_today' || lower.startsWith('/today') || lower.startsWith('/sales') || lower.startsWith('/summary') || lower.includes('হিসাব') || lower.includes('বিক্রি')) {
         if (onSummaryRequested) await onSummaryRequested(targetChatId);
       }
       // 4. STOCK & INVENTORY COMMAND
-      else if (lower.startsWith('/stock') || lower.startsWith('/search') || lower.startsWith('স্টক')) {
+      else if (lower === 'cmd_stock' || lower.startsWith('/stock') || lower.startsWith('/search') || lower.includes('স্টক')) {
         let query = '';
         if (lower.startsWith('/stock')) query = rawText.replace(/^\/stock\s*/i, '').trim();
         else if (lower.startsWith('/search')) query = rawText.replace(/^\/search\s*/i, '').trim();
         else if (lower.startsWith('স্টক')) query = rawText.replace(/^স্টক\s*/i, '').trim();
+        else if (lower.includes('স্টক')) query = rawText.replace(/স্টক|রিপোর্ট/gi, '').trim();
+        if (query === 'cmd_stock') query = '';
         
         if (onStockRequested) await onStockRequested(query, targetChatId);
       }
       // 5. PROFIT & LOSS COMMAND
-      else if (lower === '/profit' || lower === '/লাভ' || lower === 'লাভ' || lower === 'লাভ লস' || lower === 'লাভ-ক্ষতি') {
+      else if (lower === 'cmd_profit' || lower.startsWith('/profit') || lower.includes('লাভ') || lower.includes('profit')) {
         if (onProfitRequested) await onProfitRequested(targetChatId);
       }
       // 6. DUE / BAKI COMMAND
-      else if (lower === '/due' || lower === '/বাকি' || lower === 'বাকি' || lower === 'বকেয়া' || lower === 'বকেয়া') {
+      else if (lower === 'cmd_due' || lower.startsWith('/due') || lower.includes('বাকি') || lower.includes('due') || lower.includes('বকেয়া') || lower.includes('বকেয়া')) {
         if (onDueRequested) await onDueRequested(targetChatId);
       }
       // 7. EXPENSE LIST COMMAND
-      else if (lower === '/expense' || lower === '/expenses' || lower === '/খরচ' || lower === 'খরচ') {
+      else if (lower === 'cmd_expense' || lower.startsWith('/expense') || lower.includes('খরচ') || lower.includes('expense')) {
         if (onExpenseListRequested) await onExpenseListRequested(targetChatId);
       }
     }
