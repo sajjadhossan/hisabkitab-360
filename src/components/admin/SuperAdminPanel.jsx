@@ -51,7 +51,8 @@ import {
   LayoutDashboard,
   FolderOpen,
   Zap,
-  Database
+  Database,
+  Brain
 } from 'lucide-react';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
@@ -62,6 +63,7 @@ import Phase1AutomationHub from '../business/Phase1AutomationHub';
 import Phase2DatabaseHub from '../business/Phase2DatabaseHub';
 import Phase3UltraUxHub from '../business/Phase3UltraUxHub';
 import Phase4SecurityHub from '../business/Phase4SecurityHub';
+import Phase5AiIntelligenceHub from '../business/Phase5AiIntelligenceHub';
 
 export const SuperAdminPanel = () => {
   const {
@@ -84,6 +86,7 @@ export const SuperAdminPanel = () => {
     products,
     salesHistory,
     customers,
+    suppliers = [],
     invoices,
     activeIndustryId,
     switchIndustryTemplate,
@@ -1175,6 +1178,7 @@ export const SuperAdminPanel = () => {
             { id: 'phase2_hub', label: lang === 'bn' ? '⚡ ফেজ ২ ডেটাবেস হাব' : '⚡ Phase 2 Database Hub', icon: Database },
             { id: 'phase3_hub', label: lang === 'bn' ? '⚡ ফেজ ৩ আল্ট্রা ইউএক্স হাব' : '⚡ Phase 3 Ultra UX Hub', icon: Sparkles },
             { id: 'phase4_hub', label: lang === 'bn' ? '🛡️ ফেজ ৪ সিকিউরিটি হাব' : '🛡️ Phase 4 Security Hub', icon: ShieldCheck },
+            { id: 'phase5_hub', label: lang === 'bn' ? '🤖 ফেজ ৫ এআই ও বিআই হাব' : '🤖 Phase 5 AI & BI Hub', icon: Brain },
             { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
             { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
@@ -3428,6 +3432,21 @@ export const SuperAdminPanel = () => {
           <Phase4SecurityHub
             products={products}
             salesHistory={salesHistory}
+            businessSettings={businessSettings}
+          />
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: PHASE 5 AI POWER & BUSINESS INTELLIGENCE HUB     */}
+      {/* ======================================================== */}
+      {activeSubTab === 'phase5_hub' && (
+        <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Phase5AiIntelligenceHub
+            products={products}
+            salesHistory={salesHistory}
+            customers={customers}
+            suppliers={suppliers}
             businessSettings={businessSettings}
           />
         </div>
