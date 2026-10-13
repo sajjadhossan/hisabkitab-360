@@ -60,6 +60,7 @@ import { LocalDatabaseManager } from './LocalDatabaseManager';
 import AuditLedgerViewer from './AuditLedgerViewer';
 import Phase1AutomationHub from '../business/Phase1AutomationHub';
 import Phase2DatabaseHub from '../business/Phase2DatabaseHub';
+import Phase3UltraUxHub from '../business/Phase3UltraUxHub';
 
 export const SuperAdminPanel = () => {
   const {
@@ -1171,6 +1172,7 @@ export const SuperAdminPanel = () => {
             { id: 'cloud_backup', label: lang === 'bn' ? '☁️ ক্লাউড ও ড্রাইভ ব্যাকআপ' : '☁️ Cloud & Drive Backup', icon: Cloud },
             { id: 'phase1_hub', label: lang === 'bn' ? '🚀 ফেজ ১ অটোমেশন হাব' : '🚀 Phase 1 Automation Hub', icon: Zap },
             { id: 'phase2_hub', label: lang === 'bn' ? '⚡ ফেজ ২ ডেটাবেস হাব' : '⚡ Phase 2 Database Hub', icon: Database },
+            { id: 'phase3_hub', label: lang === 'bn' ? '⚡ ফেজ ৩ আল্ট্রা ইউএক্স হাব' : '⚡ Phase 3 Ultra UX Hub', icon: Sparkles },
             { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
             { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
@@ -3396,6 +3398,19 @@ export const SuperAdminPanel = () => {
       {activeSubTab === 'phase2_hub' && (
         <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <Phase2DatabaseHub
+            products={products}
+            salesHistory={salesHistory}
+            businessSettings={businessSettings}
+          />
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: PHASE 3 FRONTEND ULTRA-PERFORMANCE & UX HUB     */}
+      {/* ======================================================== */}
+      {activeSubTab === 'phase3_hub' && (
+        <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Phase3UltraUxHub
             products={products}
             salesHistory={salesHistory}
             businessSettings={businessSettings}
