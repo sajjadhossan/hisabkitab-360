@@ -165,3 +165,17 @@ export const triggerSoundboxPayment = ({
   // 3. Speak the voice announcement
   speakSoundboxText(speech, 600);
 };
+
+export const announceSalePayment = (amount, method = 'bkash') => {
+  triggerSoundboxPayment({ amount, method });
+};
+
+export const soundboxService = {
+  announceSalePayment,
+  triggerSoundboxPayment,
+  playSoundboxChime,
+  isSoundboxEnabled,
+  setSoundboxEnabled
+};
+
+

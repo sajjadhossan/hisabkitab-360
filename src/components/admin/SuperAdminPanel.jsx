@@ -57,6 +57,7 @@ import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
 import { SupabaseDatabaseManager } from './SupabaseDatabaseManager';
 import { LocalDatabaseManager } from './LocalDatabaseManager';
 import AuditLedgerViewer from './AuditLedgerViewer';
+import Phase1AutomationHub from '../business/Phase1AutomationHub';
 
 export const SuperAdminPanel = () => {
   const {
@@ -1166,6 +1167,7 @@ export const SuperAdminPanel = () => {
             { id: 'license', label: lang === 'bn' ? '📜 লাইসেন্স ও মেয়াদ লক' : '📜 License & Subscription', icon: Award },
             { id: 'branding', label: lang === 'bn' ? '🏢 ভেন্ডর ব্র্যান্ডিং' : '🏢 Vendor White-Label', icon: Building2 },
             { id: 'cloud_backup', label: lang === 'bn' ? '☁️ ক্লাউড ও ড্রাইভ ব্যাকআপ' : '☁️ Cloud & Drive Backup', icon: Cloud },
+            { id: 'phase1_hub', label: lang === 'bn' ? '🚀 ফেজ ১ অটোমেশন হাব' : '🚀 Phase 1 Automation Hub', icon: Zap },
             { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
             { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
@@ -3369,6 +3371,19 @@ export const SuperAdminPanel = () => {
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: PHASE 1 REAL-TIME AUTOMATION & MFS HUB           */}
+      {/* ======================================================== */}
+      {activeSubTab === 'phase1_hub' && (
+        <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Phase1AutomationHub
+            products={products}
+            salesHistory={salesHistory}
+            businessSettings={businessSettings}
+          />
         </div>
       )}
 
