@@ -1840,52 +1840,60 @@ export const POSTerminal = () => {
             )}
           </div>
 
-          {/* Fast Ter 1..7 Selector Chips */}
+          {/* Dynamic Branch Counters Selector & Owner Management */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Monitor size={15} />
               <span>{lang === 'bn' ? 'টার্মিনাল:' : 'Ter:'}</span>
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              {[1, 2, 3, 4, 5, 6, 7].map((num) => {
-                const isSelected = currentTerminalIndex === num;
-                return (
-                  <button
-                    key={`desktop-ter-${num}`}
-                    type="button"
-                    onClick={() => handleSelectTerminal(num)}
-                    style={{
-                      minWidth: '26px',
-                      height: '25px',
-                      padding: '0 6px',
-                      borderRadius: '6px',
-                      border: isSelected ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-                      background: isSelected ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-primary)',
-                      color: isSelected ? '#ffffff' : 'var(--text-muted)',
-                      fontWeight: isSelected ? '900' : '700',
-                      fontSize: '0.74rem',
-                      fontFamily: 'var(--font-mono)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: isSelected ? '0 0 8px rgba(16, 185, 129, 0.45)' : 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title={lang === 'bn' ? `টার্মিনাল ${num}-এ সুইচ করুন` : `Switch to Terminal ${num}`}
-                  >
-                    {num}
-                  </button>
-                );
-              })}
-            </div>
+            <select
+              className="input-field"
+              value={activeCounter?.id || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '__add_new__') {
+                  const num = (activeBranch?.counters?.length || 0) + 1;
+                  const newC = addCounter(activeBranch.id, {
+                    name: `কাউন্টার ০${num}`,
+                    code: `POS-0${num}`,
+                    openingFloat: 1000
+                  });
+                  if (newC?.id && typeof switchCounter === 'function') {
+                    switchCounter(newC.id);
+                  }
+                } else if (typeof switchCounter === 'function') {
+                  switchCounter(val);
+                }
+              }}
+              style={{
+                padding: '4px 8px',
+                fontSize: '0.78rem',
+                fontWeight: '800',
+                borderRadius: '8px',
+                background: 'var(--bg-primary)',
+                color: '#10b981',
+                border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                cursor: 'pointer'
+              }}
+            >
+              {(activeBranch?.counters || []).map((cnt) => (
+                <option key={cnt.id} value={cnt.id}>
+                  🖥️ {cnt.name || cnt.code} {cnt.assignedCashierName ? `(${cnt.assignedCashierName})` : ''}
+                </option>
+              ))}
+              {isOwner && (
+                <option value="__add_new__">
+                  ➕ {lang === 'bn' ? 'নতুন কাউন্টার তৈরি করুন' : 'Add New Counter'}
+                </option>
+              )}
+            </select>
           </div>
 
           {/* Cashier / Staff Badge & Live Clock */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             <User size={15} />
             <span>
-              {lang === 'bn' ? 'অপারেটর:' : 'Operator:'} <strong style={{ color: 'var(--text-main)' }}>{user?.name || (lang === 'bn' ? 'কাউন্টার ক্যাশিয়ার' : 'Cashier')}</strong>
+              {lang === 'bn' ? 'অপারেটর:' : 'Operator:'} <strong style={{ color: 'var(--text-main)' }}>{activeCounter?.assignedCashierName || user?.name || (lang === 'bn' ? 'কাউন্টার ক্যাশিয়ার' : 'Cashier')}</strong>
             </span>
             <span
               className="badge"
