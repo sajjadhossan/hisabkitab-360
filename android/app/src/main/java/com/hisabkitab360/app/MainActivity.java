@@ -1,5 +1,8 @@
 package com.hisabkitab360.app;
 
+/**
+ * HisabKitab 360 - Android Native Bridge & Host Controller
+ */
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;

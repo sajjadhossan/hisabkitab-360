@@ -1744,7 +1744,7 @@ export const POSTerminal = () => {
             borderLeft: '4px solid var(--business-primary)'
           }}
         >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Back to Dashboard Button */}
           <button
             type="button"
@@ -1756,65 +1756,17 @@ export const POSTerminal = () => {
               gap: '6px',
               padding: '6px 12px',
               fontSize: '0.82rem',
-              fontWeight: '800',
+              fontWeight: '700',
               borderRadius: '8px',
               background: 'var(--bg-primary)',
-              border: '1.5px solid var(--border-color)',
+              border: '1px solid var(--border-color)',
               color: 'var(--text-main)',
               cursor: 'pointer'
             }}
             title={lang === 'bn' ? 'ড্যাশবোর্ডে ফিরে যান' : 'Back to Dashboard'}
           >
             <ArrowLeft size={16} />
-            <span>{lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'}</span>
-          </button>
-
-          {/* Quick Jump to Inventory Button */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('inventory')}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.82rem',
-              fontWeight: '800',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1.5px solid rgba(16, 185, 129, 0.4)',
-              color: '#10b981',
-              cursor: 'pointer'
-            }}
-            title={lang === 'bn' ? 'ইনভেন্টরি স্টকে যান' : 'Go to Inventory'}
-          >
-            <Package size={16} />
-            <span>{lang === 'bn' ? '📦 ইনভেন্টরি' : '📦 Inventory'}</span>
-          </button>
-
-          {/* Quick Jump to Debts Button */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('debts')}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.82rem',
-              fontWeight: '800',
-              borderRadius: '8px',
-              background: 'rgba(245, 158, 11, 0.12)',
-              border: '1.5px solid rgba(245, 158, 11, 0.4)',
-              color: '#f59e0b',
-              cursor: 'pointer'
-            }}
-            title={lang === 'bn' ? 'দেনা-পাওনা খতিয়ানে যান' : 'Go to Debt Ledger'}
-          >
-            <Coins size={16} />
-            <span>{lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debts'}</span>
+            <span>{lang === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard'}</span>
           </button>
 
           {/* Branch Selector or Badge */}

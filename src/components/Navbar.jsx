@@ -410,7 +410,6 @@ export const Navbar = () => {
     if (profile === 'business') {
       const candidates = [
         { id: 'dashboard', label: t.businessNav?.dashboard || (lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'), icon: LayoutDashboard },
-        { id: 'reports', label: lang === 'bn' ? '📊 রিপোর্ট হাব' : '📊 Reports', icon: BarChart3 },
         { id: 'pos', label: t.businessNav?.pos || (lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'), icon: ScanLine },
         { id: 'inventory', label: t.businessNav?.inventory || (lang === 'bn' ? '📦 ইনভেন্টরি স্টক' : '📦 Inventory'), icon: Boxes },
         { id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger'), icon: HandCoins },

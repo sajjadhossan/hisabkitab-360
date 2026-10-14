@@ -91,6 +91,7 @@ export const BusinessDashboard = () => {
   const [showEODModal, setShowEODModal] = useState(false);
   const [showHealthScoreModal, setShowHealthScoreModal] = useState(false);
   const [showOCRModal, setShowOCRModal] = useState(false);
+  const [showSmartToolsMenu, setShowSmartToolsMenu] = useState(false);
 
   // Filtered sales based on selected branch (Memoized)
   const filteredSales = useMemo(() => {
@@ -603,177 +604,239 @@ export const BusinessDashboard = () => {
           </p>
         </div>
 
-        {/* Quick Launch Buttons */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Executive Action Controls: Smart Tools Dropdown & High-Visibility POS Action */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
+          {/* Smart Tools & AI Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowSmartToolsMenu(prev => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '8px 14px',
+                borderRadius: '11px',
+                fontWeight: '700',
+                fontSize: '0.86rem',
+                background: showSmartToolsMenu ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-secondary)',
+                borderColor: showSmartToolsMenu ? 'var(--business-primary)' : 'var(--border-color)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'রিপোর্ট, দিনশেষ ও এআই টুলস' : 'Reports, EOD & AI Tools'}
+            >
+              <Sparkles size={16} style={{ color: '#6366f1' }} />
+              <span>{lang === 'bn' ? '⚡ স্মার্ট টুলস ও AI' : '⚡ Tools & AI'}</span>
+              <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: showSmartToolsMenu ? 'rotate(180deg)' : 'none' }} />
+            </button>
+
+            {/* Floating Dropdown Menu */}
+            {showSmartToolsMenu && (
+              <>
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 998 }}
+                  onClick={() => setShowSmartToolsMenu(false)}
+                />
+                <div
+                  className="glass-card animate-scale-up"
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    minWidth: '240px',
+                    zIndex: 999,
+                    padding: '6px',
+                    borderRadius: '14px',
+                    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.35)',
+                    background: 'var(--bg-card)',
+                    border: '1.5px solid var(--border-color)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => { setShowSmartToolsMenu(false); setActiveTab('reports'); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <BarChart3 size={16} style={{ color: '#6366f1' }} />
+                    <div>
+                      <div>{lang === 'bn' ? 'পূর্ণাঙ্গ রিপোর্ট হাব' : 'Full Reports Hub'}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                        {lang === 'bn' ? 'ডেইলি, মান্থলি ও বাৎসরিক হিসাব' : 'Daily, monthly & annual reports'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowSmartToolsMenu(false); setShowNLSearchModal(true); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <Sparkles size={16} style={{ color: '#818cf8' }} />
+                    <div>
+                      <div>{lang === 'bn' ? 'AI রিপোর্ট অনুসন্ধান' : 'AI Report Search'}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                        {lang === 'bn' ? 'সহজ ভাষায় প্রশ্ন করে রিপোর্ট' : 'Ask questions in Bengali'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowSmartToolsMenu(false); setShowEODModal(true); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <Calendar size={16} style={{ color: '#10b981' }} />
+                    <div>
+                      <div>{lang === 'bn' ? 'দিনশেষের সারসংক্ষেপ (EOD)' : 'End-of-Day (EOD)'}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                        {lang === 'bn' ? 'দিনের ক্যাশ ও সেলস ক্লোজিং' : 'Daily sales & cash closing'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowSmartToolsMenu(false); setShowHealthScoreModal(true); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <BrainCircuit size={16} style={{ color: '#f59e0b' }} />
+                    <div>
+                      <div>{lang === 'bn' ? 'বিজনেস হেলথ স্কোর' : 'Business Health Score'}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                        {lang === 'bn' ? 'লাভ ও তারল্য স্বাস্থ্য অ্যানালাইসিস' : 'Profitability & health audit'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowSmartToolsMenu(false); setShowOCRModal(true); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <FileText size={16} style={{ color: '#60a5fa' }} />
+                    <div>
+                      <div>{lang === 'bn' ? 'রসিদ OCR স্ক্যান' : 'Receipt OCR Scan'}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                        {lang === 'bn' ? 'কাগজের ভাউচার ক্যামেরা স্ক্যান' : 'Camera receipt scanner'}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Primary High-Contrast POS Button */}
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => setActiveTab('reports')}
-            style={{
-              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-              color: '#ffffff',
-              fontWeight: '800',
-              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
-              border: 'none'
+            onClick={() => {
+              hapticFeedback.medium();
+              setActiveTab('pos');
             }}
-            title={lang === 'bn' ? 'ডেইলি, উইকলি, মান্থলি ও ইয়ারলি পূর্ণাঙ্গ রিপোর্ট' : 'Periodic Business Reports'}
-          >
-            <BarChart3 size={16} />
-            <span>{lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট হাব' : '📊 Reports Hub'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowNLSearchModal(true)}
-            style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#818cf8', fontWeight: '700' }}
-            title={lang === 'bn' ? 'সহজ ভাষায় রিপোর্ট অনুসন্ধান' : 'Natural Language Report Search'}
-          >
-            <Sparkles size={16} />
-            <span>{lang === 'bn' ? '🔍 AI রিপোর্ট' : '🔍 AI Report'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowEODModal(true)}
-            style={{ borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981', fontWeight: '700' }}
-            title={lang === 'bn' ? 'দিনশেষের সারসংক্ষেপ (EOD Summary)' : 'End-of-Day Summary'}
-          >
-            <Calendar size={16} />
-            <span>{lang === 'bn' ? '🌙 দিনশেষ (EOD)' : '🌙 EOD'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowHealthScoreModal(true)}
-            style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: '700' }}
-            title={lang === 'bn' ? 'ব্যবসার সামগ্রিক স্বাস্থ্য স্কোর' : 'Business Health Score'}
-          >
-            <BrainCircuit size={16} />
-            <span>{lang === 'bn' ? '🏥 হেলথ স্কোর' : '🏥 Health Score'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowOCRModal(true)}
-            style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa', fontWeight: '700' }}
-            title={lang === 'bn' ? 'কাগজের রসিদ স্ক্যান (OCR)' : 'Receipt OCR Scan'}
-          >
-            <FileText size={16} />
-            <span>{lang === 'bn' ? '📷 রসিদ OCR' : '📷 Receipt OCR'}</span>
-          </button>
-
-          <button className="btn btn-primary" onClick={() => setActiveTab('pos')}>
-            <ScanLine size={16} />
-            <span>{lang === 'bn' ? 'POS ক্যাশিয়ার' : 'Open POS'}</span>
-          </button>
-
-          <button className="btn btn-secondary" onClick={() => setActiveTab('inventory')}>
-            <Boxes size={16} />
-            <span>{t.businessNav.inventory}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 🚀 MODERN MEGA POS LAUNCHPAD HERO CARD */}
-      <div
-        className="glass-card card-interactive press-scale"
-        onClick={() => {
-          hapticFeedback.medium();
-          setActiveTab('pos');
-        }}
-        style={{
-          padding: '1.25rem 1.5rem',
-          borderRadius: '20px',
-          marginBottom: '1.25rem',
-          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(99, 102, 241, 0.14) 100%)',
-          border: '1.5px solid rgba(16, 185, 129, 0.45)',
-          boxShadow: '0 8px 28px rgba(16, 185, 129, 0.18)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-          transition: 'all 0.22s ease'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '260px' }}>
-          <div
             style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.4)',
-              flexShrink: 0
-            }}
-          >
-            <ScanLine size={28} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-              <h2 style={{ fontSize: '1.22rem', fontWeight: '900', margin: 0, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
-                {lang === 'bn' ? '⚡ পিওএস সেলস কাউন্টার ও ক্যাশিয়ার' : '⚡ POS Sales Counter & Cashier'}
-              </h2>
-              <span
-                style={{
-                  background: '#10b981',
-                  color: '#ffffff',
-                  fontSize: '0.65rem',
-                  fontWeight: '900',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  letterSpacing: '0.5px'
-                }}
-              >
-                LIVE
-              </span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-              {lang === 'bn'
-                ? 'বারকোড স্ক্যান, দ্রুত খুচরা মেমো তৈরি ও থার্মাল রসিদ প্রিন্ট করুন (শর্টকাট: F1)'
-                : 'Instant barcode billing, fast invoicing & thermal receipt print (Shortcut: F1)'}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>
-              {lang === 'bn' ? 'আজকের বিক্রয় মেমো' : 'Today Orders'}
-            </span>
-            <span style={{ fontSize: '1.05rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-              {todaySalesList.length} {lang === 'bn' ? 'টি' : ''} • ৳{todaySalesTotal.toLocaleString()}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{
-              padding: '10px 22px',
-              borderRadius: '12px',
-              fontSize: '0.92rem',
-              fontWeight: '800',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              background: '#10b981',
-              borderColor: '#10b981',
+              padding: '9px 18px',
+              borderRadius: '11px',
+              fontWeight: '800',
+              fontSize: '0.88rem',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              border: 'none',
+              color: '#ffffff',
               boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
               cursor: 'pointer'
             }}
+            title={lang === 'bn' ? 'পিওএস সেলস কাউন্টার খুলুন (F1)' : 'Open POS Terminal (F1)'}
           >
-            <span>{lang === 'bn' ? 'কাউন্টার খুলুন' : 'Open Counter'}</span>
-            <ArrowRight size={17} />
+            <ScanLine size={17} />
+            <span>{lang === 'bn' ? '⚡ নতুন বিক্রয় (POS)' : '⚡ New Sale (POS)'}</span>
           </button>
         </div>
       </div>
