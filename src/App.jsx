@@ -141,9 +141,7 @@ const AppContent = () => {
   const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
   const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
-  const [allowOfflineAccess, setAllowOfflineAccess] = useState(() => {
-    return localStorage.getItem('hk360_offline_mode') === 'true';
-  });
+
 
   React.useEffect(() => {
     telemetryService.init();
@@ -443,94 +441,98 @@ const AppContent = () => {
   }
 
   const renderContent = () => {
-    // If not authenticated and offline access not explicitly enabled, prompt user
-    if (!user && !allowOfflineAccess) {
+    // Strictly require authenticated session! (No bypass or backdoor allowed)
+    if (!user) {
       return (
         <div style={{
-          minHeight: '65vh',
+          minHeight: '75vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '2rem',
+          padding: '2rem 1.5rem',
           textAlign: 'center'
         }}>
           <div style={{
-            width: '80px',
-            height: '80px',
+            width: '84px',
+            height: '84px',
             borderRadius: '24px',
-            background: 'rgba(16, 185, 129, 0.1)',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15))',
             border: '2px solid #10b981',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '2.5rem',
+            fontSize: '2.6rem',
             marginBottom: '1.25rem',
-            boxShadow: '0 0 30px rgba(16, 185, 129, 0.25)'
+            boxShadow: '0 0 35px rgba(16, 185, 129, 0.25)'
           }}>
-            💼
+            🔐
           </div>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '4px 12px',
-            borderRadius: '16px',
+            gap: '8px',
+            padding: '6px 14px',
+            borderRadius: '20px',
             background: 'rgba(56, 189, 248, 0.12)',
             color: '#38bdf8',
             fontWeight: '700',
-            fontSize: '0.8rem',
-            marginBottom: '10px'
+            fontSize: '0.82rem',
+            marginBottom: '12px'
           }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', display: 'inline-block' }} />
-            <span>হিসাবকিতাব ৩৬০ - স্মার্ট ব্যবসা ও ব্যক্তিগত হিসাব</span>
+            <span>হিসাবকিতাব ৩৬০ - সিকিউর প্রফেশনাল প্ল্যাটফর্ম</span>
           </div>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: '800', margin: '0 0 8px', color: 'var(--text-main)' }}>
-            সিস্টেমে স্বাগতম
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+            নিরাপদ সাইন ইন প্রয়োজন
           </h2>
-          <p style={{ maxWidth: '520px', fontSize: '0.92rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
-            ক্লাউড ব্যাকআপ ও একাধিক ডিভাইসে সিঙ্ক করার জন্য সাইন ইন করুন, অথবা ইন্টারনেট ছাড়া লোকাল ডিভাইসে অফলাইন মোডে হিসাব চালু রাখুন।
+          <p style={{ maxWidth: '520px', fontSize: '0.94rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 1.75rem' }}>
+            অ্যাপ্লিকেশনের ডেটা ও হিসাব সুরক্ষার জন্য সাইন ইন অথবা নতুন অ্যাকাউন্ট রেজিস্ট্রেশন বাধ্যতামূলক। এই ডিভাইসে পূর্বে অনুমোদিত অ্যাকাউন্ট থাকলে ইন্টারনেট ছাড়াও তাৎক্ষণিক লগইন করা যাবে।
           </p>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <button
               onClick={() => openAuthModal('login')}
               className="btn btn-primary"
               style={{
-                padding: '12px 26px',
-                fontSize: '0.95rem',
+                padding: '13px 28px',
+                fontSize: '0.98rem',
                 fontWeight: '800',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #10b981, #059669)',
                 boxShadow: '0 4px 18px rgba(16, 185, 129, 0.4)',
                 border: 'none',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
-              🔐 সাইন ইন করুন (Sign In)
+              <span>🔐 সাইন ইন করুন (Sign In)</span>
             </button>
             <button
-              onClick={() => {
-                setAllowOfflineAccess(true);
-                localStorage.setItem('hk360_offline_mode', 'true');
-              }}
+              onClick={() => openAuthModal('signup')}
               className="btn btn-secondary"
               style={{
-                padding: '12px 24px',
-                fontSize: '0.95rem',
+                padding: '13px 26px',
+                fontSize: '0.98rem',
                 fontWeight: '700',
                 borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.08)',
+                background: 'var(--card-bg)',
                 color: 'var(--text-main)',
                 border: '1px solid var(--border-color)',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
-              ⚡ অফলাইন / লোকাল মোডে প্রবেশ করুন
+              <span>📝 নতুন অ্যাকাউন্ট তৈরি (Sign Up)</span>
             </button>
           </div>
         </div>
       );
     }
+
     // Check if software is expired or suspended and current user is not super admin
     const isLockedOut = (licenseInfo?.status === 'expired' || licenseInfo?.status === 'suspended') && !isSuperAdmin && activeTab !== 'super_admin';
     if (isLockedOut) {

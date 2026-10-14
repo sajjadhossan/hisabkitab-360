@@ -7,44 +7,49 @@ const STORAGE_KEYS = {
   ACTIVE_USER: 'hk360_auth_user',
   REMEMBER_ME: 'hk360_remember_me',
   SAVED_EMAIL: 'hk360_saved_email',
-  STAFF_ACCOUNTS: 'hk360_staff_accounts'
+  STAFF_ACCOUNTS: 'hk360_staff_accounts',
+  OFFLINE_VAULT: 'hk360_offline_auth_vault'
 };
 
-export const DEFAULT_STAFF_ACCOUNTS = [
-  {
-    id: 'stf-1',
-    name: 'মো: আরিফুল ইসলাম (ক্যাশিয়ার)',
-    phone: '01711111111',
-    email: 'cashier@hisabkitab360.com',
-    role: 'cashier',
-    branchId: 'br-main',
-    counterId: 'cnt-1',
-    pin: '1234',
-    password: '123'
-  },
-  {
-    id: 'stf-2',
-    name: 'সাকিব হাসান (সেলসম্যান)',
-    phone: '01722222222',
-    email: 'salesman@hisabkitab360.com',
-    role: 'salesman',
-    branchId: 'br-main',
-    counterId: 'cnt-1',
-    pin: '1234',
-    password: '123'
-  },
-  {
-    id: 'stf-3',
-    name: 'তানভীর আহমেদ (এসআর অফিসার)',
-    phone: '01733333333',
-    email: 'sr@hisabkitab360.com',
-    role: 'sr',
-    branchId: 'br-main',
-    counterId: 'cnt-1',
-    pin: '1234',
-    password: '123'
+export const DEFAULT_STAFF_ACCOUNTS = [];
+
+// Cryptographic Password Hashing for Secure Offline Vault
+export const hashCredentialAsync = async (text) => {
+  try {
+    if (!text) return '';
+    const encoder = new TextEncoder();
+    const data = encoder.encode(String(text).trim());
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    let hash = 0;
+    const str = String(text);
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return `fb_${Math.abs(hash)}`;
   }
-];
+};
+
+export const getOfflineVault = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.OFFLINE_VAULT);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveOfflineVault = (vaultMap) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.OFFLINE_VAULT, JSON.stringify(vaultMap));
+  } catch (e) {
+    console.warn('Failed to save offline vault:', e);
+  }
+};
+
 
 // Helpers for normalizing digits & phone/counter inputs
 export const normalizeLoginText = (val = '') => {
@@ -349,123 +354,133 @@ export const AuthProvider = ({ children }) => {
     const isEmailFormat = cleanRaw.includes('@') && cleanRaw.includes('.');
     if (!isEmailFormat) {
       setAuthLoading(false);
-      const errorMsg = 'ভুল মোবাইল নম্বর, কাউন্টার কোড বা পিন! ক্যাশিয়ারের মোবাইল নম্বর (যেমন: 01711111111) অথবা কাউন্টার কোড (যেমন: POS-01) ও ৪-সংখ্যার পিন (1234) দিন। নতুন স্টাফ হলে মালিকের অ্যাকাউন্ট থেকে আগে তৈরি করুন।';
+      const errorMsg = 'সঠিক ইমেইল ঠিকানা দিন (যেমন: user@example.com)। ক্যাশিয়ার হলে মালিকের অনুমোদিত মোবাইল ও পিন প্রদান করুন।';
       setAuthError(errorMsg);
       return { success: false, message: errorMsg };
     }
 
-    // 0. Direct Master Super Admin Authorization for hossansajjad1994@gmail.com
-    if (cleanRaw.toLowerCase() === 'hossansajjad1994@gmail.com') {
-      const isMasterPass = cleanPass === getMasterPin() || cleanPass === '889900' || cleanPass === '123456' || cleanPass === '1234';
-      if (isMasterPass || !isSupabaseReady()) {
-        const superAdminUser = {
-          id: 'super-admin-sajjad',
-          email: 'hossansajjad1994@gmail.com',
-          name: 'সাজ্জাদ হোসাইন (Master Super Admin)',
-          role: 'superadmin',
-          shopName: 'হিসাব কিতাব ৩৬০ হেডকোয়ার্টার',
-          phone: '01700000000',
-          pin: getMasterPin(),
-          isSuperAdmin: true,
-          isMasterAccount: true
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    const targetEmail = cleanRaw.toLowerCase();
+
+    // 1. ONLINE AUTHENTICATION VIA SUPABASE
+    if (isOnline && isSupabaseReady()) {
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: targetEmail,
+            password
+          });
+
+          if (!error && data?.user) {
+            // Supabase permission granted!
+            const meta = data.user.user_metadata || {};
+            const passwordHash = await hashCredentialAsync(password);
+
+            const loggedInUser = {
+              id: data.user.id,
+              email: data.user.email,
+              name: meta.name || cleanRaw.split('@')[0],
+              role: meta.role || (targetEmail === 'hossansajjad1994@gmail.com' ? 'superadmin' : 'admin'),
+              shopName: meta.shopName || 'আমার প্রতিষ্ঠান',
+              phone: meta.phone || '',
+              pin: meta.pin || '1234',
+              isSupabaseUser: true
+            };
+
+            // Store / Update account in Secure Offline Vault for offline use
+            const vault = getOfflineVault();
+            vault[targetEmail] = {
+              ...loggedInUser,
+              passwordHash,
+              lastVerifiedAt: new Date().toISOString()
+            };
+            saveOfflineVault(vault);
+
+            setUser(loggedInUser);
+            setRememberMe(remember);
+            if (remember) {
+              localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
+              localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(loggedInUser));
+            } else {
+              localStorage.removeItem(STORAGE_KEYS.SAVED_EMAIL);
+            }
+
+            setAuthLoading(false);
+            setIsAuthModalOpen(false);
+            return { success: true, user: loggedInUser };
+          }
+
+          // If Supabase gave an explicit authentication rejection (Wrong password / Email not found / Unconfirmed)
+          if (error) {
+            const isInvalidCreds = error.message?.includes('Invalid login credentials') || error.message?.includes('invalid');
+            const isUnconfirmed = error.message?.includes('Email not confirmed');
+
+            if (isInvalidCreds || isUnconfirmed) {
+              setAuthLoading(false);
+              const errMsg = isUnconfirmed 
+                ? 'আপনার ইমেইল এখনও কনফার্ম করা হয়নি। অনুগ্রহ করে ইনবক্স চেক করে ইমেইল ভেরিফাই করুন।'
+                : 'ভুল ইমেইল অথবা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য প্রদান করুন।';
+              setAuthError(errMsg);
+              return { success: false, message: errMsg };
+            }
+          }
+        } catch (onlineErr) {
+          console.warn('Supabase online attempt error, will check offline vault fallback:', onlineErr);
+        }
+      }
+    }
+
+    // 2. OFFLINE VAULT VERIFICATION (ONLY FOR PREVIOUSLY VERIFIED REGISTERED ACCOUNTS)
+    const vault = getOfflineVault();
+    const vaultAccount = vault[targetEmail];
+
+    if (vaultAccount) {
+      const enteredHash = await hashCredentialAsync(password);
+      const isPasswordMatch = enteredHash === vaultAccount.passwordHash;
+      const isPinMatch = vaultAccount.pin && cleanPass === normalizeLoginText(vaultAccount.pin);
+
+      if (isPasswordMatch || isPinMatch) {
+        const offlineUser = {
+          ...vaultAccount,
+          isOfflineSession: true
         };
-        setUser(superAdminUser);
-        setIsSuperAdminUnlocked(true);
+
+        setUser(offlineUser);
         setRememberMe(remember);
         if (remember) {
-          localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, 'hossansajjad1994@gmail.com');
-          localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(superAdminUser));
+          localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(offlineUser));
         }
+
+        setAuthLoading(false);
         setIsAuthModalOpen(false);
-        setAuthLoading(false);
-        return { success: true, user: superAdminUser };
-      }
-    }
-
-    // 1. Verify that Supabase is configured
-    if (!isSupabaseReady()) {
-      setAuthLoading(false);
-      const errorMsg = 'ভুল লগইন তথ্য! সুপাবেস সার্ভার কনফিগার করা হয়নি অথবা ইন্টারনেট সংযোগ নেই।';
-      setAuthError(errorMsg);
-      return { success: false, message: errorMsg };
-    }
-
-    const supabase = getSupabase();
-    if (!supabase) {
-      setAuthLoading(false);
-      const errorMsg = 'সুপাবেস ক্লাউড সার্ভারে সংযোগ স্থাপন করা যায়নি। আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন।';
-      setAuthError(errorMsg);
-      return { success: false, message: errorMsg };
-    }
-
-    // 2. Strict Supabase Authentication
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanRaw.toLowerCase(),
-        password
-      });
-
-      if (error) {
-        setAuthLoading(false);
-        let bengaliError = 'সুপাবেস অনুমতি দেয়নি: ভুল ইমেইল অথবা পাসওয়ার্ড!';
-        if (error.message?.includes('Invalid login credentials')) {
-          bengaliError = 'ভুল ইমেইল অথবা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য প্রদান করুন।';
-        } else if (error.message?.includes('Email not confirmed')) {
-          bengaliError = 'আপনার ইমেইল এখনও নিশ্চিত (Confirm) করা হয়নি। ইনবক্স চেক করে ইমেইল ভেরিফাই করুন।';
-        } else if (error.message) {
-          bengaliError = `সুপাবেস অনুমতি দেয়নি: ${error.message}`;
-        }
-        setAuthError(bengaliError);
-        return { success: false, message: bengaliError };
-      }
-
-      if (!data?.user) {
-        setAuthLoading(false);
-        const bengaliError = 'সুপাবেস থেকে ব্যবহারকারীর তথ্য পাওয়া যায়নি।';
-        setAuthError(bengaliError);
-        return { success: false, message: bengaliError };
-      }
-
-      // Supabase permission granted!
-      const meta = data.user.user_metadata || {};
-      const loggedInUser = {
-        id: data.user.id,
-        email: data.user.email,
-        name: meta.name || cleanRaw.split('@')[0],
-        role: meta.role || 'admin',
-        shopName: meta.shopName || 'আমার প্রতিষ্ঠান',
-        phone: meta.phone || '',
-        pin: meta.pin || '1234',
-        isSupabaseUser: true
-      };
-
-      setUser(loggedInUser);
-      setRememberMe(remember);
-      if (remember) {
-        localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(loggedInUser));
+        setAuthSuccess('📴 আপনি অফলাইন মোডে সফলভাবে প্রবেশ করেছেন। ক্লাউড সংযোগ পেলে স্বয়ংক্রিয়ভাবে সিঙ্ক হবে।');
+        return { success: true, user: offlineUser };
       } else {
-        localStorage.removeItem(STORAGE_KEYS.SAVED_EMAIL);
+        setAuthLoading(false);
+        const err = 'ভুল পাসওয়ার্ড! অফলাইনে প্রবেশের জন্য এই ডিভাইসে পূর্বে অনুমোদিত সঠিক পাসওয়ার্ড দিন।';
+        setAuthError(err);
+        return { success: false, message: err };
       }
-
-      setAuthLoading(false);
-      setIsAuthModalOpen(false);
-      return { success: true, user: loggedInUser };
-    } catch (err) {
-      setAuthLoading(false);
-      const networkError = `সুপাবেস সার্ভারে সংযোগে ত্রুটি: ${err.message || 'অনুমতি যাচাই করা সম্ভব হয়নি'}`;
-      setAuthError(networkError);
-      return { success: false, message: networkError };
     }
+
+    // 3. REJECT UNREGISTERED / UNAPPROVED ACCOUNTS
+    setAuthLoading(false);
+    const rejectionMsg = isOnline
+      ? 'সুপাবেস সার্ভারে এই একাউন্ট পাওয়া যায়নি অথবা পাসওয়ার্ড ভুল! সঠিক তথ্য দিন বা নতুন একাউন্ট সাইন আপ করুন।'
+      : 'এই একাউন্টটি এই ডিভাইসে পূর্বে অনুমোদিত নয়। অফলাইনে কেবল পূর্বে যাচাইকৃত নিবন্ধিত একাউন্টেই প্রবেশ সম্ভব। প্রথমবার লগইন করতে ইন্টারনেট সংযোগ প্রয়োজন।';
+    setAuthError(rejectionMsg);
+    return { success: false, message: rejectionMsg };
   };
 
   // ----------------------------------------------------
-  // QUICK PIN LOGIN (STAFF OR OWNER PIN)
+  // QUICK PIN LOGIN (OWNER PIN OR REGISTERED STAFF PIN)
   // ----------------------------------------------------
   const loginWithPin = (pin) => {
     const cleanPin = normalizeLoginText(pin);
 
-    // 1. Check if matches any staff PIN
+    // 1. Check if matches any real staff PIN created by Owner
     const matchedStaff = staffAccounts.find(s => normalizeLoginText(s.pin) === cleanPin);
     if (matchedStaff) {
       const staffUser = {
@@ -486,32 +501,26 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: staffUser };
     }
 
-    // 2. Default PIN '1234' logs in as first active staff or default cashier
-    if (cleanPin === '1234') {
-      const defaultUser = staffAccounts[0] || {
-        id: 'stf-1',
-        email: 'cashier@hisabkitab360.com',
-        name: 'মো: আরিফুল ইসলাম (ক্যাশিয়ার)',
-        role: 'cashier',
-        branchId: 'br-main',
-        counterId: 'cnt-1',
-        phone: '01711111111',
-        pin: '1234',
-        isStaffUser: true
-      };
-      setUser(defaultUser);
-      localStorage.setItem('hk360_active_branch_id', defaultUser.branchId || 'br-main');
-      localStorage.setItem('hk360_active_counter_id', defaultUser.counterId || 'cnt-1');
-      setIsAuthModalOpen(false);
-      return { success: true, user: defaultUser };
+    // 2. Check if matches any verified account in offline vault
+    const vault = getOfflineVault();
+    for (const emailKey of Object.keys(vault)) {
+      const acc = vault[emailKey];
+      if (acc && normalizeLoginText(acc.pin) === cleanPin) {
+        const offlineUser = { ...acc, isOfflineSession: true };
+        setUser(offlineUser);
+        setIsAuthModalOpen(false);
+        return { success: true, user: offlineUser };
+      }
     }
 
     if (user && normalizeLoginText(user.pin) === cleanPin) {
       setIsAuthModalOpen(false);
       return { success: true, user };
     }
-    return { success: false, message: 'ভুল পিন কোড! মালিক বা ক্যাশিয়ারের সঠিক ৪ ডিজিটের পিন (যেমন: 1234) প্রদান করুন।' };
+
+    return { success: false, message: 'ভুল পিন কোড! আপনার পূর্বে যাচাইকৃত সঠিক ৪ ডিজিটের পিন প্রদান করুন।' };
   };
+
 
   // ----------------------------------------------------
   // SIGN UP / CREATE STORE ACCOUNT (VIA SUPABASE)
@@ -576,9 +585,18 @@ export const AuthProvider = ({ children }) => {
           pin: meta.pin || pin,
           isSupabaseUser: true
         };
+        const passwordHash = await hashCredentialAsync(password);
+        const vault = getOfflineVault();
+        vault[cleanEmail] = {
+          ...newUser,
+          passwordHash,
+          lastVerifiedAt: new Date().toISOString()
+        };
+        saveOfflineVault(vault);
         setUser(newUser);
         setIsAuthModalOpen(false);
         return { success: true, user: newUser };
+
       } else {
         setAuthSuccess('রেজিস্ট্রেশন সফল হয়েছে! সুপাবেস থেকে আপনার ইমেইলে কনফার্মেশন লিংক পাঠানো হয়েছে। ইমেইল ভেরিফাই করার পর সাইন ইন করুন।');
         return { success: true, requireConfirmation: true };
@@ -707,10 +725,11 @@ export const AuthProvider = ({ children }) => {
   const verifyMasterPin = useCallback((pinInput) => {
     const correctPin = getMasterPin();
     const cleanInput = normalizeLoginText(pinInput).trim();
-    if (cleanInput === correctPin || cleanInput === '889900' || cleanInput === '9999') {
+    if (cleanInput === correctPin) {
       setIsSuperAdminUnlocked(true);
       try {
         sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
+
         // Promote session to Master Super Admin with his email
         const masterAdminUser = {
           id: 'super-admin-sajjad',
@@ -818,10 +837,10 @@ export const AuthProvider = ({ children }) => {
 
     const now = Date.now();
     const isValidOtp = stored && stored.otp === cleanOtp && now <= stored.expiry;
-    const isMasterFallback = cleanOtp === '889900' || cleanOtp === '1994';
 
-    if (isValidOtp || isMasterFallback) {
+    if (isValidOtp) {
       try {
+
         localStorage.setItem('hk360_master_pin', cleanPin);
         setIsSuperAdminUnlocked(true);
         sessionStorage.setItem('hk360_superadmin_unlocked', 'true');

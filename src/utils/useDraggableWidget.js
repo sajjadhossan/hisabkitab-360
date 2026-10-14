@@ -5,7 +5,7 @@ import { hapticFeedback } from '../services/nativeAppService';
  * useDraggableWidget
  * -------------------
  * Reusable hook that makes any floating widget freely movable / draggable across the screen
- * with bulletproof Pointer AND Touch event support (especially on Android / iOS WebView).
+ * with bulletproof Pointer, Mouse AND Touch event support (Desktop PC, Laptop, and Android / iOS WebView).
  * Automatically clamps within screen boundaries, handles edge docking, and persists position.
  *
  * @param {string} storageKey - Unique localStorage key to persist position
@@ -32,16 +32,12 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
   });
 
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef({
-    startX: 0,
-    startY: 0,
-    origX: 0,
-    origY: 0,
-    hasMoved: false,
-    active: false,
-    pointerId: null
-  });
   const elementRef = useRef(null);
+  const dragRef = useRef({
+    hasMoved: false,
+    active: false
+  });
+  const justDraggedRef = useRef(false);
 
   // Auto-clamp inside screen whenever window resizes or phone rotates
   useEffect(() => {
@@ -69,135 +65,215 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
     return () => window.removeEventListener('resize', handleResize);
   }, [storageKey]);
 
-  // Unified drag start
-  const startDrag = (clientX, clientY, pointerId = null) => {
+  // Unified Mouse & Pointer Drag Starter
+  const handlePointerDown = useCallback((e) => {
+    // Only primary mouse button (0) or touch/pen
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.button !== undefined && e.button !== 0) return;
+
     const target = elementRef.current;
     if (!target) return;
     const rect = target.getBoundingClientRect();
 
-    dragRef.current = {
-      startX: clientX,
-      startY: clientY,
-      origX: rect.left,
-      origY: rect.top,
-      hasMoved: false,
-      active: true,
-      pointerId
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = rect.left;
+    const origY = rect.top;
+    const pointerId = e.pointerId;
+
+    let hasMoved = false;
+    dragRef.current.active = true;
+
+    // Global Movement handler
+    const onMove = (moveEvt) => {
+      if (pointerId !== undefined && moveEvt.pointerId !== undefined && moveEvt.pointerId !== pointerId) {
+        return;
+      }
+
+      const clientX = moveEvt.clientX;
+      const clientY = moveEvt.clientY;
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+
+      // 4px movement deadband to distinguish click from drag
+      if (!hasMoved && Math.hypot(dx, dy) < 4) {
+        return;
+      }
+
+      if (moveEvt.cancelable) moveEvt.preventDefault();
+
+      if (!hasMoved) {
+        hasMoved = true;
+        dragRef.current.hasMoved = true;
+        justDraggedRef.current = true;
+        setIsDragging(true);
+        try {
+          document.body.style.userSelect = 'none';
+          document.body.style.webkitUserSelect = 'none';
+        } catch {}
+        try {
+          hapticFeedback.light();
+        } catch {}
+      }
+
+      const elemWidth = target.offsetWidth || 60;
+      const elemHeight = target.offsetHeight || 44;
+      const safeMaxX = Math.max(8, window.innerWidth - elemWidth - 8);
+      const safeMaxY = Math.max(50, window.innerHeight - elemHeight - 16);
+
+      const clampedX = Math.max(8, Math.min(safeMaxX, origX + dx));
+      const clampedY = Math.max(50, Math.min(safeMaxY, origY + dy));
+
+      setPos({ x: clampedX, y: clampedY });
     };
-  };
 
-  // Unified drag move with boundary clamping
-  const moveDrag = (clientX, clientY) => {
-    if (!dragRef.current.active) return;
+    // Global Release / End handler
+    const onUp = (upEvt) => {
+      if (pointerId !== undefined && upEvt && upEvt.pointerId !== undefined && upEvt.pointerId !== pointerId) {
+        return;
+      }
 
-    const dx = clientX - dragRef.current.startX;
-    const dy = clientY - dragRef.current.startY;
+      window.removeEventListener('pointermove', onMove, { passive: false });
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
 
-    // Movement deadband: 4px threshold before declaring a drag vs a tap
-    if (!dragRef.current.hasMoved && Math.hypot(dx, dy) < 4) {
-      return;
-    }
+      dragRef.current.active = false;
 
-    if (!dragRef.current.hasMoved) {
-      dragRef.current.hasMoved = true;
-      setIsDragging(true);
       try {
-        hapticFeedback.light();
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
       } catch {}
-    }
 
-    const newX = dragRef.current.origX + dx;
-    const newY = dragRef.current.origY + dy;
+      if (hasMoved) {
+        justDraggedRef.current = true;
+        setPos((latestPos) => {
+          if (latestPos) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(latestPos));
+            } catch {}
+          }
+          return latestPos;
+        });
+        try {
+          hapticFeedback.light();
+        } catch {}
 
-    const elemWidth = elementRef.current?.offsetWidth || 70;
-    const elemHeight = elementRef.current?.offsetHeight || 44;
-    const safeMaxX = Math.max(8, window.innerWidth - elemWidth - 8);
-    const safeMaxY = Math.max(50, window.innerHeight - elemHeight - 16);
+        setTimeout(() => {
+          setIsDragging(false);
+          dragRef.current.hasMoved = false;
+          justDraggedRef.current = false;
+        }, 120);
+      } else {
+        setIsDragging(false);
+        dragRef.current.hasMoved = false;
+        justDraggedRef.current = false;
+      }
+    };
 
-    const clampedX = Math.max(8, Math.min(safeMaxX, newX));
-    const clampedY = Math.max(50, Math.min(safeMaxY, newY));
-
-    setPos({ x: clampedX, y: clampedY });
-  };
-
-  // Unified drag end with edge-persistence
-  const endDrag = () => {
-    if (!dragRef.current.active) return;
-    dragRef.current.active = false;
-
-    if (dragRef.current.hasMoved) {
-      setPos((latestPos) => {
-        if (latestPos) {
-          try {
-            localStorage.setItem(storageKey, JSON.stringify(latestPos));
-          } catch {}
-        }
-        return latestPos;
-      });
-      try {
-        hapticFeedback.light();
-      } catch {}
-    }
-
-    setTimeout(() => {
-      setIsDragging(false);
-      dragRef.current.hasMoved = false;
-    }, 60);
-  };
-
-  // Pointer Event Handlers
-  const handlePointerDown = useCallback((e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    startDrag(e.clientX, e.clientY, e.pointerId);
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-  }, []);
-
-  const handlePointerMove = useCallback((e) => {
-    if (!dragRef.current.active || (dragRef.current.pointerId !== null && dragRef.current.pointerId !== e.pointerId)) return;
-    moveDrag(e.clientX, e.clientY);
-  }, []);
-
-  const handlePointerUp = useCallback((e) => {
-    if (dragRef.current.pointerId === e.pointerId || dragRef.current.active) {
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {}
-      endDrag();
-    }
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }, [storageKey]);
-
-  const handlePointerCancel = useCallback((e) => {
-    if (dragRef.current.pointerId === e.pointerId || dragRef.current.active) {
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {}
-      endDrag();
-    }
-  }, []);
 
   // Direct Touch Events (100% Reliable on Android Capacitor & WebViews)
   const handleTouchStart = useCallback((e) => {
     const t = e.touches[0];
     if (!t) return;
-    startDrag(t.clientX, t.clientY, 'touch');
-  }, []);
 
-  const handleTouchMove = useCallback((e) => {
-    if (!dragRef.current.active) return;
-    const t = e.touches[0];
-    if (!t) return;
-    if (e.cancelable) e.preventDefault(); // Prevents Android scroll/pull-to-refresh while dragging
-    moveDrag(t.clientX, t.clientY);
-  }, []);
+    const target = elementRef.current;
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
 
-  const handleTouchEnd = useCallback(() => {
-    endDrag();
+    const startX = t.clientX;
+    const startY = t.clientY;
+    const origX = rect.left;
+    const origY = rect.top;
+
+    let hasMoved = false;
+    dragRef.current.active = true;
+
+    const onTouchMove = (moveEvt) => {
+      const touch = moveEvt.touches[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      if (!hasMoved && Math.hypot(dx, dy) < 4) {
+        return;
+      }
+
+      if (moveEvt.cancelable) moveEvt.preventDefault();
+
+      if (!hasMoved) {
+        hasMoved = true;
+        dragRef.current.hasMoved = true;
+        justDraggedRef.current = true;
+        setIsDragging(true);
+        try {
+          hapticFeedback.light();
+        } catch {}
+      }
+
+      const elemWidth = target.offsetWidth || 60;
+      const elemHeight = target.offsetHeight || 44;
+      const safeMaxX = Math.max(8, window.innerWidth - elemWidth - 8);
+      const safeMaxY = Math.max(50, window.innerHeight - elemHeight - 16);
+
+      const clampedX = Math.max(8, Math.min(safeMaxX, origX + dx));
+      const clampedY = Math.max(50, Math.min(safeMaxY, origY + dy));
+
+      setPos({ x: clampedX, y: clampedY });
+    };
+
+    const onTouchEnd = () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+
+      dragRef.current.active = false;
+
+      if (hasMoved) {
+        justDraggedRef.current = true;
+        setPos((latestPos) => {
+          if (latestPos) {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(latestPos));
+            } catch {}
+          }
+          return latestPos;
+        });
+        try {
+          hapticFeedback.light();
+        } catch {}
+
+        setTimeout(() => {
+          setIsDragging(false);
+          dragRef.current.hasMoved = false;
+          justDraggedRef.current = false;
+        }, 120);
+      } else {
+        setIsDragging(false);
+        dragRef.current.hasMoved = false;
+        justDraggedRef.current = false;
+      }
+    };
+
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
   }, [storageKey]);
 
-  const handleTouchCancel = useCallback(() => {
-    endDrag();
+  // Shield click triggers so dragging doesn't open the modal
+  const handleClickCapture = useCallback((e) => {
+    if (dragRef.current.hasMoved || justDraggedRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
   }, []);
 
   const resetPosition = useCallback(() => {
@@ -225,21 +301,19 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
 
   const bind = {
     ref: elementRef,
+    draggable: false,
+    onDragStart: (e) => e.preventDefault(),
     onPointerDown: handlePointerDown,
-    onPointerMove: handlePointerMove,
-    onPointerUp: handlePointerUp,
-    onPointerCancel: handlePointerCancel,
+    onMouseDown: handlePointerDown,
     onTouchStart: handleTouchStart,
-    onTouchMove: handleTouchMove,
-    onTouchEnd: handleTouchEnd,
-    onTouchCancel: handleTouchCancel
+    onClickCapture: handleClickCapture
   };
 
   return {
     ref: elementRef,
     pos,
     isDragging,
-    hasMoved: dragRef.current.hasMoved,
+    hasMoved: dragRef.current.hasMoved || justDraggedRef.current,
     style,
     bind,
     resetPosition

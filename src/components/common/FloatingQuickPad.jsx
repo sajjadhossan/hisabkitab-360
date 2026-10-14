@@ -116,11 +116,11 @@ export const FloatingQuickPad = () => {
           alignItems: 'center',
           justifyContent: 'center',
           cursor: isDragging ? 'grabbing' : 'pointer',
-          zIndex: 1090
+          zIndex: isDragging ? 99999 : 1090
         }}
-        className="press-scale"
+        className={isDragging ? '' : 'press-scale'}
       >
-        <Calculator size={22} />
+        <Calculator size={22} style={{ pointerEvents: 'none' }} />
       </button>
 
       {/* Floating Quick Drawer */}

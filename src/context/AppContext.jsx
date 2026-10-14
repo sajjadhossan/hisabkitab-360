@@ -557,28 +557,7 @@ export const AppProvider = ({ children }) => {
         console.error('Error parsing personal events:', err);
       }
     }
-    return [
-      {
-        id: 'evt-school-2026',
-        title: 'ছেলে-মেয়ের স্কুল ও পড়াশোনা খরচ',
-        category: 'education',
-        budget: 35000,
-        status: 'active',
-        startDate: '2026-01-01',
-        endDate: '2026-12-31',
-        note: 'স্কুল ফি, খাতা-কলম, ড্রেস ও পরীক্ষার বেতন'
-      },
-      {
-        id: 'evt-wedding-2026',
-        title: 'পারিবারিক বিয়ের অনুষ্ঠান',
-        category: 'wedding',
-        budget: 200000,
-        status: 'active',
-        startDate: '2026-10-01',
-        endDate: '2026-11-15',
-        note: 'কমিউনিটি সেন্টার, ক্যাটারিং, মিষ্টি ও কেনাকাটা'
-      }
-    ];
+    return [];
   });
 
   // Personal Bazaar Shopping List (বাজারের শপিং লিস্ট / ফর্দ)
@@ -591,11 +570,7 @@ export const AppProvider = ({ children }) => {
         console.error('Error parsing bazaar shopping list:', err);
       }
     }
-    return [
-      { id: 'bsl-1', name: 'আটা', quantity: 5, unit: 'কেজি (kg)', estimatedPrice: 260, category: 'bazaar', subCategory: 'চাল ও আটা', familyMember: 'পুরো পরিবার (সবার জন্য)', isPurchased: false, createdAt: new Date().toISOString() },
-      { id: 'bsl-2', name: 'সয়াবিন তেল', quantity: 2, unit: 'লিটার (L)', estimatedPrice: 380, category: 'bazaar', subCategory: 'ডাল ও সয়াবিন তেল', familyMember: 'পুরো পরিবার (সবার জন্য)', isPurchased: false, createdAt: new Date().toISOString() },
-      { id: 'bsl-3', name: 'ফার্মের ডিম', quantity: 1, unit: 'ডজন (Dzn)', estimatedPrice: 155, category: 'bazaar', subCategory: 'ডিম ও দুধ', familyMember: 'পুরো পরিবার (সবার জন্য)', isPurchased: true, createdAt: new Date().toISOString() }
-    ];
+    return [];
   });
 
   // Business Reorder List (দোকানের মালের ক্রয়ের ফর্দ / Low Stock Reorder List)
@@ -614,22 +589,12 @@ export const AppProvider = ({ children }) => {
   // Business Profile Data
   const [products, setProducts] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_PRODUCTS);
-    if (!saved) return initialData.businessProducts;
+    if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        const existingIds = new Set(parsed.map(p => p.id));
-        const missing = (initialData.businessProducts || []).filter(p => !existingIds.has(p.id));
-        if (missing.length > 0) {
-          const merged = [...parsed, ...missing];
-          localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(merged));
-          return merged;
-        }
-        return parsed;
-      }
-      return initialData.businessProducts;
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return initialData.businessProducts;
+      return [];
     }
   });
 
@@ -657,27 +622,27 @@ export const AppProvider = ({ children }) => {
 
   const [salesHistory, setSalesHistory] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_SALES);
-    return saved ? JSON.parse(saved) : initialData.businessSalesHistory;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [customers, setCustomers] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_CUSTOMERS);
-    return saved ? JSON.parse(saved) : initialData.businessCustomers;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_EMPLOYEES);
-    return saved ? JSON.parse(saved) : initialData.businessEmployees;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [suppliers, setSuppliers] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_SUPPLIERS);
-    return saved ? JSON.parse(saved) : initialData.businessSuppliers;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [businessExpenses, setBusinessExpenses] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_EXPENSES);
-    return saved ? JSON.parse(saved) : initialData.businessExpenses;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [businessSettings, setBusinessSettings] = useState(() => {
@@ -701,33 +666,33 @@ export const AppProvider = ({ children }) => {
   // Business Invoices & Quotations
   const [invoices, setInvoices] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_INVOICES);
-    return saved ? JSON.parse(saved) : (initialData.businessInvoices || []);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [quotations, setQuotations] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_QUOTATIONS);
-    return saved ? JSON.parse(saved) : (initialData.businessQuotations || []);
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Damaged Goods / Stock Waste Management
   const [damagedGoods, setDamagedGoods] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_DAMAGED_GOODS);
-    return saved ? JSON.parse(saved) : (initialData.businessDamagedGoods || []);
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Business Cash Debts & Credits
   const [businessDebts, setBusinessDebts] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_DEBTS);
-    return saved ? JSON.parse(saved) : (initialData.businessDebts || []);
+    return saved ? JSON.parse(saved) : [];
   });
 
   // HR & SR Field Product Orders & Delivery Status Tracking
   const [fieldOrders, setFieldOrders] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.BIZ_FIELD_ORDERS);
-      return saved ? JSON.parse(saved) : (initialData.businessFieldOrders || []);
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return initialData.businessFieldOrders || [];
+      return [];
     }
   });
 
@@ -737,23 +702,7 @@ export const AppProvider = ({ children }) => {
       const saved = localStorage.getItem(STORAGE_KEYS.BIZ_PURCHASE_ORDERS);
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
-      {
-        id: 'PO-2026-001',
-        supplierId: 'sup-1',
-        supplierName: 'মেঘনা গ্রুপ অব ইন্ডাস্ট্রিজ',
-        date: '2026-10-05',
-        expectedDate: '2026-10-12',
-        status: 'ordered',
-        items: [
-          { productId: 'prod-1', name: 'প্রিমিয়াম মিনিকেট চাল (২৫ কেজি)', quantity: 20, unitCost: 1750, total: 35000 }
-        ],
-        totalAmount: 35000,
-        paidAmount: 15000,
-        dueAmount: 20000,
-        note: 'অগ্রিম ১৫,০০০ টাকা প্রদান করা হয়েছে।'
-      }
-    ];
+    return [];
   });
 
   // Dynamic Custom Categories Management
@@ -1248,17 +1197,45 @@ export const AppProvider = ({ children }) => {
   const addPersonalExpense = (expense) => {
     const newEntry = {
       ...expense,
-      id: `pex-${Date.now()}`,
+      id: expense.id || `pex-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
       date: expense.date || new Date().toISOString().split('T')[0],
       item: (expense.item || expense.title || '').trim(),
+      amount: Number(expense.amount) || 0,
       quantity: expense.quantity !== undefined && expense.quantity !== '' && expense.quantity !== null ? Number(expense.quantity) : null,
       unit: expense.unit || '',
       folder: expense.folder || (expense.type === 'family' ? 'অন্যান্য পারিবারিক খরচ' : ''),
+      subFolder: expense.subFolder || expense.subCategory || '',
+      person: expense.person || expense.member || '',
+      member: expense.member || expense.person || '',
       eventId: expense.eventId || '',
       eventName: expense.eventName || ''
     };
-    setPersonalExpenses([newEntry, ...personalExpenses]);
+    setPersonalExpenses(prev => [newEntry, ...prev]);
     showToast(lang === 'bn' ? 'খরচ সফলভাবে যোগ করা হয়েছে' : 'Expense recorded successfully');
+    return newEntry;
+  };
+
+  const addMultiplePersonalExpenses = (expenseList = []) => {
+    if (!Array.isArray(expenseList) || expenseList.length === 0) return 0;
+    const formatted = expenseList.map((expense, idx) => ({
+      ...expense,
+      id: expense.id || `pex-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 6)}`,
+      date: expense.date || new Date().toISOString().split('T')[0],
+      item: (expense.item || expense.title || '').trim(),
+      amount: Number(expense.amount) || 0,
+      quantity: expense.quantity !== undefined && expense.quantity !== '' && expense.quantity !== null ? Number(expense.quantity) : null,
+      unit: expense.unit || '',
+      folder: expense.folder || (expense.type === 'family' ? 'অন্যান্য পারিবারিক খরচ' : ''),
+      subFolder: expense.subFolder || expense.subCategory || '',
+      person: expense.person || expense.member || '',
+      member: expense.member || expense.person || '',
+      eventId: expense.eventId || '',
+      eventName: expense.eventName || ''
+    }));
+
+    setPersonalExpenses(prev => [...formatted, ...prev]);
+    showToast(lang === 'bn' ? `মোট ${formatted.length}টি খরচ সফলভাবে যুক্ত হয়েছে` : `${formatted.length} expenses recorded successfully`, 'success');
+    return formatted.length;
   };
 
   const updatePersonalExpense = (id, updatedFields) => {
@@ -1495,10 +1472,10 @@ export const AppProvider = ({ children }) => {
   const addPersonalIncome = (income) => {
     const newEntry = {
       ...income,
-      id: `pin-${Date.now()}`,
+      id: income.id || `pin-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       date: income.date || new Date().toISOString().split('T')[0]
     };
-    setPersonalIncomes([newEntry, ...personalIncomes]);
+    setPersonalIncomes(prev => [newEntry, ...prev]);
     showToast(lang === 'bn' ? 'আয়ের হিসাব সফলভাবে যোগ করা হয়েছে' : 'Income added');
   };
 
@@ -2286,12 +2263,33 @@ export const AppProvider = ({ children }) => {
   const addBusinessExpense = (expense) => {
     const newExpense = {
       ...expense,
-      id: `bex-${Date.now()}`,
-      amount: Number(expense.amount),
-      date: expense.date || new Date().toISOString().split('T')[0]
+      id: expense.id || `bex-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
+      amount: Number(expense.amount) || 0,
+      date: expense.date || new Date().toISOString().split('T')[0],
+      category: expense.category || expense.folder || 'other',
+      subCategory: expense.subCategory || expense.subFolder || '',
+      person: expense.person || expense.member || ''
     };
-    setBusinessExpenses([newExpense, ...businessExpenses]);
+    setBusinessExpenses(prev => [newExpense, ...prev]);
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ যুক্ত করা হয়েছে' : 'Business expense recorded');
+    return newExpense;
+  };
+
+  const addMultipleBusinessExpenses = (expenseList = []) => {
+    if (!Array.isArray(expenseList) || expenseList.length === 0) return 0;
+    const formatted = expenseList.map((expense, idx) => ({
+      ...expense,
+      id: expense.id || `bex-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 6)}`,
+      amount: Number(expense.amount) || 0,
+      date: expense.date || new Date().toISOString().split('T')[0],
+      category: expense.category || expense.folder || 'other',
+      subCategory: expense.subCategory || expense.subFolder || '',
+      person: expense.person || expense.member || ''
+    }));
+
+    setBusinessExpenses(prev => [...formatted, ...prev]);
+    showToast(lang === 'bn' ? `মোট ${formatted.length}টি ব্যবসায়িক খরচ যুক্ত হয়েছে` : `${formatted.length} business expenses recorded successfully`, 'success');
+    return formatted.length;
   };
 
   const updateBusinessExpense = (id, updatedFields) => {
@@ -3771,27 +3769,49 @@ export const AppProvider = ({ children }) => {
   };
 
   const resetToDemo = () => {
-    if (window.confirm(lang === 'bn' ? 'আপনি কি নিশ্চিত যে ডেমো ডাটা ফিরিয়ে আনতে চান?' : 'Reset to default demo data?')) {
-      setPersonalExpenses(initialData.personalExpenses);
-      setPersonalIncomes(initialData.personalIncomes);
-      setPersonalSavings(initialData.personalSavings);
-      setPersonalDebts(initialData.personalDebts || []);
-      setProducts(initialData.businessProducts);
-      setSalesHistory(initialData.businessSalesHistory);
-      setCustomers(initialData.businessCustomers);
-      setEmployees(initialData.businessEmployees);
-      setFieldOrders(initialData.businessFieldOrders || []);
-      setSuppliers(initialData.businessSuppliers);
-      setBusinessExpenses(initialData.businessExpenses);
+    if (window.confirm(lang === 'bn' ? 'আপনি কি নিশ্চিত যে সকল হিসাব ও তথ্য মুছে সম্পূর্ণ খালি (Clean Slate) করতে চান?' : 'Clear all data and start fresh?')) {
+      setPersonalExpenses([]);
+      setPersonalIncomes([]);
+      setPersonalSavings([]);
+      setPersonalDebts([]);
+      setProducts([]);
+      setSalesHistory([]);
+      setCustomers([]);
+      setEmployees([]);
+      setFieldOrders([]);
+      setSuppliers([]);
+      setBusinessExpenses([]);
       setBusinessSettings(initialData.businessSettings);
-      setInvoices(initialData.businessInvoices || []);
-      setQuotations(initialData.businessQuotations || []);
-      setDamagedGoods(initialData.businessDamagedGoods || []);
-      setBusinessDebts(initialData.businessDebts || []);
+      setInvoices([]);
+      setQuotations([]);
+      setDamagedGoods([]);
+      setBusinessDebts([]);
+      setPersonalEvents([]);
+      setBazaarShoppingList([]);
+      setPurchaseOrders([]);
       setCategories(DEFAULT_APP_CATEGORIES);
-      showToast(lang === 'bn' ? 'ডেমো ডাটা সফলভাবে রিস্টোর হয়েছে' : 'Restored default demo data');
+      localStorage.removeItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+      localStorage.removeItem(STORAGE_KEYS.PERSONAL_INCOMES);
+      localStorage.removeItem(STORAGE_KEYS.PERSONAL_SAVINGS);
+      localStorage.removeItem(STORAGE_KEYS.PERSONAL_DEBTS);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_PRODUCTS);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_SALES);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_CUSTOMERS);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_EMPLOYEES);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_SUPPLIERS);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_EXPENSES);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_INVOICES);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_QUOTATIONS);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_DAMAGED_GOODS);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_DEBTS);
+      localStorage.removeItem(STORAGE_KEYS.PERSONAL_EVENTS);
+      localStorage.removeItem(STORAGE_KEYS.BAZAAR_SHOPPING_LIST);
+      localStorage.removeItem(STORAGE_KEYS.BIZ_PURCHASE_ORDERS);
+      localStorage.removeItem('hk360_pos_draft_cart');
+      showToast(lang === 'bn' ? 'সকল ডাটা সফলভাবে মুছে সিস্টেম সম্পূর্ণ খালি করা হয়েছে' : 'All data cleared, clean slate ready');
     }
   };
+
 
   // ----------------------------------------------------
   // COMMERCIAL RESELLING & CLIENT ONBOARDING
@@ -4180,6 +4200,7 @@ export const AppProvider = ({ children }) => {
         updatePersonalEvent,
         deletePersonalEvent,
         addPersonalExpense,
+        addMultiplePersonalExpenses,
         updatePersonalExpense,
         deletePersonalExpense,
         addPersonalIncome,
@@ -4256,6 +4277,7 @@ export const AppProvider = ({ children }) => {
         updatePurchaseOrderStatus,
         deletePurchaseOrder,
         addBusinessExpense,
+        addMultipleBusinessExpenses,
         updateBusinessExpense,
         deleteBusinessExpense,
         paySupplier,

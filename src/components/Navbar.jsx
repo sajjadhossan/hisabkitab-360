@@ -1779,10 +1779,18 @@ export const Navbar = () => {
                       {user ? (user.email || 'ব্যবহারকারী') : (lang === 'bn' ? 'মালিক ও স্টাফ অ্যাকাউন্ট' : 'Staff Account')}
                     </span>
                     {user && (
-                      <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--business-primary)', fontWeight: '800' }}>
-                        {user.role}
+                      <span style={{
+                        fontSize: '0.68rem',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        background: user.isOfflineSession ? 'rgba(245, 158, 11, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                        color: user.isOfflineSession ? '#f59e0b' : 'var(--business-primary)',
+                        fontWeight: '800'
+                      }}>
+                        {user.isOfflineSession ? (lang === 'bn' ? '📴 অফলাইন ভল্ট' : '📴 Offline Vault') : user.role}
                       </span>
                     )}
+
                   </div>
 
                   {user ? (

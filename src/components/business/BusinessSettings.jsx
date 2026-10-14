@@ -2132,13 +2132,13 @@ export const BusinessSettings = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                     <RefreshCw size={20} style={{ color: '#ef4444' }} />
                     <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: '#ef4444' }}>
-                      {lang === 'bn' ? 'ডেমো ডাটা ফ্যাক্টরি রিসেট' : 'Factory Reset to Demo'}
+                      {lang === 'bn' ? 'সকল হিসাব ও ডাটা ক্লিনিং (Clean Slate)' : 'Factory Clean Reset'}
                     </h4>
                   </div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
                     {lang === 'bn'
-                      ? 'আপনার সমস্ত ডাটা মুছে দিয়ে সফটওয়্যারটিকে প্রাথমিক ডেমো অবস্থায় ফিরিয়ে নেবে।'
-                      : 'Clear custom modifications and reload pristine sample demo data across all modules.'}
+                      ? 'অ্যাপের সমস্ত হিসাব, প্রোডাক্ট ও ট্রানজ্যাকশন মুছে দিয়ে সিস্টেমটিকে সম্পূর্ণ খালি (Clean Slate) অবস্থায় নিয়ে যাবে।'
+                      : 'Wipe all records, products, and transactions to start with a fresh, completely empty database.'}
                   </p>
                   <button
                     type="button"
@@ -2147,8 +2147,9 @@ export const BusinessSettings = () => {
                     style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}
                   >
                     <RefreshCw size={16} />
-                    <span>{lang === 'bn' ? 'ডেমো ডাটা রিসেট করুন' : 'Reset to Initial Demo'}</span>
+                    <span>{lang === 'bn' ? 'সব ডাটা মুছে সম্পূর্ণ খালি করুন' : 'Wipe Data (Clean Slate)'}</span>
                   </button>
+
                 </div>
               </div>
             </div>

@@ -1184,36 +1184,59 @@ export const parsePdfFile = async (file, onProgress) => {
       reportProgress(lineProgress, `আইটেম ও টাকার বিবরণ আলাদাভাবে সংগ্রহ হচ্ছে (${idx}/${totalLines})...`);
     }
 
-    const trimmedLine = line.trim();
+    const trimmedLine = cleanOcrText(line.trim());
     if (!trimmedLine) return;
 
     // 1. Ignore lines that are strictly page numbers, document titles or table headers
+    const lowerLine = trimmedLine.toLowerCase();
     if (
       trimmedLine.match(/^page\s+[0-9০-৯]+/i) ||
       trimmedLine.includes('Page ') ||
-      trimmedLine.toLowerCase().includes('generated on') ||
-      trimmedLine.toLowerCase().includes('hisabkitab') ||
-      trimmedLine.match(/^(ক্রমিক|তারিখ|বিবরণ|নাম|পরিমাণ|দর|একক|মোট|খাত|ক্যাটাগরি|sl|date|description|item|qty|amount|total|rate)\b/i)
+      trimmedLine.match(/^[0-9০-৯]+\/[0-9০-৯]+/i) || // e.g. "1/2", "2/2"
+      lowerLine.match(/page\s+[0-9০-৯]+\s+of\s+[0-9০-৯]+/i) || // e.g. "Page 1 of 5"
+      lowerLine.includes('hisabghor') ||
+      lowerLine.includes('monthly report') ||
+      lowerLine.includes('financial report') ||
+      lowerLine.includes('executive summary') ||
+      lowerLine.includes('report summary') ||
+      lowerLine.includes('category-wise expense') ||
+      lowerLine.includes('person-wise expense') ||
+      lowerLine.includes('category: সব') ||
+      lowerLine.includes('person: সব') ||
+      lowerLine.includes('created with monee') ||
+      lowerLine.includes('monee-app') ||
+      lowerLine.startsWith('shared account') ||
+      lowerLine.startsWith('flat list') ||
+      lowerLine.startsWith('as of:') ||
+      lowerLine.includes('generated on') ||
+      lowerLine.includes('hisabkitab') ||
+      trimmedLine.match(/^(ক্রমিক|তারিখ|বিবরণ|নাম|পরিমাণ|দর|একক|মোট|খাত|ক্যাটাগরি|ধরন|ব্যক্তি|স্ট্যাটাস|sl|date|name|description|item|qty|amount|total|rate|person|type|status)\b/i)
     ) {
-      // Check if it has a date we can use for upcoming lines
+      // Check if it has a statement month/date to use as contextual fallback
       const headerDateMatch = trimmedLine.match(dateRegex);
-      if (headerDateMatch) {
-        lastSeenDate = normalizeDate(headerDateMatch[0]);
+      if (headerDateMatch && !lowerLine.startsWith('as of:') && !lowerLine.includes('from:')) {
+        try {
+          lastSeenDate = normalizeDate(headerDateMatch[0]);
+        } catch {}
       }
       return;
     }
 
     // 2. Check if this line is purely a Grand Total / Summary line
     const isTotalSummaryLine = (
+      (lowerLine.includes('income') && lowerLine.includes('expense') && lowerLine.includes('net') && lowerLine.includes('records')) ||
+      lowerLine.includes('income bdt') ||
+      lowerLine.includes('expenses -bdt') ||
+      lowerLine.includes('total -bdt') ||
       trimmedLine.startsWith('সর্বমোট') ||
       trimmedLine.startsWith('মোট খরচ') ||
       trimmedLine.startsWith('মোট টাকা') ||
       trimmedLine.startsWith('মোট বিক্রয়') ||
       trimmedLine.startsWith('মোট ব্যয়') ||
-      trimmedLine.toLowerCase().startsWith('grand total') ||
-      trimmedLine.toLowerCase().startsWith('sub total') ||
-      trimmedLine.toLowerCase().startsWith('total:') ||
-      trimmedLine.toLowerCase().startsWith('net total')
+      lowerLine.startsWith('grand total') ||
+      lowerLine.startsWith('sub total') ||
+      lowerLine.startsWith('total:') ||
+      lowerLine.startsWith('net total')
     );
     if (isTotalSummaryLine) {
       return; // Do not create an expense item for grand total
@@ -1224,7 +1247,7 @@ export const parsePdfFile = async (file, onProgress) => {
       trimmedLine.includes('ক্যাটাগরি:') ||
       trimmedLine.includes('খাত:') ||
       trimmedLine.includes('বিভাগ:') ||
-      trimmedLine.toLowerCase().includes('category:') ||
+      lowerLine.includes('category:') ||
       trimmedLine.startsWith('📁') ||
       trimmedLine.startsWith('📂')
     );
@@ -1239,20 +1262,172 @@ export const parsePdfFile = async (file, onProgress) => {
       return;
     }
 
-    // 4. Update contextual date if present on this line
+    // ------------------------------------------------------------------
+    // A. DIRECT HISABGHOR TABULAR PATTERN MATCHING
+    // Format: YYYY-MM-DD [Item Name] [Category] [Person] [Expense|Income] ৳[Amount] [active]
+    // Example: 2026-10-13 অটো ভাড়া গোলঘর কিনছি Family Sajjad Hossan Expense ৳10 active
+    // Example: 2026-09-01 বেতন Sajjad Hossan Income ৳20,000 active
+    // ------------------------------------------------------------------
+    const hisabGhorPattern = /^([0-9০-৯]{4}[-/][0-9০-৯]{2}[-/][0-9০-৯]{2})\s+(.+?)\s+(Expense|Income)\s+[৳$]?\s*([0-9,]+(?:\.[0-9]+)?)(?:\s+(active|inactive))?$/i;
+    const hisabGhorMatch = trimmedLine.match(hisabGhorPattern);
+
+    if (hisabGhorMatch) {
+      const rowDate = normalizeDate(hisabGhorMatch[1]);
+      lastSeenDate = rowDate;
+      const middle = hisabGhorMatch[2].trim();
+      const recType = hisabGhorMatch[3].toLowerCase(); // 'expense' or 'income'
+      const amountVal = parseAmountSafely(hisabGhorMatch[4]);
+
+      if (amountVal > 0) {
+        // Known Persons from HisabGhor statements
+        const knownPersons = [
+          'Tahmina akter roni',
+          'Sajjad Hossan',
+          'Arham Hossan',
+          'Amalina rimi',
+          'রিমির নানু বাসায়',
+          'রিমির নানু বাসা',
+          'আইডী সাথী',
+          'Household',
+          'সাজ্জাদ',
+          'রিমি',
+          'আরহাম'
+        ];
+
+        // Known Categories from HisabGhor statements
+        const knownCategories = [
+          'Food & Groceries',
+          'Transportation',
+          'সদকা/ দান/ সাহায্য',
+          'সদকা/দান/সাহায্য',
+          'Housing',
+          'Financial',
+          'Shopping',
+          'Clothing',
+          'Education',
+          'Family'
+        ];
+
+        let detectedPerson = '';
+        let rest = middle;
+
+        for (const p of knownPersons) {
+          if (rest.endsWith(p)) {
+            detectedPerson = p;
+            rest = rest.slice(0, rest.length - p.length).trim();
+            break;
+          }
+        }
+
+        let fileCategory = '';
+        for (const c of knownCategories) {
+          if (rest.endsWith(c)) {
+            fileCategory = c;
+            rest = rest.slice(0, rest.length - c.length).trim();
+            break;
+          }
+        }
+
+        let itemTitle = rest;
+        // Clean trailing verbs e.g. "কিনছি", "পরিশোধ করেছি", "দিসি", "দিছি"
+        itemTitle = itemTitle.replace(/\s+(কিনছি|পরিশোধ করেছি|দিসি|দিছি|গেছিল|আসছি)$/i, '').trim();
+
+        // Extract qty & unit if present e.g. "0.9gx12pcs", "10গ্রাম x1"
+        const qtyMatch = itemTitle.match(/([0-9০-৯]+(?:\.[0-9০-৯]+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টি|ডজন|ব্যাগ|প্যাকেট|kg|g|gm|ltr|l|pcs|pc|ft|box|pkt)/i);
+        let quantity = null;
+        let unit = '';
+        if (qtyMatch) {
+          quantity = parseAmountSafely(qtyMatch[1]);
+          unit = qtyMatch[2];
+        }
+
+        const { folder: guessedFolder, subFolder: guessedSubFolder } = guessFolderAndSubFolder(itemTitle, 'family');
+        const finalPerson = guessPersonFromText(itemTitle, detectedPerson || 'Household');
+
+        parsedRecords.push({
+          serial: parsedRecords.length + 1,
+          date: rowDate,
+          month: rowDate.slice(0, 7), // "2026-10" or "2026-09"
+          item: itemTitle,
+          amount: amountVal,
+          type: recType,
+          quantity: quantity,
+          unit: unit,
+          folder: guessedFolder || fileCategory || 'গৃহস্থালি ও নিত্য কেনাকাটা',
+          subFolder: guessedSubFolder,
+          person: finalPerson || detectedPerson || 'Household',
+          member: detectedPerson || 'Sajjad Hossan',
+          note: `HisabGhor থেকে ইমপোর্টকৃত (${detectedPerson || 'Household'})`
+        });
+        return; // Handled with 100% precision!
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // B. DIRECT MONEE-APP / STATEMENT PATTERN MATCHING
+    // Format: [Item Description] - [Member] [Date] [-+]?BDT[Amount]
+    // Example: photo copy - sajjadhossan 31 August 2026 -BDT10.00
+    // Example: auto vara bazer to sreenagar - Sajjad 22 August 2026 -BDT50.00
+    // ------------------------------------------------------------------
+    const moneePattern = /^(.*?)\s*-\s*([a-zA-Z0-9_\u0980-\u09FF\s]+?)\s+([0-9০-৯]{1,2}\s+[a-zA-Z\u0980-\u09FF]+\s+[0-9০-৯]{2,4})\s+[-+]?\s*BDT\s*([0-9,]+(?:\.[0-9]+)?)$/i;
+    const moneeMatch = trimmedLine.match(moneePattern);
+
+    if (moneeMatch) {
+      let rawItem = cleanOcrText(moneeMatch[1]).trim();
+      const rawMember = moneeMatch[2].trim();
+      const rawDateStr = moneeMatch[3].trim();
+      const rawAmtStr = moneeMatch[4].trim();
+
+      const itemDate = normalizeDate(rawDateStr);
+      lastSeenDate = itemDate;
+      const amountVal = parseAmountSafely(rawAmtStr);
+
+      if (amountVal > 0) {
+        // Extract quantity and unit if present e.g. "Dim30pcs", "toast biscuits 500g", "coffee 24pcs 5tk"
+        const qtyMatch = rawItem.match(/([0-9০-৯]+(?:\.[0-9০-৯]+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টি|ডজন|ব্যাগ|প্যাকেট|kg|g|gm|ltr|l|pcs|pc|ft|box|pkt)/i);
+        let quantity = null;
+        let unit = '';
+        if (qtyMatch) {
+          quantity = parseAmountSafely(qtyMatch[1]);
+          unit = qtyMatch[2];
+        }
+
+        const { folder, subFolder } = guessFolderAndSubFolder(rawItem, 'family');
+        const person = guessPersonFromText(rawItem, rawMember);
+
+        parsedRecords.push({
+          serial: parsedRecords.length + 1,
+          date: itemDate,
+          month: itemDate.slice(0, 7), // "2026-08"
+          item: rawItem,
+          amount: amountVal,
+          type: 'expense',
+          quantity: quantity,
+          unit: unit,
+          folder: folder,
+          subFolder: subFolder,
+          person: person,
+          member: rawMember,
+          note: `Monee-App থেকে ইমপোর্টকৃত (${rawMember})`
+        });
+        return; // Handled directly with 100% precision!
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // B. GENERIC FALLBACK FOR OTHER PDF FORMATS & STATEMENTS
+    // ------------------------------------------------------------------
     const lineDateMatch = trimmedLine.match(dateRegex);
     let rowDate = lastSeenDate;
     if (lineDateMatch) {
       try {
         rowDate = normalizeDate(lineDateMatch[0]);
-        lastSeenDate = rowDate; // carry forward to subsequent lines
+        lastSeenDate = rowDate; // carry forward
       } catch {}
     }
 
-    // 5. Look for numbers (quantities, amounts)
     const rawMatches = trimmedLine.match(numberRegex) || [];
     if (rawMatches.length === 0) {
-      // Check if line represents standalone category or section title
       const possibleFolder = guessFolderFromText(trimmedLine, 'family');
       if (possibleFolder && possibleFolder !== 'অন্যান্য পারিবারিক খরচ') {
         currentContextFolder = possibleFolder;
@@ -1265,41 +1440,31 @@ export const parsePdfFile = async (file, onProgress) => {
     const amountVal = parseAmountSafely(lastNumStr);
 
     if (amountVal > 0) {
-      // Clean description: strip date and amount from the line
       let desc = trimmedLine;
       if (lineDateMatch) {
         desc = desc.replace(lineDateMatch[0], '');
       }
       desc = desc.replace(lastNumStr, '');
-
-      // Strip leading serial number e.g. "১.", "1.", "#1", "১)", "1)"
       desc = desc.replace(/^[#№]?\s*[0-9০-৯]+[\.\)\-\:\s]+/i, '').trim();
-
-      // Clean currency symbols, words like টাকা, tk, /-
       desc = desc
         .replace(/[৳$€£,]/g, '')
         .replace(/\b(টাকা|টাকার|টাকায়|tk|bdt|taka|\/-)\b/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
 
-      // Extract possible quantity & unit (e.g. 5 kg, 2 pcs, 500 g, ২ লিটার)
       const qtyMatch = desc.match(/([0-9০-৯]+(?:\.[0-9০-৯]+)?)\s*(কেজি|গ্রাম|লিটার|পিস|টি|ডজন|ব্যাগ|প্যাকেট|kg|g|gm|ltr|l|pcs|pc|ft|box|pkt)/i);
       let quantity = null;
       let unit = '';
-
       if (qtyMatch) {
         quantity = parseAmountSafely(qtyMatch[1]);
         unit = qtyMatch[2];
-        // Remove qty from title so item title is clean: "আলু ২ কেজি" -> "আলু"
         desc = desc.replace(qtyMatch[0], '').replace(/\s+/g, ' ').trim();
       }
 
-      // If desc became empty or was just punctuation, give meaningful fallback
       if (desc.length < 2) {
         desc = currentContextFolder ? `${currentContextFolder} আইটেম` : `খরচের আইটেম #${parsedRecords.length + 1}`;
       }
 
-      // Double-check desc is not a summary row word
       if (
         desc === 'মোট' || 
         desc === 'সর্বমোট' || 
@@ -1309,14 +1474,21 @@ export const parsePdfFile = async (file, onProgress) => {
         return;
       }
 
+      const { folder, subFolder } = guessFolderAndSubFolder(desc, 'family');
+      const person = guessPersonFromText(desc, '');
+
       parsedRecords.push({
         serial: parsedRecords.length + 1,
         date: rowDate,
+        month: rowDate.slice(0, 7),
         item: desc,
         amount: amountVal,
         quantity: quantity,
         unit: unit,
-        folder: currentContextFolder || guessFolderFromText(desc, 'family'),
+        folder: currentContextFolder || folder,
+        subFolder: subFolder,
+        person: person,
+        member: person,
         note: 'PDF থেকে ইমপোর্টকৃত'
       });
     }
@@ -1482,4 +1654,200 @@ export function guessFolderFromText(text, destinationType = 'family') {
   }
 
   return destinationType === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'অন্যান্য পারিবারিক খরচ';
+}
+
+export function cleanOcrText(str) {
+  if (!str) return '';
+  let res = String(str).trim();
+  res = res.replace(/ভা\s+ড়া/g, 'ভাড়া');
+  res = res.replace(/লে\s+বু/g, 'লেবু');
+  res = res.replace(/রশুভা/g, 'রসুন');
+  res = res.replace(/রি\s+মি/g, 'রিমি');
+  res = res.replace(/স\s+দস্য/g, 'সদস্য');
+  return res;
+}
+
+export function guessPersonFromText(text, fallbackMember = '') {
+  const combined = `${text || ''} ${fallbackMember || ''}`.toLowerCase();
+  
+  if (combined.includes('arham') || combined.includes('আরহাম')) return 'আরহাম (Arham)';
+  if (combined.includes('rimi') || combined.includes('রিমি') || combined.includes('রি মি')) return 'রিমি (Rimi)';
+  if (combined.includes('faiza') || combined.includes('ফাইজা')) return 'ফাইজা (Faiza)';
+  if (combined.includes('sajjad') || combined.includes('সাজ্জাদ')) return 'সাজ্জাদ (Sajjad)';
+  if (combined.includes('shongshar') || combined.includes('সংসার') || combined.includes('nanu')) return 'পরিবার / সংসার';
+
+  if (fallbackMember) {
+    const cleaned = String(fallbackMember).trim();
+    if (cleaned.toLowerCase().includes('sajjad')) return 'সাজ্জাদ (Sajjad)';
+    return cleaned;
+  }
+  return '';
+}
+
+export function guessFolderAndSubFolder(text, destinationType = 'family') {
+  if (!text) {
+    return {
+      folder: destinationType === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা',
+      subFolder: destinationType === 'biz_expense' ? 'সাধারণ খরচ' : 'নিত্য প্রয়োজনীয়'
+    };
+  }
+
+  const t = String(text).toLowerCase();
+
+  // 1. যাতায়াত ও পরিবহন (Transport & Travel)
+  if (
+    t.includes('auto') || t.includes('vara') || t.includes('ভাড়া') || t.includes('ভা ড়া') ||
+    t.includes('honda') || t.includes('mottogram') || t.includes('sreenagar') || t.includes('sologhor') ||
+    t.includes('dawan') || t.includes('jawa asa') || t.includes('rickshaw') || t.includes('রিকশা') ||
+    t.includes('c to s') || t.includes('m to s') || t.includes('উবার') || t.includes('পাঠাও') ||
+    t.includes('সিএনজি') || t.includes('বাস') || t.includes('তেল/অকটেন') || t.includes('ফুয়েল') ||
+    t.includes('পেট্রোল') || t.includes('যাতায়াত') || t.includes('গাড়ি')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'যাতায়াত ও পরিবহন খরচ' : 'যাতায়াত ও পরিবহন';
+    let subFolder = 'লোকাল যাতায়াত';
+    if (t.includes('honda') || t.includes('বাইক')) subFolder = 'হোন্ডা / বাইক ভাড়া';
+    else if (t.includes('auto') || t.includes('অটো')) subFolder = 'অটো রিকশা ভাড়া';
+    else if (t.includes('fuel') || t.includes('তেল') || t.includes('পেট্রোল')) subFolder = 'জ্বালানি ও ফুয়েল';
+    return { folder, subFolder };
+  }
+
+  // 2. চিকিৎসা ও ওষুধ (Health & Medicine)
+  if (
+    t.includes('oshod') || t.includes('famomax') || t.includes('tuspel') || t.includes('doctor') ||
+    t.includes('serial') || t.includes('pad+ace') || t.includes('abroks') || t.includes('daipar') ||
+    t.includes('ওষুধ') || t.includes('ঔষধ') || t.includes('ডাক্তার') || t.includes('হাসপাতাল') ||
+    t.includes('ফার্মেসি') || t.includes('টেস্ট') || t.includes('pharma') || t.includes('med') ||
+    t.includes('clinic') || t.includes('ডায়পার')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'জরুরি চিকিৎসা ও ফার্স্ট এইড' : 'পারিবারিক চিকিৎসা ও ওষুধ';
+    let subFolder = 'ওষুধ ও ফার্মেসি';
+    if (t.includes('doctor') || t.includes('serial') || t.includes('ডাক্তার')) subFolder = 'ডাক্তার সিরিয়াল ও ফি';
+    else if (t.includes('daipar') || t.includes('ডায়পার')) subFolder = 'শিশুর ডায়পার ও বেবি কেয়ার';
+    else if (t.includes('pad') || t.includes('ace')) subFolder = 'জরুরি ওষুধ ও ফার্স্ট এইড';
+    return { folder, subFolder };
+  }
+
+  // 3. নাস্তা, খাবার, মিষ্টি ও স্ন্যাক্স (Snacks, Tea & Beverages)
+  if (
+    t.includes('cha') || t.includes('cha ') || t.includes('cha-') || t.includes('চা') ||
+    t.includes('coffee') || t.includes('nescafe') || t.includes('nescafé') || t.includes('taza') ||
+    t.includes('danu') || t.includes('ice cream') || t.includes('chop') || t.includes('puri') ||
+    t.includes('bud') || t.includes('fochka') || t.includes('cake') || t.includes('choklet') ||
+    t.includes('toast') || t.includes('biscuits') || t.includes('bread') || t.includes('roti') ||
+    t.includes('chips') || t.includes('misti') || t.includes('মিষ্টি') || t.includes('ফুচকা') ||
+    t.includes('বিস্কুট') || t.includes('কফি') || t.includes('কেক') || t.includes('চিপস')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'দোকান ও টিফিন খরচ' : 'নাস্তা, খাবার ও মিষ্টি';
+    let subFolder = 'টিফিন ও হালকা নাস্তা';
+    if (t.includes('cha') || t.includes('চা') || t.includes('coffee') || t.includes('কফি') || t.includes('danu')) subFolder = 'চা, কফি ও পানীয়';
+    else if (t.includes('misti') || t.includes('মিষ্টি') || t.includes('cake') || t.includes('ice cream') || t.includes('choklet')) subFolder = 'মিষ্টি, কেক ও আইসক্রিম';
+    else if (t.includes('bread') || t.includes('roti') || t.includes('toast') || t.includes('রুটি')) subFolder = 'রুটি, পাউরুটি ও বিস্কুট';
+    else if (t.includes('puri') || t.includes('chop') || t.includes('fochka') || t.includes('ফুচকা')) subFolder = 'হালকা স্ট্রিটফুড ও নাস্তা';
+    else if (t.includes('chips') || t.includes('চিপস')) subFolder = 'চিপস ও স্ন্যাক্স';
+    return { folder, subFolder };
+  }
+
+  // 4. কাঁচাবাজার ও খাদ্যদ্রব্য (Bazaar, Vegetables, Meat, Groceries)
+  if (
+    t.includes('চাল') || t.includes('তেল') || t.includes('বাজার') || t.includes('মাছ') ||
+    t.includes('সবজি') || t.includes('ডিম') || t.includes('grocery') || t.includes('মুরগি') ||
+    t.includes('মাংস') || t.includes('গোশত') || t.includes('ডাল') || t.includes('আলু') ||
+    t.includes('পেঁয়াজ') || t.includes('মসলা') || t.includes('দুধ') || t.includes('চিনি') ||
+    t.includes('morgi') || t.includes('farom') || t.includes('dim') || t.includes('dudh') ||
+    t.includes('gorur') || t.includes('morich') || t.includes('sosha') || t.includes('sosa') ||
+    t.includes('gajor') || t.includes('bitroot') || t.includes('লেবু') || t.includes('লে বু') ||
+    t.includes('রসুন') || t.includes('রশুভা') || t.includes('mosla') || t.includes('mosol') ||
+    t.includes('chok bazaar') || t.includes('finish pati')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা';
+    let subFolder = 'কাঁচাবাজার ও সদাই';
+    if (t.includes('morgi') || t.includes('farom') || t.includes('মুরগি') || t.includes('মাংস') || t.includes('মাছ')) subFolder = 'মাছ ও ব্রয়লার মুরগি';
+    else if (t.includes('dim') || t.includes('ডিম')) subFolder = 'ডিম';
+    else if (t.includes('dudh') || t.includes('দুধ') || t.includes('gorur')) subFolder = 'গরুর খাঁটি দুধ';
+    else if (t.includes('morich') || t.includes('sosha') || t.includes('sosa') || t.includes('gajor') || t.includes('bitroot') || t.includes('লেবু') || t.includes('লে বু') || t.includes('সবজি')) subFolder = 'শাকসবজি ও সালাদ সামগ্রী';
+    else if (t.includes('mosla') || t.includes('mosol') || t.includes('রসুন') || t.includes('রশুভা') || t.includes('মসলা')) subFolder = 'রান্নার মসলা ও সরঞ্জাম';
+    else if (t.includes('finish pati') || t.includes('chok bazaar')) subFolder = 'চকবাজার সংসারের ফিনিশ সামগ্রী';
+    return { folder, subFolder };
+  }
+
+  // 5. বিদ্যুৎ, গ্যাস, ওয়াইফাই ও ইউটিলিটি
+  if (
+    t.includes('গ্যাস') || t.includes('gas') || t.includes('lpg') || t.includes('এলপিজি') ||
+    t.includes('সিলিন্ডার') || t.includes('cylinder') || t.includes('বিদ্যুৎ') || t.includes('কারেন্ট') ||
+    t.includes('পানি') || t.includes('water') || t.includes('bill') || t.includes('wifi') ||
+    t.includes('ওয়াইফাই') || t.includes('burner') || t.includes('চুলা') || t.includes('বার্নার')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'ইউটিলিটি ও বিল' : 'বিদ্যুৎ, গ্যাস ও ইউটিলিটি';
+    let subFolder = 'মাসিক ইউটিলিটি বিল';
+    if (t.includes('wifi') || t.includes('ওয়াইফাই') || t.includes('নেট')) subFolder = 'ওয়াইফাই ও ব্রডব্যান্ড বিল';
+    else if (t.includes('burner') || t.includes('বার্নার') || t.includes('গ্যাস') || t.includes('চুলা')) subFolder = 'গ্যাসের চুলা ও বার্নার ফিটিং';
+    else if (t.includes('বিদ্যুৎ') || t.includes('কারেন্ট')) subFolder = 'বিদ্যুৎ বিল';
+    return { folder, subFolder };
+  }
+
+  // 6. পোশাক, পরিধান ও হিজাব (Clothing & Fashion)
+  if (
+    t.includes('chador') || t.includes('hijab') || t.includes('3pis') || t.includes('চাদর') ||
+    t.includes('হিজাব') || t.includes('থ্রিপিস') || t.includes('কাপড়') || t.includes('জামা')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'অফিস সাপ্লাই ও স্টেশনারি' : 'পোশাক ও পরিধান';
+    let subFolder = 'পোশাক ও কাপড়';
+    if (t.includes('hijab') || t.includes('হিজাব')) subFolder = 'হিজাব ও বোরকা';
+    else if (t.includes('3pis') || t.includes('থ্রিপিস')) subFolder = 'থ্রিপিস ও ড্রেস';
+    else if (t.includes('chador') || t.includes('চাদর')) subFolder = 'চাদর ও শীতের পোশাক';
+    return { folder, subFolder };
+  }
+
+  // 7. প্রসাধন, ব্যক্তিগত যত্ন ও লন্ড্রি (Personal Care & Laundry)
+  if (
+    t.includes('sampo') || t.includes('shampoo') || t.includes('powder') || t.includes('ghamachi') ||
+    t.includes('rin') || t.includes('chol kata') || t.includes('khansama') || t.includes('সাবান') ||
+    t.includes('শ্যাম্পু') || t.includes('চুল কাটা') || t.includes('লন্ড্রি')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'অফিস সাপ্লাই ও স্টেশনারি' : 'ব্যক্তিগত যত্ন ও প্রসাধন';
+    let subFolder = 'প্রসাধন ও রূপচর্চা';
+    if (t.includes('chol kata') || t.includes('khansama') || t.includes('চুল কাটা')) subFolder = 'সেলুন ও চুল কাটা';
+    else if (t.includes('rin') || t.includes('লন্ড্রি') || t.includes('detergent')) subFolder = 'রিন পাউডার ও লন্ড্রি';
+    else if (t.includes('sampo') || t.includes('shampoo')) subFolder = 'শ্যাম্পু ও হেয়ার কেয়ার';
+    else if (t.includes('ghamachi') || t.includes('powder')) subFolder = 'ঘামাচি পাউডার ও স্কিন কেয়ার';
+    return { folder, subFolder };
+  }
+
+  // 8. স্টেশনারি ও ইলেকট্রনিক্স এক্সেসরিজ
+  if (
+    t.includes('photo copy') || t.includes('photocopy') || t.includes('ফটোকপি') ||
+    t.includes('screen protector') || t.includes('গ্লাস') || t.includes('কাগজ') || t.includes('খাতা')
+  ) {
+    const folder = destinationType === 'biz_expense' ? 'অফিস সাপ্লাই ও স্টেশনারি' : 'স্টেশনারি ও ইলেকট্রনিক্স';
+    let subFolder = 'ফটোকপি ও স্টেশনারি';
+    if (t.includes('screen protector')) subFolder = 'মোবাইল স্ক্রিন প্রটেক্টর';
+    return { folder, subFolder };
+  }
+
+  // 9. দান ও সদকা
+  if (t === 'dan' || t.includes('দান') || t.includes('সদকা') || t.includes('charity')) {
+    const folder = destinationType === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'দান ও সদকা';
+    return { folder, subFolder: 'সদকা ও দান' };
+  }
+
+  // 10. বাড়ি ও দোকান ভাড়া
+  if (t.includes('বাসা ভাড়া') || t.includes('দোকান ভাড়া') || t.includes('rent') || t.includes('গোডাউন')) {
+    return {
+      folder: destinationType === 'biz_expense' ? 'দোকান ও গোডাউন ভাড়া' : 'বাসা ও ফ্ল্যাট খরচ',
+      subFolder: destinationType === 'biz_expense' ? 'দোকান ভাড়া' : 'মাসিক বাসা ভাড়া'
+    };
+  }
+
+  // 11. বেতন ও স্টাফ
+  if (t.includes('বেতন') || t.includes('salary') || t.includes('স্টাফ') || t.includes('মজুরি') || t.includes('কর্মচারী')) {
+    return {
+      folder: destinationType === 'biz_expense' ? 'কর্মচারী বেতন ও মজুরি' : 'গৃহকর্মী ও কাজের লোক',
+      subFolder: 'মাসিক বেতন'
+    };
+  }
+
+  return {
+    folder: destinationType === 'biz_expense' ? 'অন্যান্য ব্যবসায়িক খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা',
+    subFolder: 'সাধারণ বিবিধ খরচ'
+  };
 }

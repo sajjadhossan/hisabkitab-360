@@ -193,7 +193,7 @@ export const SyncStatusIndicator = () => {
         onMouseLeave={() => setIsExpanded(false)}
         style={{
           ...dragStyle,
-          zIndex: 920,
+          zIndex: isDragging ? 99999 : 920,
           display: 'inline-flex',
           alignItems: 'center',
           gap: '6px',
@@ -214,27 +214,29 @@ export const SyncStatusIndicator = () => {
         }}
         title={lang === 'bn' ? 'অনলাইন / ক্লাউড সিঙ্ক স্ট্যাটাস (টেনে যেকোনো জায়গায় রাখুন)' : 'Online / Cloud Sync Status (Draggable)'}
       >
-        {!isOnline ? (
-          <>
-            <WifiOff size={13} />
-            <span>{lang === 'bn' ? 'অফলাইন' : 'Offline'}</span>
-            {pendingCount > 0 && (
-              <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.68rem', fontWeight: '800', marginLeft: '2px' }}>
-                {pendingCount} অপেক্ষমাণ
-              </span>
-            )}
-          </>
-        ) : isSyncing ? (
-          <>
-            <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-            <span>{lang === 'bn' ? 'সিঙ্ক হচ্ছে...' : 'Syncing...'}</span>
-          </>
-        ) : (
-          <>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ffffff', display: 'inline-block', boxShadow: '0 0 6px #fff' }} />
-            <span>{lang === 'bn' ? 'অনলাইন' : 'Online'}</span>
-          </>
-        )}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', pointerEvents: 'none', userSelect: 'none' }}>
+          {!isOnline ? (
+            <>
+              <WifiOff size={13} />
+              <span>{lang === 'bn' ? 'অফলাইন' : 'Offline'}</span>
+              {pendingCount > 0 && (
+                <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.68rem', fontWeight: '800', marginLeft: '2px' }}>
+                  {pendingCount} অপেক্ষমাণ
+                </span>
+              )}
+            </>
+          ) : isSyncing ? (
+            <>
+              <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+              <span>{lang === 'bn' ? 'সিঙ্ক হচ্ছে...' : 'Syncing...'}</span>
+            </>
+          ) : (
+            <>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ffffff', display: 'inline-block', boxShadow: '0 0 6px #fff' }} />
+              <span>{lang === 'bn' ? 'অনলাইন' : 'Online'}</span>
+            </>
+          )}
+        </div>
       </div>
     </>
   );

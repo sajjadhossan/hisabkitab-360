@@ -31,7 +31,8 @@ import {
   Copy,
   Check,
   Clock,
-  Globe
+  Globe,
+  Edit2
 } from 'lucide-react';
 import {
   exportFamilyExpensesExcel,
@@ -49,7 +50,9 @@ import {
   parsePdfFile,
   normalizeDate,
   parseAmountSafely,
-  guessFolderFromText
+  guessFolderFromText,
+  guessFolderAndSubFolder,
+  guessPersonFromText
 } from '../../services/exportImportService';
 import { printHtmlContent } from '../../services/printService';
 import { encryptData, decryptData, downloadEncryptedBackupFile } from '../../services/cryptoService';
@@ -71,8 +74,11 @@ export const DataExportImportModal = ({
     businessDebts = [],
     customers = [],
     addPersonalExpense,
+    addMultiplePersonalExpenses,
+    addPersonalIncome,
     addProduct,
     addBusinessExpense,
+    addMultipleBusinessExpenses,
     categories = {},
     showToast,
     lang,
@@ -564,15 +570,20 @@ export const DataExportImportModal = ({
           const finalAmount = parseAmountSafely(rec.amount);
           const finalFolder = rec.folder || guessFolderFromText(rec.item, importDestination);
           return {
-            id: `cand-pdf-${i}-${Date.now()}`,
+            id: `cand-pdf-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             serial: rec.serial || (i + 1),
             selected: true,
             date: finalDate,
+            month: rec.month || finalDate.slice(0, 7),
             item: rec.item || 'অজ্ঞাত খরচ',
             amount: finalAmount,
             quantity: rec.quantity || null,
             unit: rec.unit || '',
             folder: finalFolder,
+            subFolder: rec.subFolder || '',
+            person: rec.person || rec.member || '',
+            member: rec.member || rec.person || '',
+            type: rec.type || 'expense',
             note: rec.note || 'PDF থেকে ইমপোর্টকৃত'
           };
         });
@@ -585,7 +596,7 @@ export const DataExportImportModal = ({
             setDateRangeSummary({ min: dates[0], max: dates[dates.length - 1] });
           }
           const totalSum = rows.reduce((s, r) => s + r.amount, 0);
-          showToast(lang === 'bn' ? `🎉 মোট ${rows.length}টি লেনদেন (সর্বমোট ৳${totalSum.toLocaleString('en-IN')}) সফলভাবে লোড হয়েছে!` : `Extracted ${rows.length} transactions (Total ৳${totalSum.toLocaleString('en-IN')})!`, 'success');
+          showToast(lang === 'bn' ? `🎉 মোট ${rows.length}টি আলাদা লেনদেন (সর্বমোট ৳${totalSum.toLocaleString('en-IN')}) সফলভাবে লোড হয়েছে!` : `Extracted ${rows.length} individual transactions (Total ৳${totalSum.toLocaleString('en-IN')})!`, 'success');
         } else {
           showToast(lang === 'bn' ? '⚠️ PDF ফাইলে কোনো লেনদেন চিহ্নিত করা যায়নি। ফাইলটি চেক করুন।' : 'No transactions found in PDF.', 'warning');
         }
@@ -614,22 +625,29 @@ export const DataExportImportModal = ({
         const memberVal = mapping.member !== -1 && row[mapping.member] ? String(row[mapping.member]).trim() : '';
         const qtyVal = mapping.quantity !== -1 && row[mapping.quantity] ? parseAmountSafely(row[mapping.quantity]) : null;
         const unitVal = mapping.unit !== -1 && row[mapping.unit] ? String(row[mapping.unit]).trim() : '';
+        const { folder: guessedFolder, subFolder: guessedSubFolder } = guessFolderAndSubFolder(itemVal, importDestination);
+        const guessedPerson = guessPersonFromText(itemVal, memberVal);
+
         const folderVal = mapping.folder !== -1 && row[mapping.folder]
           ? String(row[mapping.folder]).trim()
-          : guessFolderFromText(itemVal, importDestination);
+          : (guessedFolder || defaultFolder);
         const noteVal = mapping.note !== -1 && row[mapping.note] ? String(row[mapping.note]).trim() : '';
 
         candidates.push({
-          id: `cand-xls-${i}-${Date.now()}`,
+          id: `cand-xls-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           serial: i + 1,
           selected: true,
           date: dateVal,
+          month: dateVal.slice(0, 7),
           item: itemVal,
-          member: memberVal,
+          member: memberVal || guessedPerson,
+          person: guessedPerson,
+          type: 'expense',
           amount: amountVal,
           quantity: qtyVal,
           unit: unitVal,
           folder: folderVal,
+          subFolder: guessedSubFolder,
           note: noteVal || 'Excel থেকে ইমপোর্টকৃত'
         });
       }
@@ -708,75 +726,111 @@ export const DataExportImportModal = ({
 
     const linkedEvent = personalEvents.find(e => e.id === targetEventId);
 
-    let count = 0;
+    const personalItemsToInsert = [];
+    const businessItemsToInsert = [];
+
     selectedRows.forEach(row => {
+      // Direct Income routing
+      if (row.type === 'income') {
+        if (typeof addPersonalIncome === 'function') {
+          addPersonalIncome({
+            source: row.item || 'আয়',
+            amount: Number(row.amount),
+            date: row.date,
+            member: row.person || row.member || '',
+            category: 'salary',
+            note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ আয়'
+          });
+        }
+        return;
+      }
       if (importDestination === 'family') {
-        addPersonalExpense({
+        personalItemsToInsert.push({
           title: row.item,
           item: row.item,
           amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
           folder: row.folder || defaultFolder,
+          subFolder: row.subFolder || '',
           category: row.folder || defaultFolder,
+          person: row.person || row.member || '',
           member: row.member || row.person || '',
           type: 'family',
           date: row.date,
           note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
-        count++;
       } else if (importDestination === 'daily') {
-        addPersonalExpense({
+        personalItemsToInsert.push({
           title: row.item,
           item: row.item,
           amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
+          person: row.person || row.member || '',
           member: row.member || row.person || '',
+          subFolder: row.subFolder || '',
           category: 'bazaar',
           type: 'daily',
           date: row.date,
           note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
-        count++;
       } else if (importDestination === 'event') {
-        addPersonalExpense({
+        personalItemsToInsert.push({
           title: row.item,
           item: row.item,
           amount: Number(row.amount),
           quantity: row.quantity,
           unit: row.unit,
           folder: row.folder || defaultFolder,
+          subFolder: row.subFolder || '',
           category: row.folder || defaultFolder,
+          person: row.person || row.member || '',
+          member: row.member || row.person || '',
           type: 'family',
           eventId: targetEventId,
           eventName: linkedEvent ? linkedEvent.title : '',
           date: row.date,
           note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
-        count++;
       } else if (importDestination === 'biz_expense') {
-        addBusinessExpense({
+        businessItemsToInsert.push({
           title: row.item,
           amount: Number(row.amount),
           category: row.folder || 'other',
+          subCategory: row.subFolder || '',
+          person: row.person || row.member || '',
           date: row.date,
           note: row.note ? `${row.note} (স্মার্ট ব্যাকআপ)` : 'স্মার্ট ব্যাকআপ'
         });
-        count++;
       } else if (importDestination === 'biz_product') {
         addProduct({
           name: row.item,
-          barcode: `IMP-${Date.now().toString().slice(-6)}`,
+          barcode: `IMP-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substr(2, 4)}`,
           sku: `SKU-${Date.now().toString().slice(-4)}`,
           category: 'General',
           stock: row.quantity || 10,
           costPrice: Math.round(row.amount * 0.8),
           sellingPrice: row.amount
         });
-        count++;
       }
     });
+
+    if (personalItemsToInsert.length > 0) {
+      if (typeof addMultiplePersonalExpenses === 'function') {
+        addMultiplePersonalExpenses(personalItemsToInsert);
+      } else {
+        personalItemsToInsert.forEach(item => addPersonalExpense(item));
+      }
+    }
+
+    if (businessItemsToInsert.length > 0) {
+      if (typeof addMultipleBusinessExpenses === 'function') {
+        addMultipleBusinessExpenses(businessItemsToInsert);
+      } else {
+        businessItemsToInsert.forEach(item => addBusinessExpense(item));
+      }
+    }
 
     // Automatically Create Persistent Backup Snapshot
     const backupSnapshot = {
@@ -2092,17 +2146,25 @@ export const DataExportImportModal = ({
                       <thead>
                         <tr style={{ background: 'var(--bg-main)', position: 'sticky', top: 0, borderBottom: '1px solid var(--border-color)', zIndex: 10 }}>
                           <th style={{ padding: '8px 6px', width: '30px', textAlign: 'center' }}>✓</th>
-                          <th style={{ padding: '8px 4px', width: '38px', textAlign: 'center' }}>#</th>
-                          <th style={{ padding: '8px 8px', width: '95px' }}>তারিখ</th>
-                          <th style={{ padding: '8px 8px' }}>খরচের আইটেম / বিবরণ</th>
-                          <th style={{ padding: '8px 6px', width: '90px' }}>পরিমাণ/একক</th>
-                          <th style={{ padding: '8px 8px', width: '130px' }}>ক্যাটাগরি</th>
-                          <th style={{ padding: '8px 8px', width: '95px', textAlign: 'right' }}>টাকা (৳)</th>
-                          <th style={{ padding: '8px 6px', width: '65px', textAlign: 'center' }}>অ্যাকশন</th>
+                          <th style={{ padding: '8px 4px', width: '36px', textAlign: 'center' }}>#</th>
+                          <th style={{ padding: '8px 6px', width: '100px' }}>তারিখ ও মাস</th>
+                          <th style={{ padding: '8px 6px' }}>খরচের বিবরণ (আইটেম)</th>
+                          <th style={{ padding: '8px 4px', width: '82px' }}>পরিমাণ/একক</th>
+                          <th style={{ padding: '8px 6px', width: '115px' }}>খাত (ফোল্ডার)</th>
+                          <th style={{ padding: '8px 6px', width: '110px' }}>উপ-খাত</th>
+                          <th style={{ padding: '8px 6px', width: '100px' }}>কার খরচ (ব্যক্তি)</th>
+                          <th style={{ padding: '8px 6px', width: '85px', textAlign: 'right' }}>টাকা (৳)</th>
+                          <th style={{ padding: '8px 4px', width: '55px', textAlign: 'center' }}>অ্যাকশন</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {candidateRows.map((r, idx) => (
+                        {candidateRows.map((r, idx) => {
+                          const dateObj = r.date ? new Date(r.date) : null;
+                          const monthName = dateObj && !isNaN(dateObj.getTime())
+                            ? dateObj.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', year: 'numeric' })
+                            : '';
+
+                          return (
                           <tr
                             key={r.id}
                             style={{
@@ -2127,7 +2189,7 @@ export const DataExportImportModal = ({
                               #{r.serial || (idx + 1)}
                             </td>
 
-                            {/* Editable Date */}
+                            {/* Editable Date + Month Badge */}
                             <td style={{ padding: '6px 4px' }}>
                               <input
                                 type="text"
@@ -2135,8 +2197,8 @@ export const DataExportImportModal = ({
                                 onChange={(e) => updateCandidateRow(r.id, 'date', e.target.value)}
                                 style={{
                                   width: '100%',
-                                  padding: '4px 6px',
-                                  borderRadius: '6px',
+                                  padding: '3px 5px',
+                                  borderRadius: '5px',
                                   border: '1px solid var(--border-color)',
                                   background: 'var(--bg-primary)',
                                   color: 'var(--text-main)',
@@ -2144,26 +2206,38 @@ export const DataExportImportModal = ({
                                   fontFamily: 'monospace'
                                 }}
                               />
+                              {monthName && (
+                                <div style={{ fontSize: '0.64rem', color: '#06b6d4', marginTop: '2px', fontWeight: '700' }}>
+                                  📅 {monthName}
+                                </div>
+                              )}
                             </td>
 
                             {/* Editable Item Description */}
                             <td style={{ padding: '6px 4px' }}>
-                              <input
-                                type="text"
-                                value={r.item}
-                                onChange={(e) => updateCandidateRow(r.id, 'item', e.target.value)}
-                                placeholder="কী কেনা হয়েছে"
-                                style={{
-                                  width: '100%',
-                                  padding: '4px 6px',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--border-color)',
-                                  background: 'var(--bg-primary)',
-                                  color: 'var(--text-main)',
-                                  fontSize: '0.78rem',
-                                  fontWeight: '700'
-                                }}
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <input
+                                  type="text"
+                                  value={r.item}
+                                  onChange={(e) => updateCandidateRow(r.id, 'item', e.target.value)}
+                                  placeholder="কী কেনা হয়েছে বা বিবরণ"
+                                  style={{
+                                    width: '100%',
+                                    padding: '4px 6px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-primary)',
+                                    color: 'var(--text-main)',
+                                    fontSize: '0.78rem',
+                                    fontWeight: '700'
+                                  }}
+                                />
+                                {r.type === 'income' && (
+                                  <span style={{ fontSize: '0.62rem', fontWeight: '900', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    💰 আয়
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Editable Qty & Unit */}
@@ -2175,8 +2249,8 @@ export const DataExportImportModal = ({
                                   placeholder="পরিমাণ"
                                   onChange={(e) => updateCandidateRow(r.id, 'quantity', e.target.value)}
                                   style={{
-                                    width: '45px',
-                                    padding: '4px 4px',
+                                    width: '42px',
+                                    padding: '4px 2px',
                                     borderRadius: '5px',
                                     border: '1px solid var(--border-color)',
                                     background: 'var(--bg-primary)',
@@ -2191,27 +2265,28 @@ export const DataExportImportModal = ({
                                   placeholder="একক"
                                   onChange={(e) => updateCandidateRow(r.id, 'unit', e.target.value)}
                                   style={{
-                                    width: '40px',
-                                    padding: '4px 4px',
+                                    width: '38px',
+                                    padding: '4px 2px',
                                     borderRadius: '5px',
                                     border: '1px solid var(--border-color)',
                                     background: 'var(--bg-primary)',
                                     color: '#06b6d4',
                                     fontSize: '0.72rem',
-                                    fontWeight: '700'
+                                    fontWeight: '700',
+                                    textAlign: 'center'
                                   }}
                                 />
                               </div>
                             </td>
 
-                            {/* Editable Category Dropdown */}
+                            {/* Editable Main Folder Dropdown */}
                             <td style={{ padding: '6px 4px' }}>
                               <select
                                 value={r.folder}
                                 onChange={(e) => updateCandidateRow(r.id, 'folder', e.target.value)}
                                 style={{
                                   width: '100%',
-                                  padding: '4px 6px',
+                                  padding: '4px 4px',
                                   borderRadius: '6px',
                                   border: '1px solid var(--border-color)',
                                   background: 'var(--bg-primary)',
@@ -2225,6 +2300,45 @@ export const DataExportImportModal = ({
                               </select>
                             </td>
 
+                            {/* Editable Subfolder */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input
+                                type="text"
+                                value={r.subFolder || ''}
+                                onChange={(e) => updateCandidateRow(r.id, 'subFolder', e.target.value)}
+                                placeholder="উপ-খাত (যেমন: অটো ভাড়া)"
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 5px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-primary)',
+                                  color: 'var(--text-main)',
+                                  fontSize: '0.72rem'
+                                }}
+                              />
+                            </td>
+
+                            {/* Editable Person / Member */}
+                            <td style={{ padding: '6px 4px' }}>
+                              <input
+                                type="text"
+                                value={r.person || r.member || ''}
+                                onChange={(e) => updateCandidateRow(r.id, 'person', e.target.value)}
+                                placeholder="কার খরচ"
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 5px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-primary)',
+                                  color: '#38bdf8',
+                                  fontWeight: '700',
+                                  fontSize: '0.72rem'
+                                }}
+                              />
+                            </td>
+
                             {/* Editable Amount */}
                             <td style={{ padding: '6px 4px', textAlign: 'right' }}>
                               <input
@@ -2234,9 +2348,9 @@ export const DataExportImportModal = ({
                                 value={r.amount}
                                 onChange={(e) => updateCandidateRow(r.id, 'amount', e.target.value)}
                                 style={{
-                                  width: '85px',
+                                  width: '80px',
                                   textAlign: 'right',
-                                  padding: '4px 6px',
+                                  padding: '4px 5px',
                                   borderRadius: '6px',
                                   border: '1px solid var(--border-color)',
                                   background: 'var(--bg-primary)',
@@ -2288,7 +2402,8 @@ export const DataExportImportModal = ({
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

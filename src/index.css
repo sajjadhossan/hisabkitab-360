@@ -1804,8 +1804,6 @@ input:checked+.slider:before {
   .global-voice-floating-btn {
     width: 48px !important;
     height: 48px !important;
-    right: 16px !important;
-    bottom: 84px !important;
     z-index: 990 !important;
   }
 
