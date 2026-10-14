@@ -806,8 +806,10 @@ export const Navbar = () => {
 
           {/* Right Controls: Auth, Language, Theme, and 3-Dot Menu */}
           <div className="navbar-right-controls">
-            {/* Realtime WebSocket Multi-Counter Sync Pill */}
-            <RealtimeSyncBadge />
+            {/* Realtime WebSocket Multi-Counter Sync Pill (Desktop only to prevent mobile navbar overflow) */}
+            <span className="hide-mobile">
+              <RealtimeSyncBadge />
+            </span>
 
             {/* Prominent Login Status Indicator (সবুজ বাতি = লগইন সক্রিয়, লাল বাতি = লগইন নেই) */}
             {user ? (
@@ -1668,10 +1670,25 @@ export const Navbar = () => {
                   type="button"
                   className="btn-icon"
                   onClick={() => { setShowMobileDrawer(false); lockScreen(); }}
-                  title={lang === 'bn' ? 'পর্দা লক করুন' : 'Lock Screen'}
-                  style={{ width: '32px', height: '32px', borderRadius: '50%', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)' }}
+                  title={lang === 'bn' ? 'কাউন্টার স্ক্রিন লক (PIN)' : 'Lock Screen (PIN)'}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)' }}
                 >
                   <Lock size={16} />
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => { setShowMobileDrawer(false); setShowAlertCenter(true); }}
+                  title={lang === 'bn' ? `নোটিফিকেশন ও অ্যালার্ট (${totalAlertCount})` : `Notifications (${totalAlertCount})`}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', position: 'relative', color: totalAlertCount > 0 ? '#ef4444' : 'var(--text-main)', background: totalAlertCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)', border: totalAlertCount > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)' }}
+                >
+                  <Bell size={16} />
+                  {totalAlertCount > 0 && (
+                    <span style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#ef4444', color: '#fff', borderRadius: '8px', padding: '1px 4px', fontSize: '0.58rem', fontWeight: '900' }}>
+                      {totalAlertCount}
+                    </span>
+                  )}
                 </button>
 
                 <button
