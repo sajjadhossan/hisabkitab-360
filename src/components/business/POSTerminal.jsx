@@ -262,6 +262,7 @@ export const POSTerminal = () => {
     activeCounter,
     switchBranch,
     switchCounter,
+    addCounter,
     setActiveTab,
     t,
     lang,
@@ -278,6 +279,53 @@ export const POSTerminal = () => {
   const [showClosingModal, setShowClosingModal] = useState(false);
   const [showRecentSalesModal, setShowRecentSalesModal] = useState(false);
   const [lastCompletedSale, setLastCompletedSale] = useState(null);
+
+  // Live Real-Time Clock
+  const [currentTime, setCurrentTime] = useState(() => {
+    const d = new Date();
+    return d.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const d = new Date();
+      setCurrentTime(d.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lang]);
+
+  // Terminal Index (1..7) & Switcher
+  const currentTerminalIndex = useMemo(() => {
+    const list = activeBranch?.counters || [];
+    const idx = list.findIndex(c => c.id === activeCounter?.id);
+    return idx >= 0 ? idx + 1 : 1;
+  }, [activeBranch?.counters, activeCounter?.id]);
+
+  const handleSelectTerminal = (terminalNum) => {
+    hapticFeedback.light();
+    playButtonClick();
+    const existingCounter = (activeBranch?.counters || [])[terminalNum - 1];
+    if (existingCounter) {
+      if (typeof switchCounter === 'function') switchCounter(existingCounter.id);
+    } else if (typeof addCounter === 'function' && activeBranch?.id) {
+      const newCounter = addCounter(activeBranch.id, {
+        name: `কাউন্টার ০${terminalNum}`,
+        code: `POS-0${terminalNum}`,
+        openingFloat: 1000
+      });
+      if (newCounter?.id && typeof switchCounter === 'function') {
+        switchCounter(newCounter.id);
+      }
+    }
+  };
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showVoiceBillingModal, setShowVoiceBillingModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
@@ -1792,30 +1840,48 @@ export const POSTerminal = () => {
             )}
           </div>
 
-          {/* Counter Selector or Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Monitor size={18} style={{ color: '#10b981' }} />
-            {isOwner ? (
-              <select
-                className="input-field"
-                value={activeCounterId}
-                onChange={(e) => switchCounter(e.target.value)}
-                style={{ padding: '4px 10px', fontSize: '0.82rem', fontWeight: '700', borderRadius: '6px', background: 'var(--bg-primary)' }}
-              >
-                {(activeBranch?.counters || []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    🖥️ {c.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', fontSize: '0.78rem', fontWeight: '700' }}>
-                🖥️ {activeCounter?.name}
-              </span>
-            )}
+          {/* Fast Ter 1..7 Selector Chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Monitor size={15} />
+              <span>{lang === 'bn' ? 'টার্মিনাল:' : 'Ter:'}</span>
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              {[1, 2, 3, 4, 5, 6, 7].map((num) => {
+                const isSelected = currentTerminalIndex === num;
+                return (
+                  <button
+                    key={`desktop-ter-${num}`}
+                    type="button"
+                    onClick={() => handleSelectTerminal(num)}
+                    style={{
+                      minWidth: '26px',
+                      height: '25px',
+                      padding: '0 6px',
+                      borderRadius: '6px',
+                      border: isSelected ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                      background: isSelected ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-primary)',
+                      color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                      fontWeight: isSelected ? '900' : '700',
+                      fontSize: '0.74rem',
+                      fontFamily: 'var(--font-mono)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: isSelected ? '0 0 8px rgba(16, 185, 129, 0.45)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title={lang === 'bn' ? `টার্মিনাল ${num}-এ সুইচ করুন` : `Switch to Terminal ${num}`}
+                  >
+                    {num}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Cashier / Staff Badge */}
+          {/* Cashier / Staff Badge & Live Clock */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             <User size={15} />
             <span>
@@ -1832,6 +1898,27 @@ export const POSTerminal = () => {
             >
               {isOwner ? 'মালিক' : (isSalesman ? 'সেলসম্যান' : (role === 'sr' ? 'এসআর' : 'ক্যাশিয়ার'))}
             </span>
+
+            {/* Live Real-time Clock Badge */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                color: '#10b981',
+                fontSize: '0.74rem',
+                fontWeight: '800',
+                fontFamily: 'var(--font-mono)'
+              }}
+              title="বর্তমান সময়"
+            >
+              <Clock size={12} />
+              <span>{currentTime}</span>
+            </div>
           </div>
         </div>
 
