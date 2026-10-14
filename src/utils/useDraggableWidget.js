@@ -67,9 +67,18 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
 
   // Unified Mouse & Pointer Drag Starter
   const handlePointerDown = useCallback((e) => {
+    // Prevent duplicate triggers if already active (especially on dual-input touchscreen laptops)
+    if (dragRef.current.active) return;
     // Only primary mouse button (0) or touch/pen
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (e.button !== undefined && e.button !== 0) return;
+
+    // On Windows touchscreen laptops, prevent Windows Gesture / text selection interference for mouse
+    if (e.pointerType === 'mouse' || e.type === 'mousedown') {
+      try {
+        if (e.cancelable) e.preventDefault();
+      } catch {}
+    }
 
     const target = elementRef.current;
     if (!target) return;
