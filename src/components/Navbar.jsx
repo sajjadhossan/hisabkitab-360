@@ -959,9 +959,9 @@ export const Navbar = () => {
 
 
 
-            {/* Language Switch */}
+            {/* Language Switch (Desktop only in top row, accessible in Drawer on Mobile) */}
             <button
-              className="btn btn-secondary navbar-lang-btn"
+              className="btn btn-secondary navbar-lang-btn hide-mobile"
               onClick={toggleLanguage}
               title={lang === 'bn' ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
             >
@@ -975,14 +975,14 @@ export const Navbar = () => {
               className="btn-icon press-scale"
               onClick={toggleTheme}
               title={t.themeToggle}
-              style={{ transition: 'transform 0.1s ease' }}
+              style={{ transition: 'transform 0.1s ease', flexShrink: 0 }}
             >
               {theme === 'dark' ? <Sun size={17} color="#fbbf24" /> : <Moon size={17} color="#6366f1" />}
             </button>
 
             {/* High-Density Compact Mode Switch */}
             <button
-              className="btn-icon press-scale hide-mobile-sm"
+              className="btn-icon press-scale hide-mobile"
               onClick={toggleDensityMode}
               title={densityMode === 'compact' ? (lang === 'bn' ? 'স্ট্যান্ডার্ড ভিউতে ফিরুন' : 'Switch to Standard Density') : (lang === 'bn' ? 'হাই-ডেনসিটি কম্প্যাক্ট মোড' : 'High-Density Compact Mode')}
               style={{
@@ -997,7 +997,7 @@ export const Navbar = () => {
 
             {/* Sound Feedback Toggle */}
             <button
-              className="btn-icon press-scale hide-mobile-sm"
+              className="btn-icon press-scale hide-mobile"
               onClick={handleToggleSound}
               title={soundMuted ? (lang === 'bn' ? 'সাউন্ড আনমিউট করুন' : 'Unmute Sound') : (lang === 'bn' ? 'সাউন্ড মিউট করুন' : 'Mute Sound')}
               style={{
@@ -1010,9 +1010,9 @@ export const Navbar = () => {
               {soundMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
             </button>
 
-            {/* Quick Diagnostics Health Button (Hidden on narrow mobile screens, accessible inside 3-Dot menu) */}
+            {/* Quick Diagnostics Health Button */}
             <button
-              className="btn-icon hide-mobile-sm"
+              className="btn-icon hide-mobile"
               onClick={() => setShowDiagnosticsModal(true)}
               title={lang === 'bn' ? 'সিস্টেম ডায়াগনোসিস, হেলথ চেক ও SOS রিপোর্ট' : 'System Diagnostics & Health'}
               style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)' }}
@@ -1022,7 +1022,7 @@ export const Navbar = () => {
 
             {/* Quick Smart Backup & Ingestion Hub Button */}
             <button
-              className="btn-icon press-scale"
+              className="btn-icon press-scale hide-mobile"
               onClick={() => {
                 hapticFeedback.light();
                 setExportImportDefaultTab('cloud_drive');
@@ -1041,7 +1041,7 @@ export const Navbar = () => {
 
             {/* Quick Market Price Tracker & Wishlist Button */}
             <button
-              className="btn-icon press-scale"
+              className="btn-icon press-scale hide-mobile"
               onClick={() => {
                 hapticFeedback.light();
                 setShowPriceTrackerModal(true);
@@ -1059,7 +1059,7 @@ export const Navbar = () => {
 
             {/* Quick 1-Click Routine Presets Button */}
             <button
-              className="btn-icon press-scale"
+              className="btn-icon press-scale hide-mobile"
               onClick={() => {
                 hapticFeedback.light();
                 setShowRoutinePresetsModal(true);
@@ -1075,22 +1075,25 @@ export const Navbar = () => {
               <Zap size={16} />
             </button>
 
-            {/* Quick POS Counter Screen Lock */}
+            {/* Quick POS Counter Screen Lock (PIN Protected) - Priority Visible on Mobile & PC */}
             <button
               className="btn-icon press-scale"
               onClick={lockScreen}
-              title={lang === 'bn' ? 'কাউন্টার স্ক্রিন লক করুন (কুইক লক)' : 'Lock Counter Screen (PIN Protected)'}
+              title={lang === 'bn' ? 'কাউন্টার স্ক্রিন লক করুন (কুইক লক / PIN)' : 'Lock Counter Screen (PIN Protected)'}
               style={{
                 color: '#f59e0b',
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                transition: 'transform 0.1s ease'
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                boxShadow: '0 0 10px rgba(245, 158, 11, 0.25)',
+                transition: 'transform 0.1s ease',
+                flexShrink: 0
               }}
+              aria-label="Lock Counter Screen"
             >
               <Lock size={16} />
             </button>
 
-            {/* IN-APP SMART ALERT CENTER (BELL) */}
+            {/* IN-APP SMART ALERT CENTER (BELL) - Priority Visible on Mobile & PC */}
             <div style={{ position: 'relative', flexShrink: 0 }} ref={alertRef}>
               <button
                 type="button"
@@ -1102,11 +1105,14 @@ export const Navbar = () => {
                 title={lang === 'bn' ? `অ্যালার্ট সেন্টার (${totalAlertCount}টি নোটিফিকেশন)` : `Alert Center (${totalAlertCount} alerts)`}
                 style={{
                   position: 'relative',
-                  background: totalAlertCount > 0 ? 'rgba(239, 68, 68, 0.15)' : showAlertCenter ? 'var(--mode-color)' : undefined,
+                  background: totalAlertCount > 0 ? 'rgba(239, 68, 68, 0.18)' : showAlertCenter ? 'var(--mode-color)' : 'rgba(255, 255, 255, 0.05)',
                   color: totalAlertCount > 0 ? '#ef4444' : showAlertCenter ? '#ffffff' : 'var(--text-muted)',
-                  border: totalAlertCount > 0 ? '1px solid rgba(239, 68, 68, 0.35)' : undefined,
-                  transition: 'transform 0.1s ease'
+                  border: totalAlertCount > 0 ? '1.5px solid rgba(239, 68, 68, 0.45)' : '1px solid var(--border-color)',
+                  boxShadow: totalAlertCount > 0 ? '0 0 12px rgba(239, 68, 68, 0.35)' : undefined,
+                  transition: 'transform 0.1s ease',
+                  flexShrink: 0
                 }}
+                aria-label="Alert Notifications"
               >
                 <Bell size={17} />
                 {totalAlertCount > 0 && (
