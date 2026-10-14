@@ -5,7 +5,11 @@ import { hapticFeedback } from '../services/nativeAppService';
  * useDraggableWidget
  * -------------------
  * Reusable hook that makes any floating widget freely movable / draggable across the screen
- * with bulletproof Pointer, Mouse AND Touch event support (Desktop PC, Laptop, and Android / iOS WebView).
+ * with 100% unified Pointer, Mouse AND Touch event support across all devices:
+ * - Desktop PC with mouse
+ * - Touchscreen laptops (HP x360, Lenovo Yoga, Surface, etc.) with both mouse and touch
+ * - Mobile phones & tablets (Android Capacitor & iOS WebView)
+ *
  * Automatically clamps within screen boundaries, handles edge docking, and persists position.
  *
  * @param {string} storageKey - Unique localStorage key to persist position
@@ -33,10 +37,8 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
 
   const [isDragging, setIsDragging] = useState(false);
   const elementRef = useRef(null);
-  const dragRef = useRef({
-    hasMoved: false,
-    active: false
-  });
+  const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
   const justDraggedRef = useRef(false);
 
   // Auto-clamp inside screen whenever window resizes or phone rotates
@@ -65,55 +67,33 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
     return () => window.removeEventListener('resize', handleResize);
   }, [storageKey]);
 
-  // Unified Mouse & Pointer Drag Starter
-  const handlePointerDown = useCallback((e) => {
-    // Prevent duplicate triggers if already active (especially on dual-input touchscreen laptops)
-    if (dragRef.current.active) return;
-    // Only primary mouse button (0) or touch/pen
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (e.button !== undefined && e.button !== 0) return;
-
-    // On Windows touchscreen laptops, prevent Windows Gesture / text selection interference for mouse
-    if (e.pointerType === 'mouse' || e.type === 'mousedown') {
-      try {
-        if (e.cancelable) e.preventDefault();
-      } catch {}
-    }
-
+  // Unified Drag Core Engine for any input device
+  const handleDragStart = useCallback((clientX, clientY) => {
     const target = elementRef.current;
     if (!target) return;
     const rect = target.getBoundingClientRect();
 
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const startX = clientX;
+    const startY = clientY;
     const origX = rect.left;
     const origY = rect.top;
-    const pointerId = e.pointerId;
 
-    let hasMoved = false;
-    dragRef.current.active = true;
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
 
-    // Global Movement handler
-    const onMove = (moveEvt) => {
-      if (pointerId !== undefined && moveEvt.pointerId !== undefined && moveEvt.pointerId !== pointerId) {
-        return;
-      }
+    const onMove = (moveX, moveY) => {
+      if (!isDraggingRef.current) return;
 
-      const clientX = moveEvt.clientX;
-      const clientY = moveEvt.clientY;
-      const dx = clientX - startX;
-      const dy = clientY - startY;
+      const dx = moveX - startX;
+      const dy = moveY - startY;
 
       // 4px movement deadband to distinguish click from drag
-      if (!hasMoved && Math.hypot(dx, dy) < 4) {
+      if (!hasMovedRef.current && Math.hypot(dx, dy) < 4) {
         return;
       }
 
-      if (moveEvt.cancelable) moveEvt.preventDefault();
-
-      if (!hasMoved) {
-        hasMoved = true;
-        dragRef.current.hasMoved = true;
+      if (!hasMovedRef.current) {
+        hasMovedRef.current = true;
         justDraggedRef.current = true;
         setIsDragging(true);
         try {
@@ -136,26 +116,26 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
       setPos({ x: clampedX, y: clampedY });
     };
 
-    // Global Release / End handler
-    const onUp = (upEvt) => {
-      if (pointerId !== undefined && upEvt && upEvt.pointerId !== undefined && upEvt.pointerId !== pointerId) {
-        return;
-      }
+    const onEnd = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
 
-      window.removeEventListener('pointermove', onMove, { passive: false });
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-
-      dragRef.current.active = false;
+      // Clean up window listeners
+      window.removeEventListener('pointermove', onGlobalPointerMove);
+      window.removeEventListener('pointerup', onGlobalPointerUp);
+      window.removeEventListener('pointercancel', onGlobalPointerUp);
+      window.removeEventListener('mousemove', onGlobalMouseMove);
+      window.removeEventListener('mouseup', onGlobalMouseUp);
+      window.removeEventListener('touchmove', onGlobalTouchMove);
+      window.removeEventListener('touchend', onGlobalTouchEnd);
+      window.removeEventListener('touchcancel', onGlobalTouchEnd);
 
       try {
         document.body.style.userSelect = '';
         document.body.style.webkitUserSelect = '';
       } catch {}
 
-      if (hasMoved) {
+      if (hasMovedRef.current) {
         justDraggedRef.current = true;
         setPos((latestPos) => {
           if (latestPos) {
@@ -171,115 +151,73 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
 
         setTimeout(() => {
           setIsDragging(false);
-          dragRef.current.hasMoved = false;
+          hasMovedRef.current = false;
           justDraggedRef.current = false;
         }, 120);
       } else {
         setIsDragging(false);
-        dragRef.current.hasMoved = false;
+        hasMovedRef.current = false;
         justDraggedRef.current = false;
       }
     };
 
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    const onGlobalPointerMove = (e) => {
+      if (e.cancelable) e.preventDefault();
+      onMove(e.clientX, e.clientY);
+    };
+
+    const onGlobalPointerUp = () => {
+      onEnd();
+    };
+
+    const onGlobalMouseMove = (e) => {
+      onMove(e.clientX, e.clientY);
+    };
+
+    const onGlobalMouseUp = () => {
+      onEnd();
+    };
+
+    const onGlobalTouchMove = (e) => {
+      const t = e.touches[0];
+      if (t) {
+        if (e.cancelable) e.preventDefault();
+        onMove(t.clientX, t.clientY);
+      }
+    };
+
+    const onGlobalTouchEnd = () => {
+      onEnd();
+    };
+
+    window.addEventListener('pointermove', onGlobalPointerMove, { passive: false });
+    window.addEventListener('pointerup', onGlobalPointerUp);
+    window.addEventListener('pointercancel', onGlobalPointerUp);
+    window.addEventListener('mousemove', onGlobalMouseMove);
+    window.addEventListener('mouseup', onGlobalMouseUp);
+    window.addEventListener('touchmove', onGlobalTouchMove, { passive: false });
+    window.addEventListener('touchend', onGlobalTouchEnd);
+    window.addEventListener('touchcancel', onGlobalTouchEnd);
   }, [storageKey]);
 
-  // Direct Touch Events (100% Reliable on Android Capacitor & WebViews)
+  // Pointer Down (Catches Mouse, Touch, Stylus Pen seamlessly)
+  const handlePointerDown = useCallback((e) => {
+    if (e.button !== undefined && e.button !== 0) return; // Only primary button
+    handleDragStart(e.clientX, e.clientY);
+  }, [handleDragStart]);
+
+  // Touch Start (Ensures 100% native responsiveness on mobile touchscreens)
   const handleTouchStart = useCallback((e) => {
+    if (isDraggingRef.current) return;
     const t = e.touches[0];
-    if (!t) return;
-
-    const target = elementRef.current;
-    if (!target) return;
-    const rect = target.getBoundingClientRect();
-
-    const startX = t.clientX;
-    const startY = t.clientY;
-    const origX = rect.left;
-    const origY = rect.top;
-
-    let hasMoved = false;
-    dragRef.current.active = true;
-
-    const onTouchMove = (moveEvt) => {
-      const touch = moveEvt.touches[0];
-      if (!touch) return;
-
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-
-      if (!hasMoved && Math.hypot(dx, dy) < 4) {
-        return;
-      }
-
-      if (moveEvt.cancelable) moveEvt.preventDefault();
-
-      if (!hasMoved) {
-        hasMoved = true;
-        dragRef.current.hasMoved = true;
-        justDraggedRef.current = true;
-        setIsDragging(true);
-        try {
-          hapticFeedback.light();
-        } catch {}
-      }
-
-      const elemWidth = target.offsetWidth || 60;
-      const elemHeight = target.offsetHeight || 44;
-      const safeMaxX = Math.max(8, window.innerWidth - elemWidth - 8);
-      const safeMaxY = Math.max(50, window.innerHeight - elemHeight - 16);
-
-      const clampedX = Math.max(8, Math.min(safeMaxX, origX + dx));
-      const clampedY = Math.max(50, Math.min(safeMaxY, origY + dy));
-
-      setPos({ x: clampedX, y: clampedY });
-    };
-
-    const onTouchEnd = () => {
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('touchcancel', onTouchEnd);
-
-      dragRef.current.active = false;
-
-      if (hasMoved) {
-        justDraggedRef.current = true;
-        setPos((latestPos) => {
-          if (latestPos) {
-            try {
-              localStorage.setItem(storageKey, JSON.stringify(latestPos));
-            } catch {}
-          }
-          return latestPos;
-        });
-        try {
-          hapticFeedback.light();
-        } catch {}
-
-        setTimeout(() => {
-          setIsDragging(false);
-          dragRef.current.hasMoved = false;
-          justDraggedRef.current = false;
-        }, 120);
-      } else {
-        setIsDragging(false);
-        dragRef.current.hasMoved = false;
-        justDraggedRef.current = false;
-      }
-    };
-
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    window.addEventListener('touchcancel', onTouchEnd);
-  }, [storageKey]);
+    if (t) {
+      handleDragStart(t.clientX, t.clientY);
+    }
+  }, [handleDragStart]);
 
   // Shield click triggers so dragging doesn't open the modal
   const handleClickCapture = useCallback((e) => {
-    if (dragRef.current.hasMoved || justDraggedRef.current) {
+    if (hasMovedRef.current || justDraggedRef.current) {
       e.stopPropagation();
       e.preventDefault();
     }
@@ -313,7 +251,6 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
     draggable: false,
     onDragStart: (e) => e.preventDefault(),
     onPointerDown: handlePointerDown,
-    onMouseDown: handlePointerDown,
     onTouchStart: handleTouchStart,
     onClickCapture: handleClickCapture
   };
@@ -322,7 +259,7 @@ export const useDraggableWidget = (storageKey, defaultPos = { right: 16, bottom:
     ref: elementRef,
     pos,
     isDragging,
-    hasMoved: dragRef.current.hasMoved || justDraggedRef.current,
+    hasMoved: hasMovedRef.current || justDraggedRef.current,
     style,
     bind,
     resetPosition

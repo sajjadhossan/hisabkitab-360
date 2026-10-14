@@ -367,10 +367,14 @@ function serveStatic(req, res) {
         return;
       }
 
-      const cacheControl = ext === '.html' ? 'no-cache, must-revalidate' : 'public, max-age=86400';
+      const cacheControl = (ext === '.html' || ext === '.js' || ext === '.css') 
+        ? 'no-cache, no-store, must-revalidate, max-age=0' 
+        : 'public, max-age=86400';
       res.writeHead(200, {
         'Content-Type': contentType,
         'Cache-Control': cacheControl,
+        'Pragma': 'no-cache',
+        'Expires': '0',
         'Content-Length': content.length
       });
       res.end(content);
