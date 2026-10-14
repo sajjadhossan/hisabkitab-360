@@ -646,6 +646,8 @@ export const BusinessDashboard = () => {
                     top: 'calc(100% + 8px)',
                     right: 0,
                     minWidth: '240px',
+                    maxWidth: 'min(300px, calc(100vw - 24px))',
+                    boxSizing: 'border-box',
                     zIndex: 999,
                     padding: '6px',
                     borderRadius: '14px',

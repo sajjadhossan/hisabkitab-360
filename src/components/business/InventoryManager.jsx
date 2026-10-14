@@ -31,7 +31,9 @@ import {
   FolderOpen,
   MessageCircle,
   Camera,
-  Scan
+  Scan,
+  ChevronDown,
+  SlidersHorizontal
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -85,6 +87,23 @@ export const InventoryManager = () => {
   const [showReorderModal, setShowReorderModal] = useState(false);
   const [showBarcodeStickerModal, setShowBarcodeStickerModal] = useState(false);
   const [selectedStickerProduct, setSelectedStickerProduct] = useState(null);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+
+  // Responsive Mobile Screen Detection (< 768px)
+  const [isMobileScreen, setIsMobileScreen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Navigation Sub-tab: 'products' | 'damaged'
   const [inventoryTab, setInventoryTab] = useState('products');
@@ -680,126 +699,395 @@ export const InventoryManager = () => {
       />
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1rem',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}
+      >
         <div>
-          <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Boxes size={22} style={{ color: 'var(--business-primary)' }} />
             <span>{t.business.inventoryTitle}</span>
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             {lang === 'bn' ? 'মজুদ পণ্য নিয়ন্ত্রণ, বারকোড এবং ড্যামেজ ও নষ্ট মালের হিসাব' : 'Manage inventory stock, barcodes, and damaged goods waste tracker'}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Action Controls: Primary Add Product + Right-Aligned Tools Dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', position: 'relative' }}>
           {inventoryTab === 'products' ? (
             <>
+              {/* Primary Add Product Button */}
               <button
-                className="btn btn-secondary"
-                onClick={() => fileInputRef.current?.click()}
-                title={lang === 'bn' ? 'CSV বা এক্সেল ফাইল থেকে একসাথে শত শত পণ্য আপলোড করুন' : 'Import bulk products from CSV file'}
-                style={{ borderColor: 'var(--business-primary)', color: 'var(--business-primary)', fontWeight: '700' }}
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.85rem',
+                  boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)'
+                }}
               >
-                <Upload size={16} />
-                <span>{lang === 'bn' ? '📥 CSV আপলোড' : '📥 Import CSV'}</span>
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={downloadSampleCsv}
-                title={lang === 'bn' ? 'পণ্য এন্ট্রির স্যাম্পল CSV ফরম্যাট ডাউনলোড করুন' : 'Download sample CSV template'}
-              >
-                <Download size={16} />
-                <span>{lang === 'bn' ? '📄 স্যাম্পল CSV' : '📄 Sample CSV'}</span>
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={exportProductsCsv}
-                title={lang === 'bn' ? 'সকল পণ্যের তালিকা CSV ফাইলে ডাউনলোড করুন' : 'Export catalog to CSV'}
-              >
-                <FileSpreadsheet size={16} />
-                <span>{lang === 'bn' ? '📤 এক্সপোর্ট' : '📤 Export'}</span>
-              </button>
-
-              <button className="btn btn-secondary" onClick={handleOpenScanner} title={lang === 'bn' ? 'বারকোড স্ক্যান করে পণ্য খুঁজুন' : 'Scan to search product'}>
-                <Barcode size={16} style={{ color: 'var(--business-primary)' }} />
-                <span>{lang === 'bn' ? '📷 স্ক্যান' : '📷 Scan'}</span>
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={() => { setSelectedStickerProduct(null); setShowBarcodeStickerModal(true); }}
-                title={lang === 'bn' ? 'কাস্টম সাইজের বারকোড স্টিকার প্রিন্ট স্টুডিও' : 'Print Barcode Stickers'}
-                style={{ fontWeight: '700', borderColor: '#f59e0b', color: '#f59e0b' }}
-              >
-                <Barcode size={16} />
-                <span>{lang === 'bn' ? '🏷️ স্টিকার স্টুডিও' : '🏷️ Sticker Studio'}</span>
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowCategoryModal(true)}
-                title={lang === 'bn' ? 'পণ্যের ক্যাটাগরি তালিকা পরিচালনা (যোগ/রিনেম/ডিলিট)' : 'Manage product categories'}
-              >
-                <Tag size={16} style={{ color: 'var(--business-primary)' }} />
-                <span>{lang === 'bn' ? '🏷️ ক্যাটাগরি' : '🏷️ Categories'}</span>
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowMasterHubModal(true)}
-                title={lang === 'bn' ? 'সকল ফোল্ডার, ইউনিট, ব্র্যান্ড ও ক্যাটাগরি সেটআপ হাব' : 'Open Master Setup Hub'}
-                style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#6366f1', fontWeight: '700' }}
-              >
-                <FolderOpen size={16} />
-                <span>{lang === 'bn' ? '📁 মাস্টার ডাটা হাব' : '📁 Master Hub'}</span>
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowReorderModal(true)}
-                title={lang === 'bn' ? 'শেষ হয়ে যাওয়া পণ্যের ক্রয়ের ফর্দ ও রি-অর্ডার রিকুইজিশন' : 'Reorder & Low Stock Shopping List'}
-                style={{ borderColor: 'rgba(245, 158, 11, 0.5)', color: '#f59e0b', fontWeight: '700' }}
-              >
-                <Boxes size={16} />
-                <span>{lang === 'bn' ? '📋 ক্রয়ের ফর্দ' : '📋 Reorder List'}</span>
-                {lowStockCount > 0 && (
-                  <span
-                    style={{
-                      background: '#ef4444',
-                      color: '#fff',
-                      padding: '1px 6px',
-                      borderRadius: '10px',
-                      fontSize: '0.7rem',
-                      fontWeight: '800'
-                    }}
-                  >
-                    {lowStockCount}
-                  </span>
-                )}
-              </button>
-
-              <button className="btn btn-secondary" onClick={() => { setSelectedProduct(products[0]); setShowStockInModal(true); }}>
-                <ArrowDownLeft size={16} style={{ color: '#10b981' }} />
-                <span>{t.business.stockIn}</span>
-              </button>
-
-              <button className="btn btn-secondary" onClick={() => { setSelectedProduct(products[0]); setShowStockOutModal(true); }}>
-                <ArrowUpRight size={16} style={{ color: '#ef4444' }} />
-                <span>{t.business.stockOut}</span>
-              </button>
-
-              <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
                 <Plus size={16} />
                 <span>{t.business.addProduct}</span>
               </button>
+
+              {/* Quick Barcode Scanner */}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleOpenScanner}
+                title={lang === 'bn' ? 'বারকোড স্ক্যান করে পণ্য খুঁজুন' : 'Scan barcode'}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.82rem',
+                  fontWeight: '700'
+                }}
+              >
+                <Barcode size={16} style={{ color: 'var(--business-primary)' }} />
+                <span>{lang === 'bn' ? 'স্ক্যান' : 'Scan'}</span>
+              </button>
+
+              {/* Tools & Utilities Dropdown Menu Container (Strictly Right-Aligned) */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowToolsMenu(prev => !prev)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    fontWeight: '800',
+                    fontSize: '0.84rem',
+                    background: showToolsMenu ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-secondary)',
+                    borderColor: showToolsMenu ? 'var(--business-primary)' : 'var(--border-color)',
+                    color: 'var(--text-main)',
+                    cursor: 'pointer'
+                  }}
+                  title={lang === 'bn' ? 'ইনভেন্টরি টুলস ও অতিরিক্ত অপশনস' : 'Inventory Tools & Options'}
+                >
+                  <Sparkles size={15} style={{ color: '#6366f1' }} />
+                  <span>{lang === 'bn' ? '⚡ টুলস ও অপশনস' : '⚡ Tools'}</span>
+                  <ChevronDown size={14} style={{ transition: 'transform 0.2s', transform: showToolsMenu ? 'rotate(180deg)' : 'none' }} />
+                </button>
+
+                {/* Floating Dropdown Menu (Anchored to Right Edge with Max-Width Bounded) */}
+                {showToolsMenu && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 998 }}
+                      onClick={() => setShowToolsMenu(false)}
+                    />
+                    <div
+                      className="glass-card animate-scale-up"
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        right: 0,
+                        minWidth: '260px',
+                        maxWidth: 'min(320px, calc(100vw - 20px))',
+                        boxSizing: 'border-box',
+                        zIndex: 999,
+                        padding: '8px',
+                        borderRadius: '14px',
+                        boxShadow: '0 14px 40px rgba(0, 0, 0, 0.4)',
+                        background: 'var(--bg-card)',
+                        border: '1.5px solid var(--border-color)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}
+                    >
+                      {/* Header label inside dropdown */}
+                      <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid var(--border-color)', marginBottom: '4px', fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{lang === 'bn' ? 'ইনভেন্টরি ইউটিলিটি মেনু' : 'Inventory Utilities'}</span>
+                        <span style={{ fontSize: '0.66rem', color: '#6366f1' }}>HisabKitab 360</span>
+                      </div>
+
+                      {/* Stock Adjust In/Out quick items */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setSelectedProduct(products[0]);
+                          setShowStockInModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <ArrowDownLeft size={16} style={{ color: '#10b981' }} />
+                        <span>{t.business.stockIn} (+ স্টক যোগ)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setSelectedProduct(products[0]);
+                          setShowStockOutModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <ArrowUpRight size={16} style={{ color: '#ef4444' }} />
+                        <span>{t.business.stockOut} (- স্টক হ্রাস)</span>
+                      </button>
+
+                      {/* Reorder Shopping List with Low-Stock Badge */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowReorderModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Boxes size={16} style={{ color: '#f59e0b' }} />
+                          <span>{lang === 'bn' ? '📋 ক্রয়ের ফর্দ (রি-অর্ডার)' : '📋 Reorder List'}</span>
+                        </div>
+                        {lowStockCount > 0 && (
+                          <span style={{ background: '#ef4444', color: '#fff', padding: '1px 6px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                            {lowStockCount}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Barcode Sticker Studio */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setSelectedStickerProduct(null);
+                          setShowBarcodeStickerModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Barcode size={16} style={{ color: '#f59e0b' }} />
+                        <span>{lang === 'bn' ? '🏷️ বারকোড স্টিকার স্টুডিও' : '🏷️ Sticker Studio'}</span>
+                      </button>
+
+                      {/* Categories */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowCategoryModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Tag size={16} style={{ color: 'var(--business-primary)' }} />
+                        <span>{lang === 'bn' ? '🏷️ ক্যাটাগরি তালিকা' : '🏷️ Categories'}</span>
+                      </button>
+
+                      {/* Master Data Hub */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowMasterHubModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <FolderOpen size={16} style={{ color: '#6366f1' }} />
+                        <span>{lang === 'bn' ? '📁 মাস্টার ডাটা হাব' : '📁 Master Data Hub'}</span>
+                      </button>
+
+                      {/* Divider */}
+                      <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
+
+                      {/* CSV Import */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          fileInputRef.current?.click();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Upload size={16} style={{ color: 'var(--business-primary)' }} />
+                        <span>{lang === 'bn' ? '📥 CSV পণ্য আপলোড' : '📥 Import CSV'}</span>
+                      </button>
+
+                      {/* Sample CSV */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          downloadSampleCsv();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Download size={16} style={{ color: 'var(--text-muted)' }} />
+                        <span>{lang === 'bn' ? '📄 স্যাম্পল CSV ডাউনলোড' : '📄 Sample Template'}</span>
+                      </button>
+
+                      {/* Export CSV */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          exportProductsCsv();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <FileSpreadsheet size={16} style={{ color: '#10b981' }} />
+                        <span>{lang === 'bn' ? '📤 সম্পূর্ণ ক্যাটালগ এক্সপোর্ট' : '📤 Export to CSV'}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </>
           ) : (
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowDamageModal(true)}
-              style={{ background: '#ef4444', borderColor: '#ef4444' }}
+              style={{
+                background: '#ef4444',
+                borderColor: '#ef4444',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                fontWeight: '800',
+                fontSize: '0.85rem'
+              }}
             >
               <AlertOctagon size={16} />
               <span>{lang === 'bn' ? '+ ড্যামেজ মালের এন্ট্রি দিন' : '+ Record Damaged Stock'}</span>
@@ -808,35 +1096,67 @@ export const InventoryManager = () => {
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap' }}>
+      {/* Sub-Navigation Tabs (Responsive Segmented Control) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '6px',
+          background: 'var(--bg-primary)',
+          padding: '4px',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color)',
+          marginBottom: '1rem',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+        }}
+      >
         <button
-          className={`btn ${inventoryTab === 'products' ? 'btn-primary' : 'btn-secondary'}`}
+          type="button"
           onClick={() => setInventoryTab('products')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontWeight: '700' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '9px 12px',
+            borderRadius: '9px',
+            border: 'none',
+            background: inventoryTab === 'products' ? 'var(--business-primary)' : 'transparent',
+            color: inventoryTab === 'products' ? '#ffffff' : 'var(--text-muted)',
+            fontWeight: '800',
+            fontSize: '0.84rem',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
         >
-          <Boxes size={18} />
-          <span>{lang === 'bn' ? `পণ্য ও মজুদ স্টক (${products.length})` : `Products & Stock (${products.length})`}</span>
+          <Boxes size={16} />
+          <span>{lang === 'bn' ? `পণ্য ও মজুদ (${products.length})` : `Products (${products.length})`}</span>
         </button>
 
         <button
-          className={`btn ${inventoryTab === 'damaged' ? 'btn-primary' : 'btn-secondary'}`}
+          type="button"
           onClick={() => setInventoryTab('damaged')}
           style={{
-            display: 'inline-flex',
+            display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            fontWeight: '700',
-            background: inventoryTab === 'damaged' ? '#ef4444' : undefined,
-            borderColor: inventoryTab === 'damaged' ? '#ef4444' : undefined
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '9px 12px',
+            borderRadius: '9px',
+            border: 'none',
+            background: inventoryTab === 'damaged' ? '#ef4444' : 'transparent',
+            color: inventoryTab === 'damaged' ? '#ffffff' : 'var(--text-muted)',
+            fontWeight: '800',
+            fontSize: '0.84rem',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
           }}
         >
-          <AlertOctagon size={18} />
-          <span>{lang === 'bn' ? `ড্যামেজ ও নষ্ট মালের হিসাব (${damagedGoods.length})` : `Damaged Goods Tracker (${damagedGoods.length})`}</span>
+          <AlertOctagon size={16} />
+          <span>{lang === 'bn' ? `ড্যামেজ মাল (${damagedGoods.length})` : `Damaged (${damagedGoods.length})`}</span>
           {totalDamagedLoss > 0 && (
-            <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', marginLeft: '4px' }}>
-              ৳{totalDamagedLoss.toLocaleString()} ক্ষতি
+            <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '8px', background: inventoryTab === 'damaged' ? 'rgba(255,255,255,0.25)' : 'rgba(239, 68, 68, 0.15)', color: inventoryTab === 'damaged' ? '#fff' : '#ef4444' }}>
+              ৳{totalDamagedLoss.toLocaleString()}
             </span>
           )}
         </button>
@@ -980,12 +1300,23 @@ export const InventoryManager = () => {
               <span>{lang === 'bn' ? 'বারকোড স্ক্যান' : 'Scan'}</span>
             </button>
 
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <div
+              className="horizontal-touch-strip"
+              style={{
+                display: 'flex',
+                gap: '6px',
+                overflowX: 'auto',
+                paddingBottom: '2px',
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
+            >
               <button
                 type="button"
                 className={`btn ${stockFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => setStockFilter('all')}
-                style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
                 <span>{lang === 'bn' ? 'সকল পণ্য' : 'All'} ({totalProducts})</span>
               </button>
@@ -994,7 +1325,7 @@ export const InventoryManager = () => {
                 type="button"
                 className={`btn ${stockFilter === 'low' ? 'btn-danger' : 'btn-secondary'}`}
                 onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')}
-                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
                 <AlertTriangle size={14} />
                 <span>{lang === 'bn' ? 'লো-স্টক' : 'Low'} ({lowStockCount})</span>
@@ -1004,7 +1335,7 @@ export const InventoryManager = () => {
                 type="button"
                 className={`btn ${stockFilter === 'out' ? 'btn-danger' : 'btn-secondary'}`}
                 onClick={() => setStockFilter(stockFilter === 'out' ? 'all' : 'out')}
-                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
                 <span>❌ {lang === 'bn' ? 'স্টক শেষ' : 'Out'} ({outOfStockCount})</span>
               </button>
@@ -1013,7 +1344,7 @@ export const InventoryManager = () => {
                 type="button"
                 className={`btn ${stockFilter === 'dead' ? 'btn-warning' : 'btn-secondary'}`}
                 onClick={() => setStockFilter(stockFilter === 'dead' ? 'all' : 'dead')}
-                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', borderColor: stockFilter === 'dead' ? '#f59e0b' : undefined }}
+                style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', borderColor: stockFilter === 'dead' ? '#f59e0b' : undefined, whiteSpace: 'nowrap', flexShrink: 0 }}
                 title={lang === 'bn' ? 'গত ৬০ দিনে বিক্রি না হওয়া অচল পণ্য' : 'Dead Stock without sales'}
               >
                 <span>🛑 {lang === 'bn' ? 'অচল স্টক' : 'Dead Stock'} ({deadStockProductIds.size})</span>
@@ -1043,208 +1374,494 @@ export const InventoryManager = () => {
             </div>
           )}
 
-          {/* Inventory Product Table */}
-          <div className="glass-card">
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>{t.business.productName}</th>
-                    <th>{t.business.skuBarcode}</th>
-                    <th>{t.category}</th>
-                    <th style={{ textAlign: 'right' }}>{t.business.costPrice}</th>
-                    <th style={{ textAlign: 'right' }}>{t.business.sellPrice}</th>
-                    <th style={{ textAlign: 'center' }}>{t.business.margin}</th>
-                    <th style={{ textAlign: 'center' }}>{t.business.stockQty}</th>
-                    <th style={{ textAlign: 'center' }}>{t.actions}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedProducts.map((p) => {
-                    const isLow = p.stock <= p.minAlert;
-                    const margin = p.costPrice > 0 ? Math.round(((p.sellPrice - p.costPrice) / p.costPrice) * 100) : 0;
-                    return (
-                      <tr key={p.id}>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {p.image ? (
-                              <OptimizedImage
-                                src={p.image}
-                                alt={p.name}
-                                width={32}
-                                height={32}
-                                borderRadius="6px"
-                              />
-                            ) : null}
-                            <div>
-                              <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.name}</div>
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
-                                {p.batchNumber && (
-                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '4px' }}>
-                                    🏷️ {p.batchNumber}
-                                  </span>
-                                )}
-                                {p.expiryDate && (
-                                  <span style={{
-                                    fontSize: '0.7rem',
-                                    fontWeight: '700',
-                                    padding: '1px 5px',
-                                    borderRadius: '4px',
-                                    background: new Date(p.expiryDate) < new Date()
-                                      ? 'rgba(239, 68, 68, 0.2)'
-                                      : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
-                                        ? 'rgba(245, 158, 11, 0.2)'
-                                        : 'rgba(255, 255, 255, 0.06)'),
-                                    color: new Date(p.expiryDate) < new Date()
-                                      ? '#ef4444'
-                                      : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
-                                        ? '#f59e0b'
-                                        : 'var(--text-muted)')
-                                  }}>
-                                    {new Date(p.expiryDate) < new Date()
-                                      ? `🚫 মেয়াদ শেষ (${p.expiryDate})`
-                                      : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
-                                        ? `⚠️ মেয়াদ বাকি ${Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24))} দিন`
-                                        : `📅 মেয়াদ: ${p.expiryDate}`)}
-                                  </span>
-                                )}
-                              </div>
+          {/* Inventory Product List: Responsive (Mobile Touch Cards vs Desktop Data Table) */}
+          {isMobileScreen ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {displayedProducts.length === 0 ? (
+                <div className="glass-card" style={{ padding: '2.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Package size={40} style={{ opacity: 0.4, marginBottom: '8px' }} />
+                  <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1rem' }}>
+                    {lang === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি' : 'No products found'}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>
+                    {lang === 'bn' ? 'নতুন পণ্য যোগ করতে উপরের বাটনে চাপুন।' : 'Click "+ Add Product" above to create one.'}
+                  </div>
+                </div>
+              ) : (
+                displayedProducts.map((p) => {
+                  const isLow = p.stock <= p.minAlert;
+                  const margin = p.costPrice > 0 ? Math.round(((p.sellPrice - p.costPrice) / p.costPrice) * 100) : 0;
+                  return (
+                    <div
+                      key={p.id}
+                      className="glass-card"
+                      style={{
+                        padding: '12px',
+                        borderRadius: '14px',
+                        border: isLow ? '1.5px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
+                        background: isLow ? 'rgba(239, 68, 68, 0.04)' : 'var(--card-bg, rgba(255, 255, 255, 0.03))',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                      }}
+                    >
+                      {/* Top Row: Photo + Name + Category + Stock Badge */}
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        {p.image ? (
+                          <OptimizedImage
+                            src={p.image}
+                            alt={p.name}
+                            width={46}
+                            height={46}
+                            borderRadius="10px"
+                          />
+                        ) : (
+                          <div style={{
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.06)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <Package size={22} style={{ color: 'var(--text-muted)' }} />
+                          </div>
+                        )}
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
+                            <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.25', wordBreak: 'break-word' }}>
+                              {p.name}
                             </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            {p.sku}
-                          </div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                            {p.barcode}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
-                            {p.category}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                          {canViewCostPrice ? `৳${p.costPrice.toLocaleString()}` : <span style={{ color: 'var(--text-muted)' }}>🔒 ***</span>}
-                        </td>
-                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-main)' }}>
-                          ৳{p.sellPrice.toLocaleString()}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          {canViewCostPrice ? (
-                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: margin >= 20 ? '#10b981' : '#f59e0b' }}>
-                              {margin}%
+                            <span
+                              className={`badge ${isLow ? 'badge-danger' : 'badge-success'}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                flexShrink: 0,
+                                fontSize: '0.75rem',
+                                padding: '3px 8px',
+                                borderRadius: '8px'
+                              }}
+                            >
+                              {isLow && <AlertTriangle size={11} />}
+                              <span>{lang === 'bn' ? 'স্টক:' : 'Stock:'} <strong>{p.stock}</strong></span>
                             </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)' }}>-</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            {p.category && (
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.08)', padding: '1px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>
+                                {p.category}
+                              </span>
+                            )}
+                            {(p.barcode || p.sku) && (
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+                                🏷️ {p.barcode || p.sku}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Expiry & Runway details if any */}
+                      {(p.expiryDate || (productForecastMap[p.id]?.runwayDays !== null && productForecastMap[p.id]?.runwayDays !== undefined)) && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', fontSize: '0.72rem' }}>
+                          {p.expiryDate && (
+                            <span style={{
+                              fontWeight: '600',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: new Date(p.expiryDate) < new Date()
+                                ? 'rgba(239, 68, 68, 0.2)'
+                                : 'rgba(245, 158, 11, 0.15)',
+                              color: new Date(p.expiryDate) < new Date() ? '#ef4444' : '#f59e0b'
+                            }}>
+                              📅 {new Date(p.expiryDate) < new Date() ? 'মেয়াদ শেষ' : `মেয়াদ: ${p.expiryDate}`}
+                            </span>
                           )}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className={`badge ${isLow ? 'badge-danger' : 'badge-success'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            {isLow && <AlertTriangle size={12} />}
-                            <span style={{ fontWeight: '700' }}>{p.stock}</span>
-                          </span>
                           {productForecastMap[p.id]?.runwayDays !== null && productForecastMap[p.id]?.runwayDays !== undefined && (
-                            <div style={{
-                              fontSize: '0.7rem',
-                              marginTop: '3px',
-                              fontWeight: productForecastMap[p.id].runwayDays <= 5 ? '800' : '600',
-                              color: productForecastMap[p.id].runwayDays <= 5 ? '#ef4444' : 'var(--text-muted)'
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: productForecastMap[p.id].runwayDays <= 5 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.06)',
+                              color: productForecastMap[p.id].runwayDays <= 5 ? '#ef4444' : 'var(--text-muted)',
+                              fontWeight: '600'
                             }}>
                               ⏳ আর {productForecastMap[p.id].runwayDays} দিন চলবে
-                            </div>
+                            </span>
                           )}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
+                        </div>
+                      )}
+
+                      {/* Middle: Price, Cost & Margin Grid */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: '6px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '8px',
+                        padding: '6px 8px',
+                        marginTop: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        textAlign: 'center'
+                      }}>
+                        <div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{lang === 'bn' ? 'বিক্রয়মূল্য' : 'Sell Price'}</div>
+                          <div style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
+                            ৳{p.sellPrice.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{lang === 'bn' ? 'ক্রয়মূল্য' : 'Cost'}</div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                            {canViewCostPrice ? `৳${p.costPrice.toLocaleString()}` : '🔒 ***'}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{lang === 'bn' ? 'মুনাফা' : 'Margin'}</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '700', color: margin >= 20 ? '#10b981' : '#f59e0b' }}>
+                            {canViewCostPrice ? `${margin}%` : '-'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Action Strip: Big Touch Targets */}
+                      <div style={{
+                        display: 'flex',
+                        gap: '6px',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginTop: '10px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                      }}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary press-scale"
+                            onClick={() => { setSelectedProduct(p); setShowStockInModal(true); }}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '5px 9px',
+                              borderRadius: '7px',
+                              color: '#10b981',
+                              borderColor: 'rgba(16, 185, 129, 0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}
+                          >
+                            <ArrowDownLeft size={13} />
+                            <span>+ ইন</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary press-scale"
+                            onClick={() => { setSelectedProduct(p); setShowStockOutModal(true); }}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '5px 9px',
+                              borderRadius: '7px',
+                              color: '#ef4444',
+                              borderColor: 'rgba(239, 68, 68, 0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}
+                          >
+                            <ArrowUpRight size={13} />
+                            <span>- আউট</span>
+                          </button>
+
+                          {isLow && (
                             <button
-                              className="btn-icon"
-                              title={lang === 'bn' ? 'পণ্য ও ছবি সম্পাদনা করুন' : 'Edit Product & Photo'}
-                              onClick={() => handleOpenEditModal(p)}
-                              style={{ color: '#3b82f6' }}
+                              type="button"
+                              className="btn btn-secondary press-scale"
+                              onClick={() => handleWhatsAppReorder(p)}
+                              style={{
+                                fontSize: '0.75rem',
+                                padding: '5px 8px',
+                                borderRadius: '7px',
+                                color: '#25D366',
+                                borderColor: 'rgba(37, 211, 102, 0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                              }}
+                              title="WhatsApp Reorder"
                             >
-                              <Edit size={15} />
+                              <MessageCircle size={13} />
                             </button>
-                            <button
-                              className="btn-icon"
-                              title={lang === 'bn' ? 'বারকোড স্টিকার প্রিন্ট করুন' : 'Print Barcode Sticker'}
-                              onClick={() => { setSelectedStickerProduct(p); setShowBarcodeStickerModal(true); }}
-                              style={{ color: '#6366f1' }}
-                            >
-                              <Barcode size={15} />
-                            </button>
-                            {isLow && (
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() => { setSelectedStickerProduct(p); setShowBarcodeStickerModal(true); }}
+                            style={{ color: '#6366f1', padding: '6px' }}
+                            title="Print Barcode"
+                          >
+                            <Barcode size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() => handleOpenEditModal(p)}
+                            style={{ color: '#3b82f6', padding: '6px' }}
+                            title="Edit"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() => {
+                              if (window.confirm(lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?')) {
+                                deleteProduct(p.id);
+                              }
+                            }}
+                            style={{ color: '#94a3b8', padding: '6px' }}
+                            title="Delete"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              {filteredProducts.length > productDisplayLimit && (
+                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary press-scale"
+                    onClick={() => setProductDisplayLimit(prev => prev + 50)}
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontWeight: '700',
+                      padding: '10px 16px',
+                      borderRadius: '10px'
+                    }}
+                  >
+                    {lang === 'bn'
+                      ? `⬇️ আরও ৫০টি পণ্য লোড করুন (${displayedProducts.length}/${filteredProducts.length})`
+                      : `⬇️ Load 50 More (${displayedProducts.length}/${filteredProducts.length})`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="glass-card">
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{t.business.productName}</th>
+                      <th>{t.business.skuBarcode}</th>
+                      <th>{t.category}</th>
+                      <th style={{ textAlign: 'right' }}>{t.business.costPrice}</th>
+                      <th style={{ textAlign: 'right' }}>{t.business.sellPrice}</th>
+                      <th style={{ textAlign: 'center' }}>{t.business.margin}</th>
+                      <th style={{ textAlign: 'center' }}>{t.business.stockQty}</th>
+                      <th style={{ textAlign: 'center' }}>{t.actions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedProducts.map((p) => {
+                      const isLow = p.stock <= p.minAlert;
+                      const margin = p.costPrice > 0 ? Math.round(((p.sellPrice - p.costPrice) / p.costPrice) * 100) : 0;
+                      return (
+                        <tr key={p.id}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {p.image ? (
+                                <OptimizedImage
+                                  src={p.image}
+                                  alt={p.name}
+                                  width={32}
+                                  height={32}
+                                  borderRadius="6px"
+                                />
+                              ) : null}
+                              <div>
+                                <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{p.name}</div>
+                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                  {p.batchNumber && (
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '4px' }}>
+                                      🏷️ {p.batchNumber}
+                                    </span>
+                                  )}
+                                  {p.expiryDate && (
+                                    <span style={{
+                                      fontSize: '0.7rem',
+                                      fontWeight: '700',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      background: new Date(p.expiryDate) < new Date()
+                                        ? 'rgba(239, 68, 68, 0.2)'
+                                        : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
+                                          ? 'rgba(245, 158, 11, 0.2)'
+                                          : 'rgba(255, 255, 255, 0.06)'),
+                                      color: new Date(p.expiryDate) < new Date()
+                                        ? '#ef4444'
+                                        : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
+                                          ? '#f59e0b'
+                                          : 'var(--text-muted)')
+                                    }}>
+                                      {new Date(p.expiryDate) < new Date()
+                                        ? `🚫 মেয়াদ শেষ (${p.expiryDate})`
+                                        : (Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) <= 30
+                                          ? `⚠️ মেয়াদ বাকি ${Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24))} দিন`
+                                          : `📅 মেয়াদ: ${p.expiryDate}`)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              {p.sku}
+                            </div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                              {p.barcode}
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
+                              {p.category}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                            {canViewCostPrice ? `৳${p.costPrice.toLocaleString()}` : <span style={{ color: 'var(--text-muted)' }}>🔒 ***</span>}
+                          </td>
+                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-main)' }}>
+                            ৳{p.sellPrice.toLocaleString()}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {canViewCostPrice ? (
+                              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: margin >= 20 ? '#10b981' : '#f59e0b' }}>
+                                {margin}%
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className={`badge ${isLow ? 'badge-danger' : 'badge-success'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              {isLow && <AlertTriangle size={12} />}
+                              <span style={{ fontWeight: '700' }}>{p.stock}</span>
+                            </span>
+                            {productForecastMap[p.id]?.runwayDays !== null && productForecastMap[p.id]?.runwayDays !== undefined && (
+                              <div style={{
+                                fontSize: '0.7rem',
+                                marginTop: '3px',
+                                fontWeight: productForecastMap[p.id].runwayDays <= 5 ? '800' : '600',
+                                color: productForecastMap[p.id].runwayDays <= 5 ? '#ef4444' : 'var(--text-muted)'
+                              }}>
+                                ⏳ আর {productForecastMap[p.id].runwayDays} দিন চলবে
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
                               <button
                                 className="btn-icon"
-                                title={lang === 'bn' ? 'সাপ্লায়ারকে ১-ক্লিক WhatsApp পারচেজ অর্ডার রিকুইজিশন পাঠান' : '1-Click WhatsApp Supplier Reorder'}
-                                onClick={() => handleWhatsAppReorder(p)}
-                                style={{ color: '#25D366' }}
+                                title={lang === 'bn' ? 'পণ্য ও ছবি সম্পাদনা করুন' : 'Edit Product & Photo'}
+                                onClick={() => handleOpenEditModal(p)}
+                                style={{ color: '#3b82f6' }}
                               >
-                                <MessageCircle size={15} />
+                                <Edit size={15} />
                               </button>
-                            )}
-                            <button
-                              className="btn-icon"
-                              title={t.business.stockIn}
-                              onClick={() => { setSelectedProduct(p); setShowStockInModal(true); }}
-                              style={{ color: '#10b981' }}
-                            >
-                              <ArrowDownLeft size={15} />
-                            </button>
-                            <button
-                              className="btn-icon"
-                              title={t.business.stockOut}
-                              onClick={() => { setSelectedProduct(p); setShowStockOutModal(true); }}
-                              style={{ color: '#ef4444' }}
-                            >
-                              <ArrowUpRight size={15} />
-                            </button>
-                            <button
-                              className="btn-icon"
-                              title={t.delete}
-                              onClick={() => {
-                                if (window.confirm(lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?')) {
-                                  deleteProduct(p.id);
-                                }
-                              }}
-                              style={{ color: '#94a3b8' }}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
+                              <button
+                                className="btn-icon"
+                                title={lang === 'bn' ? 'বারকোড স্টিকার প্রিন্ট করুন' : 'Print Barcode Sticker'}
+                                onClick={() => { setSelectedStickerProduct(p); setShowBarcodeStickerModal(true); }}
+                                style={{ color: '#6366f1' }}
+                              >
+                                <Barcode size={15} />
+                              </button>
+                              {isLow && (
+                                <button
+                                  className="btn-icon"
+                                  title={lang === 'bn' ? 'সাপ্লায়ারকে ১-ক্লিক WhatsApp পারচেজ অর্ডার রিকুইজিশন পাঠান' : '1-Click WhatsApp Supplier Reorder'}
+                                  onClick={() => handleWhatsAppReorder(p)}
+                                  style={{ color: '#25D366' }}
+                                >
+                                  <MessageCircle size={15} />
+                                </button>
+                              )}
+                              <button
+                                className="btn-icon"
+                                title={t.business.stockIn}
+                                onClick={() => { setSelectedProduct(p); setShowStockInModal(true); }}
+                                style={{ color: '#10b981' }}
+                              >
+                                <ArrowDownLeft size={15} />
+                              </button>
+                              <button
+                                className="btn-icon"
+                                title={t.business.stockOut}
+                                onClick={() => { setSelectedProduct(p); setShowStockOutModal(true); }}
+                                style={{ color: '#ef4444' }}
+                              >
+                                <ArrowUpRight size={15} />
+                              </button>
+                              <button
+                                className="btn-icon"
+                                title={t.delete}
+                                onClick={() => {
+                                  if (window.confirm(lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?')) {
+                                    deleteProduct(p.id);
+                                  }
+                                }}
+                                style={{ color: '#94a3b8' }}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredProducts.length > productDisplayLimit && (
+                      <tr>
+                        <td colSpan="8" style={{ textAlign: 'center', padding: '1.25rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary press-scale"
+                            onClick={() => setProductDisplayLimit(prev => prev + 50)}
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              border: '1px solid var(--border-color)',
+                              color: 'var(--text-main)',
+                              fontWeight: '700',
+                              padding: '8px 20px',
+                              borderRadius: '10px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {lang === 'bn'
+                              ? `⬇️ আরও ৫০টি পণ্য লোড করুন (মোট ${filteredProducts.length}টির মধ্যে ${displayedProducts.length}টি প্রদর্শিত)`
+                              : `⬇️ Load 50 More (${displayedProducts.length} of ${filteredProducts.length} shown)`}
+                          </button>
                         </td>
                       </tr>
-                    );
-                  })}
-                  {filteredProducts.length > productDisplayLimit && (
-                    <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', padding: '1.25rem' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary press-scale"
-                          onClick={() => setProductDisplayLimit(prev => prev + 50)}
-                          style={{
-                            background: 'var(--bg-secondary)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-main)',
-                            fontWeight: '700',
-                            padding: '8px 20px',
-                            borderRadius: '10px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {lang === 'bn'
-                            ? `⬇️ আরও ৫০টি পণ্য লোড করুন (মোট ${filteredProducts.length}টির মধ্যে ${displayedProducts.length}টি প্রদর্শিত)`
-                            : `⬇️ Load 50 More (${displayedProducts.length} of ${filteredProducts.length} shown)`}
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 
@@ -1331,111 +1948,211 @@ export const InventoryManager = () => {
             </div>
           </div>
 
-          {/* Damaged Goods Data Table */}
-          <div className="glass-card">
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>{lang === 'bn' ? 'তারিখ' : 'Date'}</th>
-                    <th>{lang === 'bn' ? 'নষ্ট পণ্যের নাম ও SKU' : 'Product & SKU'}</th>
-                    <th style={{ textAlign: 'center' }}>{lang === 'bn' ? 'পরিমাণ' : 'Qty'}</th>
-                    <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'একক খরচ' : 'Unit Cost'}</th>
-                    <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'মোট আর্থিক ক্ষতি' : 'Total Loss'}</th>
-                    <th>{lang === 'bn' ? 'ক্ষতির কারণ' : 'Reason'}</th>
-                    <th>{lang === 'bn' ? 'রেকর্ডকারী ও স্থিতি' : 'Reported By & Action'}</th>
-                    <th>{lang === 'bn' ? 'মন্তব্য / নোট' : 'Note'}</th>
-                    <th style={{ textAlign: 'center' }}>{t.actions}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDamagedGoods.length === 0 ? (
-                    <tr>
-                      <td colSpan="9" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                          <CheckCircle2 size={36} style={{ color: '#10b981' }} />
-                          <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>
-                            {lang === 'bn' ? 'কোনো ড্যামেজ বা নষ্ট মালের রেকর্ড নেই!' : 'No damaged goods recorded!'}
-                          </div>
-                          <div style={{ fontSize: '0.85rem' }}>
-                            {lang === 'bn' ? 'সব পণ্য সুরক্ষিত আছে।' : 'All inventory is currently safe.'}
-                          </div>
+          {/* Damaged Goods List: Responsive (Mobile Touch Cards vs Desktop Data Table) */}
+          {isMobileScreen ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredDamagedGoods.length === 0 ? (
+                <div className="glass-card" style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+                  <CheckCircle2 size={36} style={{ color: '#10b981', marginBottom: '8px' }} />
+                  <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1rem' }}>
+                    {lang === 'bn' ? 'কোনো ড্যামেজ বা নষ্ট মালের রেকর্ড নেই!' : 'No damaged goods recorded!'}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
+                    {lang === 'bn' ? 'সব পণ্য সুরক্ষিত আছে।' : 'All inventory is currently safe.'}
+                  </div>
+                </div>
+              ) : (
+                filteredDamagedGoods.map((dmg) => (
+                  <div
+                    key={dmg.id}
+                    className="glass-card"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      background: 'rgba(239, 68, 68, 0.03)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-main)', wordBreak: 'break-word' }}>
+                          {dmg.productName}
                         </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredDamagedGoods.map((dmg) => (
-                      <tr key={dmg.id}>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                          {dmg.date}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                            {dmg.productName}
-                          </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '3px' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                            📅 {dmg.date}
+                          </span>
                           {dmg.sku && (
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                              {dmg.sku}
-                            </div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                              🏷️ {dmg.sku}
+                            </span>
                           )}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-danger" style={{ fontWeight: '800', fontSize: '0.85rem' }}>
-                            {dmg.quantity} টি
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                          ৳{dmg.unitCost ? Number(dmg.unitCost).toLocaleString() : '০'}
-                        </td>
-                        <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#ef4444', fontSize: '0.95rem' }}>
+                        </div>
+                      </div>
+                      <span className="badge badge-danger" style={{ fontWeight: '800', fontSize: '0.85rem', flexShrink: 0 }}>
+                        {dmg.quantity} টি
+                      </span>
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      marginTop: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.05)'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{lang === 'bn' ? 'ক্ষতির কারণ' : 'Reason'}</div>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#ef4444' }}>{dmg.reason}</span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{lang === 'bn' ? 'মোট আর্থিক ক্ষতি' : 'Total Loss'}</div>
+                        <span style={{ fontSize: '0.95rem', fontWeight: '800', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>
                           ৳{dmg.totalLoss ? Number(dmg.totalLoss).toLocaleString() : '০'}
-                        </td>
-                        <td>
-                          <span
-                            className="badge"
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
-                              fontSize: '0.75rem',
-                              fontWeight: '600'
-                            }}
-                          >
-                            {dmg.reason}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>
-                            {dmg.reportedBy || 'স্টাফ'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: '8px',
+                      paddingTop: '6px',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)'
+                    }}>
+                      <div>
+                        👤 {dmg.reportedBy || 'স্টাফ'} • {dmg.actionTaken || 'বাতিল'}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-icon"
+                        title={lang === 'bn' ? 'ড্যামেজ রেকর্ড বাতিল করুন এবং স্টক ফেরত দিন' : 'Delete and restore stock'}
+                        onClick={() => {
+                          if (window.confirm(lang === 'bn' ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলতে চান? পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।' : 'Delete damage record and restore stock?')) {
+                            deleteDamagedRecord(dmg.id, true);
+                          }
+                        }}
+                        style={{ color: '#ef4444', padding: '6px' }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="glass-card">
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{lang === 'bn' ? 'তারিখ' : 'Date'}</th>
+                      <th>{lang === 'bn' ? 'নষ্ট পণ্যের নাম ও SKU' : 'Product & SKU'}</th>
+                      <th style={{ textAlign: 'center' }}>{lang === 'bn' ? 'পরিমাণ' : 'Qty'}</th>
+                      <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'একক খরচ' : 'Unit Cost'}</th>
+                      <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'মোট আর্থিক ক্ষতি' : 'Total Loss'}</th>
+                      <th>{lang === 'bn' ? 'ক্ষতির কারণ' : 'Reason'}</th>
+                      <th>{lang === 'bn' ? 'রেকর্ডকারী ও স্থিতি' : 'Reported By & Action'}</th>
+                      <th>{lang === 'bn' ? 'মন্তব্য / নোট' : 'Note'}</th>
+                      <th style={{ textAlign: 'center' }}>{t.actions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDamagedGoods.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={36} style={{ color: '#10b981' }} />
+                            <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>
+                              {lang === 'bn' ? 'কোনো ড্যামেজ বা নষ্ট মালের রেকর্ড নেই!' : 'No damaged goods recorded!'}
+                            </div>
+                            <div style={{ fontSize: '0.85rem' }}>
+                              {lang === 'bn' ? 'সব পণ্য সুরক্ষিত আছে।' : 'All inventory is currently safe.'}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                            {dmg.actionTaken || 'বাতিল'}
-                          </div>
-                        </td>
-                        <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '200px' }}>
-                          {dmg.note || '-'}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            className="btn-icon"
-                            title={lang === 'bn' ? 'ড্যামেজ রেকর্ড বাতিল করুন এবং স্টক ফেরত দিন' : 'Delete and restore stock'}
-                            onClick={() => {
-                              if (window.confirm(lang === 'bn' ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলতে চান? পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।' : 'Delete damage record and restore stock?')) {
-                                deleteDamagedRecord(dmg.id, true);
-                              }
-                            }}
-                            style={{ color: '#ef4444' }}
-                          >
-                            <Trash2 size={15} />
-                          </button>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredDamagedGoods.map((dmg) => (
+                        <tr key={dmg.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            {dmg.date}
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                              {dmg.productName}
+                            </div>
+                            {dmg.sku && (
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                                {dmg.sku}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="badge badge-danger" style={{ fontWeight: '800', fontSize: '0.85rem' }}>
+                              {dmg.quantity} টি
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                            ৳{dmg.unitCost ? Number(dmg.unitCost).toLocaleString() : '০'}
+                          </td>
+                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#ef4444', fontSize: '0.95rem' }}>
+                            ৳{dmg.totalLoss ? Number(dmg.totalLoss).toLocaleString() : '০'}
+                          </td>
+                          <td>
+                            <span
+                              className="badge"
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                fontSize: '0.75rem',
+                                fontWeight: '600'
+                              }}
+                            >
+                              {dmg.reason}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                              {dmg.reportedBy || 'স্টাফ'}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                              {dmg.actionTaken || 'বাতিল'}
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '200px' }}>
+                            {dmg.note || '-'}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              className="btn-icon"
+                              title={lang === 'bn' ? 'ড্যামেজ রেকর্ড বাতিল করুন এবং স্টক ফেরত দিন' : 'Delete and restore stock'}
+                              onClick={() => {
+                                if (window.confirm(lang === 'bn' ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলতে চান? পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।' : 'Delete damage record and restore stock?')) {
+                                  deleteDamagedRecord(dmg.id, true);
+                                }
+                              }}
+                              style={{ color: '#ef4444' }}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
