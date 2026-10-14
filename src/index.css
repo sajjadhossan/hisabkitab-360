@@ -1043,6 +1043,78 @@ input:checked+.slider:before {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+/* Slidable Action Strip Styles (Extensible Controls Track) */
+.navbar-slidable-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.navbar-slidable-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 4px;
+}
+
+.navbar-slidable-track::-webkit-scrollbar {
+  display: none !important;
+}
+
+.navbar-slidable-track .btn-icon {
+  flex-shrink: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border-radius: 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.navbar-slidable-nav-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 18px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: all 0.15s ease;
+  z-index: 5;
+}
+
+.navbar-slidable-nav-btn:hover {
+  color: var(--text-main);
+  background: var(--mode-color);
+}
+
+.navbar-drive-compact {
+  display: none;
+}
+
+.navbar-drive-full {
+  display: inline;
 }
 
 .navbar-lang-compact {
@@ -1932,21 +2004,59 @@ input:checked+.slider:before {
     display: none !important;
   }
 
-  /* Compact Navbar for Portrait Mobile */
+  /* Compact Responsive Controls Row for Portrait Mobile */
   .navbar-right-controls {
-    gap: 6px !important;
-    flex-shrink: 0 !important;
+    order: 2 !important;
+    width: 100% !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: flex-end !important;
-    margin-left: auto !important;
+    justify-content: flex-start !important;
+    gap: 5px !important;
+    margin: 4px 0 2px 0 !important;
+    overflow: hidden !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .navbar-slidable-wrapper {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    position: relative !important;
+  }
+
+  .navbar-slidable-track {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    touch-action: pan-x !important;
+  }
+
+  .navbar-drive-compact {
+    display: inline !important;
+  }
+
+  .navbar-drive-full {
+    display: none !important;
+  }
+
+  .navbar-drive-backup-btn {
+    padding: 3px 6px !important;
+    font-size: 0.72rem !important;
+    flex-shrink: 0 !important;
   }
 
   .navbar-right-controls .btn-icon {
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
-    min-height: 34px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
     padding: 0 !important;
     border-radius: 9px !important;
     flex-shrink: 0 !important;

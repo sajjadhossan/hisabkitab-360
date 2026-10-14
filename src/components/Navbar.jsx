@@ -47,6 +47,7 @@ import {
   X,
   Search,
   ChevronRight,
+  ChevronLeft,
   Activity,
   Volume2,
   VolumeX,
@@ -141,6 +142,37 @@ export const Navbar = () => {
   const menuRef = useRef(null);
   const alertRef = useRef(null);
   const fileInputRef = useRef(null);
+  const slidableTrackRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkSlidableScroll = useCallback(() => {
+    if (slidableTrackRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = slidableTrackRef.current;
+      setCanScrollLeft(scrollLeft > 4);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkSlidableScroll();
+    const el = slidableTrackRef.current;
+    if (el) {
+      el.addEventListener('scroll', checkSlidableScroll, { passive: true });
+      window.addEventListener('resize', checkSlidableScroll);
+      return () => {
+        el.removeEventListener('scroll', checkSlidableScroll);
+        window.removeEventListener('resize', checkSlidableScroll);
+      };
+    }
+  }, [checkSlidableScroll]);
+
+  const scrollSlidableTrack = (direction) => {
+    if (slidableTrackRef.current) {
+      const delta = direction === 'left' ? -130 : 130;
+      slidableTrackRef.current.scrollBy({ left: delta, behavior: 'smooth' });
+    }
+  };
 
   // In-App Smart Alert Center calculations (Low stock & Pending debts)
   const lowStockAlerts = useMemo(() => {
@@ -806,10 +838,8 @@ export const Navbar = () => {
 
           {/* Right Controls: Auth, Language, Theme, and 3-Dot Menu */}
           <div className="navbar-right-controls">
-            {/* Realtime WebSocket Multi-Counter Sync Pill (Desktop only to prevent mobile navbar overflow) */}
-            <span className="hide-mobile">
-              <RealtimeSyncBadge />
-            </span>
+            {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
+            <RealtimeSyncBadge compact={true} />
 
             {/* Prominent Login Status Indicator (সবুজ বাতি = লগইন সক্রিয়, লাল বাতি = লগইন নেই) */}
             {user ? (
@@ -902,9 +932,9 @@ export const Navbar = () => {
               </div>
             )}
 
-            {/* Real-time Google Drive 1-Min Auto-Backup & 30-File Status Pill */}
+            {/* 3. Real-time Google Drive 1-Min Auto-Backup & 30-File Status Pill */}
             <button
-              className="hide-mobile"
+              className="navbar-drive-backup-btn"
               onClick={handleQuickDriveSync}
               disabled={isDriveSyncing}
               title={
@@ -917,8 +947,8 @@ export const Navbar = () => {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '5px 11px',
+                gap: '5px',
+                padding: '4px 8px',
                 borderRadius: '8px',
                 border: (isDriveConnected || businessSettings.googleDriveWebhookUrl)
                   ? '1px solid rgba(16, 185, 129, 0.4)'
@@ -929,14 +959,16 @@ export const Navbar = () => {
                 color: (isDriveConnected || businessSettings.googleDriveWebhookUrl)
                   ? '#10b981'
                   : '#f59e0b',
-                fontSize: '0.78rem',
-                fontWeight: '600',
+                fontSize: '0.74rem',
+                fontWeight: '700',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
+                whiteSpace: 'nowrap'
               }}
             >
-              <Cloud size={14} className={isDriveSyncing ? 'animate-spin' : ''} />
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Cloud size={13} className={isDriveSyncing ? 'animate-spin' : ''} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span
                   style={{
                     width: '6px',
@@ -948,31 +980,46 @@ export const Navbar = () => {
                 />
                 {(isDriveConnected || businessSettings.googleDriveWebhookUrl) ? (
                   <span>
-                    {businessSettings.googleDriveLastSync
-                      ? `${businessSettings.googleDriveLastSync.split(' ')[1] || businessSettings.googleDriveLastSync}`
-                      : (lang === 'bn' ? '১-মি. অটো' : '1-Min Auto')}
-                    <span style={{ opacity: 0.75, fontSize: '0.7rem', marginLeft: '3px' }}>(৩০টি)</span>
+                    <span className="navbar-drive-full">{businessSettings.googleDriveLastSync ? businessSettings.googleDriveLastSync.split(' ')[1] || 'অটো' : (lang === 'bn' ? '১-মি. অটো' : '1-Min Auto')}</span>
+                    <span className="navbar-drive-compact">{businessSettings.googleDriveLastSync ? businessSettings.googleDriveLastSync.split(' ')[1] || 'সিঙ্ক' : 'সিঙ্ক'}</span>
                   </span>
                 ) : (
-                  <span>{lang === 'bn' ? 'ড্রাইভ ব্যাকআপ' : 'Drive Backup'}</span>
+                  <span>{lang === 'bn' ? 'ড্রাইভ' : 'Drive'}</span>
                 )}
               </span>
             </button>
 
-
-
-            {/* Language Switch (Desktop only in top row, accessible in Drawer on Mobile) */}
+            {/* 4. Language Switch (বাংলা / English) */}
             <button
-              className="btn btn-secondary navbar-lang-btn hide-mobile"
+              className="btn btn-secondary navbar-lang-btn"
               onClick={toggleLanguage}
               title={lang === 'bn' ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
+              style={{ flexShrink: 0 }}
             >
-              <Globe size={15} />
+              <Globe size={14} />
               <span className="navbar-lang-full">{lang === 'bn' ? 'English' : 'বাংলা'}</span>
               <span className="navbar-lang-compact">{lang === 'bn' ? 'EN' : 'বাং'}</span>
             </button>
 
-            {/* Theme Switch */}
+            {/* 5. Horizontal Slidable Action Strip (Right-sliding extensible track) */}
+            <div className="navbar-slidable-wrapper">
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  className="navbar-slidable-nav-btn left"
+                  onClick={() => scrollSlidableTrack('left')}
+                  title={lang === 'bn' ? 'বামে স্লাইড করুন' : 'Slide Left'}
+                  aria-label="Slide Left"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+              )}
+
+              <div
+                className="navbar-slidable-track"
+                ref={slidableTrackRef}
+              >
+                {/* Theme Switch */}
             <button
               className="btn-icon press-scale"
               onClick={toggleTheme}
@@ -984,14 +1031,15 @@ export const Navbar = () => {
 
             {/* High-Density Compact Mode Switch */}
             <button
-              className="btn-icon press-scale hide-mobile"
+              className="btn-icon press-scale"
               onClick={toggleDensityMode}
               title={densityMode === 'compact' ? (lang === 'bn' ? 'স্ট্যান্ডার্ড ভিউতে ফিরুন' : 'Switch to Standard Density') : (lang === 'bn' ? 'হাই-ডেনসিটি কম্প্যাক্ট মোড' : 'High-Density Compact Mode')}
               style={{
                 color: densityMode === 'compact' ? 'var(--personal-primary, #10b981)' : 'var(--text-muted)',
                 background: densityMode === 'compact' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
                 border: densityMode === 'compact' ? '1px solid rgba(16, 185, 129, 0.3)' : undefined,
-                transition: 'transform 0.1s ease'
+                transition: 'transform 0.1s ease',
+                flexShrink: 0
               }}
             >
               {densityMode === 'compact' ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -999,14 +1047,15 @@ export const Navbar = () => {
 
             {/* Sound Feedback Toggle */}
             <button
-              className="btn-icon press-scale hide-mobile"
+              className="btn-icon press-scale"
               onClick={handleToggleSound}
               title={soundMuted ? (lang === 'bn' ? 'সাউন্ড আনমিউট করুন' : 'Unmute Sound') : (lang === 'bn' ? 'সাউন্ড মিউট করুন' : 'Mute Sound')}
               style={{
                 color: soundMuted ? 'var(--text-muted)' : '#10b981',
                 background: soundMuted ? 'transparent' : 'rgba(16, 185, 129, 0.1)',
                 border: soundMuted ? undefined : '1px solid rgba(16, 185, 129, 0.25)',
-                transition: 'transform 0.1s ease'
+                transition: 'transform 0.1s ease',
+                flexShrink: 0
               }}
             >
               {soundMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
@@ -1014,17 +1063,17 @@ export const Navbar = () => {
 
             {/* Quick Diagnostics Health Button */}
             <button
-              className="btn-icon hide-mobile"
+              className="btn-icon press-scale"
               onClick={() => setShowDiagnosticsModal(true)}
               title={lang === 'bn' ? 'সিস্টেম ডায়াগনোসিস, হেলথ চেক ও SOS রিপোর্ট' : 'System Diagnostics & Health'}
-              style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)' }}
+              style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', flexShrink: 0 }}
             >
               <Activity size={17} />
             </button>
 
             {/* Quick Smart Backup & Ingestion Hub Button */}
             <button
-              className="btn-icon press-scale hide-mobile"
+              className="btn-icon press-scale"
               onClick={() => {
                 hapticFeedback.light();
                 setExportImportDefaultTab('cloud_drive');
@@ -1035,7 +1084,8 @@ export const Navbar = () => {
                 color: '#0ea5e9',
                 background: 'rgba(14, 165, 233, 0.12)',
                 border: '1px solid rgba(14, 165, 233, 0.35)',
-                transition: 'transform 0.1s ease'
+                transition: 'transform 0.1s ease',
+                flexShrink: 0
               }}
             >
               <Database size={16} />
@@ -1043,7 +1093,7 @@ export const Navbar = () => {
 
             {/* Quick Market Price Tracker & Wishlist Button */}
             <button
-              className="btn-icon press-scale hide-mobile"
+              className="btn-icon press-scale"
               onClick={() => {
                 hapticFeedback.light();
                 setShowPriceTrackerModal(true);
@@ -1053,7 +1103,8 @@ export const Navbar = () => {
                 color: '#ec4899',
                 background: 'rgba(236, 72, 153, 0.12)',
                 border: '1px solid rgba(236, 72, 153, 0.35)',
-                transition: 'transform 0.1s ease'
+                transition: 'transform 0.1s ease',
+                flexShrink: 0
               }}
             >
               <Tag size={16} />
@@ -1061,7 +1112,7 @@ export const Navbar = () => {
 
             {/* Quick 1-Click Routine Presets Button */}
             <button
-              className="btn-icon press-scale hide-mobile"
+              className="btn-icon press-scale"
               onClick={() => {
                 hapticFeedback.light();
                 setShowRoutinePresetsModal(true);
@@ -1071,7 +1122,8 @@ export const Navbar = () => {
                 color: '#8b5cf6',
                 background: 'rgba(139, 92, 246, 0.12)',
                 border: '1px solid rgba(139, 92, 246, 0.35)',
-                transition: 'transform 0.1s ease'
+                transition: 'transform 0.1s ease',
+                flexShrink: 0
               }}
             >
               <Zap size={16} />
@@ -1276,6 +1328,20 @@ export const Navbar = () => {
                 </div>
               )}
             </div>
+          </div>
+
+          {canScrollRight && (
+            <button
+              type="button"
+              className="navbar-slidable-nav-btn right"
+              onClick={() => scrollSlidableTrack('right')}
+              title={lang === 'bn' ? 'ডানে স্লাইড করুন' : 'Slide Right'}
+              aria-label="Slide Right"
+            >
+              <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
           </div>
         </div>
 
