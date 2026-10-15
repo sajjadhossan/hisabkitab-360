@@ -22,7 +22,10 @@ import {
   Radio,
   Terminal,
   HelpCircle,
-  Cloud
+  Cloud,
+  Mic,
+  Key,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +36,7 @@ import {
   testTelegramBackupBot,
   registerTelegramCommands
 } from '../../services/telegramBackupService';
+import { testGeminiApiKey } from '../../services/telegramVoiceToTextService';
 
 export const TelegramBotModal = ({ isOpen, onClose }) => {
   const {
@@ -48,9 +52,12 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
   const [isTesting, setIsTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState(null);
   const [testError, setTestError] = useState(null);
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiTestStatus, setGeminiTestStatus] = useState(null); // 'success' | 'error' | null
+  const [geminiTestMsg, setGeminiTestMsg] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
-  const [activeTab, setActiveTab] = useState('config'); // 'config' | 'folders' | 'commands'
+  const [activeTab, setActiveTab] = useState('config'); // 'config' | 'folders' | 'commands' | 'voice'
 
   const activeUserEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_user_account') : '') || 'hossansajjad1994@gmail.com';
   const driveAccount = driveUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_drive_account') : '') || activeUserEmail;
@@ -60,6 +67,8 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
       setTgConfig(getTelegramBackupConfig());
       setTestSuccess(null);
       setTestError(null);
+      setGeminiTestStatus(null);
+      setGeminiTestMsg('');
     }
   }, [isOpen]);
 
@@ -75,6 +84,41 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleTestGemini = async () => {
+    const key = (tgConfig.geminiApiKey || '').trim();
+    if (!key) {
+      if (showToast) {
+        showToast(lang === 'bn' ? 'দয়া করে Gemini API Key ফিল্ডে কি লিখুন।' : 'Please enter Gemini API Key.', 'warning');
+      }
+      return;
+    }
+    setIsTestingGemini(true);
+    setGeminiTestStatus(null);
+    setGeminiTestMsg('');
+    hapticFeedback?.light?.();
+    try {
+      await testGeminiApiKey(key);
+      setGeminiTestStatus('success');
+      setGeminiTestMsg(lang === 'bn' ? 'Gemini API Key ভেরিফাই সম্পন্ন! ভয়েস-টু-টেক্সট ১০০% প্রস্তুত।' : 'Gemini Key verified successfully!');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hk360_gemini_api_key', key);
+      }
+      hapticFeedback?.success?.();
+      if (showToast) {
+        showToast(lang === 'bn' ? 'Gemini এআই কি সফলভাবে ভেরিফাই হয়েছে!' : 'Gemini Key verified!', 'success');
+      }
+    } catch (err) {
+      setGeminiTestStatus('error');
+      setGeminiTestMsg(err.message || 'ভেরিফিকেশন ব্যর্থ হয়েছে।');
+      hapticFeedback?.warning?.();
+      if (showToast) {
+        showToast(lang === 'bn' ? `ত্রুটি: ${err.message}` : `Error: ${err.message}`, 'danger');
+      }
+    } finally {
+      setIsTestingGemini(false);
+    }
+  };
+
   const handleSave = () => {
     const payload = {
       ...tgConfig,
@@ -82,13 +126,16 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
     };
     saveTelegramBackupConfig(payload);
     setTgConfig(payload);
+    if (payload.geminiApiKey && typeof window !== 'undefined') {
+      localStorage.setItem('hk360_gemini_api_key', payload.geminiApiKey);
+    }
     if (payload.botToken) {
       registerTelegramCommands(payload.botToken).catch(() => {});
     }
     hapticFeedback?.success?.();
     if (showToast) {
       showToast(
-        lang === 'bn' ? 'টেলিগ্রাম বট কনফিগারেশন সফলভাবে সংরক্ষিত হয়েছে!' : 'Telegram configuration saved successfully!',
+        lang === 'bn' ? 'টেলিগ্রাম বট ও ভয়েস এআই কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Telegram & Voice AI configuration saved!',
         'success'
       );
     }
@@ -366,7 +413,30 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
             }}
           >
             <Zap size={15} />
-            <span>{lang === 'bn' ? '৩. সরাসরি টেক্সট কমান্ড' : '3. Fast Text Commands'}</span>
+            <span>{lang === 'bn' ? '৩. সরাসরি কমান্ড' : '3. Text Commands'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('voice')}
+            style={{
+              flex: 1,
+              padding: '10px',
+              border: 'none',
+              background: activeTab === 'voice' ? 'var(--card-bg)' : 'transparent',
+              color: activeTab === 'voice' ? '#ec4899' : 'var(--text-muted)',
+              borderBottom: activeTab === 'voice' ? '2.5px solid #ec4899' : 'none',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <Mic size={15} />
+            <span>{lang === 'bn' ? '৪. 🎤 ভয়েস এআই' : '4. Voice AI'}</span>
           </button>
         </div>
 
@@ -460,6 +530,89 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                     fontFamily: 'monospace'
                   }}
                 />
+              </div>
+
+              {/* Google Gemini AI Key for Voice-to-Text */}
+              <div
+                style={{
+                  background: 'rgba(236, 72, 153, 0.05)',
+                  border: '1px solid rgba(236, 72, 153, 0.25)',
+                  borderRadius: '12px',
+                  padding: '12px 14px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', color: '#ec4899' }}>
+                    <Sparkles size={15} />
+                    <span>{lang === 'bn' ? '৩. ভয়েস-টু-টেক্সট এআই কি (Google Gemini API Key):' : '3. Voice-to-Text AI Key (Gemini):'}</span>
+                  </label>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: '0.74rem', color: '#ec4899', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
+                  >
+                    <span>ফ্রি কি নিন (Free)</span>
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  {lang === 'bn'
+                    ? 'টেলিগ্রামে অডিও রেকর্ড বা ভয়েস নোট পাঠালে তা সরাসরি বাংলায় টেক্সট ও হিসাবে রূপান্তরের জন্য ব্যবহৃত হয়।'
+                    : 'Transcribes Telegram voice notes directly into Bengali software entries.'}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="password"
+                    value={tgConfig.geminiApiKey || ''}
+                    onChange={(e) => setTgConfig(prev => ({ ...prev, geminiApiKey: e.target.value.trim() }))}
+                    placeholder="উদা: AIzaSyD..."
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem',
+                      fontFamily: 'monospace'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleTestGemini}
+                    disabled={isTestingGemini || !tgConfig.geminiApiKey}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid #ec4899',
+                      background: 'rgba(236, 72, 153, 0.15)',
+                      color: '#ec4899',
+                      fontWeight: '800',
+                      fontSize: '0.78rem',
+                      cursor: (isTestingGemini || !tgConfig.geminiApiKey) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {isTestingGemini ? <RefreshCw size={13} className="animate-spin" /> : <Key size={13} />}
+                    <span>{lang === 'bn' ? 'যাচাই' : 'Verify'}</span>
+                  </button>
+                </div>
+
+                {geminiTestStatus === 'success' && (
+                  <div style={{ marginTop: '8px', color: '#10b981', fontSize: '0.76rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <CheckCircle2 size={14} />
+                    <span>{geminiTestMsg}</span>
+                  </div>
+                )}
+                {geminiTestStatus === 'error' && (
+                  <div style={{ marginTop: '8px', color: '#ef4444', fontSize: '0.76rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <AlertTriangle size={14} />
+                    <span>{geminiTestMsg}</span>
+                  </div>
+                )}
               </div>
 
               {/* Auto Sync Toggle */}
@@ -726,6 +879,178 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* TAB 4: Voice-to-Text AI Guide */}
+          {activeTab === 'voice' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(168, 85, 247, 0.08))',
+                  border: '1.5px solid rgba(236, 72, 153, 0.3)',
+                  borderRadius: '12px',
+                  padding: '12px 14px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ec4899', fontWeight: '800', fontSize: '0.88rem' }}>
+                  <Mic size={18} />
+                  <span>{lang === 'bn' ? 'টেলিগ্রাম ভয়েস-টু-টেক্সট এআই সহকারী' : 'Telegram Voice-to-Text AI Assistant'}</span>
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  {lang === 'bn'
+                    ? 'টাইপ করার কোনো প্রয়োজন নেই! টেলিগ্রাম চ্যাটে মাইক্রোফোন আইকন চেপে মুখে বাংলায় অডিও রেকর্ড পাঠালেই গুগল জেমিনি এআই তা মুহূর্তের মধ্যে টেক্সটে রূপান্তর করে সফটওয়্যারে হিসাব যুক্ত করে দেবে।'
+                    : 'Speak naturally in Bengali! Google Gemini AI transcribes your voice recordings directly into retail accounting actions.'}
+                </p>
+              </div>
+
+              {/* Status Box */}
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'var(--bg-primary)',
+                  border: `1.5px solid ${tgConfig.geminiApiKey ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      background: tgConfig.geminiApiKey ? '#10b981' : '#f59e0b',
+                      boxShadow: `0 0 8px ${tgConfig.geminiApiKey ? '#10b981' : '#f59e0b'}`
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800' }}>
+                      {tgConfig.geminiApiKey ? (lang === 'bn' ? 'ভয়েস এআই সক্রিয় (Gemini Ready)' : 'Voice AI Active') : (lang === 'bn' ? 'Gemini Key প্রয়োজন' : 'Gemini Key Needed')}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      {tgConfig.geminiApiKey
+                        ? 'টেলিগ্রামে ভয়েস মেসেজ পাঠাতে আপনি প্রস্তুত!'
+                        : 'ট্যাব ১ থেকে অথবা টেলিগ্রামে /setkey লিখে কি সেট করুন'}
+                    </div>
+                  </div>
+                </div>
+
+                {!tgConfig.geminiApiKey && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('config')}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: '#ec4899',
+                      color: '#fff',
+                      fontSize: '0.75rem',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    কি সেট করুন
+                  </button>
+                )}
+              </div>
+
+              {/* Voice Commands Showcase */}
+              <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', marginTop: '2px' }}>
+                🎙️ {lang === 'bn' ? 'যেভাবে মুখে বলে কমান্ড পাঠাবেন (উদাহরণ):' : 'Spoken Voice Examples:'}
+              </div>
+
+              {[
+                {
+                  cat: 'বিক্রি / সেল',
+                  speech: 'সেল নাপা দশ পাতা পঞ্চাশ টাকা',
+                  result: '১০টি নাপা ৫০ টাকায় বিক্রি হবে ও স্টক কমবে'
+                },
+                {
+                  cat: 'দোকানের খরচ',
+                  speech: 'খরচ পাঁচশত টাকা বিকালের নাস্তা',
+                  result: 'দোকানের সাধারণ খরচে ৫০০ টাকা জমা হবে'
+                },
+                {
+                  cat: 'পারিবারিক বাজার',
+                  speech: 'বাজার চারশত টাকা ইলিশ মাছ',
+                  result: 'ব্যক্তিগত বাজার খরচে ৪০০ টাকা যোগ হবে'
+                },
+                {
+                  cat: 'কাস্টমার বকেয়া',
+                  speech: 'বাকি রহিম পাঁচশত টাকা',
+                  result: 'রহিম নামের গ্রাহকের খাতায় ৫০০ টাকা বকেয়া যুক্ত হবে'
+                },
+                {
+                  cat: 'লাইভ হিসাব ও রিপোর্ট',
+                  speech: 'আজকের মোট বিক্রি কত হয়েছে',
+                  result: 'আজকের মোট বিক্রি ও ইনভয়েস রিপোর্ট ফেরত পাঠাবে'
+                },
+                {
+                  cat: 'এআই পণ্য ইতিহাস',
+                  speech: 'বাদাম কতবার কিনেছি কোন দিন কত টাকা',
+                  result: 'অতীতে বাদাম ক্রয়ের সম্পূর্ণ হিস্ট্রি বিশ্লেষণ করবে'
+                },
+                {
+                  cat: 'রিমোট স্ক্রিন লক',
+                  speech: 'দোকানের স্ক্রিন লক করো',
+                  result: 'কাউন্টারের স্ক্রিন অবিলম্বে লক হয়ে যাবে'
+                }
+              ].map((v, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px'
+                  }}
+                >
+                  <div>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: '800',
+                        color: '#ec4899',
+                        background: 'rgba(236, 72, 153, 0.1)',
+                        padding: '1px 6px',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      {v.cat}
+                    </span>
+                    <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', marginTop: '2px' }}>
+                      🗣️ "{v.speech}"
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      ➔ {v.result}
+                    </div>
+                  </div>
+                  <Mic size={16} style={{ color: '#ec4899', flexShrink: 0 }} />
+                </div>
+              ))}
+
+              {/* Setkey Shortcut Notice */}
+              <div
+                style={{
+                  background: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  fontSize: '0.74rem',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.5
+                }}
+              >
+                💡 <strong>টেলিগ্রাম চ্যাট থেকেও কি সেট করা যায়:</strong> টেলিগ্রামে শুধু লিখুন <code>/setkey আপনার_GEMINI_KEY</code>। বট স্বয়ংক্রিয়ভাবে কি সংরক্ষণ করে ভয়েস এআই সক্রিয় করে নেবে।
+              </div>
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 // =========================================================================
 // HisabKitab 360 - 24/7 Telegram Cloud Serverless Webhook Handler
 // Runs on Vercel Serverless Functions even when PC & Mobile are turned OFF
+// Supports Voice-to-Text via Google Gemini AI Multimodal Audio
 // =========================================================================
 
 export default async function handler(req, res) {
@@ -8,9 +9,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ status: 'HisabKitab 360 Telegram Webhook Active' });
   }
 
-  const token = process.env.VITE_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '7433849767:AAEI_3zU5GzD-1g7O5tYJ2tC6q_qJmR1y4U';
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://juahukfvwbwupsamqzyo.supabase.co';
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1YWh1a2Z2d2J3dXBzYW1xenlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2OTEyMDIsImV4cCI6MjEwNjI2NzIwMn0.Fl7iA3Ns6C2s87WW_CAFaxAwghn9LnoIzTvMFvTl9l4';
+  const token = process.env.VITE_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8692661339:AAE0gFE0oCt1_Rsm1B1W5GuD2tDb-lXj9bY';
+  const geminiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 
   try {
     const update = req.body;
@@ -32,8 +32,66 @@ export default async function handler(req, res) {
         });
       } catch {}
     } else if (update.message) {
-      text = update.message.text || '';
       chatId = update.message.chat?.id;
+      text = update.message.text || update.message.caption || '';
+
+      const voiceObj = update.message.voice || update.message.audio;
+      if (!text && voiceObj && voiceObj.file_id) {
+        if (!geminiKey) {
+          const noKeyMsg = `🎤 <b>আপনার ভয়েস অডিও মেসেজ পাওয়া গেছে!</b>\n━━━━━━━━━━━━━━━━━━━━━\nভয়েস-টু-টেক্সট এআই চালু করতে আপনার একটি ফ্রি <b>Google Gemini API Key</b> প্রয়োজন।\n\n💡 <b>১ মিনিটে ফ্রি API Key পাওয়ার উপায়:</b>\n১. <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a> থেকে ফ্রি কি নিন।\n২. হিসাবকিতাব ৩৬০ সফটওয়্যারের টেলিগ্রাম বট সেটিংসে কি-টি পেস্ট করুন।\n\n✨ একবার কি দিলেই সাথে সাথে ভয়েস দিয়ে যেকোনো হিসাব এন্ট্রি করতে পারবেন!`;
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: noKeyMsg, parse_mode: 'HTML' })
+          });
+          return res.status(200).json({ success: true });
+        }
+
+        try {
+          // Download voice from Telegram
+          const fileInfoRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${voiceObj.file_id}`);
+          const fileInfo = await fileInfoRes.json();
+          if (fileInfo.ok && fileInfo.result?.file_path) {
+            const audioRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
+            const arrayBuffer = await audioRes.arrayBuffer();
+            const base64Audio = Buffer.from(arrayBuffer).toString('base64');
+
+            // Call Gemini
+            const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: "Transcribe this Bengali voice recording into clean Bengali text for retail accounting. Output ONLY the clean Bengali words." },
+                    { inline_data: { mime_type: voiceObj.mime_type || 'audio/ogg', data: base64Audio } }
+                  ]
+                }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 256 }
+              })
+            });
+
+            if (gRes.ok) {
+              const gData = await gRes.json();
+              const transcribed = gData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+              if (transcribed) {
+                text = transcribed.replace(/^["'`]+|["'`]+$/g, '').trim();
+                await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: chatId,
+                    text: `🎤 <i>আপনার ভয়েস:</i> "<b>${text}</b>"\n✅ <i>ক্লাউড সার্ভারে গৃহীত হয়েছে!</i>`,
+                    parse_mode: 'HTML'
+                  })
+                });
+              }
+            }
+          }
+        } catch (vErr) {
+          console.error('Webhook voice STT error:', vErr);
+        }
+      }
     }
 
     if (!chatId || !text) return res.status(200).send('OK');
@@ -41,8 +99,8 @@ export default async function handler(req, res) {
     const lower = text.toLowerCase().trim();
 
     // Fast cloud response
-    if (lower === '/start' || lower === '/menu' || lower === 'cmd_main') {
-      const welcome = `🤖 <b>হিসাবকিতাব ৩৬০ - ২৪/৭ ক্লাউড টেলিগ্রাম বট</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার প্রতিষ্ঠান চব্বিশ ঘণ্টা ক্লাউডে সক্রিয় আছে।\n\n💡 যেকোনো বিক্রয় বা খরচ লিখে পাঠান:\n• <code>সেল নাপা ১০ ৫০</code>\n• <code>খরচ ২০০ নাস্তা</code>\n• <code>আজকের হিসাব</code>`;
+    if (lower === '/start' || lower === '/menu' || lower === 'cmd_main' || lower === '/help') {
+      const welcome = `🤖 <b>হিসাবকিতাব ৩৬০ - ২৪/৭ ক্লাউড টেলিগ্রাম বট</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার প্রতিষ্ঠান চব্বিশ ঘণ্টা ক্লাউডে সক্রিয় আছে।\n\n💡 <b>সরাসরি লিখে অথবা ভয়েস রেকর্ড পাঠিয়ে হিসাব করুন:</b>\n• <code>সেল নাপা ১০ ৫০</code>\n• <code>খরচ ২০০ নাস্তা</code>\n• <code>আজকের হিসাব</code>\n• <code>/backup</code>\n\n🎤 <b>ভয়েস এআই:</b> চ্যাটে মাইক্রোফোন চেপে বাংলায় অডিও পাঠালেই স্বয়ংক্রিয়ভাবে প্রসেস হবে!`;
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

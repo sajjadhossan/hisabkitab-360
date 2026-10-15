@@ -3,6 +3,8 @@
 // 100% Free, Unlimited Cloud Storage, Instant Mobile Notifications
 // =========================================================================
 
+import { processTelegramVoiceMessage } from './telegramVoiceToTextService';
+
 const STORAGE_KEY = 'hk360_telegram_backup_config';
 
 export const getTelegramBackupConfig = () => {
@@ -13,6 +15,8 @@ export const getTelegramBackupConfig = () => {
       : {
           botToken: '',
           chatId: '',
+          geminiApiKey: '',
+          groqApiKey: '',
           enabled: false,
           autoSync: true,
           lastSync: null,
@@ -22,6 +26,8 @@ export const getTelegramBackupConfig = () => {
     return {
       botToken: '',
       chatId: '',
+      geminiApiKey: '',
+      groqApiKey: '',
       enabled: false,
       autoSync: true,
       lastSync: null,
@@ -82,7 +88,8 @@ export const registerTelegramCommands = async (botToken) => {
           { command: 'stock', description: '📦 স্টক ও পণ্যের তথ্য' },
           { command: 'due', description: '📒 কাস্টমার বকেয়া খাতা' },
           { command: 'expense', description: '💸 আজকের খরচের তালিকা' },
-          { command: 'backup', description: '📥 ডাটাবেজ ব্যাকআপ ডাউনলোড' }
+          { command: 'backup', description: '📥 ডাটাবেজ ব্যাকআপ ডাউনলোড' },
+          { command: 'setkey', description: '🔑 ভয়েস এআই কি সেট করুন (/setkey <KEY>)' }
         ]
       })
     });
@@ -909,6 +916,66 @@ export const pollTelegramBotCommands = async ({
         rawText = (msg.text || msg.caption || '').trim();
         targetChatId = String(msg.chat.id);
         senderId = String(msg.from?.id || '');
+
+        const voiceObj = msg.voice || msg.audio;
+        if (!rawText && voiceObj && voiceObj.file_id) {
+          const isAuth = cleanChatId && (
+            targetChatId === cleanChatId ||
+            senderId === cleanChatId ||
+            cleanChatId.includes(targetChatId)
+          );
+          if (!isAuth) {
+            const unauthHtml = `🔒 <b>অননুমোদিত চ্যাট আইডি (Unauthorized)</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার চ্যাট আইডি: <code>${targetChatId}</code>\nহিসাবের নিরাপত্তা রক্ষায় শুধুমাত্র অনুমোদিত চ্যাট থেকে ভয়েস কমান্ড গ্রহণ করা হয়।`;
+            await sendTelegramMessage(unauthHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+            continue;
+          }
+
+          const currentCfg = getTelegramBackupConfig();
+          const geminiKey = (currentCfg.geminiApiKey || '').trim() ||
+            (typeof window !== 'undefined' ? (localStorage.getItem('hk360_gemini_api_key') || (import.meta?.env?.VITE_GEMINI_API_KEY || '')) : '');
+          const groqKey = (currentCfg.groqApiKey || '').trim() ||
+            (typeof window !== 'undefined' ? (localStorage.getItem('hk360_groq_api_key') || '') : '');
+
+          if (!geminiKey && !groqKey) {
+            const noKeyHtml = `🎤 <b>আপনার ভয়েস অডিও মেসেজ পাওয়া গেছে!</b>
+━━━━━━━━━━━━━━━━━━━━━
+ভয়েস-টু-টেক্সট এআই চালু করতে একটি ফ্রি <b>Google Gemini API Key</b> প্রয়োজন।
+
+💡 <b>১ মিনিটে ফ্রি API Key পাওয়ার সহজ উপায়:</b>
+১. <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a> লিংকে যান।
+২. আপনার গুগল একাউন্ট দিয়ে লগইন করে <b>"Create API key"</b> চাপুন।
+৩. পাওয়া কি-টি কপি করে এই চ্যাটে লিখে পাঠান:
+<code>/setkey আপনার_কি</code>
+<i>(অথবা সফটওয়্যারের টেলিগ্রাম বট সেটিংসে কি-টি সেভ করুন)</i>
+
+✨ একবার কি দিলে পরবর্তীতে যেকোনো ভয়েস মেসেজ পাঠালেই তা স্বয়ংক্রিয়ভাবে টেক্সটে রূপান্তর হয়ে হিসাব সম্পন্ন হবে!`;
+            await sendTelegramMessage(noKeyHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+            continue;
+          }
+
+          try {
+            await sendTelegramMessage(`🎤 <i>ভয়েস অডিও প্রসেস করা হচ্ছে...</i>`, { botToken: token, chatId: targetChatId }, null, 'HTML');
+            const vRes = await processTelegramVoiceMessage({
+              botToken: token,
+              fileId: voiceObj.file_id,
+              mimeType: voiceObj.mime_type || 'audio/ogg',
+              geminiApiKey: geminiKey,
+              groqApiKey: groqKey
+            });
+
+            if (vRes?.text) {
+              rawText = vRes.text.trim();
+              await sendTelegramMessage(`🎤 <i>আপনার ভয়েস:</i> "<b>${rawText}</b>"`, { botToken: token, chatId: targetChatId }, null, 'HTML');
+            } else {
+              await sendTelegramMessage(`⚠️ <i>ভয়েস অডিও থেকে কোনো কথা স্পষ্টভাবে শনাক্ত করা যায়নি। অনুগ্রহ করে পুনরায় স্পষ্ট করে বলুন।</i>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+              continue;
+            }
+          } catch (sttErr) {
+            console.warn('Voice STT error:', sttErr);
+            await sendTelegramMessage(`❌ <b>ভয়েস রূপান্তর ব্যর্থ হয়েছে:</b> ${sttErr.message}\n💡 আপনার API Key ঠিক আছে কিনা যাচাই করতে <code>/setkey &lt;KEY&gt;</code> লিখে পুনরায় সেট করুন।`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+            continue;
+          }
+        }
       }
 
       if (!rawText || !targetChatId) continue;
@@ -920,6 +987,34 @@ export const pollTelegramBotCommands = async ({
         senderId === cleanChatId ||
         cleanChatId.includes(targetChatId)
       );
+
+      // Handle Gemini / AI Key setup command (/setkey <API_KEY>)
+      if (rawText.startsWith('/setkey') || rawText.startsWith('setkey')) {
+        const newKey = rawText.replace(/^\/?setkey\s*/i, '').trim();
+        if (newKey) {
+          const currentCfg = getTelegramBackupConfig();
+          const updated = { ...currentCfg, geminiApiKey: newKey };
+          saveTelegramBackupConfig(updated);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('hk360_gemini_api_key', newKey);
+          }
+          const successHtml = `🎉 <b>Google Gemini AI Key সফলভাবে যুক্ত হয়েছে!</b>
+━━━━━━━━━━━━━━━━━━━━━
+🔑 <b>Key:</b> <code>${newKey.slice(0, 8)}...${newKey.slice(-4)}</code>
+🤖 <b>ভয়েস-টু-টেক্সট ইঞ্জিন:</b> Google Gemini Multimodal Audio (Active)
+
+✨ এখন থেকে আপনি টেলিগ্রামে যেকোনো ভয়েস মেসেজ পাঠালেই তা সাথে সাথে টেক্সটে রূপান্তর হয়ে সফটওয়্যারে হিসাব জমা হবে!
+💡 <b>পরীক্ষা করতে এখনই একটি ভয়েস অডিও পাঠান:</b>
+• <i>"সেল নাপা ১০ ৫০"</i>
+• <i>"খরচ ৫০০ নাস্তা"</i>
+• <i>"আজকের মোট বিক্রি কত"</i>`;
+          await sendTelegramMessage(successHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+          continue;
+        } else {
+          await sendTelegramMessage(`💡 <b>Gemini API Key সেট করার নিয়ম:</b>\n<code>/setkey AIzaSy...</code>\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+          continue;
+        }
+      }
 
       // ========================================================
       // FOLDER NAVIGATION DISPATCHER (ইনলাইন ফোল্ডার নেভিগেশন)
