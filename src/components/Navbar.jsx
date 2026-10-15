@@ -836,8 +836,8 @@ export const Navbar = () => {
             </div>
           )}
 
-          {/* Right Controls: Auth, Language, Theme, and 3-Dot Menu */}
-          <div className="navbar-right-controls">
+          {/* Right Controls: Unified Touch-Swipeable Control Track (All 14 Controls) */}
+          <div className="navbar-right-controls" ref={slidableTrackRef}>
             {/* 0. Cross-Platform 3-Device Hub Indicator */}
             <DeviceStatusIndicator />
 
@@ -1008,24 +1008,7 @@ export const Navbar = () => {
               <span className="navbar-lang-compact">{lang === 'bn' ? 'EN' : 'বাং'}</span>
             </button>
 
-            {/* 5. Horizontal Slidable Action Strip (Right-sliding extensible track) */}
-            <div className="navbar-slidable-wrapper">
-              {canScrollLeft && (
-                <button
-                  type="button"
-                  className="navbar-slidable-nav-btn left"
-                  onClick={() => scrollSlidableTrack('left')}
-                  title={lang === 'bn' ? 'বামে স্লাইড করুন' : 'Slide Left'}
-                  aria-label="Slide Left"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-              )}
 
-              <div
-                className="navbar-slidable-track"
-                ref={slidableTrackRef}
-              >
                 {/* Theme Switch */}
             <button
               className="btn-icon press-scale"
@@ -1335,20 +1318,6 @@ export const Navbar = () => {
                 </div>
               )}
             </div>
-          </div>
-
-          {canScrollRight && (
-            <button
-              type="button"
-              className="navbar-slidable-nav-btn right"
-              onClick={() => scrollSlidableTrack('right')}
-              title={lang === 'bn' ? 'ডানে স্লাইড করুন' : 'Slide Right'}
-              aria-label="Slide Right"
-            >
-              <ChevronRight size={14} />
-            </button>
-          )}
-        </div>
           </div>
         </div>
 

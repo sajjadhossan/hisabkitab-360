@@ -52,7 +52,8 @@ import {
   FolderOpen,
   Zap,
   Database,
-  Brain
+  Brain,
+  Wrench
 } from 'lucide-react';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
@@ -64,6 +65,7 @@ import Phase2DatabaseHub from '../business/Phase2DatabaseHub';
 import Phase3UltraUxHub from '../business/Phase3UltraUxHub';
 import Phase4SecurityHub from '../business/Phase4SecurityHub';
 import Phase5AiIntelligenceHub from '../business/Phase5AiIntelligenceHub';
+import SystemTroubleshootingHub from './SystemTroubleshootingHub';
 
 export const SuperAdminPanel = () => {
   const {
@@ -1207,7 +1209,8 @@ export const SuperAdminPanel = () => {
             { id: 'phase5_hub', label: lang === 'bn' ? '🤖 এআই বিজনেস ইন্টেলিজেন্স' : '🤖 AI & Business Intelligence', icon: Brain },
             { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
             { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
-            { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key }
+            { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key },
+            { id: 'troubleshooting', label: lang === 'bn' ? '🛠️ অ্যাপ মডিফিকেশন ও ট্রাবলশুটিং গাইড' : '🛠️ App Modification & Troubleshooting', icon: Wrench }
           ].map(tab => (
             <button
               key={tab.id}
@@ -3484,6 +3487,15 @@ export const SuperAdminPanel = () => {
       {activeSubTab === 'audit_ledger' && (
         <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <AuditLedgerViewer organizationId={businessSettings?.organizationId} />
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: SYSTEM TROUBLESHOOTING & CONFIGURATION HUB     */}
+      {/* ======================================================== */}
+      {activeSubTab === 'troubleshooting' && (
+        <div className="fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <SystemTroubleshootingHub lang={lang} showToast={showToast} />
         </div>
       )}
 
