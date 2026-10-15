@@ -89,8 +89,8 @@ export const MasterPinModal = ({ isOpen, onClose, onSuccess }) => {
           </h3>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             {lang === 'bn' 
-              ? 'ভেন্ডর ও সুপার অ্যাডমিন প্যানেলে প্রবেশ করতে আপনার সিক্রেট মাস্টার পিন দিন (ডিফল্ট: 9999)' 
-              : 'Enter Master PIN to access Vendor Control Suite (Default: 9999)'}
+              ? 'ভেন্ডর ও সুপার অ্যাডমিন প্যানেলে প্রবেশ করতে আপনার সিক্রেট মাস্টার পিন দিন (মাস্টার পিন: 889900)' 
+              : 'Enter Master PIN to access Vendor Control Suite (Master PIN: 889900)'}
           </p>
         </div>
 

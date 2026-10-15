@@ -647,13 +647,13 @@ export const AuthModal = () => {
               {showEmergencyForm && (
                 <form onSubmit={handleEmergencyResetSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-                    জরুরি মাস্টার পিন কোড: <strong>8842</strong>
+                    জরুরি মাস্টার পিন কোড: <strong>1994</strong> (অথবা <strong>889900</strong>)
                   </p>
                   <input
                     type="text"
                     required
                     className="input-field"
-                    placeholder="মাস্টার রিকভারি পিন (8842)"
+                    placeholder="মাস্টার রিকভারি পিন (1994 বা 889900)"
                     value={emergencyPin}
                     onChange={(e) => setEmergencyPin(e.target.value)}
                   />

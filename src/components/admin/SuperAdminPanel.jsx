@@ -109,6 +109,7 @@ export const SuperAdminPanel = () => {
     resetMasterPinWithRecovery,
     sendSuperAdminOtp,
     verifySuperAdminOtpAndResetPin,
+    isEmailRecoveryActivated,
     lockSuperAdmin,
     getMasterPin
   } = useAuth();
@@ -852,30 +853,55 @@ export const SuperAdminPanel = () => {
               ) : (
                 /* Step 2: Verify OTP & Set New Password */
                 <form onSubmit={handleRecoverySubmit} style={{ textAlign: 'left' }}>
-                  <div style={{
-                    background: 'rgba(99, 102, 241, 0.08)',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    marginBottom: '14px',
-                    fontSize: '0.82rem',
-                    lineHeight: 1.6
-                  }}>
-                    <div style={{ fontWeight: '800', color: '#6366f1', marginBottom: '4px' }}>
-                      💡 পাসওয়ার্ড রিসেট করার ২টি সহজ উপায়:
+                  {/* Real-time Email Activation Status Banner */}
+                  {isEmailRecoveryActivated ? (
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      border: '1.5px solid #10b981',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      marginBottom: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <CheckCircle2 size={24} color="#10b981" style={{ flexShrink: 0 }} />
+                      <div>
+                        <div style={{ color: '#10b981', fontWeight: '800', fontSize: '0.88rem' }}>
+                          ✅ জিমেইল লিংক সফলভাবে সক্রিয় হয়েছে!
+                        </div>
+                        <div style={{ color: 'var(--text-main)', fontSize: '0.78rem', marginTop: '2px', lineHeight: 1.4 }}>
+                          আপনার ইমেইল ভেরিফিকেশন সম্পন্ন। এখন নিচের ঘরে মাস্টার কোড <strong>1994</strong> এবং আপনার নতুন পাসওয়ার্ড লিখে আনলক করুন।
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ color: 'var(--text-main)' }}>
-                      <strong>১. ১-ক্লিক রিকভারি:</strong> আপনার জিমেইল ইনবক্সে পাওয়া <em>"Reset Password"</em> লিঙ্কে ক্লিক করলেই এই সফটওয়্যার সরাসরি আনলক হয়ে যাবে!
+                  ) : (
+                    <div style={{
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      border: '1.5px solid #f59e0b',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      marginBottom: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <Clock size={24} color="#f59e0b" style={{ flexShrink: 0 }} />
+                      <div>
+                        <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.86rem' }}>
+                          ⏳ জিমেইল সক্রিয়করণের অপেক্ষায়...
+                        </div>
+                        <div style={{ color: 'var(--text-main)', fontSize: '0.78rem', marginTop: '2px', lineHeight: 1.4 }}>
+                          আপনার জিমেইল (<strong>hossansajjad1994@gmail.com</strong>) ইনবক্সে পাঠানো লিংকে ক্লিক করুন। ইমেইল লিংক ওপেন করলেই কেবল নিচের <strong>১৯৯৪</strong> কোডটি সক্রিয় হবে। (অথবা ইমেইলে প্রাপ্ত ৬-সংখ্যার ওটিপি সরাসরি দিন)।
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ marginTop: '4px', color: 'var(--text-main)' }}>
-                      <strong>২. অথবা কোড দিন:</strong> ইমেইলে প্রাপ্ত ৬ সংখ্যার কোড বা রিকভারি পিন নিচের ঘরে লিখুন:
-                    </div>
-                  </div>
+                  )}
 
                   <div style={{ marginBottom: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)' }}>
-                        ইমেইলে প্রাপ্ত কোড বা ওটিপি *
+                        {isEmailRecoveryActivated ? 'মাস্টার কোড (1994) লিখুন *' : 'ইমেইল ওপেন করার পর কোড (1994) লিখুন *'}
                       </label>
                       {countdown > 0 ? (
                         <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: '700' }}>
@@ -896,7 +922,7 @@ export const SuperAdminPanel = () => {
                             textDecoration: 'underline'
                           }}
                         >
-                          আবার ওটিপি পাঠান
+                          আবার লিংক পাঠান
                         </button>
                       )}
                     </div>
@@ -905,7 +931,7 @@ export const SuperAdminPanel = () => {
                       required
                       maxLength={6}
                       className="input-field"
-                      placeholder="৬ ডিজিট ওটিপি (যেমন: 489201)"
+                      placeholder={isEmailRecoveryActivated ? "১৯৯৪ লিখুন" : "লিংক ওপেন করে ১৯৯৪ দিন"}
                       value={otpInput}
                       onChange={(e) => { setOtpInput(e.target.value); setRecoveryError(''); }}
                       style={{

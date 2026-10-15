@@ -68,8 +68,9 @@ export const GoogleDriveBackupManager = ({
   const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
   const [clientIdInput, setClientIdInput] = useState(() => getGoogleClientId() || '');
   const [showAdminPanel, setShowAdminPanel] = useState(() => isOwner || isSuperAdmin);
-  const [activeGuideTab, setActiveGuideTab] = useState('script'); // 'oauth' | 'script' | 'troubleshoot'
+  const [activeGuideTab, setActiveGuideTab] = useState('oauth'); // 'oauth' | 'script' | 'troubleshoot'
   const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedOrigin, setCopiedOrigin] = useState(false);
 
   // Telegram Cloud Backup State
   const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig ? getTelegramBackupConfig() : {
@@ -181,6 +182,15 @@ export const GoogleDriveBackupManager = ({
     hapticFeedback?.success?.();
     if (showToast) showToast(lang === 'bn' ? 'গুগল স্ক্রিপ্ট কোড কপি হয়েছে!' : 'Script code copied!', 'success');
     setTimeout(() => setCopiedScript(false), 2500);
+  };
+
+  const handleCopyOrigin = () => {
+    const origin = typeof window !== 'undefined' ? (window.location.origin || 'http://localhost:5173') : 'http://localhost:5173';
+    navigator.clipboard.writeText(origin);
+    setCopiedOrigin(true);
+    hapticFeedback?.success?.();
+    if (showToast) showToast(lang === 'bn' ? `অরিজিন লিঙ্ক কপি হয়েছে: ${origin}` : `Origin URL copied: ${origin}`, 'success');
+    setTimeout(() => setCopiedOrigin(false), 2500);
   };
 
   const handleManualDriveSync = async () => {
@@ -519,6 +529,35 @@ export const GoogleDriveBackupManager = ({
                     ? 'বিজনেসম্যান শুধু "Connect with Google" বাটনে চাপবেন। গুগলের উইন্ডোতে তার জিমেইল সিলেক্ট করে অনুমোদন (Allow) দিলেই ড্রাইভ কানেক্ট হয়ে যাবে।'
                     : 'The client clicks Connect with Google, selects their Google account and grants approval.'}
                 </p>
+                <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminPanel(true);
+                      setActiveGuideTab('oauth');
+                      setTimeout(() => {
+                        const el = document.getElementById('oauth-step-guide');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    style={{
+                      background: 'rgba(66, 133, 244, 0.1)',
+                      border: '1px solid rgba(66, 133, 244, 0.4)',
+                      borderRadius: '8px',
+                      padding: '5px 12px',
+                      fontSize: '0.76rem',
+                      fontWeight: '800',
+                      color: '#4285F4',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Key size={13} />
+                    <span>{lang === 'bn' ? '📘 ১-ক্লিক সেটআপ ও ক্লাউড কনসোল এ টু জেড গাইড দেখুন' : '📘 View Full A-to-Z OAuth Setup Guide'}</span>
+                  </button>
+                </div>
               </div>
 
               {isDriveConnected ? (
@@ -694,85 +733,265 @@ export const GoogleDriveBackupManager = ({
                 </div>
 
                 {/* Google Drive Guide Tabs */}
-                <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)' }}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveGuideTab('script')}
-                      style={{
-                        flex: 1,
-                        padding: '9px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: activeGuideTab === 'script' ? '800' : '600',
-                        border: 'none',
-                        background: activeGuideTab === 'script' ? '#4285F4' : 'transparent',
-                        color: activeGuideTab === 'script' ? '#fff' : 'var(--text-main)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⚡ স্ক্রিপ্ট পদ্ধতি (কোড সহ)
-                    </button>
+                <div id="oauth-step-guide" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+                  <div style={{ display: 'flex', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       onClick={() => setActiveGuideTab('oauth')}
                       style={{
-                        flex: 1,
-                        padding: '9px 12px',
-                        fontSize: '0.78rem',
+                        flex: '1 1 200px',
+                        padding: '11px 14px',
+                        fontSize: '0.82rem',
                         fontWeight: activeGuideTab === 'oauth' ? '800' : '600',
                         border: 'none',
                         background: activeGuideTab === 'oauth' ? '#4285F4' : 'transparent',
                         color: activeGuideTab === 'oauth' ? '#fff' : 'var(--text-main)',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s'
                       }}
                     >
-                      🔑 ক্লাউড কনসোল নিয়মাবলী
+                      <Key size={14} />
+                      <span>🔑 ১-ক্লিক Google OAuth গাইড (A to Z)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveGuideTab('script')}
+                      style={{
+                        flex: '1 1 180px',
+                        padding: '11px 14px',
+                        fontSize: '0.82rem',
+                        fontWeight: activeGuideTab === 'script' ? '800' : '600',
+                        border: 'none',
+                        background: activeGuideTab === 'script' ? '#4285F4' : 'transparent',
+                        color: activeGuideTab === 'script' ? '#fff' : 'var(--text-main)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <Zap size={14} />
+                      <span>⚡ বিকল্প স্ক্রিপ্ট পদ্ধতি (Webhook)</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveGuideTab('troubleshoot')}
                       style={{
-                        flex: 1,
-                        padding: '9px 12px',
-                        fontSize: '0.78rem',
+                        flex: '1 1 140px',
+                        padding: '11px 14px',
+                        fontSize: '0.82rem',
                         fontWeight: activeGuideTab === 'troubleshoot' ? '800' : '600',
                         border: 'none',
                         background: activeGuideTab === 'troubleshoot' ? '#4285F4' : 'transparent',
                         color: activeGuideTab === 'troubleshoot' ? '#fff' : 'var(--text-main)',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s'
                       }}
                     >
-                      ❓ সমাধান ও টিপস
+                      <HelpCircle size={14} />
+                      <span>❓ সমস্যা ও সমাধান (টিপস)</span>
                     </button>
                   </div>
 
+                  {/* TAB 1: 1-CLICK GOOGLE OAUTH STEP-BY-STEP (A to Z) */}
+                  {activeGuideTab === 'oauth' && (
+                    <div style={{ padding: '16px 18px', background: 'var(--bg-primary)', fontSize: '0.8rem', lineHeight: 1.65 }}>
+                      
+                      {/* Guide Top Banner */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(66, 133, 244, 0.08)',
+                        border: '1px solid rgba(66, 133, 244, 0.25)',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        marginBottom: '16px',
+                        flexWrap: 'wrap',
+                        gap: '10px'
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: '800', color: '#4285F4', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Sparkles size={16} />
+                            <span>গুগল ক্লাউড কনসোল (OAuth 2.0) ১-ক্লিক ব্যাকআপ মাস্টার গাইড</span>
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            সাধারণ জিমেইল দিয়ে সম্পূর্ণ বিনামূল্যে মাত্র ৩ মিনিটে সেটআপ করুন (কোনো ক্রেডিট কার্ড লাগবে না)।
+                          </div>
+                        </div>
+
+                        <a
+                          href="https://console.cloud.google.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-primary"
+                          style={{
+                            background: '#4285F4',
+                            borderColor: '#4285F4',
+                            padding: '6px 14px',
+                            fontSize: '0.76rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontWeight: '700',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          <span>Google Cloud Console খুলুন</span>
+                          <ExternalLink size={13} />
+                        </a>
+                      </div>
+
+                      {/* Step-by-Step Roadmap Cards */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        
+                        {/* Step 1 */}
+                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>১</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>নতুন প্রজেক্ট তৈরি করুন (Create Project)</span>
+                          </div>
+                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                            ১. ব্রাউজারে <strong>console.cloud.google.com</strong>-এ গিয়ে আপনার জিমেইল দিয়ে লগইন করুন।<br/>
+                            ২. উপরে বামপাশে প্রজেক্ট ড্রপডাউনে ক্লিক করে <strong>NEW PROJECT</strong> চাপুন।<br/>
+                            ৩. <strong>Project Name</strong> ঘরে নাম লিখুন (যেমন: <code>HisabKitab-360-Backup</code>) এবং <strong>CREATE</strong> বাটনে চাপুন।
+                          </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>২</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>Google Drive API চালু করুন (Enable Drive API)</span>
+                          </div>
+                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                            ১. বাম পাশের মেনুবার (☰) থেকে <strong>APIs & Services</strong> ➔ <strong>Enabled APIs & Services</strong>-এ যান।<br/>
+                            ২. উপরে থাকা <strong>+ ENABLE APIS AND SERVICES</strong> বাটনে চাপুন।<br/>
+                            ৩. সার্চ বক্সে লিখুন: <code>Google Drive API</code> এবং রেজাল্ট থেকে সেটি সিলেক্ট করে <strong>ENABLE</strong> বাটনে ক্লিক করুন।
+                          </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>৩</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>OAuth Consent Screen ও Test Users সেটআপ (খুব গুরুত্বপূর্ণ)</span>
+                          </div>
+                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                            ১. বাম মেনু থেকে <strong>APIs & Services</strong> ➔ <strong>OAuth consent screen</strong>-এ যান।<br/>
+                            ২. <strong>User Type:</strong> <code>External</code> সিলেক্ট করে <strong>CREATE</strong> চাপুন।<br/>
+                            ৩. <strong>App name:</strong> <code>HisabKitab 360</code> দিন এবং আপনার জিমেইল সিলেক্ট করে নিচে <strong>SAVE AND CONTINUE</strong> দিন।<br/>
+                            ৪. <strong>Scopes</strong> ধাপে কোনো পরিবর্তন না করে সরাসরি নিচে নেমে <strong>SAVE AND CONTINUE</strong> দিন।<br/>
+                            ৫. <strong style={{ color: '#ef4444' }}>Test users (অবশ্যই করতে হবে):</strong> <strong>+ ADD USERS</strong> বাটনে ক্লিক করে যে জিমেইল দিয়ে আপনি ব্যাকআপ নিবেন, সেটি লিখে <strong>SAVE</strong> করুন। (অথবা উপরে <strong>PUBLISH APP</strong> করে দিন)।
+                          </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>৪</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>OAuth Client ID তৈরি ও Authorized JavaScript Origins যোগ</span>
+                          </div>
+                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                            ১. বাম মেনু থেকে <strong>Credentials</strong> (🔑)-এ যান ➔ উপরে <strong>+ CREATE CREDENTIALS</strong> ➔ <strong>OAuth client ID</strong> সিলেক্ট করুন।<br/>
+                            ২. <strong>Application type:</strong> <code>Web application</code> সিলেক্ট করুন।<br/>
+                            ৩. <strong>Authorized JavaScript origins:</strong> এখানে <strong>+ ADD URI</strong>-তে ক্লিক করে আপনার অ্যাপের লিঙ্ক যোগ করুন:
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                              <code style={{ fontSize: '0.8rem', color: '#4285F4', fontWeight: 'bold' }}>{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}</code>
+                              <button
+                                type="button"
+                                onClick={handleCopyOrigin}
+                                className="btn btn-secondary"
+                                style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                              >
+                                {copiedOrigin ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                <span>{copiedOrigin ? 'কপি হয়েছে' : 'লিংক কপি করুন'}</span>
+                              </button>
+                            </div>
+                            *(ভবিষ্যতে Vercel বা লাইভ সাইটে অ্যাপ চালালে সেই ডোমেইন লিঙ্কও এখানে + ADD URI দিয়ে যোগ করবেন)।<br/>
+                            ৪. নিচে <strong>CREATE</strong> বাটনে চাপুন।
+                          </div>
+                        </div>
+
+                        {/* Step 5 */}
+                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>৫</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>Client ID কপি করে অ্যাপে সেভ করুন</span>
+                          </div>
+                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                            স্ক্রিনে প্রদর্শিত <strong>Your Client ID</strong> (যেমন: <code>442090260759-...apps.googleusercontent.com</code>) কপি করে ওপরের <strong>Google OAuth Client ID</strong> ইনপুট ফিল্ডে পেস্ট করে <strong>"সংরক্ষণ"</strong> বাটনে চাপুন।
+                          </div>
+                        </div>
+
+                        {/* Step 6 */}
+                        <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <CheckCircle2 size={18} style={{ color: '#10b981' }} />
+                            <span style={{ fontWeight: '800', color: '#10b981', fontSize: '0.85rem' }}>ধাপ ৬: ১-ক্লিক সংযোগ সম্পন্ন করুন!</span>
+                          </div>
+                          <div style={{ paddingLeft: '26px', color: 'var(--text-main)', fontSize: '0.78rem' }}>
+                            এখন শুধু উপরে থাকা <strong>"Google Drive দিয়ে ১-ক্লিকে কানেক্ট করুন"</strong> বাটনে ক্লিক করুন। গুগলের পপআপে আপনার জিমেইল সিলেক্ট করে অনুমতি (Allow) দিন। আপনার গুগল ড্রাইভ সরাসরি যুক্ত হয়ে যাবে এবং স্বয়ংক্রিয়ভাবে ক্লাউড ব্যাকআপ চালু হবে!
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: APPS SCRIPT WEBHOOK METHOD */}
                   {activeGuideTab === 'script' && (
-                    <div style={{ padding: '12px 14px', background: 'var(--bg-primary)' }}>
+                    <div style={{ padding: '14px 16px', background: 'var(--bg-primary)' }}>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+                        কোনো ক্লাউড কনসোল বা ক্রেডেনশিয়াল ছাড়া যদি মাত্র ১ মিনিটে ব্যাকআপ চালু করতে চান, তবে <strong>script.google.com</strong>-এ গিয়ে <strong>+ New project</strong> খুলে নিচের কোডটি পেস্ট করে Web app হিসেবে Deploy করুন:
+                      </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#4285F4' }}>Google Apps Script কোড:</span>
-                        <button type="button" onClick={handleCopyCode} className="btn btn-secondary" style={{ padding: '3px 10px', fontSize: '0.72rem' }}>
+                        <button type="button" onClick={handleCopyCode} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '0.74rem' }}>
                           {copiedScript ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
                           <span>{copiedScript ? 'কপি হয়েছে' : 'কোড কপি করুন'}</span>
                         </button>
                       </div>
-                      <pre style={{ background: '#0f172a', color: '#38bdf8', padding: '10px 12px', borderRadius: '6px', fontSize: '10.5px', fontFamily: 'monospace', overflowX: 'auto', margin: 0, maxHeight: '180px' }}>
+                      <pre style={{ background: '#0f172a', color: '#38bdf8', padding: '10px 12px', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace', overflowX: 'auto', margin: '0 0 12px', maxHeight: '180px' }}>
                         {googleAppsScriptCode}
                       </pre>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                        ডিপ্লয় করার সময় <strong>Execute as: "Me"</strong> এবং <strong>Who has access: "Anyone"</strong> সিলেক্ট করে প্রাপ্ত Web app URL টি ওপরের Webhook URL ফিল্ডে পেস্ট করে সেভ করুন।
+                      </div>
                     </div>
                   )}
 
-                  {activeGuideTab === 'oauth' && (
-                    <div style={{ padding: '12px 14px', background: 'var(--bg-primary)', fontSize: '0.78rem', lineHeight: 1.6 }}>
-                      ১. <strong>console.cloud.google.com</strong> এ প্রজেক্ট খুলে <strong>Google Drive API</strong> এনাবল করুন।<br/>
-                      ২. <strong>OAuth consent screen</strong>-এ ক্লায়েন্টের জিমেইল <strong>Test users</strong> এ যোগ করুন অথবা <strong>PUBLISH APP</strong> করুন।<br/>
-                      ৩. <strong>Credentials</strong> এ গিয়ে Web Application Client ID তৈরি করে ওপরের বক্সে সংরক্ষণ করুন।
-                    </div>
-                  )}
-
+                  {/* TAB 3: TROUBLESHOOTING & COMMON FIXES */}
                   {activeGuideTab === 'troubleshoot' && (
-                    <div style={{ padding: '12px 14px', background: 'var(--bg-primary)', fontSize: '0.78rem', lineHeight: 1.6 }}>
-                      • <strong>Error 403:</strong> ক্লায়েন্টের জিমেইল Test Users-এ যোগ করা নেই অথবা Publish করা হয়নি।<br/>
-                      • <strong>Google hasn't verified this app:</strong> নিচে Advanced ➔ Go to ... (unsafe) ➔ Continue দিন।
+                    <div style={{ padding: '16px 18px', background: 'var(--bg-primary)', fontSize: '0.78rem', lineHeight: 1.65 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <strong style={{ color: '#ef4444' }}>১. Error 403: access_denied / App is being tested</strong><br/>
+                          <strong>কারণ:</strong> অ্যাপটি Testing মোডে রয়েছে এবং আপনার জিমেইল টেস্ট ইউজার লিস্টে নেই।<br/>
+                          <strong>সমাধান:</strong> Google Cloud Console ➔ <code>OAuth consent screen</code> ➔ <code>Test users</code>-এ গিয়ে <strong>+ ADD USERS</strong> দিয়ে আপনার জিমেইল যোগ করুন। অথবা ওপরে থাকা <strong>PUBLISH APP</strong> বাটনে ক্লিক করে কনফার্ম করুন।
+                        </div>
+
+                        <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <strong style={{ color: '#f59e0b' }}>২. "Google hasn't verified this app" (সতর্কতা)</strong><br/>
+                          <strong>সমাধান:</strong> এটি ব্যক্তিগত ডেভলপমেন্ট অ্যাপের সাধারণ সতর্কবার্তা। পপআপের নিচে থাকা <strong>Advanced</strong> লিংকে ক্লিক করে <strong>Go to HisabKitab 360 (unsafe)</strong> ➔ <strong>Continue / Allow</strong> চাপুন।
+                        </div>
+
+                        <div style={{ background: 'var(--bg-card)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <strong style={{ color: '#4285F4' }}>৩. Origin Mismatch Error (local vs live)</strong><br/>
+                          <strong>সমাধান:</strong> Google Console ➔ <code>Credentials</code> ➔ আপনার Web Client-এ যান এবং <code>Authorized JavaScript origins</code>-এ আপনার ব্রাউজারের বর্তমান URL (যেমন: <code>http://localhost:5173</code> অথবা লাইভ সাইট <code>https://your-domain.vercel.app</code>) হুবহু যোগ করুন।
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

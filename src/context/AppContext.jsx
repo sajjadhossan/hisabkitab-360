@@ -3343,7 +3343,7 @@ export const AppProvider = ({ children }) => {
       }
 
       // 2. Fallback to Webhook URL if configured
-      const targetUrl = customWebhookUrl || businessSettings.googleDriveWebhookUrl;
+      const targetUrl = customWebhookUrl || businessSettings.googleDriveWebhookUrl || initialData.businessSettings.googleDriveWebhookUrl;
       if (targetUrl && targetUrl.trim()) {
         try {
           await fetch(targetUrl.trim(), {

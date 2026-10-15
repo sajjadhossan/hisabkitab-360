@@ -37,6 +37,6 @@ export const initialData = {
     enableStockAlert: true,
     enableSmsAlert: false,
     googleDriveEnabled: true,
-    googleDriveWebhookUrl: ''
+    googleDriveWebhookUrl: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_DRIVE_WEBHOOK_URL) || 'https://script.google.com/macros/s/AKfycbzFVruwt9PDxxmcKAtxxAtATUnLhxf9ZAFAJBN-UYU-dvsiTp5GLgMeVyApwKXfdEjj/exec'
   }
 };
