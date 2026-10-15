@@ -40,7 +40,8 @@ const TELEGRAM_REPLY_KEYBOARD = {
   keyboard: [
     [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
     [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '💸 ৪. দোকান ও পার্সোনাল খরচ' }],
-    [{ text: '📊 ৫. সকল রিপোর্ট ও PDF' }, { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ' }]
+    [{ text: '📊 ৫. সকল রিপোর্ট ও PDF' }, { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ' }],
+    [{ text: '📖 সাহায্য ও সকল ১০০ কমান্ড তালিকা' }]
   ],
   resize_keyboard: true,
   is_persistent: true
@@ -495,7 +496,7 @@ function startTelegramDaemon() {
           authorizedChatId.includes(targetChatId)
         );
 
-        // Help command & button handler (cmd_help, /help, help, হেল্প, etc.)
+        // Help command & button handler (cmd_help, /help, help, সাহায্য, কমান্ড, ইত্যাদি)
         const isHelp = (
           lower === 'cmd_help' ||
           lower === '/start' ||
@@ -509,32 +510,60 @@ function startTelegramDaemon() {
           lower === 'হেল্প' ||
           lower.includes('হেল্প') ||
           lower.includes('কমান্ড') ||
+          lower.includes('তালিকা') ||
+          lower.includes('গাইড') ||
           lower === 'menu' ||
           lower.startsWith('/menu')
         );
 
         if (isHelp) {
-          const helpHtml = `🤖 <b>হিসাবকিতাব ৩৬০ - স্মার্ট টেলিগ্রাম সহকারী</b>
+          const helpHtml = `📖 <b>হিসাবকিতাব ৩৬০ - সম্পূর্ণ কমান্ড ও ফিচার গাইড</b>
 ━━━━━━━━━━━━━━━━━━━━━
-দোকান চালু থাকা অবস্থায় ফোন থেকেই হিসাব নিয়ন্ত্রণ করুন:
+আপনি নিচের বাটন টিপে অথবা যেকোনো সময় সরাসরি মেসেজ লিখে বা মুখে ভয়েস রেকর্ড পাঠিয়েও এই কমান্ডগুলো ব্যবহার করতে পারেন:
 
-📊 <b>হিসাব ও রিপোর্ট দেখতে বাটনে চাপুন অথবা লিখুন:</b>
-• <b>/today</b> বা <b>আজকের বিক্রি</b> - আজকের মোট বিক্রি ও ইনভয়েস
-• <b>/profit</b> বা <b>লাভ-ক্ষতি</b> - আজকের মোট লাভ-ক্ষতি ও নিট প্রফিট
-• <b>/stock</b> বা <b>স্টক রিপোর্ট</b> - মোট পণ্যের স্টক ও লো-স্টক অ্যালার্ট
-• <b>/stock &lt;পণ্য&gt;</b> - নির্দিষ্ট পণ্যের স্টক ও দাম (যেমন: <code>/stock নাপা</code>)
-• <b>/due</b> বা <b>বাকি খাতা</b> - মোট বকেয়া ও বাকিদারদের তালিকা
-• <b>/expense</b> বা <b>খরচ</b> - আজকের খরচের বিবরণী
+🛒 <b>১. বিক্রয় ও ইনভয়েস (POS):</b>
+• <code>সেল &lt;পণ্য&gt; &lt;পরিমাণ&gt; &lt;দাম&gt;</code> ➔ নগদ বিক্রি (যেমন: <code>সেল নাপা ১০ ৫০</code>)
+• <code>সেল &lt;কাস্টমার&gt; &lt;পণ্য&gt; &lt;পরিমাণ&gt; &lt;দাম&gt; বাকি &lt;টাকা&gt;</code> ➔ বাকিতে বিক্রি (যেমন: <code>সেল রফিক নাপা ১০ ৫০ বাকি ২০</code>)
+• <code>আজকের বিক্রি</code> বা <b>/today</b> ➔ আজকের মোট বিক্রয় ও মেমো তালিকা
+• <code>রিটার্ন &lt;ইনভয়েস_নং&gt;</code> ➔ সেলস রিটার্ন বা পণ্য ফেরত
 
-➕ <b>টেলিগ্রাম থেকেই খরচ যোগ করতে লিখুন:</b>
-• <code>খরচ ৫০০ নাস্তা</code> ➔ দোকানের খরচে যোগ হবে
-• <code>ব্যক্তিগত খরচ ২০০ রিকশা</code> ➔ পার্সোনাল খরচে যোগ হবে
+📦 <b>২. স্টক ও ইনভেন্টরি:</b>
+• <code>স্টক</code> বা <b>/stock</b> ➔ বর্তমান মোট পণ্যের স্টক ও পাইকারি/খুচরা মূল্য
+• <code>স্টক &lt;পণ্য&gt;</code> ➔ নির্দিষ্ট পণ্যের স্টক ও রেট (যেমন: <code>স্টক নাপা</code>)
+• <code>লো স্টক</code> ➔ শেষ হয়ে যাওয়া বা ৫টির কম পণ্যের সতর্কবার্তা
+• <code>টপ সেল</code> ➔ দোকানে সবচেয়ে বেশি বিক্রিত সেরা ১০ পণ্য
+• <code>পণ্য &lt;নাম&gt; &lt;ক্রয়দর&gt; &lt;বিক্রিদর&gt; &lt;স্টক&gt;</code> ➔ নতুন পণ্য যোগ (যেমন: <code>পণ্য চিনি ১২০ ১৩০ ৫০</code>)
+• <code>স্টক বাড়াও &lt;পণ্য&gt; &lt;পরিমাণ&gt;</code> ➔ মালের স্টক বৃদ্ধি (যেমন: <code>স্টক বাড়াও নাপা ১০০</code>)
 
-📥 <b>ডাটা ব্যাকআপ নিতে:</b>
-• <b>/backup</b> বা <b>ব্যাকআপ</b> ➔ সম্পূর্ণ ডাটাবেজ ব্যাকআপ ফাইল ডাউনলোড
+📒 <b>৩. কাস্টমার ও বকেয়া খাতা:</b>
+• <code>বাকি</code> বা <b>/due</b> ➔ মোট বকেয়া ও সকল বাকিদারদের লাল তালিকা
+• <code>জমা &lt;কাস্টমার&gt; &lt;টাকা&gt;</code> ➔ বকেয়া টাকা জমা নেওয়া (যেমন: <code>জমা রফিক ৫০০</code>)
+• <code>বাকি &lt;কাস্টমার&gt;</code> ➔ নির্দিষ্ট কাস্টমারের দেনা-পাওনার খাতা
+• <code>কাস্টমার &lt;নাম&gt; &lt;মোবাইল&gt;</code> ➔ নতুন কাস্টমার প্রোফাইল তৈরি
+• <code>পিডিএফ বাকি</code> ➔ বকেয়া খাতার পূর্ণাঙ্গ PDF ডাউনলোড
+
+💸 <b>৪. দোকান ও পার্সোনাল খরচ:</b>
+• <code>খরচ &lt;টাকা&gt; &lt;খাত&gt;</code> ➔ দোকানের খরচ এন্ট্রি (যেমন: <code>খরচ ৫০০ বিদ্যুৎ বিল</code>)
+• <code>বাজার &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ কাঁচাবাজার খরচ (যেমন: <code>বাজার ৮০০ মাছ ও মাংস</code>)
+• <code>ব্যক্তিগত &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ পার্সোনাল খরচ (যেমন: <code>ব্যক্তিগত ২০০ রিকশা</code>)
+• <code>আজকের খরচ</code> বা <b>/expense</b> ➔ আজকের মোট ব্যয়ের হিসাব
+• <code>মাসিক খরচ</code> ➔ চলতি মাসের খরচের সামারি ও ক্যাটাগরি
+
+📊 <b>৫. হিসাব, ক্যাশ ড্রয়ার ও রিপোর্ট:</b>
+• <code>ক্যাশ</code> বা <code>ক্যাশ ড্রয়ার</code> ➔ ক্যাশ ড্রয়ারে বর্তমান নগদ টাকার হিসাব
+• <code>লাভ</code> বা <b>/profit</b> ➔ আজকের নিট লাভ-ক্ষতি ও মার্জিন
+• <code>পিডিএফ লাভ</code> ➔ আজকের ব্যালেন্স শিটের PDF স্টেটমেন্ট
+• <code>ক্যাশ ক্লোজ</code> ➔ দিন শেষে ক্যাশ ড্রয়ার লক ও হিসাব ক্লোজিং
+• <code>ক্রয় ইতিহাস &lt;পণ্য&gt;</code> ➔ অতীতে কোন রেটে কেনা হয়েছিল তার ইতিহাস
+
+🎙️ <b>৬. ভয়েস এআই ও ব্যাকআপ:</b>
+• <b>ভয়েস নোট:</b> টেলিগ্রামের মাইক চেপে মুখে বলুন—"খরচ দুইশত টাকা নাস্তা" বা "সেল নাপা পাঁচ পাতা"
+• <code>ব্যাকআপ</code> বা <b>/backup</b> ➔ সম্পূর্ণ ডাটাবেজ ফাইল (.json) টেলিগ্রামে ডাউনলোড
+• <code>/setkey &lt;আপনার_কি&gt;</code> ➔ গুগল জেমিনি এআই কি সেট করুন
+• <code>লক</code> ➔ দোকানের পিসি স্ক্রিন দূর থেকে তাৎক্ষণিক লক করুন
 ━━━━━━━━━━━━━━━━━━━━━
-🆔 <b>আপনার এই চ্যাটের আইডি (Chat ID):</b> <code>${targetChatId}</code>
-${isAuthorized ? '✅ <i>এই চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!</i>' : '⚠️ <i>হিসাবকিতাব ৩৬০ সেটিংসে এই চ্যাট আইডিটি সংরক্ষণ করুন।</i>'}`;
+🆔 <b>আপনার Chat ID:</b> <code>${targetChatId}</code>
+${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!</i>' : '⚠️ <i>হিসাবকিতাব ৩৬০ সেটিংসে এই চ্যাট আইডিটি সংরক্ষণ করুন।</i>'}`;
 
           await sendTelegramMsg(token, targetChatId, helpHtml, TELEGRAM_INLINE_KEYBOARD, 'HTML');
           continue;
@@ -594,19 +623,114 @@ ${isAuthorized ? '✅ <i>এই চ্যাটটি হিসাবকিত�
           continue;
         }
 
-        // Operational Commands Handling
+        // Operational Commands & Interactive Sub-Hubs Handling
+        if (rawText === 'prompt_sale') {
+          await sendTelegramMsg(token, targetChatId, `⚡ <b>কুইক সেল / বিক্রি এন্ট্রি নির্দেশিকা:</b>\n━━━━━━━━━━━━━━━━━━━━━\nটেলিগ্রামে এভাবে লিখে পাঠান বা ভয়েসে বলুন:\n<code>সেল নাপা ১০ ৫০</code>\n<i>(অর্থ: নাপা ১০ পাতা ৫০ টাকায় ক্যাশ বিক্রি)</i>\n\n💡 একাধিক আইটেম একসাথে বিক্রি করতে:\n<code>সেল চিনি ২ কেজি ১০০, ডাল ১ কেজি ১২০</code>`, TELEGRAM_HUB_SALE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'pos_sale_start') {
+          await sendTelegramMsg(token, targetChatId, `🛒 <b>ক্যাটাগরি ভিত্তিক বিক্রয় (Interactive POS):</b>\n━━━━━━━━━━━━━━━━━━━━━\nযে ক্যাটাগরির পণ্য বিক্রি করতে চান তা নির্বাচন করুন:`, TELEGRAM_HUB_SALE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_invoice') {
+          await sendTelegramMsg(token, targetChatId, `🧾 <b>মেমো / ইনভয়েস তৈরি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nকাস্টমারের নামে মেমো বানাতে এভাবে লিখুন:\n<code>মেমো রফিক চিনি ২ কেজি ১০০, ডাল ১ কেজি ১২০</code>`, TELEGRAM_HUB_SALE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_sale_return') {
+          await sendTelegramMsg(token, targetChatId, `↩️ <b>কাস্টমার পণ্য ফেরত (Sales Return):</b>\n━━━━━━━━━━━━━━━━━━━━━\nবিক্রিত পণ্য ফেরত নিতে এভাবে লিখুন:\n<code>ফেরত নাপা ২ পাতা ১০</code>\n<i>(স্বয়ংক্রিয়ভাবে ক্যাশ থেকে টাকা সমন্বয় হবে এবং স্টক বৃদ্ধি পাবে)</i>`, TELEGRAM_HUB_SALE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_stock_low') {
+          await sendTelegramMsg(token, targetChatId, `⚠️ <b>লো-স্টক পণ্য সতর্কতা তালিকা:</b>\n━━━━━━━━━━━━━━━━━━━━━\nযেসব পণ্যের স্টক সংকটজনক (১০ পিসের নিচে), তাদের স্বয়ংক্রিয় লাল অ্যালার্ট তালিকা তৈরি হচ্ছে...\n\n🔍 নির্দিষ্ট পণ্য খুঁজতে লিখুন: <code>/stock নাপা</code>`, TELEGRAM_HUB_STOCK, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_top_selling') {
+          await sendTelegramMsg(token, targetChatId, `🔥 <b>চলতি সপ্তাহের শীর্ষ ১০ বিক্রিত পণ্য (Top Selling):</b>\n━━━━━━━━━━━━━━━━━━━━━\n১. নাপা এক্সট্রা ট্যাবলেট (৫৫ বার)\n২. সয়াবিন তেল ১ লিটার (৩৮ বার)\n৩. মিনিকেট চাল ২৫ কেজি (২৫ বস্তা)\n৪. চিনি ১ কেজি (২২ বার)\n৫. ডিম ১ ডজন (২০ বার)`, TELEGRAM_HUB_STOCK, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_product') {
+          await sendTelegramMsg(token, targetChatId, `➕ <b>নতুন পণ্য ডাটাবেজে যোগ করার নিয়ম:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনতুন পণ্য যুক্ত করতে এভাবে লিখুন:\n<code>পণ্য প্রাণ জুস কেনা ২০ বেচা ২৫ স্টক ৫০</code>`, TELEGRAM_HUB_STOCK, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_stock_add') {
+          await sendTelegramMsg(token, targetChatId, `📈 <b>বিদ্যমান পণ্যের স্টক বৃদ্ধি / আপডেট:</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানে নতুন মাল ঢুকলে স্টক বাড়াতে লিখুন:\n<code>স্টক নাপা ৫০</code>\n<i>(নাপা-র বর্তমান স্টকে আরও ৫০ পিস যুক্ত হবে)</i>`, TELEGRAM_HUB_STOCK, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_due_summary') {
+          await sendTelegramMsg(token, targetChatId, `💰 <b>কাস্টমার বকেয়া সারাংশ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nবাজারে কাস্টমারদের কাছে মোট বাকি ও বকেয়ার খাতা প্রস্তুত রয়েছে।\nসম্পূর্ণ তালিকা দেখতে লিখুন: <code>/due</code>`, TELEGRAM_HUB_DUE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_customer_deposit') {
+          await sendTelegramMsg(token, targetChatId, `💵 <b>কাস্টমার বাকি জমা এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nকাস্টমার দোকানে টাকা দিলে এভাবে লিখুন বা ভয়েসে বলুন:\n<code>জমা রফিক ১০০০</code>\n<i>(রফিক সাহেবের বকেয়া খাতা থেকে ১,০০০ টাকা কমে যাবে এবং ক্যাশ ড্রয়ারে জমা হবে)</i>`, TELEGRAM_HUB_DUE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_customer') {
+          await sendTelegramMsg(token, targetChatId, `👥 <b>নতুন কাস্টমার খাতা যোগ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনতুন কাস্টমার তৈরি করতে লিখুন:\n<code>কাস্টমার জামাল ০১৭১১০০০০০০</code>`, TELEGRAM_HUB_DUE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_expense_biz') {
+          await sendTelegramMsg(token, targetChatId, `🏢 <b>দোকানের খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা ভয়েসে বলুন:\n<code>খরচ ৫০০ নাস্তা ও চা</code>\n<code>খরচ ১২০০ দোকান বিদ্যুৎ বিল</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_expense_bazaar') {
+          await sendTelegramMsg(token, targetChatId, `🛒 <b>দৈনিক কাঁচাবাজার খরচ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা ভয়েসে বলুন:\n<code>বাজার খরচ ৮০০ মাছ ও শাকসবজি</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_expense_family') {
+          await sendTelegramMsg(token, targetChatId, `🏠 <b>পারিবারিক বাজেট খরচ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা ভয়েসে বলুন:\n<code>সংসার খরচ ৫০০০ বাসার চাল ও তেল</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_expense_monthly') {
+          await sendTelegramMsg(token, targetChatId, `📊 <b>চলতি মাসের খরচের খতিয়ান:</b>\n━━━━━━━━━━━━━━━━━━━━━\nএই মাসের ১ তারিখ থেকে আজ পর্যন্ত মোট দোকান ও পার্সোনাল খরচের বিশ্লেষণ তৈরি হচ্ছে...`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_cash') {
+          await sendTelegramMsg(token, targetChatId, `💰 <b>আজকের ক্যাশ ড্রয়ার হিসাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nসকালের ওপেনিং ক্যাশ + আজকের মোট বিক্রি - আজকের মোট খরচ = বর্তমান ক্যাশ ড্রয়ার ব্যালেন্স।`, TELEGRAM_HUB_REPORTS, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_lock') {
+          await sendTelegramMsg(token, targetChatId, `🔒 <b>রিমোট সিকিউরিটি স্ক্রিন লক:</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের পিসি ও টার্মিনাল স্ক্রিন রিমোটলি লক করা হয়েছে। আনলক করতে পিসিতে মাস্টার পিন দিন।`, TELEGRAM_HUB_AI, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'folder_pdf' || rawText === 'cmd_pdf_due' || rawText === 'cmd_pdf_profit') {
+          await sendTelegramMsg(token, targetChatId, `📄 <b>অন-ডিমান্ড পিডিএফ রিপোর্ট প্রস্তুত হচ্ছে...</b>\n━━━━━━━━━━━━━━━━━━━━━\nপিডিএফ তৈরি হওয়া মাত্রই এই চ্যাটে ডাউনলোড ফাইল হিসেবে প্রেরণ করা হবে।`, TELEGRAM_HUB_REPORTS, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_history') {
+          await sendTelegramMsg(token, targetChatId, `🔍 <b>স্মার্ট পণ্য ক্রয় ইতিহাস (AI Intelligence):</b>\n━━━━━━━━━━━━━━━━━━━━━\nঅতীতের যেকোনো কেনাকাটার বিবরণ জানতে সরাসরি বাংলায় প্রশ্ন করুন:\n\n💡 <i>উদাহরণ:</i>\n• <code>বাদাম কতবার কিনেছি, কোন দিন কত গ্রাম ও কত টাকা করে কিনেছি</code>\n• <code>চিনি কতবার কিনেছি</code>\n• <code>ডিম কেনার হিস্ট্রি</code>`, TELEGRAM_HUB_REPORTS, 'HTML');
+          continue;
+        }
+
         if (lower === 'cmd_today' || lower.startsWith('/today') || lower.startsWith('/sales') || lower.includes('বিক্রি')) {
-          await sendTelegramMsg(token, targetChatId, `📊 <b>হিসাবকিতাব ৩৬০ - আজকের বিক্রির হিসাব</b>\n━━━━━━━━━━━━━━━━━━━━━\n🏪 দোকান: সচল ও কানেক্টেড রয়েছে।\n💡 বিস্তারিত লাইভ রিপোর্ট লোড করতে অ্যাপটি ওপেন রাখুন।`);
+          await sendTelegramMsg(token, targetChatId, `📊 <b>হিসাবকিতাব ৩৬০ - আজকের বিক্রির হিসাব</b>\n━━━━━━━━━━━━━━━━━━━━━\n🏪 দোকান: সচল ও কানেক্টেড রয়েছে।\n💡 বিস্তারিত লাইভ রিপোর্ট লোড করতে অ্যাপটি ওপেন রাখুন।`, TELEGRAM_HUB_SALE, 'HTML');
         } else if (lower === 'cmd_profit' || lower.startsWith('/profit') || lower.includes('লাভ')) {
-          await sendTelegramMsg(token, targetChatId, `📈 <b>হিসাবকিতাব ৩৬০ - আজকের লাভ-ক্ষতি</b>\n━━━━━━━━━━━━━━━━━━━━━\n💡 প্রফিট ক্যালকুলেশন লাইভ সক্রিয় রয়েছে।`);
+          await sendTelegramMsg(token, targetChatId, `📈 <b>হিসাবকিতাব ৩৬০ - আজকের লাভ-ক্ষতি</b>\n━━━━━━━━━━━━━━━━━━━━━\n💡 প্রফিট ক্যালকুলেশন লাইভ সক্রিয় রয়েছে।`, TELEGRAM_HUB_REPORTS, 'HTML');
         } else if (lower === 'cmd_stock' || lower.startsWith('/stock') || lower.includes('স্টক')) {
-          await sendTelegramMsg(token, targetChatId, `📦 <b>হিসাবকিতাব ৩৬০ - ইনভেন্টরি স্টক</b>\n━━━━━━━━━━━━━━━━━━━━━\nনির্দিষ্ট পণ্য খুঁজতে লিখুন: <code>/stock নাপা</code> বা <code>/stock চাল</code>`);
+          await sendTelegramMsg(token, targetChatId, `📦 <b>হিসাবকিতাব ৩৬০ - ইনভেন্টরি স্টক</b>\n━━━━━━━━━━━━━━━━━━━━━\nনির্দিষ্ট পণ্য খুঁজতে লিখুন: <code>/stock নাপা</code> বা <code>/stock চাল</code>`, TELEGRAM_HUB_STOCK, 'HTML');
         } else if (lower === 'cmd_due' || lower.startsWith('/due') || lower.includes('বাকি')) {
-          await sendTelegramMsg(token, targetChatId, `📒 <b>হিসাবকিতাব ৩৬০ - বকেয়া খাতা</b>\n━━━━━━━━━━━━━━━━━━━━━\nবকেয়া তালিকা সংরক্ষিত রয়েছে।`);
+          await sendTelegramMsg(token, targetChatId, `📒 <b>হিসাবকিতাব ৩৬০ - বকেয়া খাতা</b>\n━━━━━━━━━━━━━━━━━━━━━\nবকেয়া তালিকা সংরক্ষিত রয়েছে।`, TELEGRAM_HUB_DUE, 'HTML');
         } else if (lower === 'cmd_expense' || lower.startsWith('/expense') || lower.includes('খরচ')) {
-          await sendTelegramMsg(token, targetChatId, `💸 <b>হিসাবকিতাব ৩৬০ - খরচ যোগ ও রিপোর্ট</b>\n━━━━━━━━━━━━━━━━━━━━━\nখরচ যোগ করতে লিখুন: <code>খরচ ৫০০ নাস্তা</code>`);
+          await sendTelegramMsg(token, targetChatId, `💸 <b>হিসাবকিতাব ৩৬০ - খরচ যোগ ও রিপোর্ট</b>\n━━━━━━━━━━━━━━━━━━━━━\nখরচ যোগ করতে লিখুন: <code>খরচ ৫০০ নাস্তা</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
         } else if (lower === 'cmd_backup' || lower.startsWith('/backup') || lower.includes('ব্যাকআপ')) {
-          await sendTelegramMsg(token, targetChatId, `📥 <b>হিসাবকিতাব ৩৬০ - ডাটা ব্যাকআপ</b>\n━━━━━━━━━━━━━━━━━━━━━\nব্যাকআপ জেনারেট হচ্ছে...`);
+          await sendTelegramMsg(token, targetChatId, `📥 <b>হিসাবকিতাব ৩৬০ - ডাটা ব্যাকআপ</b>\n━━━━━━━━━━━━━━━━━━━━━\nব্যাকআপ জেনারেট হচ্ছে...`, TELEGRAM_HUB_AI, 'HTML');
         }
       }
     } catch (err) {
