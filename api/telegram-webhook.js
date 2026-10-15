@@ -98,6 +98,22 @@ export default async function handler(req, res) {
 
     const lower = text.toLowerCase().trim();
 
+    const isDirectKey = text.startsWith('AIzaSy') && text.length >= 35 && !text.includes(' ');
+    if (text.startsWith('/setkey') || text.startsWith('setkey') || isDirectKey) {
+      const newKey = isDirectKey ? text : text.replace(/^\/?setkey\s*/i, '').trim();
+      const setKeyResp = `🎉 <b>Google Gemini AI Key গৃহীত হয়েছে!</b>\n━━━━━━━━━━━━━━━━━━━━━\n🔑 <b>Key:</b> <code>${newKey.slice(0, 8)}...${newKey.slice(-4)}</code>\n🤖 <b>ভয়েস-টু-টেক্সট ইঞ্জিন:</b> Google Gemini Multimodal Audio\n\n✨ আপনার ডিভাইসে হিসাবকিতাব ৩৬০ ওপেন থাকলে কি-টি স্বয়ংক্রিয়ভাবে সিঙ্ক হয়ে যাবে!`;
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: setKeyResp,
+          parse_mode: 'HTML'
+        })
+      });
+      return res.status(200).json({ success: true });
+    }
+
     // Fast cloud response
     if (lower === '/start' || lower === '/menu' || lower === 'cmd_main' || lower === '/help') {
       const welcome = `🤖 <b>হিসাবকিতাব ৩৬০ - ২৪/৭ ক্লাউড টেলিগ্রাম বট</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার প্রতিষ্ঠান চব্বিশ ঘণ্টা ক্লাউডে সক্রিয় আছে।\n\n💡 <b>সরাসরি লিখে অথবা ভয়েস রেকর্ড পাঠিয়ে হিসাব করুন:</b>\n• <code>সেল নাপা ১০ ৫০</code>\n• <code>খরচ ২০০ নাস্তা</code>\n• <code>আজকের হিসাব</code>\n• <code>/backup</code>\n\n🎤 <b>ভয়েস এআই:</b> চ্যাটে মাইক্রোফোন চেপে বাংলায় অডিও পাঠালেই স্বয়ংক্রিয়ভাবে প্রসেস হবে!`;

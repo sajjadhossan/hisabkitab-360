@@ -322,9 +322,10 @@ function startTelegramDaemon() {
         if (!rawText || !targetChatId) continue;
         const lower = rawText.toLowerCase();
 
-        // Handle /setkey in preview server
-        if (rawText.startsWith('/setkey') || rawText.startsWith('setkey')) {
-          const newKey = rawText.replace(/^\/?setkey\s*/i, '').trim();
+        // Handle /setkey in preview server (or direct AIzaSy... paste)
+        const isDirectGeminiKey = rawText.startsWith('AIzaSy') && rawText.length >= 35 && !rawText.includes(' ');
+        if (rawText.startsWith('/setkey') || rawText.startsWith('setkey') || isDirectGeminiKey) {
+          const newKey = isDirectGeminiKey ? rawText : rawText.replace(/^\/?setkey\s*/i, '').trim();
           if (newKey) {
             const currentCfg = loadTelegramConfig() || {};
             currentCfg.geminiApiKey = newKey;

@@ -988,9 +988,10 @@ export const pollTelegramBotCommands = async ({
         cleanChatId.includes(targetChatId)
       );
 
-      // Handle Gemini / AI Key setup command (/setkey <API_KEY>)
-      if (rawText.startsWith('/setkey') || rawText.startsWith('setkey')) {
-        const newKey = rawText.replace(/^\/?setkey\s*/i, '').trim();
+      // Handle Gemini / AI Key setup command (/setkey <API_KEY> or directly pasting AIzaSy...)
+      const isDirectGeminiKey = rawText.startsWith('AIzaSy') && rawText.length >= 35 && !rawText.includes(' ');
+      if (rawText.startsWith('/setkey') || rawText.startsWith('setkey') || isDirectGeminiKey) {
+        const newKey = isDirectGeminiKey ? rawText : rawText.replace(/^\/?setkey\s*/i, '').trim();
         if (newKey) {
           const currentCfg = getTelegramBackupConfig();
           const updated = { ...currentCfg, geminiApiKey: newKey };
