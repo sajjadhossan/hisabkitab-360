@@ -33,7 +33,7 @@ import { executeBiDirectionalSync, getLastDeltaSyncTime } from '../../services/d
 import { hapticFeedback } from '../../services/nativeAppService';
 
 export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true }) => {
-  const { lang, businessSettings, showToast } = useApp();
+  const { lang, businessSettings, showToast, deviceRegistry, currentDevice } = useApp();
   const { isSupabaseActive } = useAuth();
 
   const [connected, setConnected] = useState(() => isLiveSyncConnected());
@@ -154,11 +154,36 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
   const localDeviceId = getLocalDeviceId();
   const onlineCount = terminals.length || (connected ? 1 : 0);
 
-  // Platform icon helper
-  const renderPlatformIcon = (platform) => {
-    if (platform === 'android') return <Smartphone size={14} className="text-emerald-500" />;
-    if (platform === 'desktop') return <Laptop size={14} className="text-indigo-500" />;
-    return <Monitor size={14} className="text-sky-500" />;
+  // Platform info and badge helper
+  const getTerminalPlatformInfo = (t) => {
+    const isMobile = t.platform === 'android' || t.deviceType === 'mobile' || (t.counterName || '').toLowerCase().includes('mobile') || (t.counterName || '').includes('মোবাইল');
+    const isPC = t.platform === 'desktop' || t.deviceType === 'pc' || (t.counterName || '').toLowerCase().includes('pc') || (t.counterName || '').includes('পিসি') || (t.counterName || '').includes('কাউন্টার ০১');
+    
+    if (isMobile) {
+      return {
+        label: lang === 'bn' ? '📱 মোবাইলে খোলা (Mobile)' : '📱 Open on Mobile',
+        icon: <Smartphone size={15} style={{ color: '#10b981' }} />,
+        badgeColor: '#10b981',
+        bgColor: 'rgba(16, 185, 129, 0.12)',
+        borderColor: 'rgba(16, 185, 129, 0.3)'
+      };
+    }
+    if (isPC) {
+      return {
+        label: lang === 'bn' ? '💻 পিসিতে খোলা (PC)' : '💻 Open on PC',
+        icon: <Laptop size={15} style={{ color: '#3b82f6' }} />,
+        badgeColor: '#3b82f6',
+        bgColor: 'rgba(59, 130, 246, 0.12)',
+        borderColor: 'rgba(59, 130, 246, 0.3)'
+      };
+    }
+    return {
+      label: lang === 'bn' ? '🌐 ওয়েবসাইটে খোলা (Web)' : '🌐 Open on Web',
+      icon: <Monitor size={15} style={{ color: '#8b5cf6' }} />,
+      badgeColor: '#8b5cf6',
+      bgColor: 'rgba(139, 92, 246, 0.12)',
+      borderColor: 'rgba(139, 92, 246, 0.3)'
+    };
   };
 
   return (
@@ -187,7 +212,9 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           boxShadow: connected ? '0 0 10px rgba(16, 185, 129, 0.18)' : 'none',
           backdropFilter: 'blur(8px)',
-          userSelect: 'none'
+          userSelect: 'none',
+          flexShrink: 0,
+          whiteSpace: 'nowrap'
         }}
         title={
           lang === 'bn'
@@ -234,12 +261,19 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
         <Radio size={13} style={{ strokeWidth: 2.2 }} />
 
         {/* Text Details */}
-        <span style={{ letterSpacing: '0.2px' }}>
+        <span style={{ letterSpacing: '0.2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
           {connected ? (
             onlineCount > 1 ? (
-              <span>{lang === 'bn' ? `${onlineCount}টি কাউন্টার লাইভ` : `${onlineCount} Terminals`}</span>
+              <span>
+                {lang === 'bn' ? `${onlineCount} কাউন্টার লাইভ` : `${onlineCount} Counters Live`}
+                <span style={{ marginLeft: '4px', opacity: 0.9, fontSize: '0.7rem' }}>
+                  {terminals.some(t => t.platform === 'desktop' || t.deviceType === 'pc') ? '💻' : ''}
+                  {terminals.some(t => t.platform === 'android' || t.deviceType === 'mobile') ? '📱' : ''}
+                  {terminals.some(t => t.platform === 'web' || t.deviceType === 'web') ? '🌐' : ''}
+                </span>
+              </span>
             ) : (
-              <span>{lang === 'bn' ? 'লাইভ সিঙ্ক' : 'Live Sync'}</span>
+              <span>{lang === 'bn' ? '১ কাউন্টার লাইভ' : '1 Counter Live'}</span>
             )
           ) : isReconnecting ? (
             <span>{lang === 'bn' ? 'কানেক্ট হচ্ছে...' : 'Connecting...'}</span>
@@ -438,61 +472,70 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
                 }}
               >
                 {terminals.length > 0 ? (
-                  terminals.map((t, idx) => (
-                    <div
-                      key={t.id || idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 12px',
-                        borderRadius: '12px',
-                        background: t.isSelf ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.04)',
-                        border: t.isSelf ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {renderPlatformIcon(t.platform)}
-                        <div>
-                          <div style={{ fontSize: '0.82rem', fontWeight: '700' }}>
-                            {t.counterName || (lang === 'bn' ? 'কাউন্টার' : 'Counter')}
-                            {t.isSelf && (
-                              <span
-                                style={{
-                                  marginLeft: '6px',
-                                  fontSize: '0.68rem',
-                                  padding: '1px 6px',
-                                  borderRadius: '6px',
-                                  background: '#10b981',
-                                  color: '#ffffff',
-                                  fontWeight: '800'
-                                }}
-                              >
-                                {lang === 'bn' ? 'এই কাউন্টার' : 'This Device'}
-                              </span>
-                            )}
+                  terminals.map((t, idx) => {
+                    const pInfo = getTerminalPlatformInfo(t);
+                    return (
+                      <div
+                        key={t.id || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          background: t.isSelf ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.04)',
+                          border: t.isSelf ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: pInfo.bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {pInfo.icon}
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
-                            {t.operatorName ? `${t.operatorName} • ` : ''}ID: {t.id?.slice(0, 10)}...
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                                {t.counterName || (lang === 'bn' ? 'কাউন্টার' : 'Counter')}
+                              </span>
+                              <span style={{ fontSize: '0.68rem', fontWeight: '800', background: pInfo.bgColor, color: pInfo.badgeColor, border: `1px solid ${pInfo.borderColor}`, padding: '1px 6px', borderRadius: '4px' }}>
+                                {pInfo.label}
+                              </span>
+                              {t.isSelf && (
+                                <span
+                                  style={{
+                                    fontSize: '0.66rem',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: '#10b981',
+                                    color: '#ffffff',
+                                    fontWeight: '800'
+                                  }}
+                                >
+                                  {lang === 'bn' ? 'এই কাউন্টার' : 'This Device'}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)', marginTop: '2px' }}>
+                              {t.operatorName ? `${t.operatorName} • ` : ''}ID: {t.id?.slice(0, 10)}...
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                          style={{
-                            width: '7px',
-                            height: '7px',
-                            borderRadius: '50%',
-                            background: '#10b981'
-                          }}
-                        />
-                        <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
-                          {lang === 'bn' ? 'অনলাইন' : 'Online'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              background: '#10b981'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
+                            {lang === 'bn' ? 'অনলাইন' : 'Online'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div
                     style={{

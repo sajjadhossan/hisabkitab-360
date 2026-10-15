@@ -67,7 +67,9 @@ export const DeviceStatusIndicator = () => {
           color: 'var(--text-main)',
           fontSize: '0.78rem',
           fontWeight: '700',
-          transition: 'all 0.2s ease'
+          transition: 'all 0.2s ease',
+          flexShrink: 0,
+          whiteSpace: 'nowrap'
         }}
       >
         <span style={{ fontSize: '1rem', lineHeight: 1 }}>{currentDevice?.icon || '💻'}</span>

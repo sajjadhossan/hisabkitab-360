@@ -860,7 +860,9 @@ export const Navbar = () => {
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   userSelect: 'none',
-                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)'
+                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap'
                 }}
                 title={lang === 'bn' ? `লগইন সক্রিয়: ${user.name || user.email} (ক্লিক করে প্রোফাইল দেখুন)` : `Logged in: ${user.name || user.email}`}
               >
@@ -908,7 +910,9 @@ export const Navbar = () => {
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   userSelect: 'none',
-                  boxShadow: '0 0 12px rgba(239, 68, 68, 0.25)'
+                  boxShadow: '0 0 12px rgba(239, 68, 68, 0.25)',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap'
                 }}
                 title={lang === 'bn' ? 'সিস্টেম লকড: সুপাবেসের মাধ্যমে সাইন ইন করুন' : 'Locked: Supabase sign in required'}
               >

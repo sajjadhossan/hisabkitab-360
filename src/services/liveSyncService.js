@@ -10,6 +10,7 @@
 
 import { getSupabase, isSupabaseReady } from './supabaseClient';
 import { hapticFeedback } from './nativeAppService';
+import { getDeviceOrigin } from './deviceManagerService';
 
 const LIVE_CHANNEL_NAME = 'hk360_live_realtime_hub';
 let activeChannel = null;
@@ -52,12 +53,15 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
   }
 
   const deviceId = getLocalDeviceId();
+  const devOrigin = typeof window !== 'undefined' ? getDeviceOrigin() : { type: 'pc', name: 'পিসি কাউন্টার' };
   localDeviceMeta = {
     deviceId,
     branchId: terminalMeta.branchId || 'br-main',
-    counterName: terminalMeta.counterName || 'কাউন্টার ০১',
+    counterName: terminalMeta.counterName || devOrigin.name,
     operatorName: terminalMeta.operatorName || 'অপারেটর',
-    platform: typeof window !== 'undefined' && window.Capacitor ? 'android' : (typeof window !== 'undefined' && window.electron ? 'desktop' : 'web'),
+    deviceType: devOrigin.type,
+    deviceName: devOrigin.name,
+    platform: devOrigin.type === 'mobile' ? 'android' : devOrigin.type === 'pc' ? 'desktop' : 'web',
     joinedAt: Date.now()
   };
 

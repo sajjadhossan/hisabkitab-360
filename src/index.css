@@ -2008,17 +2008,31 @@ input:checked+.slider:before {
     display: none !important;
   }
 
-  /* Compact Responsive Controls Row for Portrait Mobile */
+  /* Compact Responsive Controls Row for Portrait Mobile (Smooth Touch-Swipeable Bar) */
   .navbar-right-controls {
     order: 2 !important;
     width: 100% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 5px !important;
+    gap: 8px !important;
     margin: 4px 0 2px 0 !important;
-    overflow: hidden !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
     flex-wrap: nowrap !important;
+    padding: 2px 4px !important;
+  }
+
+  .navbar-right-controls::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .navbar-right-controls > * {
+    flex-shrink: 0 !important;
   }
 
   .navbar-slidable-wrapper {
