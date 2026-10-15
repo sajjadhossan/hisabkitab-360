@@ -19,6 +19,11 @@ import {
   testTelegramBackupBot,
   sendBackupToTelegram,
   pollTelegramBotCommands,
+  sendTelegramMessage,
+  TELEGRAM_FOLDER_ADD_BIZ,
+  TELEGRAM_FOLDER_ADD_PERS,
+  TELEGRAM_FOLDER_REPORTS,
+  TELEGRAM_FOLDER_CONTROL,
   sendTelegramSalesSummary,
   sendTelegramStockReport,
   sendTelegramProfitReport,
@@ -3732,6 +3737,257 @@ export const AppProvider = ({ children }) => {
                 : `Expense ৳${amount} added via Telegram (${title || note})`,
               'success'
             );
+          },
+          onAddSaleRequested: async (parsed, replyChatId) => {
+            const { productName, qty, price } = parsed;
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            
+            const matchedProd = (products || []).find(p => 
+              (p.name || '').toLowerCase().includes(productName.toLowerCase()) ||
+              (p.barcode || '').toLowerCase() === productName.toLowerCase()
+            );
+
+            const unitPrice = price > 0 ? (price / qty) : (matchedProd ? Number(matchedProd.sellingPrice || matchedProd.price || 0) : 100);
+            const totalAmount = price > 0 ? price : (unitPrice * qty);
+            const prodTitle = matchedProd ? matchedProd.name : productName;
+            const invNumber = 'INV-' + Date.now().toString().slice(-6);
+
+            if (matchedProd) {
+              setProducts(prev => prev.map(p => {
+                if (p.id === matchedProd.id) {
+                  const currentStock = Number(p.stock !== undefined ? p.stock : p.quantity || 0);
+                  return { ...p, stock: Math.max(0, currentStock - qty) };
+                }
+                return p;
+              }));
+            }
+
+            const newSale = {
+              id: 'sale-' + Date.now(),
+              invoiceNumber: invNumber,
+              items: [{
+                id: matchedProd?.id || 'prod-' + Date.now(),
+                name: prodTitle,
+                quantity: qty,
+                price: unitPrice,
+                total: totalAmount
+              }],
+              totalAmount,
+              finalAmount: totalAmount,
+              paidAmount: totalAmount,
+              dueAmount: 0,
+              customer: { name: 'টেলিগ্রাম সেলস খদ্দের', phone: '' },
+              date: today,
+              createdAt: new Date().toISOString(),
+              source: 'telegram_bot',
+              deviceOrigin: '🤖 টেলিগ্রাম বট (Telegram)'
+            };
+
+            setSalesHistory(prev => [newSale, ...(prev || [])]);
+            setInvoices(prev => [newSale, ...(prev || [])]);
+
+            const confText = `✅ *টেলিগ্রাম থেকে বিক্রয় সফলভাবে সম্পন্ন হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+🧾 *মেমো:* #${invNumber}
+📦 *পণ্য:* ${prodTitle} (${qty} টি)
+💵 *মোট মূল্য:* ৳${totalAmount.toLocaleString()}
+${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Number(matchedProd.stock || 0) - qty))} টি\n` : ''}⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+━━━━━━━━━━━━━━━━━━━━━
+🌐 _দোকানের সমস্ত কাউন্টারে তাৎক্ষণিক সিঙ্ক সম্পন্ন!_`;
+
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_ADD_BIZ, 'Markdown');
+            showToast(`টেলিগ্রাম থেকে ৳${totalAmount} টাকার বিক্রয় সম্পন্ন! (${prodTitle})`, 'success');
+          },
+          onAddInvoiceRequested: async (parsed, replyChatId) => {
+            const { customerName, productName, qty, price } = parsed;
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const invNumber = 'INV-' + Date.now().toString().slice(-6);
+            const totalAmount = price > 0 ? price : 500;
+
+            const newSale = {
+              id: 'inv-' + Date.now(),
+              invoiceNumber: invNumber,
+              items: [{
+                id: 'item-' + Date.now(),
+                name: productName,
+                quantity: qty,
+                price: totalAmount / qty,
+                total: totalAmount
+              }],
+              totalAmount,
+              finalAmount: totalAmount,
+              paidAmount: totalAmount,
+              dueAmount: 0,
+              customer: { name: customerName, phone: '' },
+              date: today,
+              createdAt: new Date().toISOString(),
+              source: 'telegram_bot',
+              deviceOrigin: '🤖 টেলিগ্রাম বট (Telegram)'
+            };
+
+            setSalesHistory(prev => [newSale, ...(prev || [])]);
+            setInvoices(prev => [newSale, ...(prev || [])]);
+
+            const confText = `🧾 *নতুন ইনভয়েস সফলভাবে তৈরি হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+📋 *মেমো নং:* #${invNumber}
+👤 *ক্রেতা:* ${customerName}
+📦 *বিবরণ:* ${productName} (${qty} টি)
+💰 *মোট বিল:* ৳${totalAmount.toLocaleString()} (পরিশোধিত)
+⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+━━━━━━━━━━━━━━━━━━━━━
+🌐 _সকল পিসি ও মোবাইল ডিভাইসে ইনভয়েস দৃশ্যমান।_`;
+
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_ADD_BIZ, 'Markdown');
+            showToast(`টেলিগ্রাম থেকে ইনভয়েস #${invNumber} তৈরি হয়েছে! (${customerName})`, 'success');
+          },
+          onAddCustomerRequested: async (parsed, replyChatId) => {
+            const { name, phone, due } = parsed;
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const newCust = {
+              id: 'cust-' + Date.now(),
+              name,
+              phone: phone || '',
+              due: Number(due) || 0,
+              balance: Number(due) || 0,
+              source: 'telegram_bot',
+              createdAt: new Date().toISOString()
+            };
+
+            setCustomers(prev => [newCust, ...(prev || [])]);
+
+            const confText = `👥 *নতুন কাস্টমার সফলভাবে সিআরএমে যোগ হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+👤 *নাম:* ${name}
+📞 *ফোন:* ${phone || 'দেওয়া হয়নি'}
+📒 *পূর্বের বাকি:* ৳${Number(due || 0).toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━
+💡 _কাস্টমার ডিরেক্টরিতে তাৎক্ষণিক সিঙ্ক হয়েছে।_`;
+
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_ADD_BIZ, 'Markdown');
+            showToast(`টেলিগ্রাম থেকে কাস্টমার '${name}' যুক্ত হয়েছে!`, 'success');
+          },
+          onAddProductRequested: async (parsed, replyChatId) => {
+            const { name, buyPrice, sellPrice, stock } = parsed;
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const newProd = {
+              id: 'prod-' + Date.now(),
+              name,
+              costPrice: Number(buyPrice) || 0,
+              buyPrice: Number(buyPrice) || 0,
+              sellingPrice: Number(sellPrice) || 0,
+              price: Number(sellPrice) || 0,
+              stock: Number(stock) || 1,
+              quantity: Number(stock) || 1,
+              category: 'সাধারণ',
+              source: 'telegram_bot',
+              createdAt: new Date().toISOString()
+            };
+
+            setProducts(prev => [newProd, ...(prev || [])]);
+
+            const confText = `📦 *নতুন পণ্য সফলভাবে স্টকে যুক্ত হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+🏷️ *পণ্যের নাম:* ${name}
+💵 *ক্রয়মূল্য:* ৳${Number(buyPrice).toLocaleString()}
+💰 *বিক্রয়মূল্য:* ৳${Number(sellPrice).toLocaleString()}
+🔢 *মজুদ স্টক:* ${Number(stock)} টি
+━━━━━━━━━━━━━━━━━━━━━
+⚡ _পিওএস ও ইনভেন্টরিতে অবিলম্বে পাওয়া যাবে।_`;
+
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_ADD_BIZ, 'Markdown');
+            showToast(`টেলিগ্রাম থেকে নতুন পণ্য '${name}' যুক্ত হয়েছে!`, 'success');
+          },
+          onAddDueRequested: async (parsed, replyChatId) => {
+            const { type, customerName, amount } = parsed;
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            
+            setCustomers(prev => prev.map(c => {
+              if ((c.name || '').toLowerCase().includes(customerName.toLowerCase())) {
+                const currentDue = Number(c.due || c.balance || 0);
+                const newDue = type === 'due' ? (currentDue + amount) : Math.max(0, currentDue - amount);
+                return { ...c, due: newDue, balance: newDue };
+              }
+              return c;
+            }));
+
+            const confText = `📒 *${type === 'due' ? 'কাস্টমার বকেয়া বাকি' : 'বকেয়া টাকা আদায় / জমা'} এন্ট্রি সম্পন্ন!*
+━━━━━━━━━━━━━━━━━━━━━
+👤 *কাস্টমার:* ${customerName}
+💰 *টাকার পরিমাণ:* ৳${Number(amount).toLocaleString()}
+🏷️ *ধরণ:* ${type === 'due' ? 'বাকি প্রদান' : 'টাকা জমা / আদায়'}
+⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+━━━━━━━━━━━━━━━━━━━━━
+📒 _দেনা-পাওনা লেজারে সংরক্ষিত হয়েছে।_`;
+
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_ADD_BIZ, 'Markdown');
+            showToast(`টেলিগ্রাম থেকে ${customerName}-এর ৳${amount} ${type === 'due' ? 'বাকি' : 'জমা'} এন্ট্রি হয়েছে!`, 'success');
+          },
+          onAddIncomeRequested: async (parsed, replyChatId) => {
+            const { amount, source } = parsed;
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+
+            const newIncome = {
+              id: 'inc-' + Date.now(),
+              title: source || 'টেলিগ্রাম আয়',
+              amount: Number(amount),
+              category: 'salary',
+              date: today,
+              source: 'telegram_bot',
+              createdAt: new Date().toISOString()
+            };
+
+            setPersonalIncomes(prev => [newIncome, ...(prev || [])]);
+
+            const confText = `💵 *ব্যক্তিগত আয় সফলভাবে সফটওয়্যারে জমা হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+💰 *আয়ের পরিমাণ:* ৳${Number(amount).toLocaleString()}
+🏷️ *উৎস / খাত:* ${source || 'সাধারণ আয়'}
+⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+━━━━━━━━━━━━━━━━━━━━━
+📈 _ব্যক্তিগত আয় ও সঞ্চয় লেজারে যোগ হয়েছে।_`;
+
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_ADD_PERS, 'Markdown');
+            showToast(`টেলিগ্রাম থেকে ৳${amount} আয় জমা হয়েছে (${source})!`, 'success');
+          },
+          onLockRequested: async (replyChatId) => {
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            if (typeof lockScreen === 'function') {
+              lockScreen();
+            }
+            const confText = `🔒 *কাউন্টার স্ক্রিন লক সক্রিয় করা হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+📱 দোকানের সমস্ত খোলা কাউন্টার (পিসি ও মোবাইল) লক করে দেওয়া হয়েছে।
+🔑 মাস্টার পিন ছাড়া কাউন্টারে প্রবেশ বন্ধ থাকবে।`;
+            await sendTelegramMessage(confText, targetConfig, TELEGRAM_FOLDER_CONTROL, 'Markdown');
+            showToast('টেলিগ্রাম বট থেকে কাউন্টার লক করা হয়েছে!', 'warning');
+          },
+          onCashRequested: async (replyChatId) => {
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const drawerBal = Math.max(0, todaySales - todayBizExpenseTotal);
+            const text = `💰 *হিসাবকিতাব ৩৬০ - আজকের ক্যাশ ড্রয়ার বিবরণী*
+📅 *তারিখ:* \`${new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}\`
+🏪 *দোকান:* *${businessSettings.companyName || 'আমার দোকান'}*
+━━━━━━━━━━━━━━━━━━━━━
+💵 *মোট ক্যাশ ইন (বিক্রয়):* ৳${todaySales.toLocaleString()}
+💸 *মোট ক্যাশ আউট (খরচ):* -৳${todayBizExpenseTotal.toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━
+🟢 *ড্রয়ারে বর্তমান ক্যাশ ব্যালেন্স:* *৳${drawerBal.toLocaleString()}*
+━━━━━━━━━━━━━━━━━━━━━
+💡 _বিস্তারিত রিপোর্ট দেখতে লিখুন:_ */today* বা */profit*`;
+            await sendTelegramMessage(text, targetConfig, TELEGRAM_FOLDER_REPORTS, 'Markdown');
+          },
+          onTerminalsRequested: async (replyChatId) => {
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const text = `📱 *হিসাবকিতাব ৩৬০ - সংযুক্ত ৩ প্ল্যাটফর্ম টার্মিনাল স্ট্যাটাস*
+━━━━━━━━━━━━━━━━━━━━━
+💻 *কাউন্টার ০১ (পিসি ডেস্কটপ):* 🟢 সক্রিয় (http://localhost:5173)
+📱 *কাউন্টার ০২ (মোবাইল অ্যাপ):* 🟢 সক্রিয় (Android APK)
+🌐 *কাউন্টার ০৩ (ওয়েবসাইট):* 🟢 সক্রিয় (Vercel Web)
+✈️ *টেলিগ্রাম বট কন্ট্রোল:* 🟢 লাইভ কানেক্টেড
+━━━━━━━━━━━━━━━━━━━━━
+⚡ _সকল টার্মিনালে ডাটা সিঙ্ক হচ্ছে!_`;
+            await sendTelegramMessage(text, targetConfig, TELEGRAM_FOLDER_CONTROL, 'Markdown');
           }
         });
       } catch (err) {

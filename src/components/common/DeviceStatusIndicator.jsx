@@ -14,18 +14,25 @@ import {
   Cloud,
   Check,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Send,
+  Bot,
+  Settings
 } from 'lucide-react';
 import { DEVICE_TYPES } from '../../services/deviceManagerService';
+import { TelegramBotModal } from './TelegramBotModal';
+import { getTelegramBackupConfig } from '../../services/telegramBackupService';
 
 export const DeviceStatusIndicator = () => {
   const { currentDevice, deviceRegistry, updateDeviceName, isSupabaseActive } = useApp();
   const { user } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showTgModal, setShowTgModal] = useState(false);
   const [editingType, setEditingType] = useState(null);
   const [tempName, setTempName] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig());
 
   const currentType = currentDevice?.type || DEVICE_TYPES.PC;
   const registry = deviceRegistry || {};
@@ -162,11 +169,21 @@ export const DeviceStatusIndicator = () => {
                   ● সিঙ্ক সক্রিয়
                 </span>
               </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                <div>🔑 লগইন ইমেইল: <strong style={{ color: 'var(--text-main)' }}>{activeUserEmail}</strong></div>
-                <div>📁 গুগল ড্রাইভ ব্যাকআপ: <strong style={{ color: '#10b981' }}>{driveAccount}</strong></div>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '4px' }}>
-                  💡 এই ৩টি প্ল্যাটফর্মের যেকোনো একটিতে লগইন বা ব্যাকআপ নিলে তা বাকি সব ডিভাইসে স্বয়ংক্রিয়ভাবে দৃশ্যমান হবে।
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.03)', padding: '6px 10px', borderRadius: '8px' }}>
+                  <span>🔑 মাস্টার লগইন অ্যাকাউন্ট:</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{activeUserEmail}</strong>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '6px 10px', borderRadius: '8px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#10b981', fontWeight: '700' }}>
+                    <Cloud size={14} />
+                    <span>অনুমোদিত ড্রাইভ অ্যাডমিন:</span>
+                  </span>
+                  <strong style={{ color: '#10b981', fontFamily: 'monospace' }}>{driveAccount}</strong>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
+                  💡 পিসি, মোবাইল ও ওয়েব—সব টার্মিনালেই এই গুগল ড্রাইভ অ্যাকাউন্টে স্বয়ংক্রিয় ব্যাকআপ সংরক্ষিত হবে।
                 </div>
               </div>
             </div>
@@ -405,6 +422,68 @@ export const DeviceStatusIndicator = () => {
                 </div>
               </div>
 
+              {/* PLATFORM 4: Telegram Cloud Bot (Remote Control & Notifications) */}
+              <div
+                style={{
+                  background: 'rgba(14, 165, 233, 0.08)',
+                  border: '1.5px solid rgba(14, 165, 233, 0.4)',
+                  borderRadius: '12px',
+                  padding: '12px 14px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(14, 165, 233, 0.2)', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Send size={18} style={{ transform: 'rotate(-20deg) translate(1px, -1px)' }} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: '800', fontSize: '0.88rem' }}>
+                          টেলিগ্রাম ক্লাউড বট (রিমোট কন্ট্রোল ও চ্যাটবট সিঙ্ক)
+                        </span>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: '800',
+                          background: tgConfig?.botToken ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                          color: tgConfig?.botToken ? '#10b981' : '#f59e0b',
+                          border: `1px solid ${tgConfig?.botToken ? '#10b981' : '#f59e0b'}`,
+                          padding: '1px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          {tgConfig?.botToken ? 'সংযুক্ত (Active)' : 'সেটআপ প্রয়োজন'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        মোবাইল মেসেজ দিয়ে সেল/খরচ এন্ট্রি, লাইভ রিপোর্ট ও ৩-টার্মিনাল অটো-সিঙ্ক
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTgModal(true);
+                    }}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: '0.74rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontWeight: '800',
+                      color: '#0ea5e9',
+                      border: '1px solid rgba(14, 165, 233, 0.4)',
+                      background: 'rgba(14, 165, 233, 0.1)'
+                    }}
+                    title="টেলিগ্রাম বট কনফিগার করুন ও কমান্ড ডিরেক্টরি দেখুন"
+                  >
+                    <Settings size={13} />
+                    <span>বট কনফিগার / কমান্ড হাব</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
 
             {/* Cashier & POS Transaction Origin Guarantee */}
@@ -429,10 +508,18 @@ export const DeviceStatusIndicator = () => {
                 ঠিক আছে
               </button>
             </div>
-
           </div>
         </div>
       )}
+
+      {/* Telegram Bot Setup & Command Hub Modal */}
+      <TelegramBotModal
+        isOpen={showTgModal}
+        onClose={() => {
+          setShowTgModal(false);
+          setTgConfig(getTelegramBackupConfig());
+        }}
+      />
     </>
   );
 };

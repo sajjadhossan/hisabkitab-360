@@ -95,6 +95,10 @@ export const GoogleDriveBackupManager = ({
   const [isSyncingTg, setIsSyncingTg] = useState(false);
 
   const [nowTime, setNowTime] = useState(() => Date.now());
+  const connectedAdminEmail = driveUser?.email || 
+    (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_drive_account') : '') || 
+    formState?.googleDriveEmail || 
+    'hossansajjad1994@gmail.com';
 
   // Periodically update relative time counter
   useEffect(() => {
@@ -696,6 +700,93 @@ export const GoogleDriveBackupManager = ({
 
             {showAdminPanel && (
               <div style={{ padding: '14px 16px' }}>
+                {/* 🔑 PROMINENT ADMIN CONNECTED GOOGLE DRIVE ACCOUNT DISPLAY */}
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(66, 133, 244, 0.12), rgba(16, 185, 129, 0.08))',
+                  border: '1.5px solid rgba(66, 133, 244, 0.4)',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  marginBottom: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '10px',
+                      background: '#4285F4',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 4px 10px rgba(66, 133, 244, 0.35)'
+                    }}>
+                      <Cloud size={22} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.86rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                          {lang === 'bn' ? 'অনুমোদিত অ্যাডমিন গুগল ড্রাইভ অ্যাকাউন্ট' : 'Authorized Admin Google Drive Account'}
+                        </span>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: '800',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          background: isDriveConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                          color: isDriveConnected ? '#10b981' : '#f59e0b',
+                          border: `1px solid ${isDriveConnected ? '#10b981' : '#f59e0b'}`
+                        }}>
+                          {isDriveConnected ? (lang === 'bn' ? '● ড্রাইভ যুক্ত ও সক্রিয়' : '● Connected') : (lang === 'bn' ? '● ডিফল্ট অ্যাডমিন' : '● Default Admin')}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#4285F4', fontFamily: 'monospace', marginTop: '2px' }}>
+                        {connectedAdminEmail}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {lang === 'bn'
+                          ? 'পিসি, মোবাইল ও ওয়েব—সকল ডিভাইস থেকে ডাটাবেজ ব্যাকআপ এই ড্রাইভ অ্যাকাউন্টে সিঙ্ক হয়।'
+                          : 'All terminals automatically sync backups to this authorized Google account.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(connectedAdminEmail);
+                        setCopiedKey('drive_admin_email');
+                        setTimeout(() => setCopiedKey(''), 2000);
+                        if (showToast) showToast(lang === 'bn' ? 'অ্যাকাউন্ট ইমেইল কপি হয়েছে!' : 'Email copied!', 'info');
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                      title="ইমেইল কপি করুন"
+                    >
+                      {copiedKey === 'drive_admin_email' ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
+                      <span>{copiedKey === 'drive_admin_email' ? (lang === 'bn' ? 'কপি হয়েছে' : 'Copied') : (lang === 'bn' ? 'কপি' : 'Copy')}</span>
+                    </button>
+
+                    <a
+                      href="https://drive.google.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none' }}
+                      title="গুগল ড্রাইভ ফোল্ডার খুলুন"
+                    >
+                      <FolderOpen size={13} />
+                      <span>{lang === 'bn' ? 'ড্রাইভ খুলুন' : 'Open Drive'}</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  </div>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
                   <div>
                     <label className="field-label" style={{ fontSize: '0.78rem', fontWeight: '700' }}>

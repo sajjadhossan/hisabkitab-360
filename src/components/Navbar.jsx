@@ -61,7 +61,8 @@ import {
   GitBranch,
   ExternalLink,
   Zap,
-  BarChart3
+  BarChart3,
+  Send
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -74,6 +75,8 @@ import { MarketPriceTrackerModal } from './common/MarketPriceTrackerModal';
 import { RoutineShoppingPresetsModal } from './common/RoutineShoppingPresetsModal';
 import { RealtimeSyncBadge } from './common/RealtimeSyncBadge';
 import { DeviceStatusIndicator } from './common/DeviceStatusIndicator';
+import { TelegramBotModal } from './common/TelegramBotModal';
+import { getTelegramBackupConfig } from '../services/telegramBackupService';
 
 export const Navbar = () => {
   const {
@@ -106,7 +109,8 @@ export const Navbar = () => {
     businessDebts = [],
     personalDebts = [],
     customers = [],
-    salesHistory = []
+    salesHistory = [],
+    driveUser
   } = useApp();
 
   const {
@@ -123,6 +127,11 @@ export const Navbar = () => {
     isSupabaseActive,
     isSuperAdmin
   } = useAuth();
+
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig());
+  const activeUserEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_user_account') : '') || 'hossansajjad1994@gmail.com';
+  const driveAccount = driveUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_drive_account') : '') || businessSettings?.googleDriveEmail || activeUserEmail;
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showAlertCenter, setShowAlertCenter] = useState(false);
@@ -841,6 +850,53 @@ export const Navbar = () => {
             {/* 0. Cross-Platform 3-Device Hub Indicator */}
             <DeviceStatusIndicator />
 
+            {/* 0.1 Telegram Bot & Remote Control Hub Pill */}
+            <button
+              type="button"
+              className="navbar-telegram-btn"
+              onClick={() => setShowTelegramModal(true)}
+              title={
+                tgConfig?.botToken
+                  ? (lang === 'bn' ? 'টেলিগ্রাম ক্লাউড বট ও রিমোট কন্ট্রোল (সক্রিয়)' : 'Telegram Bot & Remote Control Active')
+                  : (lang === 'bn' ? 'টেলিগ্রাম ক্লাউড বট ও রিমোট কন্ট্রোল (সেটআপ করুন)' : 'Setup Telegram Cloud Bot')
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 9px',
+                borderRadius: '8px',
+                border: tgConfig?.botToken
+                  ? '1px solid rgba(14, 165, 233, 0.45)'
+                  : '1px solid rgba(245, 158, 11, 0.45)',
+                background: tgConfig?.botToken
+                  ? 'rgba(14, 165, 233, 0.12)'
+                  : 'rgba(245, 158, 11, 0.12)',
+                color: tgConfig?.botToken ? '#0ea5e9' : '#f59e0b',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Send size={12} style={{ transform: 'rotate(-20deg) translate(1px, -1px)' }} />
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: tgConfig?.botToken ? '#10b981' : '#f59e0b',
+                    boxShadow: tgConfig?.botToken ? '0 0 6px #10b981' : 'none',
+                    display: 'inline-block'
+                  }}
+                />
+                <span>{lang === 'bn' ? 'টেলিগ্রাম' : 'Telegram'}</span>
+              </span>
+            </button>
+
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 
@@ -947,9 +1003,9 @@ export const Navbar = () => {
               title={
                 isDriveConnected || businessSettings.googleDriveWebhookUrl
                   ? (lang === 'bn' 
-                      ? `গুগল ড্রাইভ অটো-ব্যাকআপ সক্রিয় (প্রতি ১ মিনিট) | শেষ সিঙ্ক: ${businessSettings.googleDriveLastSync || 'হয়নি'} | সর্বোচ্চ ৩০ ফাইল সংরক্ষিত`
-                      : `Google Drive 1-Min Auto-Sync Active | Last: ${businessSettings.googleDriveLastSync || 'Never'} | Max 30 files retained`)
-                  : (lang === 'bn' ? 'গুগল ড্রাইভ সংযুক্ত করুন (১ ক্লিকে অটো-ব্যাকআপ)' : 'Connect Google Drive for Auto-Backup')
+                      ? `গুগল ড্রাইভ অটো-ব্যাকআপ সক্রিয় (প্রতি ১ মিনিট) | অনুমোদিত ড্রাইভ: ${driveAccount} | শেষ সিঙ্ক: ${businessSettings.googleDriveLastSync || 'হয়নি'} | সর্বোচ্চ ৩০ ফাইল সংরক্ষিত`
+                      : `Google Drive 1-Min Auto-Sync Active | Authorized: ${driveAccount} | Last: ${businessSettings.googleDriveLastSync || 'Never'} | Max 30 files retained`)
+                  : (lang === 'bn' ? `গুগল ড্রাইভ সংযুক্ত করুন (১ ক্লিকে অটো-ব্যাকআপ) | ড্রাইভ: ${driveAccount}` : `Connect Google Drive for Auto-Backup | Drive: ${driveAccount}`)
               }
               style={{
                 display: 'inline-flex',
@@ -1499,6 +1555,15 @@ export const Navbar = () => {
         isOpen={showRoutinePresetsModal}
         onClose={() => setShowRoutinePresetsModal(false)}
         defaultProfile={profile}
+      />
+
+      {/* TELEGRAM BOT SETUP & REMOTE CONTROL MODAL */}
+      <TelegramBotModal
+        isOpen={showTelegramModal}
+        onClose={() => {
+          setShowTelegramModal(false);
+          setTgConfig(getTelegramBackupConfig());
+        }}
       />
 
       {/* ========================================================

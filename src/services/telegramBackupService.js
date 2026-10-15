@@ -105,27 +105,116 @@ export const TELEGRAM_REPLY_KEYBOARD = {
   is_persistent: true
 };
 
-// Interactive Inline Buttons (Attached directly inside chat messages)
-export const TELEGRAM_INLINE_KEYBOARD = {
+// =========================================================================
+// Interactive Inline Folder Keyboards (Full Remote Control Navigation)
+// =========================================================================
+
+export const TELEGRAM_FOLDER_MAIN = {
   inline_keyboard: [
     [
-      { text: '📊 আজকের বিক্রি', callback_data: 'cmd_today' },
-      { text: '📈 লাভ-ক্ষতি', callback_data: 'cmd_profit' }
+      { text: '➕ নতুন এন্ট্রি করুন (Add)', callback_data: 'folder_add' },
+      { text: '📊 লাইভ রিপোর্ট (Reports)', callback_data: 'folder_reports' }
     ],
     [
-      { text: '📦 স্টক রিপোর্ট', callback_data: 'cmd_stock' },
-      { text: '📒 বকেয়া খাতা', callback_data: 'cmd_due' }
+      { text: '📦 স্টক ও পণ্য তালিকা', callback_data: 'cmd_stock' },
+      { text: '📒 বকেয়া ও দেনা-পাওনা', callback_data: 'cmd_due' }
     ],
     [
-      { text: '💸 খরচের তালিকা', callback_data: 'cmd_expense' },
-      { text: '📥 ডাটা ব্যাকআপ', callback_data: 'cmd_backup' }
-    ],
-    [
-      { text: '❓ হেল্প ও সকল কমান্ড', callback_data: 'cmd_help' }
+      { text: '⚙️ রিমোট কন্ট্রোল ও লক', callback_data: 'folder_control' },
+      { text: '❓ সাহায্য ও গাইড', callback_data: 'cmd_help' }
     ]
   ]
 };
 
+export const TELEGRAM_FOLDER_ADD = {
+  inline_keyboard: [
+    [
+      { text: '🏢 ব্যবসার হিসাব এন্ট্রি (Business)', callback_data: 'folder_add_biz' }
+    ],
+    [
+      { text: '🏠 ব্যক্তিগত হিসাব এন্ট্রি (Personal)', callback_data: 'folder_add_pers' }
+    ],
+    [
+      { text: '🔙 মূল মেনুতে ফিরুন (Main Menu)', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_FOLDER_ADD_BIZ = {
+  inline_keyboard: [
+    [
+      { text: '⚡ নতুন সেল / বিক্রয়', callback_data: 'prompt_sale' },
+      { text: '🧾 মেমো / ইনভয়েস তৈরি', callback_data: 'prompt_invoice' }
+    ],
+    [
+      { text: '👥 নতুন কাস্টমার যোগ', callback_data: 'prompt_customer' },
+      { text: '📦 নতুন পণ্য / স্টক যোগ', callback_data: 'prompt_product' }
+    ],
+    [
+      { text: '💸 দোকানের খরচ এন্ট্রি', callback_data: 'prompt_expense_biz' },
+      { text: '📒 কাস্টমার বাকি / জমা', callback_data: 'prompt_due' }
+    ],
+    [
+      { text: '🔙 পিছনে যান', callback_data: 'folder_add' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_FOLDER_ADD_PERS = {
+  inline_keyboard: [
+    [
+      { text: '🛒 দৈনিক বাজার খরচ', callback_data: 'prompt_expense_bazaar' },
+      { text: '🏠 পারিবারিক বাজেট খরচ', callback_data: 'prompt_expense_family' }
+    ],
+    [
+      { text: '💵 ব্যক্তিগত আয় / বেতন', callback_data: 'prompt_income' },
+      { text: '📒 ব্যক্তিগত ধার / দেনা', callback_data: 'prompt_debt_pers' }
+    ],
+    [
+      { text: '🔙 পিছনে যান', callback_data: 'folder_add' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_FOLDER_REPORTS = {
+  inline_keyboard: [
+    [
+      { text: '💰 আজকের ক্যাশ ড্রয়ার', callback_data: 'cmd_cash' },
+      { text: '📈 আজকের মোট বিক্রি', callback_data: 'cmd_today' }
+    ],
+    [
+      { text: '💹 লাভ-ক্ষতি হিসাব', callback_data: 'cmd_profit' },
+      { text: '⚠️ লো-স্টক সতর্কতা', callback_data: 'cmd_stock_low' }
+    ],
+    [
+      { text: '🚨 বকেয়া তাগাদা তালিকা', callback_data: 'cmd_due' },
+      { text: '💸 খরচের সারাংশ', callback_data: 'cmd_expense' }
+    ],
+    [
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_FOLDER_CONTROL = {
+  inline_keyboard: [
+    [
+      { text: '☁️ গুগল ড্রাইভ ব্যাকআপ নাও', callback_data: 'cmd_backup' },
+      { text: '🔒 কাউন্টার স্ক্রিন লক করুন', callback_data: 'cmd_lock' }
+    ],
+    [
+      { text: '📱 টার্মিনাল ও কাউন্টার স্ট্যাটাস', callback_data: 'cmd_terminals' },
+      { text: '🌐 সফটওয়্যার লাইভ লিঙ্ক', callback_data: 'cmd_links' }
+    ],
+    [
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_INLINE_KEYBOARD = TELEGRAM_FOLDER_MAIN;
 export const TELEGRAM_KEYBOARD = TELEGRAM_REPLY_KEYBOARD;
 
 // Test Telegram Bot Token & Chat ID with Detailed Diagnostic Feedback
@@ -445,6 +534,253 @@ export const parseSmartExpenseMessage = (rawText) => {
   };
 };
 
+// Smart Quick Sale Parser
+export const parseSmartSaleMessage = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  const normalized = rawText.replace(/[০-৯]/g, d => bnToEnMap[d] || d);
+  const lower = normalized.toLowerCase().trim();
+
+  const isSale = lower.startsWith('সেল') || lower.startsWith('বিক্রি') || lower.startsWith('sale') || lower.startsWith('/sale');
+  if (!isSale) return null;
+
+  const body = normalized.replace(/^(?:সেল|বিক্রি|sale|\/sale)\s*/i, '').trim();
+  if (!body) return null;
+
+  const parts = body.split(/\s+/);
+  const nums = [];
+  const words = [];
+  for (const p of parts) {
+    const clean = p.replace(/[^\d.]/g, '');
+    if (clean && !isNaN(clean)) {
+      nums.push(Number(clean));
+    } else {
+      words.push(p);
+    }
+  }
+
+  let qty = 1;
+  let price = 0;
+  if (nums.length >= 2) {
+    qty = nums[0];
+    price = nums[1];
+  } else if (nums.length === 1) {
+    price = nums[0];
+  }
+
+  return {
+    productName: words.join(' ').trim() || 'পণ্য',
+    qty: qty > 0 ? qty : 1,
+    price: price || 0,
+    rawText
+  };
+};
+
+// Smart Invoice / Memo Parser
+export const parseSmartInvoiceMessage = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  const normalized = rawText.replace(/[০-৯]/g, d => bnToEnMap[d] || d);
+  const lower = normalized.toLowerCase().trim();
+
+  const isInvoice = lower.startsWith('মেমো') || lower.startsWith('ইনভয়েস') || lower.startsWith('invoice') || lower.startsWith('/invoice');
+  if (!isInvoice) return null;
+
+  const body = normalized.replace(/^(?:মেমো|ইনভয়েস|invoice|\/invoice)\s*/i, '').trim();
+  if (!body) return null;
+
+  const parts = body.split(/\s+/);
+  const words = [];
+  const nums = [];
+  for (const p of parts) {
+    const clean = p.replace(/[^\d.]/g, '');
+    if (clean && !isNaN(clean)) {
+      nums.push(Number(clean));
+    } else {
+      words.push(p);
+    }
+  }
+
+  let customerName = 'সম্মানিত খদ্দের';
+  let productName = 'পণ্য';
+  if (words.length >= 2) {
+    customerName = words[0];
+    productName = words.slice(1).join(' ');
+  } else if (words.length === 1) {
+    productName = words[0];
+  }
+
+  let qty = 1;
+  let price = 0;
+  if (nums.length >= 2) {
+    qty = nums[0];
+    price = nums[1];
+  } else if (nums.length === 1) {
+    price = nums[0];
+  }
+
+  return {
+    customerName,
+    productName,
+    qty: qty > 0 ? qty : 1,
+    price: price || 0,
+    rawText
+  };
+};
+
+// Smart Customer Parser
+export const parseSmartCustomerMessage = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  const normalized = rawText.replace(/[০-৯]/g, d => bnToEnMap[d] || d);
+  const lower = normalized.toLowerCase().trim();
+
+  const isCustomer = lower.startsWith('কাস্টমার') || lower.startsWith('customer') || lower.startsWith('/customer') || lower.startsWith('খদ্দের');
+  if (!isCustomer) return null;
+
+  const body = normalized.replace(/^(?:কাস্টমার|customer|\/customer|খদ্দের)\s*/i, '').trim();
+  if (!body) return null;
+
+  const parts = body.split(/\s+/);
+  let name = '';
+  let phone = '';
+  let due = 0;
+
+  for (const p of parts) {
+    if (/^01\d{9}$/.test(p) || /^\+8801\d{9}$/.test(p)) {
+      phone = p;
+    } else if (!isNaN(p) && Number(p) > 0) {
+      if (p.length === 11 && p.startsWith('01')) phone = p;
+      else due = Number(p);
+    } else {
+      name += (name ? ' ' : '') + p;
+    }
+  }
+
+  return {
+    name: name || 'নতুন কাস্টমার',
+    phone: phone || '',
+    due
+  };
+};
+
+// Smart Product Parser
+export const parseSmartProductMessage = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  const normalized = rawText.replace(/[০-৯]/g, d => bnToEnMap[d] || d);
+  const lower = normalized.toLowerCase().trim();
+
+  const isProduct = lower.startsWith('পণ্য') || lower.startsWith('product') || lower.startsWith('/product') || lower.startsWith('মাল');
+  if (!isProduct) return null;
+
+  const body = normalized.replace(/^(?:পণ্য|product|\/product|মাল)\s*/i, '').trim();
+  if (!body) return null;
+
+  const parts = body.split(/\s+/);
+  const words = [];
+  const nums = [];
+  for (const p of parts) {
+    const clean = p.replace(/[^\d.]/g, '');
+    if (clean && !isNaN(clean)) {
+      nums.push(Number(clean));
+    } else {
+      words.push(p);
+    }
+  }
+
+  const name = words.join(' ').trim() || 'নতুন পণ্য';
+  let buyPrice = 0;
+  let sellPrice = 0;
+  let stock = 0;
+
+  if (nums.length >= 3) {
+    buyPrice = nums[0];
+    sellPrice = nums[1];
+    stock = nums[2];
+  } else if (nums.length === 2) {
+    sellPrice = nums[0];
+    stock = nums[1];
+    buyPrice = Math.round(sellPrice * 0.8);
+  } else if (nums.length === 1) {
+    sellPrice = nums[0];
+    stock = 10;
+  }
+
+  return {
+    name,
+    buyPrice,
+    sellPrice,
+    stock
+  };
+};
+
+// Smart Due / Payment Parser
+export const parseSmartDueMessage = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  const normalized = rawText.replace(/[০-৯]/g, d => bnToEnMap[d] || d);
+  const lower = normalized.toLowerCase().trim();
+
+  const isDue = lower.startsWith('বাকি') || lower.startsWith('due') || lower.startsWith('/due_add');
+  const isPayment = lower.startsWith('জমা') || lower.startsWith('payment') || lower.startsWith('আদায়') || lower.startsWith('আদায়ক');
+  if (!isDue && !isPayment) return null;
+
+  const body = normalized.replace(/^(?:বাকি|due|\/due_add|জমা|payment|আদায়|আদায়ক)\s*/i, '').trim();
+  if (!body) return null;
+
+  const parts = body.split(/\s+/);
+  let name = '';
+  let amount = 0;
+
+  for (const p of parts) {
+    const clean = p.replace(/[^\d.]/g, '');
+    if (clean && !isNaN(clean)) {
+      amount = Number(clean);
+    } else {
+      name += (name ? ' ' : '') + p;
+    }
+  }
+
+  return {
+    type: isPayment ? 'payment' : 'due',
+    customerName: name || 'কাস্টমার',
+    amount: amount || 0
+  };
+};
+
+// Smart Income Parser
+export const parseSmartIncomeMessage = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const bnToEnMap = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+  const normalized = rawText.replace(/[০-৯]/g, d => bnToEnMap[d] || d);
+  const lower = normalized.toLowerCase().trim();
+
+  const isIncome = lower.startsWith('আয়') || lower.startsWith('আয়') || lower.startsWith('income') || lower.startsWith('/income');
+  if (!isIncome) return null;
+
+  const body = normalized.replace(/^(?:আয়|আয়|income|\/income)\s*/i, '').trim();
+  if (!body) return null;
+
+  const parts = body.split(/\s+/);
+  let source = 'অন্যান্য আয়';
+  let amount = 0;
+
+  for (const p of parts) {
+    const clean = p.replace(/[^\d.]/g, '');
+    if (clean && !isNaN(clean)) {
+      amount = Number(clean);
+    } else {
+      source = p;
+    }
+  }
+
+  return {
+    amount,
+    source
+  };
+};
+
 export const pollTelegramBotCommands = async ({
   botToken,
   chatId,
@@ -454,7 +790,16 @@ export const pollTelegramBotCommands = async ({
   onProfitRequested,
   onDueRequested,
   onExpenseListRequested,
-  onAddExpenseRequested
+  onAddExpenseRequested,
+  onAddSaleRequested,
+  onAddInvoiceRequested,
+  onAddCustomerRequested,
+  onAddProductRequested,
+  onAddDueRequested,
+  onAddIncomeRequested,
+  onLockRequested,
+  onCashRequested,
+  onTerminalsRequested
 }) => {
   const token = (botToken || '').trim().replace(/^bot/i, '');
   const cleanChatId = (chatId || '').trim();
@@ -520,7 +865,148 @@ export const pollTelegramBotCommands = async ({
         cleanChatId.includes(targetChatId)
       );
 
-      // 8. HELP / START COMMAND OR TOUCH BUTTON (❓ হেল্প ও সাহায্য, cmd_help)
+      // ========================================================
+      // FOLDER NAVIGATION DISPATCHER (ইনলাইন ফোল্ডার নেভিগেশন)
+      // ========================================================
+      if (rawText === 'folder_add') {
+        const text = `📁 <b>➕ নতুন এন্ট্রি ফোল্ডার:</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনি কোন খাতে নতুন ডাটা বা এন্ট্রি যোগ করতে চান? নির্বাচন করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'folder_add_biz') {
+        const text = `🏢 <b>ব্যবসার এন্ট্রি হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের যেকোনো অপশনে চাপ দিন অথবা সরাসরি লিখে পাঠান:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'folder_add_pers') {
+        const text = `🏠 <b>ব্যক্তিগত এন্ট্রি হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nদৈনিক বাজার, সংসার বা ব্যক্তিগত আয়-খরচের অপশন নির্বাচন করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_PERS, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'folder_reports') {
+        const text = `📊 <b>লাইভ রিপোর্ট হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের রিয়েল-টাইম যেকোনো হিসাব দেখতে চাপুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_REPORTS, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'folder_control') {
+        const text = `⚙️ <b>রিমোট কন্ট্রোল ও সিকিউরিটি হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকান বা টার্মিনালের রিমোট একশন পরিচালনা করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_CONTROL, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'cmd_main' || rawText === '/main') {
+        const text = `🏠 <b>হিসাবকিতাব ৩৬০ - মূল ড্যাশবোর্ড মেনু</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের হিসাব ও রিমোট কন্ট্রোল পরিচালনা করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+        continue;
+      }
+
+      // ========================================================
+      // PROMPT INSTRUCTION GUIDES (কীভাবে লিখে পাঠাবেন)
+      // ========================================================
+      if (rawText === 'prompt_sale') {
+        const text = `⚡ <b>নতুন সেল / বিক্রয় এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে চ্যাটে লিখে পাঠান:\n<code>সেল &lt;পণ্যের নাম&gt; &lt;পরিমাণ&gt; &lt;মোট টাকা&gt;</code>\n\n💡 <i>উদাহরণ:</i>\n<code>সেল নাপা ১০ ৫০</code>\n<code>বিক্রি চিনি ৫ কেজি ৫০০</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_invoice') {
+        const text = `🧾 <b>মেমো / ইনভয়েস তৈরি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে চ্যাটে লিখে পাঠান:\n<code>মেমো &lt;কাস্টমার&gt; &lt;পণ্য&gt; &lt;পরিমাণ&gt; &lt;দাম&gt;</code>\n\n💡 <i>উদাহরণ:</i>\n<code>মেমো রফিক চাল ১ বস্তা ৩২০০</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_customer') {
+        const text = `👥 <b>নতুন কাস্টমার যোগ করুন:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে চ্যাটে লিখে পাঠান:\n<code>কাস্টমার &lt;নাম&gt; &lt;ফোন নম্বর&gt; &lt;পূর্বের বকেয়া&gt;</code>\n\n💡 <i>উদাহরণ:</i>\n<code>কাস্টমার রহিম ০১৭০০১১২২৩৩ ৫০০</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_product') {
+        const text = `📦 <b>নতুন পণ্য স্টকে যোগ করুন:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে চ্যাটে লিখে পাঠান:\n<code>পণ্য &lt;নাম&gt; &lt;কেনা দাম&gt; &lt;বেচা দাম&gt; &lt;স্টক সংখ্যা&gt;</code>\n\n💡 <i>উদাহরণ:</i>\n<code>পণ্য চিনি ১০০ ১২০ ৫০</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_expense_biz') {
+        const text = `💸 <b>দোকানের খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে লিখে পাঠান:\n<code>খরচ ৫০০ বিকালের নাস্তা</code>\n<code>দোকান খরচ ২০০০ বিদ্যুৎ বিল</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_due') {
+        const text = `📒 <b>কাস্টমার বাকি / জমা এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nবাকি দিতে লিখুন: <code>বাকি করিম ৫০০</code>\nটাকা আদায়/জমা হলে লিখুন: <code>জমা করিম ৫০০</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_BIZ, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_expense_bazaar') {
+        const text = `🛒 <b>দৈনিক বাজার খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে লিখে পাঠান:\n<code>বাজার ৪০০ ইলিশ মাছ</code> বা <code>ব্যক্তিগত খরচ ১৫০ শাকসবজি</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_PERS, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_expense_family') {
+        const text = `🏠 <b>পারিবারিক খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে লিখে পাঠান:\n<code>পারিবারিক ৫০০০ বাসা ভাড়া</code> বা <code>পারিবারিক ৮০০ গ্যাস বিল</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_PERS, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_income') {
+        const text = `💵 <b>ব্যক্তিগত আয় জমা:</b>\n━━━━━━━━━━━━━━━━━━━━━\nনিচের ফরম্যাটে লিখে পাঠান:\n<code>আয় ৫০০০০ মাসিক বেতন</code> বা <code>আয় ৫০০০ ব্যবসা লভ্যাংশ</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_PERS, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'prompt_debt_pers') {
+        const text = `📒 <b>ব্যক্তিগত ধার / দেনা এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nকাউকে ধার দিলে: <code>ধার রনি ২০০০</code>\nকারো থেকে ধার নিলে: <code>দেনা শফিক ৫০০০</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD_PERS, 'HTML');
+        continue;
+      }
+
+      // Remote Screen Lock Command
+      if (rawText === 'cmd_lock' || lower === '/lock' || lower === 'লক' || lower === 'লক করুন') {
+        if (onLockRequested) {
+          await onLockRequested(targetChatId);
+        } else {
+          await sendTelegramMessage(`🔒 <b>কাউন্টার স্ক্রিন লক কমান্ড সক্রিয় করা হয়েছে!</b>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_CONTROL, 'HTML');
+        }
+        continue;
+      }
+
+      // Today's Cash Drawer
+      if (rawText === 'cmd_cash' || lower === '/cash' || lower === 'ক্যাশ' || lower.includes('ড্রয়ার')) {
+        if (onCashRequested) {
+          await onCashRequested(targetChatId);
+          continue;
+        }
+      }
+
+      // Terminals Status
+      if (rawText === 'cmd_terminals' || lower === '/terminals' || lower.includes('টার্মিনাল')) {
+        if (onTerminalsRequested) {
+          await onTerminalsRequested(targetChatId);
+          continue;
+        }
+      }
+
+      // Live App Links
+      if (rawText === 'cmd_links' || lower === '/links' || lower.includes('লিঙ্ক')) {
+        const linksHtml = `🌐 <b>হিসাবকিতাব ৩৬০ লাইভ টার্মিনাল লিংক:</b>
+━━━━━━━━━━━━━━━━━━━━━
+💻 <b>পিসি প্রিভিউ:</b> <a href="http://localhost:5173">http://localhost:5173</a>
+📱 <b>মোবাইল ওয়াইফাই:</b> <code>http://192.168.1.5:5173</code>
+🌐 <b>প্রোডাকশন ওয়েবসাইট:</b> <a href="https://hisabkitab-360.vercel.app">https://hisabkitab-360.vercel.app</a>
+━━━━━━━━━━━━━━━━━━━━━
+⚡ <i>সকল ডিভাইসে ডাটা রিয়েলটাইমে সিঙ্ক থাকে!</i>`;
+        await sendTelegramMessage(linksHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_CONTROL, 'HTML');
+        continue;
+      }
+
+      // 8. HELP / START COMMAND
       const isHelpCommand = (
         lower === 'cmd_help' ||
         lower === '/start' ||
@@ -528,88 +1014,144 @@ export const pollTelegramBotCommands = async ({
         lower === '/help' ||
         lower.startsWith('/help') ||
         lower === 'help' ||
-        lower.includes('help') ||
         lower === 'সাহায্য' ||
-        lower.includes('সাহায্য') ||
         lower === 'হেল্প' ||
-        lower.includes('হেল্প') ||
-        lower.includes('কমান্ড') ||
         lower === 'menu' ||
         lower.startsWith('/menu')
       );
 
       if (isHelpCommand) {
-        const helpHtml = `🤖 <b>হিসাবকিতাব ৩৬০ - স্মার্ট টেলিগ্রাম সহকারী</b>
+        const helpHtml = `🤖 <b>হিসাবকিতাব ৩৬০ - ফুল রিমোট কন্ট্রোল বট</b>
 ━━━━━━━━━━━━━━━━━━━━━
-দোকান চালু থাকা অবস্থায় ফোন থেকেই হিসাব নিয়ন্ত্রণ করুন:
+দোকান চালু থাকা অবস্থায় ফোন বা যেকোনো স্থান থেকেই পুরো অ্যাপ নিয়ন্ত্রণ করুন:
 
-📊 <b>হিসাব ও রিপোর্ট দেখতে বাটনে চাপুন অথবা লিখুন:</b>
-• <b>/today</b> বা <b>আজকের বিক্রি</b> - আজকের মোট বিক্রি ও ইনভয়েস
-• <b>/profit</b> বা <b>লাভ-ক্ষতি</b> - আজকের মোট লাভ-ক্ষতি ও নিট প্রফিট
-• <b>/stock</b> বা <b>স্টক রিপোর্ট</b> - মোট পণ্যের স্টক ও লো-স্টক অ্যালার্ট
-• <b>/stock &lt;পণ্য&gt;</b> - নির্দিষ্ট পণ্যের স্টক ও দাম (যেমন: <code>/stock নাপা</code>)
-• <b>/due</b> বা <b>বাকি খাতা</b> - মোট বকেয়া ও বাকিদারদের তালিকা
-• <b>/expense</b> বা <b>খরচ</b> - আজকের খরচের বিবরণী
+📁 <b>মেনু ফোল্ডার দিয়ে কাজ করতে নিচের বাটনে চাপ দিন:</b>
+• <b>➕ নতুন এন্ট্রি</b> ➔ ব্যবসা ও ব্যক্তিগত সেল, ইনভয়েস, কাস্টমার, স্টক ও খরচ
+• <b>📊 লাইভ রিপোর্ট</b> ➔ ক্যাশ ড্রয়ার, বিক্রি, লাভ-ক্ষতি ও বকেয়া খাতা
+• <b>⚙️ রিমোট কন্ট্রোল</b> ➔ ড্রাইভ ব্যাকআপ, কাউন্টার স্ক্রিন লক ও টার্মিনাল
 
-➕ <b>টেলিগ্রাম থেকেই খরচ যোগ করতে লিখুন:</b>
-• <code>খরচ ৫০০ নাস্তা</code> ➔ দোকানের খরচে যোগ হবে
-• <code>ব্যক্তিগত খরচ ২০০ রিকশা</code> ➔ পার্সোনাল খরচে যোগ হবে
-
-📥 <b>ডাটা ব্যাকআপ নিতে:</b>
-• <b>/backup</b> বা <b>ব্যাকআপ</b> ➔ সম্পূর্ণ ডাটাবেজ ব্যাকআপ ফাইল ডাউনলোড
+💬 <b>অথবা সরাসরি মেসেজ পাঠান:</b>
+• <code>সেল নাপা ১০ ৫০</code> ➔ দ্রুত বিক্রয় ও স্টক আপডেট
+• <code>মেমো রফিক চাল ১ বস্তা ৩২০০</code> ➔ মেমো তৈরি
+• <code>কাস্টমার আকবর ০১৭xxxxxxxx ৫০০</code> ➔ কাস্টমার যোগ
+• <code>পণ্য চিনি ১০০ ১২০ ৫০</code> ➔ নতুন পণ্য যোগ
+• <code>খরচ ৫০০ নাস্তা</code> ➔ দোকানের খরচ যোগ
+• <code>বাজার ৪০০ মাছ</code> ➔ পারিবারিক বাজার খরচ
+• <code>লক</code> ➔ দোকানের স্ক্রিন অবিলম্বে লক করা
 ━━━━━━━━━━━━━━━━━━━━━
-🆔 <b>আপনার এই চ্যাটের আইডি (Chat ID):</b> <code>${targetChatId}</code>
-${isAuthorized ? '✅ <i>এই চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!</i>' : '⚠️ <i>হিসাবকিতাব ৩৬০-এর ক্লাউড ব্যাকআপ সেটিংসে এই চ্যাট আইডি সংরক্ষণ করুন।</i>'}`;
+🆔 <b>আপনার Chat ID:</b> <code>${targetChatId}</code>
+${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে যুক্ত ও সক্রিয় আছে!</i>' : '⚠️ <i>অ্যাপের সেটিংসে এই চ্যাট আইডি সংরক্ষণ করুন।</i>'}`;
 
-        await sendTelegramMessage(helpHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_INLINE_KEYBOARD, 'HTML');
+        await sendTelegramMessage(helpHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
         continue;
       }
 
       // If unauthorized for shop data operations, guide user to set chat ID
       if (!isAuthorized) {
         const unauthHtml = `🔒 <b>অননুমোদিত চ্যাট আইডি (Unauthorized)</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার চ্যাট আইডি: <code>${targetChatId}</code>\nহিসাবের নিরাপত্তা রক্ষায় শুধুমাত্র অনুমোদিত চ্যাট থেকে কমান্ড গ্রহণ করা হয়।\n\n💡 এই আইডিটি আপনার হিসাবকিতাব ৩৬০ এর 'ক্লাউড ব্যাকআপ' সেটিংসে Chat ID হিসেবে সংরক্ষণ করুন। সাহায্য পেতে লিখুন: <b>/help</b>`;
-        await sendTelegramMessage(unauthHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_INLINE_KEYBOARD, 'HTML');
+        await sendTelegramMessage(unauthHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
         continue;
       }
 
-      // 1. SMART EXPENSE PARSER (ক্যাটাগরি, সাবক্যাটাগরি, ব্যক্তি, নোট সহ যেকোনো ফরম্যাটে)
+      // ========================================================
+      // SMART TEXT MESSAGE PARSERS
+      // ========================================================
+
+      // 1. SMART QUICK SALE PARSER
+      const parsedSale = parseSmartSaleMessage(rawText);
+      if (parsedSale && onAddSaleRequested) {
+        await onAddSaleRequested(parsedSale, targetChatId);
+        continue;
+      }
+
+      // 2. SMART INVOICE PARSER
+      const parsedInvoice = parseSmartInvoiceMessage(rawText);
+      if (parsedInvoice && onAddInvoiceRequested) {
+        await onAddInvoiceRequested(parsedInvoice, targetChatId);
+        continue;
+      }
+
+      // 3. SMART CUSTOMER PARSER
+      const parsedCustomer = parseSmartCustomerMessage(rawText);
+      if (parsedCustomer && onAddCustomerRequested) {
+        await onAddCustomerRequested(parsedCustomer, targetChatId);
+        continue;
+      }
+
+      // 4. SMART PRODUCT PARSER
+      const parsedProduct = parseSmartProductMessage(rawText);
+      if (parsedProduct && onAddProductRequested) {
+        await onAddProductRequested(parsedProduct, targetChatId);
+        continue;
+      }
+
+      // 5. SMART DUE / PAYMENT PARSER
+      const parsedDue = parseSmartDueMessage(rawText);
+      if (parsedDue && onAddDueRequested) {
+        await onAddDueRequested(parsedDue, targetChatId);
+        continue;
+      }
+
+      // 6. SMART INCOME PARSER
+      const parsedIncome = parseSmartIncomeMessage(rawText);
+      if (parsedIncome && onAddIncomeRequested) {
+        await onAddIncomeRequested(parsedIncome, targetChatId);
+        continue;
+      }
+
+      // 7. SMART EXPENSE PARSER (Personal or Business)
       const parsedExpense = parseSmartExpenseMessage(rawText);
       if (parsedExpense && onAddExpenseRequested) {
         await onAddExpenseRequested(parsedExpense, targetChatId);
         continue;
       }
 
-      // 2. BACKUP COMMAND
+      // 8. BACKUP COMMAND
       if (lower === 'cmd_backup' || lower.startsWith('/backup') || lower.includes('backup') || lower.includes('ব্যাকআপ')) {
         if (onBackupRequested) await onBackupRequested(targetChatId);
+        continue;
       }
-      // 3. SALES / TODAY SUMMARY
-      else if (lower === 'cmd_today' || lower.startsWith('/today') || lower.startsWith('/sales') || lower.startsWith('/summary') || lower.includes('হিসাব') || lower.includes('বিক্রি')) {
+
+      // 9. SALES / TODAY SUMMARY
+      if (lower === 'cmd_today' || lower.startsWith('/today') || lower.startsWith('/sales') || lower.startsWith('/summary') || lower.includes('হিসাব') || lower.includes('বিক্রি')) {
         if (onSummaryRequested) await onSummaryRequested(targetChatId);
+        continue;
       }
-      // 4. STOCK & INVENTORY COMMAND
-      else if (lower === 'cmd_stock' || lower.startsWith('/stock') || lower.startsWith('/search') || lower.includes('স্টক')) {
+
+      // 10. STOCK & INVENTORY COMMAND
+      if (lower === 'cmd_stock' || lower === 'cmd_stock_low' || lower.startsWith('/stock') || lower.startsWith('/search') || lower.includes('স্টক')) {
         let query = '';
         if (lower.startsWith('/stock')) query = rawText.replace(/^\/stock\s*/i, '').trim();
         else if (lower.startsWith('/search')) query = rawText.replace(/^\/search\s*/i, '').trim();
         else if (lower.startsWith('স্টক')) query = rawText.replace(/^স্টক\s*/i, '').trim();
         else if (lower.includes('স্টক')) query = rawText.replace(/স্টক|রিপোর্ট/gi, '').trim();
-        if (query === 'cmd_stock') query = '';
+        if (query === 'cmd_stock' || query === 'cmd_stock_low') query = '';
         
         if (onStockRequested) await onStockRequested(query, targetChatId);
+        continue;
       }
-      // 5. PROFIT & LOSS COMMAND
-      else if (lower === 'cmd_profit' || lower.startsWith('/profit') || lower.includes('লাভ') || lower.includes('profit')) {
+
+      // 11. PROFIT & LOSS COMMAND
+      if (lower === 'cmd_profit' || lower.startsWith('/profit') || lower.includes('লাভ') || lower.includes('profit')) {
         if (onProfitRequested) await onProfitRequested(targetChatId);
+        continue;
       }
-      // 6. DUE / BAKI COMMAND
-      else if (lower === 'cmd_due' || lower.startsWith('/due') || lower.includes('বাকি') || lower.includes('due') || lower.includes('বকেয়া') || lower.includes('বকেয়া')) {
+
+      // 12. DUE / BAKI COMMAND
+      if (lower === 'cmd_due' || lower.startsWith('/due') || lower.includes('বাকি') || lower.includes('due') || lower.includes('বকেয়া') || lower.includes('বকেয়া')) {
         if (onDueRequested) await onDueRequested(targetChatId);
+        continue;
       }
-      // 7. EXPENSE LIST COMMAND
-      else if (lower === 'cmd_expense' || lower.startsWith('/expense') || lower.includes('খরচ') || lower.includes('expense')) {
+
+      // 13. EXPENSE LIST COMMAND
+      if (lower === 'cmd_expense' || lower.startsWith('/expense') || lower.includes('খরচ') || lower.includes('expense')) {
         if (onExpenseListRequested) await onExpenseListRequested(targetChatId);
+        continue;
       }
+
+      // Fallback: If nothing recognized, show main menu
+      const fallbackHtml = `❓ <b>কমান্ডটি স্পষ্ট নয়</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনি যা লিখেছেন: "<code>${rawText}</code>"\nনিচের বাটনগুলো চেপে আপনার প্রয়োজনীয় অপশন নির্বাচন করুন:`;
+      await sendTelegramMessage(fallbackHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
     }
   } catch (err) {
     console.debug('Telegram poll notice:', err);
