@@ -208,11 +208,18 @@ async function transcribeVoice(token, fileId, mimeType, geminiApiKey) {
         const text = gData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
         const clean = text.replace(/^["'`]+|["'`]+$/g, '').trim();
         if (clean) return clean;
+      } else {
+        const errJson = await gRes.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || `Status ${gRes.status}`;
+        lastErr = new Error(errMsg);
       }
     } catch (e) {
+      lastErr = e;
       // try next model
     }
   }
+
+  if (lastErr) throw lastErr;
   return null;
 }
 
@@ -321,7 +328,12 @@ function startTelegramDaemon() {
               }
             } catch (vErr) {
               console.warn('[TelegramDaemon] voice transcription err:', vErr.message);
-              await sendTelegramMsg(token, targetChatId, `❌ <i>ভয়েস রূপান্তর ত্রুটি:</i> ${vErr.message}`, TELEGRAM_INLINE_KEYBOARD, 'HTML');
+              if (vErr.message.includes('API key not valid') || vErr.message.includes('UNAUTHENTICATED') || vErr.message.includes('401')) {
+                const keyErrHtml = `🔑 <b>Google Gemini API Key সঠিক নয় বা নিষ্ক্রিয় হয়েছে!</b>\n━━━━━━━━━━━━━━━━━━━━━\nগুগল কর্তৃক পূর্বের কি-টি ডিঅ্যাক্টিভেট হয়ে গেছে।\n\n💡 <b>১ ক্লিকে নতুন ফ্রি কি পাওয়ার উপায়:</b>\n১. <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a> লিংকে যান।\n২. <b>"Create API key"</b> চাপুন।\n৩. নতুন কি-টি কপি করে এই চ্যাটে লিখে পাঠান:\n<code>/setkey আপনার_নতুন_কি</code>\n<i>(অথবা শুধু কি-টি চ্যাটে পেস্ট করুন)</i>\n\n✨ নতুন কি সেভ হওয়ার সাথে সাথে ভয়েস কাজ করবে!`;
+                await sendTelegramMsg(token, targetChatId, keyErrHtml, TELEGRAM_INLINE_KEYBOARD, 'HTML');
+              } else {
+                await sendTelegramMsg(token, targetChatId, `❌ <i>ভয়েস রূপান্তর ত্রুটি:</i> ${vErr.message}`, TELEGRAM_INLINE_KEYBOARD, 'HTML');
+              }
               continue;
             }
           }
