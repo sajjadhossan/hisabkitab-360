@@ -71,6 +71,7 @@ export const GoogleDriveBackupManager = ({
   const [activeGuideTab, setActiveGuideTab] = useState('oauth'); // 'oauth' | 'script' | 'troubleshoot'
   const [copiedScript, setCopiedScript] = useState(false);
   const [copiedOrigin, setCopiedOrigin] = useState(false);
+  const [copiedKey, setCopiedKey] = useState('');
 
   // Telegram Cloud Backup State
   const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig ? getTelegramBackupConfig() : {
@@ -191,6 +192,14 @@ export const GoogleDriveBackupManager = ({
     hapticFeedback?.success?.();
     if (showToast) showToast(lang === 'bn' ? `অরিজিন লিঙ্ক কপি হয়েছে: ${origin}` : `Origin URL copied: ${origin}`, 'success');
     setTimeout(() => setCopiedOrigin(false), 2500);
+  };
+
+  const handleCopyUri = (uri, key) => {
+    navigator.clipboard.writeText(uri);
+    setCopiedKey(key);
+    hapticFeedback?.success?.();
+    if (showToast) showToast(lang === 'bn' ? `লিংক কপি হয়েছে: ${uri}` : `Copied: ${uri}`, 'success');
+    setTimeout(() => setCopiedKey(''), 2500);
   };
 
   const handleManualDriveSync = async () => {
@@ -926,24 +935,68 @@ export const GoogleDriveBackupManager = ({
                             ২. পেজের উপরে থাকা <strong>+ CREATE CREDENTIALS</strong> বাটনে চাপ দিয়ে <strong>OAuth client ID</strong> সিলেক্ট করুন।<br/>
                             ৩. <strong>Application type:</strong> ড্রপডাউন থেকে অবশ্যই <strong style={{ color: '#4285F4' }}>Web application</strong> সিলেক্ট করুন (এটি ব্রাউজার ও অ্যাপের জন্য আবশ্যক)।<br/>
                             ৪. <strong>Name:</strong> নাম দিন <code>HisabKitab Web Client</code>।<br/>
-                            ৫. <strong>Authorized JavaScript origins (খুব জরুরি):</strong>
-                            <div style={{ margin: '6px 0' }}>
-                              - নিচে থাকা <strong>+ ADD URI</strong> বাটনে ক্লিক করুন এবং আপনার অ্যাপের লোকাল ঠিকানা যোগ করুন:
+                            ৫. <strong>Authorized JavaScript origins (খুব জরুরি - এই ৩টি লিংক যোগ করুন):</strong>
+                            <div style={{ margin: '6px 0 8px', color: 'var(--text-main)', fontSize: '0.8rem' }}>
+                              গুগল কনসোলে <strong>+ ADD URI</strong> বাটনে ক্লিক করে নিচের ৩টি লিংক এক এক করে হুবহু যোগ করুন:
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0 10px', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-                              <code style={{ fontSize: '0.82rem', color: '#4285F4', fontWeight: 'bold' }}>{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}</code>
-                              <button
-                                type="button"
-                                onClick={handleCopyOrigin}
-                                className="btn btn-secondary"
-                                style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-                              >
-                                {copiedOrigin ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
-                                <span>{copiedOrigin ? 'কপি হয়েছে' : 'লিংক কপি করুন'}</span>
-                              </button>
+
+                            {/* 3 Copyable Origin Cards */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '8px 0 12px' }}>
+                              
+                              {/* 1. PC Localhost */}
+                              <div style={{ background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                <div>
+                                  <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)' }}>১. ল্যাপটপ / পিসি লোকালহোস্ট (Localhost PC):</div>
+                                  <code style={{ fontSize: '0.82rem', color: '#4285F4', fontWeight: 'bold' }}>http://localhost:5173</code>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyUri('http://localhost:5173', 'localhost')}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 12px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+                                >
+                                  {copiedKey === 'localhost' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                  <span>{copiedKey === 'localhost' ? 'কপি হয়েছে' : 'লিংক কপি'}</span>
+                                </button>
+                              </div>
+
+                              {/* 2. Mobile WiFi Testing */}
+                              <div style={{ background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                <div>
+                                  <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)' }}>২. মোবাইল ওয়াইফাই টেস্ট (Mobile LAN Testing):</div>
+                                  <code style={{ fontSize: '0.82rem', color: '#10b981', fontWeight: 'bold' }}>http://192.168.1.5:5173</code>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyUri('http://192.168.1.5:5173', 'mobile_lan')}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 12px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+                                >
+                                  {copiedKey === 'mobile_lan' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                  <span>{copiedKey === 'mobile_lan' ? 'কপি হয়েছে' : 'লিংক কপি'}</span>
+                                </button>
+                              </div>
+
+                              {/* 3. Vercel Live Production */}
+                              <div style={{ background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                <div>
+                                  <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)' }}>৩. ভার্সেল লাইভ ওয়েবসাইট (Vercel Live Web App):</div>
+                                  <code style={{ fontSize: '0.82rem', color: '#8b5cf6', fontWeight: 'bold' }}>https://hisabkitab-360.vercel.app</code>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyUri('https://hisabkitab-360.vercel.app', 'vercel')}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 12px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+                                >
+                                  {copiedKey === 'vercel' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                  <span>{copiedKey === 'vercel' ? 'কপি হয়েছে' : 'লিংক কপি'}</span>
+                                </button>
+                              </div>
+
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                              *(মোবাইলে ওয়াইফাই দিয়ে টেস্ট করতে চাইলে পুনরায় <strong>+ ADD URI</strong> চেপে লোকাল আইপি <code>http://192.168.1.5:5173</code> অথবা ভবিষ্যতে Vercel লাইভ ডোমেইন লিংকও এখানে যুক্ত করতে পারবেন)।*
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '8px', background: 'rgba(99, 102, 241, 0.08)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.25)', lineHeight: 1.5 }}>
+                              📌 <strong>নিয়ম:</strong> গুগল ক্লাউড কনসোলে <strong>+ ADD URI</strong>-তে একবার চাপ দিয়ে <code>http://localhost:5173</code> পেস্ট করবেন, আবার <strong>+ ADD URI</strong> চেপে <code>http://192.168.1.5:5173</code> পেস্ট করবেন, এবং পুনরায় <strong>+ ADD URI</strong> চেপে <code>https://hisabkitab-360.vercel.app</code> পেস্ট করবেন।
                             </div>
                             ৬. <strong>Authorized redirect URIs:</strong> এটি সম্পূর্ণ ফাঁকা (খালি) রাখবেন।<br/>
                             ৭. এবার একদম নিচে থাকা নীল রঙের <strong>CREATE</strong> বাটনে চাপ দিন।
