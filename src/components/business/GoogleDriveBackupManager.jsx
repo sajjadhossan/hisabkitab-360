@@ -998,8 +998,31 @@ export const GoogleDriveBackupManager = ({
                             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '8px', background: 'rgba(99, 102, 241, 0.08)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.25)', lineHeight: 1.5 }}>
                               📌 <strong>নিয়ম:</strong> গুগল ক্লাউড কনসোলে <strong>+ ADD URI</strong>-তে একবার চাপ দিয়ে <code>http://localhost:5173</code> পেস্ট করবেন, আবার <strong>+ ADD URI</strong> চেপে <code>http://192.168.1.5:5173</code> পেস্ট করবেন, এবং পুনরায় <strong>+ ADD URI</strong> চেপে <code>https://hisabkitab-360.vercel.app</code> পেস্ট করবেন।
                             </div>
-                            ৬. <strong>Authorized redirect URIs:</strong> এটি সম্পূর্ণ ফাঁকা (খালি) রাখবেন।<br/>
-                            ৭. এবার একদম নিচে থাকা নীল রঙের <strong>CREATE</strong> বাটনে চাপ দিন।
+                            
+                            <div style={{ margin: '10px 0 8px' }}>
+                              <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
+                                ৬. <strong>Authorized redirect URIs</strong> (সুপাবেস ১-ক্লিক গুগল লগইনের জন্য):
+                              </div>
+                              <div style={{ background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                <div>
+                                  <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#10b981' }}>Supabase OAuth Callback URL:</div>
+                                  <code style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 'bold', wordBreak: 'break-all' }}>https://juahukfvwbwupsamqzyo.supabase.co/auth/v1/callback</code>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyUri('https://juahukfvwbwupsamqzyo.supabase.co/auth/v1/callback', 'supabase_callback')}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 12px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700', borderColor: '#10b981' }}
+                                >
+                                  {copiedKey === 'supabase_callback' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                  <span>{copiedKey === 'supabase_callback' ? 'কপি হয়েছে' : 'Callback URL কপি'}</span>
+                                </button>
+                              </div>
+                              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                💡 গুগল লগইন সক্রিয় রাখতে Google Cloud Console-এর <strong>Authorized redirect URIs</strong>-এ এই URL টি <strong>+ ADD URI</strong> করে যুক্ত করে নিচে <strong>SAVE</strong> চাপুন।
+                              </div>
+                            </div>
+                            ৭. এবার একদম নিচে থাকা নীল রঙের <strong>CREATE / SAVE</strong> বাটনে চাপ দিন।
                           </div>
                         </div>
 

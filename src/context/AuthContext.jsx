@@ -206,16 +206,25 @@ export const AuthProvider = ({ children }) => {
       supabase.auth.getSession().then(({ data: { session }, error }) => {
         if (session?.user && !error) {
           const meta = session.user.user_metadata || {};
-          setUser({
+          const isMaster = (session.user.email || '').toLowerCase() === 'hossansajjad1994@gmail.com';
+          const authUser = {
             id: session.user.id,
             email: session.user.email,
-            name: meta.name || session.user.email.split('@')[0],
-            role: meta.role || 'admin',
-            shopName: meta.shopName || 'আমার প্রতিষ্ঠান',
+            name: meta.full_name || meta.name || session.user.email.split('@')[0],
+            role: isMaster ? 'superadmin' : (meta.role || 'admin'),
+            shopName: meta.shopName || (isMaster ? 'হিসাব কিতাব ৩৬০ হেডকোয়ার্টার' : 'আমার প্রতিষ্ঠান'),
             phone: meta.phone || '',
-            pin: meta.pin || '1234',
-            isSupabaseUser: true
-          });
+            pin: meta.pin || (isMaster ? '889900' : '1234'),
+            isSupabaseUser: true,
+            isSuperAdmin: isMaster,
+            isMasterAccount: isMaster
+          };
+          setUser(authUser);
+          if (isMaster) {
+            setIsSuperAdminUnlocked(true);
+            try { sessionStorage.setItem('hk360_superadmin_unlocked', 'true'); } catch {}
+          }
+          setIsAuthModalOpen(false);
         } else {
           // If session expired and rememberMe was not active, reset
           if (!rememberMe) {
@@ -229,16 +238,27 @@ export const AuthProvider = ({ children }) => {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
           const meta = session.user.user_metadata || {};
-          setUser({
+          const isMaster = (session.user.email || '').toLowerCase() === 'hossansajjad1994@gmail.com';
+          const authUser = {
             id: session.user.id,
             email: session.user.email,
-            name: meta.name || session.user.email.split('@')[0],
-            role: meta.role || 'admin',
-            shopName: meta.shopName || 'আমার প্রতিষ্ঠান',
+            name: meta.full_name || meta.name || session.user.email.split('@')[0],
+            role: isMaster ? 'superadmin' : (meta.role || 'admin'),
+            shopName: meta.shopName || (isMaster ? 'হিসাব কিতাব ৩৬০ হেডকোয়ার্টার' : 'আমার প্রতিষ্ঠান'),
             phone: meta.phone || '',
-            pin: meta.pin || '1234',
-            isSupabaseUser: true
-          });
+            pin: meta.pin || (isMaster ? '889900' : '1234'),
+            isSupabaseUser: true,
+            isSuperAdmin: isMaster,
+            isMasterAccount: isMaster
+          };
+          setUser(authUser);
+          if (isMaster) {
+            setIsSuperAdminUnlocked(true);
+            try { sessionStorage.setItem('hk360_superadmin_unlocked', 'true'); } catch {}
+          }
+          setIsAuthModalOpen(false);
+          setAuthLoading(false);
+          setAuthError('');
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
@@ -537,6 +557,50 @@ export const AuthProvider = ({ children }) => {
       : 'এই একাউন্টটি এই ডিভাইসে পূর্বে অনুমোদিত নয়। অফলাইনে কেবল পূর্বে যাচাইকৃত নিবন্ধিত একাউন্টেই প্রবেশ সম্ভব। প্রথমবার লগইন করতে ইন্টারনেট সংযোগ প্রয়োজন।';
     setAuthError(rejectionMsg);
     return { success: false, message: rejectionMsg };
+  };
+
+  // ----------------------------------------------------
+  // GOOGLE OAUTH 1-CLICK SIGN IN (SUPABASE OAUTH)
+  // ----------------------------------------------------
+  const loginWithGoogle = async () => {
+    setAuthLoading(true);
+    setAuthError('');
+    setAuthSuccess('');
+
+    const supabase = getSupabase();
+    if (!supabase || !isSupabaseReady()) {
+      setAuthLoading(false);
+      const err = 'সুপাবেস ক্লাউড সংযোগ প্রস্তুত নয়। দয়া করে ইন্টারনেট ও সেটিংস চেক করুন।';
+      setAuthError(err);
+      return { success: false, message: err };
+    }
+
+    try {
+      const redirectUri = window.location.origin;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account'
+          }
+        }
+      });
+
+      if (error) {
+        setAuthLoading(false);
+        setAuthError('গুগল লগইন ব্যর্থ: ' + error.message);
+        return { success: false, message: error.message };
+      }
+
+      return { success: true, data };
+    } catch (err) {
+      setAuthLoading(false);
+      const msg = err?.message || 'গুগল সাইন-ইন প্রক্রিয়ায় ত্রুটি ঘটেছে।';
+      setAuthError(msg);
+      return { success: false, message: msg };
+    }
   };
 
   // ----------------------------------------------------
@@ -1106,6 +1170,7 @@ export const AuthProvider = ({ children }) => {
 
         // Actions
         login,
+        loginWithGoogle,
         loginWithPin,
         signup,
         requestPasswordReset,
