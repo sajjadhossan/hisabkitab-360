@@ -105,35 +105,139 @@ export const registerTelegramCommands = async (botToken) => {
   }
 };
 
-// Persistent touchable keyboard buttons for mobile & desktop Telegram (Bottom Sheet)
+// Persistent touchable keyboard buttons for mobile & desktop Telegram (4-corner menu button)
 export const TELEGRAM_REPLY_KEYBOARD = {
   keyboard: [
-    [{ text: '❓ হেল্প ও সাহায্য' }, { text: '📊 আজকের বিক্রি' }],
-    [{ text: '📈 লাভ-ক্ষতি' }, { text: '📦 স্টক রিপোর্ট' }],
-    [{ text: '📒 বকেয়া খাতা' }, { text: '💸 খরচের তালিকা' }],
-    [{ text: '📥 ব্যাকআপ' }]
+    [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
+    [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '💸 ৪. দোকান ও পার্সোনাল খরচ' }],
+    [{ text: '📊 ৫. সকল রিপোর্ট ও PDF' }, { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ' }]
   ],
   resize_keyboard: true,
   is_persistent: true
 };
 
 // =========================================================================
-// Interactive Inline Folder Keyboards (Full Remote Control Navigation)
+// Interactive 6 Master Hub Keyboards (Full Remote Control Navigation)
 // =========================================================================
+
+export const TELEGRAM_HUB_SALE = {
+  inline_keyboard: [
+    [
+      { text: '⚡ কুইক ভয়েস সেল (Voice)', callback_data: 'prompt_sale' },
+      { text: '🛒 ক্যাটাগরি সেল (POS বাটন)', callback_data: 'pos_sale_start' }
+    ],
+    [
+      { text: '🧾 নতুন মেমো / ইনভয়েস', callback_data: 'prompt_invoice' },
+      { text: '↩️ কাস্টমার সেলস রিটার্ন', callback_data: 'prompt_sale_return' }
+    ],
+    [
+      { text: '📊 আজকের মোট বিক্রি', callback_data: 'cmd_today' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_HUB_STOCK = {
+  inline_keyboard: [
+    [
+      { text: '⚠️ লো-স্টক অ্যালার্ট তালিকা', callback_data: 'cmd_stock_low' },
+      { text: '📦 সকল পণ্যের স্টক রিপোর্ট', callback_data: 'cmd_stock' }
+    ],
+    [
+      { text: '➕ নতুন পণ্য / আইটেম যোগ', callback_data: 'prompt_product' },
+      { text: '📈 স্টক বৃদ্ধি / আপডেট', callback_data: 'prompt_stock_add' }
+    ],
+    [
+      { text: '🔥 শীর্ষ বিক্রিত পণ্য (Top 10)', callback_data: 'cmd_top_selling' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_HUB_DUE = {
+  inline_keyboard: [
+    [
+      { text: '🚨 বকেয়া তাগাদা তালিকা (Red List)', callback_data: 'cmd_due' },
+      { text: '💰 মোট বকেয়া সারাংশ', callback_data: 'cmd_due_summary' }
+    ],
+    [
+      { text: '💵 কাস্টমার জমা এন্ট্রি', callback_data: 'prompt_customer_deposit' },
+      { text: '👥 নতুন কাস্টমার প্রোফাইল', callback_data: 'prompt_customer' }
+    ],
+    [
+      { text: '📄 বকেয়া খাতা PDF ডাউনলোড', callback_data: 'cmd_pdf_due' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_HUB_EXPENSE = {
+  inline_keyboard: [
+    [
+      { text: '🏢 দোকানের খরচ এন্ট্রি', callback_data: 'prompt_expense_biz' },
+      { text: '🛒 দৈনিক কাঁচাবাজার খরচ', callback_data: 'prompt_expense_bazaar' }
+    ],
+    [
+      { text: '🏠 পারিবারিক বাজেট খরচ', callback_data: 'prompt_expense_family' },
+      { text: '💸 আজকের মোট খরচ সামারি', callback_data: 'cmd_expense' }
+    ],
+    [
+      { text: '📊 মাসিক খরচের সারাংশ', callback_data: 'cmd_expense_monthly' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_HUB_REPORTS = {
+  inline_keyboard: [
+    [
+      { text: '📈 আজকের লাভ-ক্ষতি হিসাব', callback_data: 'cmd_profit' },
+      { text: '💰 আজকের ক্যাশ ড্রয়ার', callback_data: 'cmd_cash' }
+    ],
+    [
+      { text: '📄 অন-ডিমান্ড PDF ডাউনলোড', callback_data: 'folder_pdf' },
+      { text: '💹 মাসিক ব্যালেন্স শিট PDF', callback_data: 'cmd_pdf_profit' }
+    ],
+    [
+      { text: '🔍 পণ্যের ক্রয় ইতিহাস (AI)', callback_data: 'prompt_history' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_HUB_AI = {
+  inline_keyboard: [
+    [
+      { text: '📥 ডাটাবেজ ব্যাকআপ (.json)', callback_data: 'cmd_backup' },
+      { text: '🎤 ভয়েস কমান্ড গাইড', callback_data: 'cmd_voice_guide' }
+    ],
+    [
+      { text: '🔑 এআই কি সেট করুন (/setkey)', callback_data: 'cmd_setkey_help' },
+      { text: '🔒 রিমোট স্ক্রিন লক', callback_data: 'cmd_lock' }
+    ],
+    [
+      { text: '❓ হেল্প ও সকল কমান্ড', callback_data: 'cmd_help' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
 
 export const TELEGRAM_FOLDER_MAIN = {
   inline_keyboard: [
     [
-      { text: '➕ নতুন এন্ট্রি করুন (Add)', callback_data: 'folder_add' },
-      { text: '📊 লাইভ রিপোর্ট (Reports)', callback_data: 'folder_reports' }
+      { text: '🛒 ১. নতুন বিক্রি (POS)', callback_data: 'hub_sale' },
+      { text: '📦 ২. স্টক ও ইনভেন্টরি', callback_data: 'hub_stock' }
     ],
     [
-      { text: '📦 স্টক ও পণ্য তালিকা', callback_data: 'cmd_stock' },
-      { text: '📒 বকেয়া ও দেনা-পাওনা', callback_data: 'cmd_due' }
+      { text: '📒 ৩. কাস্টমার বকেয়া খাতা', callback_data: 'hub_due' },
+      { text: '💸 ৪. দোকান ও পার্সোনাল খরচ', callback_data: 'hub_expense' }
     ],
     [
-      { text: '⚙️ রিমোট কন্ট্রোল ও লক', callback_data: 'folder_control' },
-      { text: '❓ সাহায্য ও গাইড', callback_data: 'cmd_help' }
+      { text: '📊 ৫. সকল রিপোর্ট ও PDF', callback_data: 'hub_reports' },
+      { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ', callback_data: 'hub_ai' }
+    ],
+    [
+      { text: '❓ সাহায্য ও সকল কমান্ড', callback_data: 'cmd_help' }
     ]
   ]
 };
@@ -1051,8 +1155,62 @@ export const pollTelegramBotCommands = async ({
       }
 
       // ========================================================
-      // FOLDER NAVIGATION DISPATCHER (ইনলাইন ফোল্ডার নেভিগেশন)
+      // 6 MASTER HUBS & FOLDER NAVIGATION DISPATCHER
       // ========================================================
+      if (rawText === 'hub_sale' || rawText.includes('১. নতুন বিক্রি') || rawText.includes('নতুন বিক্রি')) {
+        const text = `🛒 <b>১. পিওএস ও বিক্রয় হাব (POS & Sales Hub):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের বিক্রি ও মেমো পরিচালনা করতে নিচের অপশন নির্বাচন করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_SALE, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'hub_stock' || rawText.includes('২. স্টক ও ইনভেন্টরি') || rawText.includes('স্টক ও ইনভেন্টরি')) {
+        const text = `📦 <b>২. স্টক ও ইনভেন্টরি হাব (Inventory & Stock Hub):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের পণ্যের স্টক ও সরবরাহ নিয়ন্ত্রণ করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_STOCK, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'hub_due' || rawText.includes('৩. কাস্টমার বকেয়া') || rawText.includes('বকেয়া খাতা')) {
+        const text = `📒 <b>৩. কাস্টমার বকেয়া ও বাকি খাতা হাব (Due Khata):</b>\n━━━━━━━━━━━━━━━━━━━━━\nকাস্টমারদের বকেয়া তালিকা, জমা ও তাগাদা ম্যানেজ করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_DUE, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'hub_expense' || rawText.includes('৪. দোকান ও পার্সোনাল খরচ') || rawText.includes('পার্সোনাল খরচ')) {
+        const text = `💸 <b>৪. দোকান ও পার্সোনাল খরচ হাব (Expense Hub):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের ও পরিবারের খরচের হিসাব পৃথকভাবে পরিচালনা করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_EXPENSE, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'hub_reports' || rawText.includes('৫. সকল রিপোর্ট ও PDF') || rawText.includes('সকল রিপোর্ট')) {
+        const text = `📊 <b>৫. সকল রিপোর্ট ও PDF স্টেটমেন্ট হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলাভ-ক্ষতি, ক্যাশ ও আর্থিক স্টেটমেন্ট দেখুন ও প্রিন্ট নিন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_REPORTS, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'hub_ai' || rawText.includes('৬. ভয়েস এআই ও ব্যাকআপ') || rawText.includes('ভয়েস এআই')) {
+        const text = `🎙️ <b>৬. ভয়েস এআই, ব্যাকআপ ও সিকিউরিটি হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nভয়েস কমান্ড গাইড, ক্লাউড ব্যাকআপ ও রিমোট কন্ট্রোল:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_AI, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'cmd_main' || rawText === 'মেনু' || rawText === '/menu') {
+        const text = `🏠 <b>হিসাবকিতাব ৩৬০ - মূল ড্যাশবোর্ড মেনু:</b>\n━━━━━━━━━━━━━━━━━━━━━\nযে বিভাগে কাজ করতে চান তা নির্বাচন করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'cmd_voice_guide') {
+        const text = `🎙️ <b>ভয়েস কমান্ড ব্যবহার নির্দেশিকা:</b>\n━━━━━━━━━━━━━━━━━━━━━\nটেলিগ্রামে মাইক চেপে সরাসরি বাংলায় বলুন:\n\n• 🛒 <i>"সেল নাপা ১০ ৫০"</i> (নাপা ১০ পাতা ৫০ টাকা)\n• 💸 <i>"খরচ ৫০০ নাস্তা"</i> (দোকানের খরচ)\n• 🏠 <i>"বাজার খরচ ৮০০ মাছ ও তরকারি"</i> (পার্সোনাল)\n• 📒 <i>"জমা রফিক ১০০০"</i> (কাস্টমার বাকি জমা)\n• 📊 <i>"আজকের মোট বিক্রি কত"</i>\n• 🔍 <i>"বাদাম কতবার কিনেছি"</i>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_AI, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'cmd_setkey_help') {
+        const text = `🔑 <b>Google Gemini AI Key সেট করার নিয়ম:</b>\n━━━━━━━━━━━━━━━━━━━━━\n১. <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a> থেকে ফ্রি কি নিন।\n২. কি-টি কপি করে এই চ্যাটে লিখে পাঠান:\n<code>/setkey আপনার_কি</code>\n<i>(অথবা শুধু কি-টি চ্যাটে সরাসরি পেস্ট করুন)</i>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_AI, 'HTML');
+        continue;
+      }
+
       if (rawText === 'folder_add') {
         const text = `📁 <b>➕ নতুন এন্ট্রি ফোল্ডার:</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনি কোন খাতে নতুন ডাটা বা এন্ট্রি যোগ করতে চান? নির্বাচন করুন:`;
         await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_ADD, 'HTML');

@@ -162,14 +162,23 @@ export default async function handler(req, res) {
 
     // Fast cloud response
     if (lower === '/start' || lower === '/menu' || lower === 'cmd_main' || lower === '/help') {
-      const welcome = `🤖 <b>হিসাবকিতাব ৩৬০ - ২৪/৭ ক্লাউড টেলিগ্রাম বট</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার প্রতিষ্ঠান চব্বিশ ঘণ্টা ক্লাউডে সক্রিয় আছে।\n\n💡 <b>সরাসরি লিখে অথবা ভয়েস রেকর্ড পাঠিয়ে হিসাব করুন:</b>\n• <code>সেল নাপা ১০ ৫০</code>\n• <code>খরচ ২০০ নাস্তা</code>\n• <code>আজকের হিসাব</code>\n• <code>/backup</code>\n\n🎤 <b>ভয়েস এআই:</b> চ্যাটে মাইক্রোফোন চেপে বাংলায় অডিও পাঠালেই স্বয়ংক্রিয়ভাবে প্রসেস হবে!`;
+      const welcome = `🤖 <b>হিসাবকিতাব ৩৬০ - ২৪/৭ ক্লাউড টেলিগ্রাম বট</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার প্রতিষ্ঠান চব্বিশ ঘণ্টা ক্লাউডে সক্রিয় আছে।\n\n💡 <b>নিচের চারকোনা মেনু বাটন চেপে অথবা সরাসরি লিখে/ভয়েস পাঠিয়ে হিসাব পরিচালনা করুন:</b>\n• <code>সেল নাপা ১০ ৫০</code>\n• <code>খরচ ২০০ নাস্তা</code>\n• <code>আজকের হিসাব</code>\n• <code>/backup</code>\n\n🎤 <b>ভয়েস এআই:</b> চ্যাটে মাইক্রোফোন চেপে বাংলায় অডিও পাঠালেই স্বয়ংক্রিয়ভাবে প্রসেস হবে!`;
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
           text: welcome,
-          parse_mode: 'HTML'
+          parse_mode: 'HTML',
+          reply_markup: {
+            keyboard: [
+              [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
+              [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '💸 ৪. দোকান ও পার্সোনাল খরচ' }],
+              [{ text: '📊 ৫. সকল রিপোর্ট ও PDF' }, { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ' }]
+            ],
+            resize_keyboard: true,
+            is_persistent: true
+          }
         })
       });
     }
