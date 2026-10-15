@@ -852,97 +852,128 @@ export const GoogleDriveBackupManager = ({
                         </a>
                       </div>
 
-                      {/* Step-by-Step Roadmap Cards */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {/* Step-by-Step Ultra-Detailed Roadmap Cards */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         
                         {/* Step 1 */}
-                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>১</span>
-                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>নতুন প্রজেক্ট তৈরি করুন (Create Project)</span>
+                        <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900' }}>১</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.88rem' }}>ধাপ ১: নতুন প্রজেক্ট তৈরি করুন (Create Project)</span>
                           </div>
-                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                            ১. ব্রাউজারে <strong>console.cloud.google.com</strong>-এ গিয়ে আপনার জিমেইল দিয়ে লগইন করুন।<br/>
-                            ২. উপরে বামপাশে প্রজেক্ট ড্রপডাউনে ক্লিক করে <strong>NEW PROJECT</strong> চাপুন।<br/>
-                            ৩. <strong>Project Name</strong> ঘরে নাম লিখুন (যেমন: <code>HisabKitab-360-Backup</code>) এবং <strong>CREATE</strong> বাটনে চাপুন।
+                          <div style={{ paddingLeft: '32px', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            ১. ব্রাউজারে <strong>console.cloud.google.com</strong>-এ গিয়ে আপনার জিমেইল দিয়ে সাইন ইন করুন।<br/>
+                            ২. উপরের নীল বারের বাম পাশে <strong>Select a project</strong> ড্রপডাউনে ক্লিক করুন এবং পপআপের উপরে ডানপাশে <strong>NEW PROJECT</strong> বাটনে চাপুন।<br/>
+                            ৩. <strong>Project name:</strong> ঘরে লিখুন: <code style={{ color: '#4285F4', fontWeight: 'bold' }}>HisabKitab-360-Backup</code> (বা আপনার পছন্দমতো নাম)।<br/>
+                            ৪. <strong>Organization:</strong> No organization থাকবে। নিচে নীল রঙের <strong>CREATE</strong> বাটনে চাপুন। ৫-১০ সেকেন্ড পর প্রজেক্ট তৈরি হবে।
                           </div>
                         </div>
 
                         {/* Step 2 */}
-                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>২</span>
-                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>Google Drive API চালু করুন (Enable Drive API)</span>
+                        <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900' }}>২</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.88rem' }}>ধাপ ২: Google Drive API এনাবল করুন (Enable API)</span>
                           </div>
-                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                            ১. বাম পাশের মেনুবার (☰) থেকে <strong>APIs & Services</strong> ➔ <strong>Enabled APIs & Services</strong>-এ যান।<br/>
-                            ২. উপরে থাকা <strong>+ ENABLE APIS AND SERVICES</strong> বাটনে চাপুন।<br/>
-                            ৩. সার্চ বক্সে লিখুন: <code>Google Drive API</code> এবং রেজাল্ট থেকে সেটি সিলেক্ট করে <strong>ENABLE</strong> বাটনে ক্লিক করুন।
+                          <div style={{ paddingLeft: '32px', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            ১. বাম পাশের প্রধান মেনু (☰ Navigation menu)-তে ক্লিক করুন।<br/>
+                            ২. <strong>APIs & Services</strong> ➔ <strong>Enabled APIs & services</strong>-এ ক্লিক করুন।<br/>
+                            ৩. পেজের উপরে থাকা <strong>+ ENABLE APIS AND SERVICES</strong> বাটনে চাপুন।<br/>
+                            ৪. সার্চ বক্সে টাইপ করুন: <code>Google Drive API</code> এবং কীবোর্ডে Enter চাপুন।<br/>
+                            ৫. রেজাল্ট থেকে <strong>Google Drive API</strong> কার্ডের ওপর ক্লিক করুন এবং নীল রঙের <strong>ENABLE</strong> বাটনে চাপ দিন।
                           </div>
                         </div>
 
                         {/* Step 3 */}
-                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>৩</span>
-                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>OAuth Consent Screen ও Test Users সেটআপ (খুব গুরুত্বপূর্ণ)</span>
+                        <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(66, 133, 244, 0.4)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900' }}>৩</span>
+                            <span style={{ fontWeight: '800', color: '#4285F4', fontSize: '0.88rem' }}>ধাপ ৩: OAuth Consent Screen ও টেস্ট ইউজার সেটআপ (সবচেয়ে গুরুত্বপূর্ণ)</span>
                           </div>
-                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                            ১. বাম মেনু থেকে <strong>APIs & Services</strong> ➔ <strong>OAuth consent screen</strong>-এ যান।<br/>
-                            ২. <strong>User Type:</strong> <code>External</code> সিলেক্ট করে <strong>CREATE</strong> চাপুন।<br/>
-                            ৩. <strong>App name:</strong> <code>HisabKitab 360</code> দিন এবং আপনার জিমেইল সিলেক্ট করে নিচে <strong>SAVE AND CONTINUE</strong> দিন।<br/>
-                            ৪. <strong>Scopes</strong> ধাপে কোনো পরিবর্তন না করে সরাসরি নিচে নেমে <strong>SAVE AND CONTINUE</strong> দিন।<br/>
-                            ৫. <strong style={{ color: '#ef4444' }}>Test users (অবশ্যই করতে হবে):</strong> <strong>+ ADD USERS</strong> বাটনে ক্লিক করে যে জিমেইল দিয়ে আপনি ব্যাকআপ নিবেন, সেটি লিখে <strong>SAVE</strong> করুন। (অথবা উপরে <strong>PUBLISH APP</strong> করে দিন)।
+                          <div style={{ paddingLeft: '32px', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            ১. বাম মেনু থেকে <strong>APIs & Services</strong> ➔ <strong>OAuth consent screen</strong>-এ ক্লিক করুন।<br/>
+                            ২. <strong>User Type:</strong> অবশ্যই <strong style={{ color: '#10b981' }}>External</strong> সিলেক্ট করুন (সাধারণ জিমেইলের জন্য Internal দেওয়া যায় না) এবং <strong>CREATE</strong> চাপুন।<br/>
+                            ৩. <strong>App Information ফর্ম পূরণ:</strong>
+                            <ul style={{ margin: '4px 0 8px 16px', padding: 0 }}>
+                              <li><strong>App name:</strong> লিখুন <code>HisabKitab 360</code></li>
+                              <li><strong>User support email:</strong> ড্রপডাউন থেকে আপনার জিমেইল সিলেক্ট করুন।</li>
+                              <li><strong>App logo / App domain:</strong> এগুলো ফাঁকা রাখুন (কিছু লেখার দরকার নেই)।</li>
+                              <li><strong>Developer contact information:</strong> নিচের ঘরে আপনার জিমেইল ঠিকানা লিখুন।</li>
+                              <li>একদম নিচে নেমে <strong>SAVE AND CONTINUE</strong> বাটনে চাপুন।</li>
+                            </ul>
+                            ৪. <strong>Scopes (২য় পাতা):</strong> এখানে কোনো পরিবর্তন করবেন না, সরাসরি নিচে গিয়ে <strong>SAVE AND CONTINUE</strong> চাপুন।<br/>
+                            ৫. <strong>Test users (৩য় পাতা - টেস্ট ইউজার যোগ):</strong>
+                            <ul style={{ margin: '4px 0 8px 16px', padding: 0 }}>
+                              <li>এখানে থাকা <strong style={{ color: '#4285F4' }}>+ ADD USERS</strong> বাটনে ক্লিক করুন।</li>
+                              <li>যে যে জিমেইল দিয়ে আপনি বা আপনার কর্মীরা গুগল ড্রাইভ কানেক্ট করবেন (যেমন আপনার জিমেইল <code>hossansajjad1994@gmail.com</code>), সেটি লিখে <strong>ADD</strong> বা <strong>SAVE</strong> করুন।</li>
+                              <li>নিচে <strong>SAVE AND CONTINUE</strong> চাপুন।</li>
+                            </ul>
+                            ৬. <strong>Summary (৪র্থ পাতা):</strong> নিচে নেমে <strong>BACK TO DASHBOARD</strong> চাপুন।<br/>
+                            <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)', marginTop: '6px' }}>
+                              💡 <strong>টিপস:</strong> আপনি যদি বারবার ইউজার অ্যাড না করে যেকোনো জিমেইলের জন্য উন্মুক্ত রাখতে চান, তবে ড্যাশবোর্ডে <strong>Publishing status</strong>-এর নিচে থাকা <strong>PUBLISH APP</strong> বাটনে চাপ দিয়ে <strong>Confirm</strong> করে দিতে পারেন।
+                            </div>
                           </div>
                         </div>
 
                         {/* Step 4 */}
-                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>৪</span>
-                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>OAuth Client ID তৈরি ও Authorized JavaScript Origins যোগ</span>
+                        <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4285F4', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900' }}>৪</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.88rem' }}>ধাপ ৪: Web Application OAuth Client ID তৈরি করুন</span>
                           </div>
-                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                            ১. বাম মেনু থেকে <strong>Credentials</strong> (🔑)-এ যান ➔ উপরে <strong>+ CREATE CREDENTIALS</strong> ➔ <strong>OAuth client ID</strong> সিলেক্ট করুন।<br/>
-                            ২. <strong>Application type:</strong> <code>Web application</code> সিলেক্ট করুন।<br/>
-                            ৩. <strong>Authorized JavaScript origins:</strong> এখানে <strong>+ ADD URI</strong>-তে ক্লিক করে আপনার অ্যাপের লিঙ্ক যোগ করুন:
-                            
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-                              <code style={{ fontSize: '0.8rem', color: '#4285F4', fontWeight: 'bold' }}>{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}</code>
+                          <div style={{ paddingLeft: '32px', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            ১. বাম মেনু থেকে <strong>Credentials</strong> (🔑)-এ ক্লিক করুন।<br/>
+                            ২. পেজের উপরে থাকা <strong>+ CREATE CREDENTIALS</strong> বাটনে চাপ দিয়ে <strong>OAuth client ID</strong> সিলেক্ট করুন।<br/>
+                            ৩. <strong>Application type:</strong> ড্রপডাউন থেকে অবশ্যই <strong style={{ color: '#4285F4' }}>Web application</strong> সিলেক্ট করুন (এটি ব্রাউজার ও অ্যাপের জন্য আবশ্যক)।<br/>
+                            ৪. <strong>Name:</strong> নাম দিন <code>HisabKitab Web Client</code>।<br/>
+                            ৫. <strong>Authorized JavaScript origins (খুব জরুরি):</strong>
+                            <div style={{ margin: '6px 0' }}>
+                              - নিচে থাকা <strong>+ ADD URI</strong> বাটনে ক্লিক করুন এবং আপনার অ্যাপের লোকাল ঠিকানা যোগ করুন:
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0 10px', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                              <code style={{ fontSize: '0.82rem', color: '#4285F4', fontWeight: 'bold' }}>{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}</code>
                               <button
                                 type="button"
                                 onClick={handleCopyOrigin}
                                 className="btn btn-secondary"
-                                style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                                style={{ padding: '2px 8px', fontSize: '0.72rem' }}
                               >
                                 {copiedOrigin ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
                                 <span>{copiedOrigin ? 'কপি হয়েছে' : 'লিংক কপি করুন'}</span>
                               </button>
                             </div>
-                            *(ভবিষ্যতে Vercel বা লাইভ সাইটে অ্যাপ চালালে সেই ডোমেইন লিঙ্কও এখানে + ADD URI দিয়ে যোগ করবেন)।<br/>
-                            ৪. নিচে <strong>CREATE</strong> বাটনে চাপুন।
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                              *(মোবাইলে ওয়াইফাই দিয়ে টেস্ট করতে চাইলে পুনরায় <strong>+ ADD URI</strong> চেপে লোকাল আইপি <code>http://192.168.1.5:5173</code> অথবা ভবিষ্যতে Vercel লাইভ ডোমেইন লিংকও এখানে যুক্ত করতে পারবেন)।*
+                            </div>
+                            ৬. <strong>Authorized redirect URIs:</strong> এটি সম্পূর্ণ ফাঁকা (খালি) রাখবেন।<br/>
+                            ৭. এবার একদম নিচে থাকা নীল রঙের <strong>CREATE</strong> বাটনে চাপ দিন।
                           </div>
                         </div>
 
                         {/* Step 5 */}
-                        <div style={{ background: 'var(--bg-card)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900' }}>৫</span>
-                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.84rem' }}>Client ID কপি করে অ্যাপে সেভ করুন</span>
+                        <div style={{ background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900' }}>৫</span>
+                            <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.88rem' }}>ধাপ ৫: ক্লায়েন্ট আইডি কপি করে অ্যাপে সেভ করুন</span>
                           </div>
-                          <div style={{ paddingLeft: '30px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                            স্ক্রিনে প্রদর্শিত <strong>Your Client ID</strong> (যেমন: <code>442090260759-...apps.googleusercontent.com</code>) কপি করে ওপরের <strong>Google OAuth Client ID</strong> ইনপুট ফিল্ডে পেস্ট করে <strong>"সংরক্ষণ"</strong> বাটনে চাপুন।
+                          <div style={{ paddingLeft: '32px', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            ১. CREATE চাপার পর স্ক্রিনে <strong>OAuth client created</strong> পপআপ আসবে।<br/>
+                            ২. সেখানে <strong>Client ID</strong>-র পাশে থাকা কপি আইকনে ক্লিক করে পুরো কোডটি কপি করুন (এটি দেখতে এমন হয়: <code>xxxxxxxxxxxx-xxxx.apps.googleusercontent.com</code>)।<br/>
+                            ৩. এবার এই অ্যাপে ফিরে এসে উপরের <strong>Google OAuth Client ID</strong> ইনপুট বক্সে পেস্ট করুন এবং ডানপাশে থাকা <strong>"সংরক্ষণ করুন"</strong> বাটনে চাপুন।
                           </div>
                         </div>
 
                         {/* Step 6 */}
-                        <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <CheckCircle2 size={18} style={{ color: '#10b981' }} />
-                            <span style={{ fontWeight: '800', color: '#10b981', fontSize: '0.85rem' }}>ধাপ ৬: ১-ক্লিক সংযোগ সম্পন্ন করুন!</span>
+                        <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid rgba(16, 185, 129, 0.4)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <CheckCircle2 size={20} style={{ color: '#10b981' }} />
+                            <span style={{ fontWeight: '800', color: '#10b981', fontSize: '0.9rem' }}>ধাপ ৬: ১-ক্লিক সংযোগ সম্পন্ন করুন!</span>
                           </div>
-                          <div style={{ paddingLeft: '26px', color: 'var(--text-main)', fontSize: '0.78rem' }}>
-                            এখন শুধু উপরে থাকা <strong>"Google Drive দিয়ে ১-ক্লিকে কানেক্ট করুন"</strong> বাটনে ক্লিক করুন। গুগলের পপআপে আপনার জিমেইল সিলেক্ট করে অনুমতি (Allow) দিন। আপনার গুগল ড্রাইভ সরাসরি যুক্ত হয়ে যাবে এবং স্বয়ংক্রিয়ভাবে ক্লাউড ব্যাকআপ চালু হবে!
+                          <div style={{ paddingLeft: '28px', color: 'var(--text-main)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                            ১. উপরে থাকা নীল রঙের <strong>"Google Drive দিয়ে ১-ক্লিকে কানেক্ট করুন"</strong> বাটনে চাপুন।<br/>
+                            ২. গুগলের অফিসিয়াল পপআপ উইন্ডো আসবে—আপনার জিমেইল সিলেক্ট করুন।<br/>
+                            ৩. যদি <em>"Google hasn't verified this app"</em> লেখা আসে, কোনো ভয় নেই—নিচে থাকা <strong>Advanced</strong> লিংকে ক্লিক করে <strong>Go to HisabKitab 360 (unsafe)</strong> সিলেক্ট করুন এবং <strong>Continue / Allow</strong> চাপুন।<br/>
+                            ৪. সাথে সাথে আপনার গুগল ড্রাইভ স্থায়ীভাবে কানেক্ট হয়ে যাবে এবং হিসাবের প্রতিটি ব্যাকআপ স্বয়ংক্রিয়ভাবে আপনার গুগল ড্রাইভের <code>HisabKitab360_Backups</code> ফোল্ডারে সেভ হওয়া শুরু হবে!
                           </div>
                         </div>
 
