@@ -87,12 +87,20 @@ Rules:
   const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
   let lastErr = null;
 
+  const isAqKey = cleanKey.startsWith('AQ.');
+
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
+      const url = isAqKey
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': cleanKey
+        },
         body: JSON.stringify({
           contents: [{
             parts: [
@@ -207,10 +215,17 @@ export const testGeminiApiKey = async (apiKey) => {
     throw new Error('দয়া করে Gemini API Key লিখুন।');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
+  const isAqKey = cleanKey.startsWith('AQ.');
+  const url = isAqKey
+    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
+    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}`;
+
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': cleanKey
+    },
     body: JSON.stringify({
       contents: [{
         parts: [{ text: 'Reply with "OK" in 2 letters.' }]
@@ -223,9 +238,11 @@ export const testGeminiApiKey = async (apiKey) => {
 
   if (!res.ok) {
     const errJson = await res.json().catch(() => ({}));
+    const reason = errJson.error?.details?.[0]?.reason || '';
     const msg = errJson.error?.message || `Error status ${res.status}`;
-    if (res.status === 400 || msg.includes('API_KEY_INVALID')) {
-      throw new Error('Gemini API Key সঠিক নয়। aistudio.google.com থেকে সঠিক Key কপি করুন।');
+
+    if (reason === 'ACCESS_TOKEN_TYPE_UNSUPPORTED' || msg.includes('API_KEY_INVALID') || res.status === 401) {
+      throw new Error('Google AI Studio থেকে একটি ফ্রেশ API Key তৈরি করুন (aistudio.google.com/app/apikey)। অথবা কোনো অতিরিক্ত স্পেস ছাড়াই কি-টি পেস্ট করুন।');
     }
     throw new Error(msg);
   }

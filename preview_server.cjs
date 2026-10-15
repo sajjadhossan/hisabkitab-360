@@ -168,12 +168,20 @@ async function transcribeVoice(token, fileId, mimeType, geminiApiKey) {
   const base64Audio = Buffer.from(buffer).toString('base64');
 
   const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+  const isAq = (geminiApiKey || '').startsWith('AQ.');
+
   for (const model of models) {
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+      const geminiUrl = isAq
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiApiKey)}`;
+
       const gRes = await fetch(geminiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': geminiApiKey
+        },
         body: JSON.stringify({
           contents: [{
             parts: [
@@ -322,8 +330,8 @@ function startTelegramDaemon() {
         if (!rawText || !targetChatId) continue;
         const lower = rawText.toLowerCase();
 
-        // Handle Gemini / AI Key setup command (AIzaSy..., set key, /setkey, সেট কি, etc.)
-        const geminiMatch = rawText.match(/AIzaSy[A-Za-z0-9_\-]{30,45}/);
+        // Handle Gemini / AI Key setup command (AQ..., AIzaSy..., set key, /setkey, সেট কি, etc.)
+        const geminiMatch = rawText.match(/(?:AIzaSy[A-Za-z0-9_\-]{30,45}|AQ\.[A-Za-z0-9_\-\.]{30,65})/);
         const isSetKeyCommand = (
           lower.startsWith('/setkey') ||
           lower.startsWith('setkey') ||
@@ -336,6 +344,8 @@ function startTelegramDaemon() {
           lower.startsWith('কি ') ||
           lower.startsWith('/key') ||
           lower.startsWith('key') ||
+          lower.startsWith('aq.') ||
+          lower.startsWith('aizasy') ||
           lower === 'set' ||
           lower === '/set' ||
           Boolean(geminiMatch)
@@ -347,7 +357,7 @@ function startTelegramDaemon() {
             newKey = geminiMatch[0];
           } else {
             const parts = rawText.split(/[\s:=]+/);
-            const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.includes('set') && !p.includes('key'));
+            const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.startsWith('set') && p !== 'key');
             if (candidate) newKey = candidate.trim();
           }
 
@@ -360,7 +370,7 @@ function startTelegramDaemon() {
             await sendTelegramMsg(token, targetChatId, `🎉 <b>Google Gemini AI Key সফলভাবে যুক্ত হয়েছে!</b>\n━━━━━━━━━━━━━━━━━━━━━\n🔑 <b>Key:</b> <code>${newKey.slice(0, 8)}...${newKey.slice(-4)}</code>\n🤖 <b>ভয়েস-টু-টেক্সট ইঞ্জিন:</b> Google Gemini Multimodal Audio (Active)\n\n✨ এখন থেকে যেকোনো ভয়েস মেসেজ পাঠালেই তা সাথে সাথে বাংলায় টেক্সটে রূপান্তর হয়ে হিসাব সম্পন্ন হবে!`, TELEGRAM_INLINE_KEYBOARD, 'HTML');
             continue;
           } else {
-            await sendTelegramMsg(token, targetChatId, `💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ এভাবে লিখুন:\n<code>set key AIzaSy...</code>\nঅথবা শুধু কি-টি (AIzaSy...) এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, TELEGRAM_INLINE_KEYBOARD, 'HTML');
+            await sendTelegramMsg(token, targetChatId, `💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ এভাবে লিখুন:\n<code>set key আপনার_কি</code>\nঅথবা শুধু কি-টি (AQ... বা AIzaSy...) এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, TELEGRAM_INLINE_KEYBOARD, 'HTML');
             continue;
           }
         }

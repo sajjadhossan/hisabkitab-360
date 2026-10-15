@@ -57,9 +57,17 @@ export default async function handler(req, res) {
             const base64Audio = Buffer.from(arrayBuffer).toString('base64');
 
             // Call Gemini
-            const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+            const isAq = geminiKey.startsWith('AQ.');
+            const geminiEndpoint = isAq
+              ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
+              : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+
+            const gRes = await fetch(geminiEndpoint, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': geminiKey
+              },
               body: JSON.stringify({
                 contents: [{
                   parts: [
@@ -98,7 +106,7 @@ export default async function handler(req, res) {
 
     const lower = text.toLowerCase().trim();
 
-    const geminiMatch = text.match(/AIzaSy[A-Za-z0-9_\-]{30,45}/);
+    const geminiMatch = text.match(/(?:AIzaSy[A-Za-z0-9_\-]{30,45}|AQ\.[A-Za-z0-9_\-\.]{30,65})/);
     const isSetKeyCommand = (
       lower.startsWith('/setkey') ||
       lower.startsWith('setkey') ||
@@ -109,6 +117,8 @@ export default async function handler(req, res) {
       lower.startsWith('সেট কি') ||
       lower.startsWith('সেটকি') ||
       lower.startsWith('কি ') ||
+      lower.startsWith('aq.') ||
+      lower.startsWith('aizasy') ||
       lower === 'set' ||
       lower === '/set' ||
       Boolean(geminiMatch)
@@ -120,7 +130,7 @@ export default async function handler(req, res) {
         newKey = geminiMatch[0];
       } else {
         const parts = text.split(/[\s:=]+/);
-        const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.includes('set') && !p.includes('key'));
+        const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.startsWith('set') && p !== 'key');
         if (candidate) newKey = candidate.trim();
       }
 
@@ -142,7 +152,7 @@ export default async function handler(req, res) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
-            text: `💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ লিখুন: <code>set key AIzaSy...</code>\nঅথবা শুধু কি-টি এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!`,
+            text: `💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ লিখুন: <code>set key আপনার_কি</code>\nঅথবা শুধু কি-টি (AQ... বা AIzaSy...) এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!`,
             parse_mode: 'HTML'
           })
         });

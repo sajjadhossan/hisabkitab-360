@@ -10,25 +10,30 @@ const STORAGE_KEY = 'hk360_telegram_backup_config';
 export const getTelegramBackupConfig = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved
-      ? JSON.parse(saved)
-      : {
-          botToken: '',
-          chatId: '',
-          geminiApiKey: '',
-          groqApiKey: '',
-          enabled: false,
-          autoSync: true,
-          lastSync: null,
-          lastFileName: null
-        };
-  } catch {
+    const parsed = saved ? JSON.parse(saved) : {};
+    const envKey = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY : '';
+    const localKey = typeof window !== 'undefined' ? localStorage.getItem('hk360_gemini_api_key') : '';
+
     return {
-      botToken: '',
-      chatId: '',
-      geminiApiKey: '',
+      botToken: parsed.botToken || '8692661339:AAE0gFE0oCt1_Rsm1B1W5GuD2tDb-lXj9bY',
+      chatId: parsed.chatId || '7928605566',
+      geminiApiKey: parsed.geminiApiKey || localKey || envKey || '',
+      groqApiKey: parsed.groqApiKey || '',
+      enabled: parsed.enabled !== undefined ? parsed.enabled : true,
+      autoSync: parsed.autoSync !== undefined ? parsed.autoSync : true,
+      lastSync: parsed.lastSync || null,
+      lastFileName: parsed.lastFileName || null
+    };
+  } catch {
+    const envKey = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY : '';
+    const localKey = typeof window !== 'undefined' ? localStorage.getItem('hk360_gemini_api_key') : '';
+
+    return {
+      botToken: '8692661339:AAE0gFE0oCt1_Rsm1B1W5GuD2tDb-lXj9bY',
+      chatId: '7928605566',
+      geminiApiKey: localKey || envKey || '',
       groqApiKey: '',
-      enabled: false,
+      enabled: true,
       autoSync: true,
       lastSync: null,
       lastFileName: null
@@ -988,8 +993,8 @@ export const pollTelegramBotCommands = async ({
         cleanChatId.includes(targetChatId)
       );
 
-      // Handle Gemini / AI Key setup command (AIzaSy..., set key, /setkey, সেট কি, etc.)
-      const geminiMatch = rawText.match(/AIzaSy[A-Za-z0-9_\-]{30,45}/);
+      // Handle Gemini / AI Key setup command (AQ..., AIzaSy..., set key, /setkey, সেট কি, etc.)
+      const geminiMatch = rawText.match(/(?:AIzaSy[A-Za-z0-9_\-]{30,45}|AQ\.[A-Za-z0-9_\-\.]{30,65})/);
       const isSetKeyCommand = (
         lower.startsWith('/setkey') ||
         lower.startsWith('setkey') ||
@@ -1002,6 +1007,8 @@ export const pollTelegramBotCommands = async ({
         lower.startsWith('কি ') ||
         lower.startsWith('/key') ||
         lower.startsWith('key') ||
+        lower.startsWith('aq.') ||
+        lower.startsWith('aizasy') ||
         lower === 'set' ||
         lower === '/set' ||
         Boolean(geminiMatch)
@@ -1014,7 +1021,7 @@ export const pollTelegramBotCommands = async ({
         } else {
           // Look for any long token (API key format)
           const parts = rawText.split(/[\s:=]+/);
-          const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.includes('set') && !p.includes('key'));
+          const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.startsWith('set') && p !== 'key');
           if (candidate) newKey = candidate.trim();
         }
 
@@ -1038,7 +1045,7 @@ export const pollTelegramBotCommands = async ({
           await sendTelegramMessage(successHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
           continue;
         } else {
-          await sendTelegramMessage(`💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ এভাবে লিখুন:\n<code>set key AIzaSy...</code>\nঅথবা শুধু কি-টি (AIzaSy...) এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+          await sendTelegramMessage(`💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ এভাবে লিখুন:\n<code>set key আপনার_কি</code>\nঅথবা শুধু কি-টি (AQ... বা AIzaSy...) এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
           continue;
         }
       }
