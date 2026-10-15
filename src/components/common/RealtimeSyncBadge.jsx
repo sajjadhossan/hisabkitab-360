@@ -161,7 +161,7 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
     
     if (isMobile) {
       return {
-        label: lang === 'bn' ? '📱 মোবাইলে খোলা (Mobile)' : '📱 Open on Mobile',
+        label: lang === 'bn' ? '📱 মোবাইলে খোলা (Mobile App)' : '📱 Open on Mobile App',
         icon: <Smartphone size={15} style={{ color: '#10b981' }} />,
         badgeColor: '#10b981',
         bgColor: 'rgba(16, 185, 129, 0.12)',
@@ -170,7 +170,7 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
     }
     if (isPC) {
       return {
-        label: lang === 'bn' ? '💻 পিসিতে খোলা (PC)' : '💻 Open on PC',
+        label: lang === 'bn' ? '💻 পিসিতে খোলা (PC Desktop)' : '💻 Open on PC Desktop',
         icon: <Laptop size={15} style={{ color: '#3b82f6' }} />,
         badgeColor: '#3b82f6',
         bgColor: 'rgba(59, 130, 246, 0.12)',
@@ -178,7 +178,7 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
       };
     }
     return {
-      label: lang === 'bn' ? '🌐 ওয়েবসাইটে খোলা (Web)' : '🌐 Open on Web',
+      label: lang === 'bn' ? '🌐 ওয়েবসাইটে খোলা (Vercel Web)' : '🌐 Open on Vercel Web',
       icon: <Monitor size={15} style={{ color: '#8b5cf6' }} />,
       badgeColor: '#8b5cf6',
       bgColor: 'rgba(139, 92, 246, 0.12)',
@@ -261,19 +261,12 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
         <Radio size={13} style={{ strokeWidth: 2.2 }} />
 
         {/* Text Details */}
-        <span style={{ letterSpacing: '0.2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+        <span style={{ letterSpacing: '0.2px' }}>
           {connected ? (
             onlineCount > 1 ? (
-              <span>
-                {lang === 'bn' ? `${onlineCount} কাউন্টার লাইভ` : `${onlineCount} Counters Live`}
-                <span style={{ marginLeft: '4px', opacity: 0.9, fontSize: '0.7rem' }}>
-                  {terminals.some(t => t.platform === 'desktop' || t.deviceType === 'pc') ? '💻' : ''}
-                  {terminals.some(t => t.platform === 'android' || t.deviceType === 'mobile') ? '📱' : ''}
-                  {terminals.some(t => t.platform === 'web' || t.deviceType === 'web') ? '🌐' : ''}
-                </span>
-              </span>
+              <span>{lang === 'bn' ? `${onlineCount}টি কাউন্টার লাইভ` : `${onlineCount} Counters Live`}</span>
             ) : (
-              <span>{lang === 'bn' ? '১ কাউন্টার লাইভ' : '1 Counter Live'}</span>
+              <span>{lang === 'bn' ? '১টি কাউন্টার লাইভ' : '1 Counter Live'}</span>
             )
           ) : isReconnecting ? (
             <span>{lang === 'bn' ? 'কানেক্ট হচ্ছে...' : 'Connecting...'}</span>
