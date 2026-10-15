@@ -98,20 +98,56 @@ export default async function handler(req, res) {
 
     const lower = text.toLowerCase().trim();
 
-    const isDirectKey = text.startsWith('AIzaSy') && text.length >= 35 && !text.includes(' ');
-    if (text.startsWith('/setkey') || text.startsWith('setkey') || isDirectKey) {
-      const newKey = isDirectKey ? text : text.replace(/^\/?setkey\s*/i, '').trim();
-      const setKeyResp = `🎉 <b>Google Gemini AI Key গৃহীত হয়েছে!</b>\n━━━━━━━━━━━━━━━━━━━━━\n🔑 <b>Key:</b> <code>${newKey.slice(0, 8)}...${newKey.slice(-4)}</code>\n🤖 <b>ভয়েস-টু-টেক্সট ইঞ্জিন:</b> Google Gemini Multimodal Audio\n\n✨ আপনার ডিভাইসে হিসাবকিতাব ৩৬০ ওপেন থাকলে কি-টি স্বয়ংক্রিয়ভাবে সিঙ্ক হয়ে যাবে!`;
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: setKeyResp,
-          parse_mode: 'HTML'
-        })
-      });
-      return res.status(200).json({ success: true });
+    const geminiMatch = text.match(/AIzaSy[A-Za-z0-9_\-]{30,45}/);
+    const isSetKeyCommand = (
+      lower.startsWith('/setkey') ||
+      lower.startsWith('setkey') ||
+      lower.startsWith('/set key') ||
+      lower.startsWith('set key') ||
+      lower.startsWith('/set_key') ||
+      lower.startsWith('set_key') ||
+      lower.startsWith('সেট কি') ||
+      lower.startsWith('সেটকি') ||
+      lower.startsWith('কি ') ||
+      lower === 'set' ||
+      lower === '/set' ||
+      Boolean(geminiMatch)
+    );
+
+    if (isSetKeyCommand) {
+      let newKey = '';
+      if (geminiMatch) {
+        newKey = geminiMatch[0];
+      } else {
+        const parts = text.split(/[\s:=]+/);
+        const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.includes('set') && !p.includes('key'));
+        if (candidate) newKey = candidate.trim();
+      }
+
+      if (newKey) {
+        const setKeyResp = `🎉 <b>Google Gemini AI Key গৃহীত হয়েছে!</b>\n━━━━━━━━━━━━━━━━━━━━━\n🔑 <b>Key:</b> <code>${newKey.slice(0, 8)}...${newKey.slice(-4)}</code>\n🤖 <b>ভয়েস-টু-টেক্সট ইঞ্জিন:</b> Google Gemini Multimodal Audio\n\n✨ আপনার ডিভাইসে হিসাবকিতাব ৩৬০ ওপেন থাকলে কি-টি স্বয়ংক্রিয়ভাবে সিঙ্ক হয়ে যাবে!`;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: setKeyResp,
+            parse_mode: 'HTML'
+          })
+        });
+        return res.status(200).json({ success: true });
+      } else {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: `💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ লিখুন: <code>set key AIzaSy...</code>\nঅথবা শুধু কি-টি এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!`,
+            parse_mode: 'HTML'
+          })
+        });
+        return res.status(200).json({ success: true });
+      }
     }
 
     // Fast cloud response

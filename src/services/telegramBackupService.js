@@ -988,10 +988,36 @@ export const pollTelegramBotCommands = async ({
         cleanChatId.includes(targetChatId)
       );
 
-      // Handle Gemini / AI Key setup command (/setkey <API_KEY> or directly pasting AIzaSy...)
-      const isDirectGeminiKey = rawText.startsWith('AIzaSy') && rawText.length >= 35 && !rawText.includes(' ');
-      if (rawText.startsWith('/setkey') || rawText.startsWith('setkey') || isDirectGeminiKey) {
-        const newKey = isDirectGeminiKey ? rawText : rawText.replace(/^\/?setkey\s*/i, '').trim();
+      // Handle Gemini / AI Key setup command (AIzaSy..., set key, /setkey, সেট কি, etc.)
+      const geminiMatch = rawText.match(/AIzaSy[A-Za-z0-9_\-]{30,45}/);
+      const isSetKeyCommand = (
+        lower.startsWith('/setkey') ||
+        lower.startsWith('setkey') ||
+        lower.startsWith('/set key') ||
+        lower.startsWith('set key') ||
+        lower.startsWith('/set_key') ||
+        lower.startsWith('set_key') ||
+        lower.startsWith('সেট কি') ||
+        lower.startsWith('সেটকি') ||
+        lower.startsWith('কি ') ||
+        lower.startsWith('/key') ||
+        lower.startsWith('key') ||
+        lower === 'set' ||
+        lower === '/set' ||
+        Boolean(geminiMatch)
+      );
+
+      if (isSetKeyCommand) {
+        let newKey = '';
+        if (geminiMatch) {
+          newKey = geminiMatch[0];
+        } else {
+          // Look for any long token (API key format)
+          const parts = rawText.split(/[\s:=]+/);
+          const candidate = parts.find(p => p.length >= 25 && !p.startsWith('/') && !p.includes('set') && !p.includes('key'));
+          if (candidate) newKey = candidate.trim();
+        }
+
         if (newKey) {
           const currentCfg = getTelegramBackupConfig();
           const updated = { ...currentCfg, geminiApiKey: newKey };
@@ -1012,7 +1038,7 @@ export const pollTelegramBotCommands = async ({
           await sendTelegramMessage(successHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
           continue;
         } else {
-          await sendTelegramMessage(`💡 <b>Gemini API Key সেট করার নিয়ম:</b>\n<code>/setkey AIzaSy...</code>\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+          await sendTelegramMessage(`💡 <b>Gemini API Key সেট করার সহজ নিয়ম:</b>\nআপনার কি-টি সহ এভাবে লিখুন:\n<code>set key AIzaSy...</code>\nঅথবা শুধু কি-টি (AIzaSy...) এই চ্যাটে পেস্ট করে পাঠিয়ে দিন!\n\nফ্রি কি পেতে: <a href="https://aistudio.google.com/app/apikey">aistudio.google.com/app/apikey</a>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
           continue;
         }
       }
