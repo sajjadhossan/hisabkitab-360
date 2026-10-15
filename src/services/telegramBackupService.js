@@ -143,15 +143,18 @@ export const TELEGRAM_FOLDER_ADD = {
 export const TELEGRAM_FOLDER_ADD_BIZ = {
   inline_keyboard: [
     [
-      { text: '⚡ নতুন সেল / বিক্রয়', callback_data: 'prompt_sale' },
-      { text: '🧾 মেমো / ইনভয়েস তৈরি', callback_data: 'prompt_invoice' }
+      { text: '🛒 ক্যাটাগরি সেল (POS বাটন)', callback_data: 'pos_sale_start' },
+      { text: '⚡ কুইক সেল টেক্সট', callback_data: 'prompt_sale' }
     ],
     [
-      { text: '👥 নতুন কাস্টমার যোগ', callback_data: 'prompt_customer' },
-      { text: '📦 নতুন পণ্য / স্টক যোগ', callback_data: 'prompt_product' }
+      { text: '🧾 মেমো / ইনভয়েস তৈরি', callback_data: 'prompt_invoice' },
+      { text: '👥 নতুন কাস্টমার যোগ', callback_data: 'prompt_customer' }
     ],
     [
-      { text: '💸 দোকানের খরচ এন্ট্রি', callback_data: 'prompt_expense_biz' },
+      { text: '📦 নতুন পণ্য / স্টক যোগ', callback_data: 'prompt_product' },
+      { text: '💸 দোকানের খরচ এন্ট্রি', callback_data: 'prompt_expense_biz' }
+    ],
+    [
       { text: '📒 কাস্টমার বাকি / জমা', callback_data: 'prompt_due' }
     ],
     [
@@ -193,6 +196,52 @@ export const TELEGRAM_FOLDER_REPORTS = {
       { text: '💸 খরচের সারাংশ', callback_data: 'cmd_expense' }
     ],
     [
+      { text: '📄 অন-ডিমান্ড পিডিএফ রিপোর্ট (PDF)', callback_data: 'folder_pdf' },
+      { text: '🔍 পণ্যের ক্রয় ইতিহাস (AI)', callback_data: 'prompt_history' }
+    ],
+    [
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_FOLDER_PDF = {
+  inline_keyboard: [
+    [
+      { text: '🏠 পার্সোনাল খরচ PDF', callback_data: 'cmd_pdf_personal' },
+      { text: '🏢 ব্যবসায়ের খরচ PDF', callback_data: 'cmd_pdf_business' }
+    ],
+    [
+      { text: '📒 বকেয়া খাতা PDF', callback_data: 'cmd_pdf_due' },
+      { text: '💰 ক্যাশ ফ্লো স্টেটমেন্ট PDF', callback_data: 'cmd_pdf_cash' }
+    ],
+    [
+      { text: '📦 স্টক ও ইনভেন্টরি PDF', callback_data: 'cmd_pdf_stock' },
+      { text: '💹 লাভ-ক্ষতি ব্যালেন্স শিট PDF', callback_data: 'cmd_pdf_profit' }
+    ],
+    [
+      { text: '🔙 পিছনে যান', callback_data: 'folder_reports' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+export const TELEGRAM_FOLDER_SALE_CATS = {
+  inline_keyboard: [
+    [
+      { text: '🍚 চাল, ডাল ও খাদ্যপণ্য', callback_data: 'pos_cat_food' },
+      { text: '🥤 পানীয় ও স্ন্যাক্স', callback_data: 'pos_cat_beverage' }
+    ],
+    [
+      { text: '🧴 তেল ও প্রসাধন সামগ্রী', callback_data: 'pos_cat_toiletries' },
+      { text: '💊 ওষুধ ও স্বাস্থ্যপণ্য', callback_data: 'pos_cat_medicine' }
+    ],
+    [
+      { text: '📦 স্টেশনারি ও সাধারণ পণ্য', callback_data: 'pos_cat_general' },
+      { text: '📋 সব প্রোডাক্ট তালিকা', callback_data: 'pos_cat_all' }
+    ],
+    [
+      { text: '🔙 পিছনে যান', callback_data: 'folder_add_biz' },
       { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
     ]
   ]
@@ -367,6 +416,7 @@ export const sendBackupToTelegram = async (backupPayload, customConfig = null) =
 // INTERACTIVE TWO-WAY BOT COMMAND ENGINE & REPORTS
 // =========================================================================
 let lastTelegramUpdateId = 0;
+const _cachedStatements = new Map();
 
 export const sendTelegramMessage = async (text, customConfig = null, customMarkup = null, parseMode = 'HTML') => {
   const config = customConfig || getTelegramBackupConfig();
@@ -784,6 +834,9 @@ export const parseSmartIncomeMessage = (rawText) => {
 export const pollTelegramBotCommands = async ({
   botToken,
   chatId,
+  products = [],
+  customers = [],
+  shopName = '',
   onBackupRequested,
   onSummaryRequested,
   onStockRequested,
@@ -799,7 +852,10 @@ export const pollTelegramBotCommands = async ({
   onAddIncomeRequested,
   onLockRequested,
   onCashRequested,
-  onTerminalsRequested
+  onTerminalsRequested,
+  onItemHistoryRequested,
+  onPdfReportRequested,
+  onSavePdfMonthlyRecordsRequested
 }) => {
   const token = (botToken || '').trim().replace(/^bot/i, '');
   const cleanChatId = (chatId || '').trim();
@@ -895,6 +951,196 @@ export const pollTelegramBotCommands = async ({
       if (rawText === 'folder_control') {
         const text = `⚙️ <b>রিমোট কন্ট্রোল ও সিকিউরিটি হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকান বা টার্মিনালের রিমোট একশন পরিচালনা করুন:`;
         await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_CONTROL, 'HTML');
+        continue;
+      }
+
+      if (rawText === 'folder_pdf') {
+        const text = `📄 <b>অন-ডিমান্ড পিডিএফ ও প্রিন্ট রিপোর্ট হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nযে রিপোর্টের প্রিন্ট/PDF কপি তৈরি করতে চান তাতে চাপ দিন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_PDF, 'HTML');
+        continue;
+      }
+
+      if (rawText.startsWith('cmd_pdf_')) {
+        const rType = rawText.replace('cmd_pdf_', '');
+        if (onPdfReportRequested) {
+          await onPdfReportRequested(rType, targetChatId);
+        } else {
+          await sendTelegramMessage(`📄 <b>পিডিএফ রিপোর্ট প্রস্তুত করা হচ্ছে...</b>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_PDF, 'HTML');
+        }
+        continue;
+      }
+
+      if (rawText === 'prompt_history') {
+        const text = `🔍 <b>স্মার্ট পণ্য ক্রয় ইতিহাস (AI Intelligence):</b>\n━━━━━━━━━━━━━━━━━━━━━\nঅতীতের যেকোনো কেনাকাটার বিবরণ জানতে সরাসরি বাংলায় প্রশ্ন করুন:\n\n💡 <i>উদাহরণ:</i>\n• <code>বাদাম কতবার কিনেছি, কোন দিন কত গ্রাম ও কত টাকা করে কিনেছি</code>\n• <code>চিনি কতবার কিনেছি</code>\n• <code>ডিম কেনার হিস্ট্রি</code>\n• <code>চাল কেনার হিসাব</code>`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_REPORTS, 'HTML');
+        continue;
+      }
+
+      // Interactive POS Category Picker
+      if (rawText === 'pos_sale_start') {
+        const text = `🛒 <b>ক্যাটাগরি ভিত্তিক বিক্রয় (Interactive POS):</b>\n━━━━━━━━━━━━━━━━━━━━━\nযে ক্যাটাগরির পণ্য বিক্রি করতে চান তা নির্বাচন করুন:`;
+        await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_SALE_CATS, 'HTML');
+        continue;
+      }
+
+      // Interactive POS Product Picker by Category
+      if (rawText.startsWith('pos_cat_')) {
+        const catCode = rawText.replace('pos_cat_', '');
+        let filtered = products || [];
+        if (catCode === 'food') {
+          filtered = filtered.filter(p => /চাল|ডাল|খাদ্য|চিনি|আটা|ময়দা|food|rice|sugar/i.test((p.category || '') + ' ' + (p.name || '')));
+        } else if (catCode === 'beverage') {
+          filtered = filtered.filter(p => /পানীয়|চা|কফি|জুস|কোল্ড|স্ন্যাক্স|বিস্কুট|beverage|tea|juice/i.test((p.category || '') + ' ' + (p.name || '')));
+        } else if (catCode === 'toiletries') {
+          filtered = filtered.filter(p => /তেল|সাবান|শ্যাম্পু|প্রসাধন|toiletries|soap|oil/i.test((p.category || '') + ' ' + (p.name || '')));
+        } else if (catCode === 'medicine') {
+          filtered = filtered.filter(p => /ওষুধ|ফার্মা|ট্যাবলেট|ক্যাপসুল|medicine|pharma|napa/i.test((p.category || '') + ' ' + (p.name || '')));
+        } else if (catCode === 'general') {
+          filtered = filtered.filter(p => !/চাল|ডাল|খাদ্য|চা|কফি|তেল|সাবান|ওষুধ/i.test((p.category || '') + ' ' + (p.name || '')));
+        }
+        if (filtered.length === 0) filtered = (products || []).slice(0, 8);
+
+        if (filtered.length === 0) {
+          const emptyText = `⚠️ <b>স্টকে কোনো পণ্য পাওয়া যায়নি!</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানে নতুন পণ্য যুক্ত করতে নিচের বাটনে চাপ দিন:`;
+          await sendTelegramMessage(emptyText, { botToken: token, chatId: targetChatId }, {
+            inline_keyboard: [
+              [{ text: '➕ নতুন পণ্য যোগ করুন', callback_data: 'prompt_product' }],
+              [{ text: '🏠 মূল মেনু', callback_data: 'cmd_main' }]
+            ]
+          }, 'HTML');
+          continue;
+        }
+
+        const rows = [];
+        filtered.slice(0, 8).forEach(p => {
+          const price = p.price || p.sellingPrice || 0;
+          const stock = p.stock !== undefined ? p.stock : (p.quantity || 0);
+          rows.push([{
+            text: `📦 ${p.name.slice(0, 15)} - ৳${price} (${stock}টি)`,
+            callback_data: `pos_p_${p.id}`
+          }]);
+        });
+        rows.push([
+          { text: '🔙 অন্য ক্যাটাগরি', callback_data: 'pos_sale_start' },
+          { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+        ]);
+
+        await sendTelegramMessage(`🛒 <b>পণ্য নির্বাচন করুন:</b>\n━━━━━━━━━━━━━━━━━━━━━\nকোন পণ্যটি বিক্রি করতে চান? বাটনে চাপ দিন:`, { botToken: token, chatId: targetChatId }, { inline_keyboard: rows }, 'HTML');
+        continue;
+      }
+
+      // Interactive POS Quantity Picker
+      if (rawText.startsWith('pos_p_')) {
+        const prodId = rawText.replace('pos_p_', '');
+        const p = (products || []).find(it => String(it.id) === String(prodId)) || { name: 'নির্বাচিত পণ্য', id: prodId, price: 100 };
+        const price = p.price || p.sellingPrice || 0;
+        const stock = p.stock !== undefined ? p.stock : (p.quantity || 0);
+
+        const qtyKeyboard = {
+          inline_keyboard: [
+            [
+              { text: '1 টি', callback_data: `pos_q_${prodId}_1` },
+              { text: '2 টি', callback_data: `pos_q_${prodId}_2` },
+              { text: '3 টি', callback_data: `pos_q_${prodId}_3` }
+            ],
+            [
+              { text: '5 টি', callback_data: `pos_q_${prodId}_5` },
+              { text: '10 টি', callback_data: `pos_q_${prodId}_10` },
+              { text: '20 টি', callback_data: `pos_q_${prodId}_20` }
+            ],
+            [
+              { text: '🔙 পণ্য বদলান', callback_data: 'pos_sale_start' },
+              { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+            ]
+          ]
+        };
+
+        const qtyText = `🔢 <b>পরিমাণ (Quantity) নির্বাচন করুন:</b>\n━━━━━━━━━━━━━━━━━━━━━\n📦 <b>পণ্য:</b> ${p.name}\n💵 <b>মূল্য:</b> ৳${price} | 📊 <b>স্টক:</b> ${stock} টি\n\nকতটি বিক্রি করতে চান? চাপ দিন:`;
+        await sendTelegramMessage(qtyText, { botToken: token, chatId: targetChatId }, qtyKeyboard, 'HTML');
+        continue;
+      }
+
+      // Interactive POS Customer Picker
+      if (rawText.startsWith('pos_q_')) {
+        const parts = rawText.split('_'); // pos, q, prodId, qty
+        const prodId = parts[2];
+        const qty = Number(parts[3]) || 1;
+        const p = (products || []).find(it => String(it.id) === String(prodId)) || { name: 'নির্বাচিত পণ্য', id: prodId, price: 100 };
+        const unitPrice = p.price || p.sellingPrice || 100;
+        const total = unitPrice * qty;
+
+        const custRows = [
+          [{ text: '🚶 নগদ খদ্দের (ক্যাশ পে)', callback_data: `pos_c_${prodId}_${qty}_cash` }]
+        ];
+
+        (customers || []).slice(0, 4).forEach((c, idx) => {
+          custRows.push([{
+            text: `👤 ${c.name.slice(0, 14)} ${c.due ? `(বাকি ৳${c.due})` : ''}`,
+            callback_data: `pos_c_${prodId}_${qty}_${c.id || idx}`
+          }]);
+        });
+
+        custRows.push([
+          { text: '🔙 পরিমাণ পরিবর্তন', callback_data: `pos_p_${prodId}` },
+          { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+        ]);
+
+        const custText = `👥 <b>কাস্টমার নির্বাচন করুন:</b>\n━━━━━━━━━━━━━━━━━━━━━\n📦 <b>পণ্য:</b> ${p.name} (${qty} টি)\n💰 <b>মোট বিল:</b> ৳${total.toLocaleString()}\n\nকোন কাস্টমারের কাছে বিক্রি হচ্ছে?`;
+        await sendTelegramMessage(custText, { botToken: token, chatId: targetChatId }, { inline_keyboard: custRows }, 'HTML');
+        continue;
+      }
+
+      // Interactive POS Sale Execution
+      if (rawText.startsWith('pos_c_')) {
+        const parts = rawText.split('_'); // pos, c, prodId, qty, custKey
+        const prodId = parts[2];
+        const qty = Number(parts[3]) || 1;
+        const custKey = parts[4];
+
+        const p = (products || []).find(it => String(it.id) === String(prodId)) || { name: 'পণ্য', id: prodId, price: 100 };
+        const unitPrice = p.price || p.sellingPrice || 100;
+        const totalPrice = unitPrice * qty;
+
+        let custName = 'নগদ খদ্দের (ক্যাশ)';
+        let customerObj = null;
+        if (custKey && custKey !== 'cash') {
+          customerObj = (customers || []).find(c => String(c.id) === String(custKey)) || (customers || [])[Number(custKey)];
+          if (customerObj) custName = customerObj.name;
+        }
+
+        if (onAddSaleRequested) {
+          await onAddSaleRequested({
+            productName: p.name,
+            productId: p.id,
+            qty,
+            price: totalPrice,
+            customerName: custName,
+            customerObj
+          }, targetChatId);
+        } else {
+          await sendTelegramMessage(`✅ <b>বিক্রয় সম্পন্ন হয়েছে!</b>\n📦 ${p.name} (${qty} টি)\n💰 ৳${totalPrice}`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+        }
+        continue;
+      }
+
+      // Save PDF / Statement Monthly Records
+      if (rawText === 'pdf_save_prev') {
+        const cached = _cachedStatements.get(targetChatId);
+        if (cached && onSavePdfMonthlyRecordsRequested) {
+          await onSavePdfMonthlyRecordsRequested('prev', cached.prevMonthItems, targetChatId);
+        } else {
+          await sendTelegramMessage(`ℹ️ পূর্ববর্তী মাসের কোনো সংরক্ষিত স্টেটমেন্ট ডাটা পাওয়া যায়নি।`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+        }
+        continue;
+      }
+
+      if (rawText === 'pdf_save_curr') {
+        const cached = _cachedStatements.get(targetChatId);
+        if (cached && onSavePdfMonthlyRecordsRequested) {
+          await onSavePdfMonthlyRecordsRequested('curr', cached.currMonthItems, targetChatId);
+        } else {
+          await sendTelegramMessage(`ℹ️ চলতি মাসের কোনো সংরক্ষিত স্টেটমেন্ট ডাটা পাওয়া যায়নি।`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
+        }
         continue;
       }
 
@@ -1149,6 +1395,63 @@ ${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব �
         continue;
       }
 
+      // 14. SMART PDF STATEMENT INGESTION (Multi-line text / statement)
+      const parsedStatement = parseSmartPdfStatement(rawText);
+      if (parsedStatement) {
+        _cachedStatements.set(targetChatId, parsedStatement);
+        const stmtSummaryHtml = `📄 <b>স্টেটমেন্ট পর্যালোচনা সম্পন্ন!</b>
+━━━━━━━━━━━━━━━━━━━━━
+📅 <b>আগের মাসের ট্রানজ্যাকশন (${parsedStatement.prevMonthItems.length} টি):</b> ৳${parsedStatement.prevMonthTotal.toLocaleString()}
+📅 <b>চলতি মাসের ট্রানজ্যাকশন (${parsedStatement.currMonthItems.length} টি):</b> ৳${parsedStatement.currMonthTotal.toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━
+স্বয়ংক্রিয়ভাবে হিসাবের খাতায় সেভ করতে নিচের বাটনে চাপ দিন:`;
+
+        const stmtKeyboard = {
+          inline_keyboard: [
+            [{ text: `📥 আগের মাসেরটা পারসোনালে সেভ করো (৳${parsedStatement.prevMonthTotal.toLocaleString()})`, callback_data: 'pdf_save_prev' }],
+            [{ text: `📥 এই মাসেরটা বর্তমান হিসাবে সেভ করো (৳${parsedStatement.currMonthTotal.toLocaleString()})`, callback_data: 'pdf_save_curr' }],
+            [{ text: '🏠 মূল মেনু', callback_data: 'cmd_main' }]
+          ]
+        };
+        await sendTelegramMessage(stmtSummaryHtml, { botToken: token, chatId: targetChatId }, stmtKeyboard, 'HTML');
+        continue;
+      }
+
+      // 15. SMART ITEM HISTORY & GRAM TRACKER ("বাদাম কতবার কিনেছি, কোন দিন কত গ্রাম...")
+      const parsedItemHistory = parseSmartItemHistoryQuery(rawText);
+      if (parsedItemHistory) {
+        if (onItemHistoryRequested) {
+          await onItemHistoryRequested(parsedItemHistory.item, targetChatId);
+        } else {
+          await sendTelegramMessage(`🔍 <b>"${parsedItemHistory.item}"-এর ক্রয়ের ইতিহাস খোঁজা হচ্ছে...</b>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_REPORTS, 'HTML');
+        }
+        continue;
+      }
+
+      // 16. ON-DEMAND PDF REPORTS (Text Triggers)
+      if (lower.startsWith('/pdf') || lower === 'pdf' || lower === 'পিডিএফ' || lower.includes('pdf রিপোর্ট') || lower.includes('পিডিএফ রিপোর্ট')) {
+        if (onPdfReportRequested) {
+          if (lower.includes('দোকান') || lower.includes('ব্যবসা')) {
+            await onPdfReportRequested('business', targetChatId);
+          } else if (lower.includes('পার্সোনাল') || lower.includes('ব্যক্তিগত')) {
+            await onPdfReportRequested('personal', targetChatId);
+          } else if (lower.includes('বাকি') || lower.includes('বকেয়া')) {
+            await onPdfReportRequested('due', targetChatId);
+          } else if (lower.includes('ক্যাশ')) {
+            await onPdfReportRequested('cash', targetChatId);
+          } else if (lower.includes('স্টক')) {
+            await onPdfReportRequested('stock', targetChatId);
+          } else if (lower.includes('লাভ')) {
+            await onPdfReportRequested('profit', targetChatId);
+          } else {
+            await sendTelegramMessage(`📄 <b>অন-ডিমান্ড পিডিএফ রিপোর্ট হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nকোন রিপোর্টটি ডাউনলোড বা প্রিন্ট করতে চান?`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_PDF, 'HTML');
+          }
+        } else {
+          await sendTelegramMessage(`📄 <b>অন-ডিমান্ড পিডিএফ রিপোর্ট হাব:</b>`, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_PDF, 'HTML');
+        }
+        continue;
+      }
+
       // Fallback: If nothing recognized, show main menu
       const fallbackHtml = `❓ <b>কমান্ডটি স্পষ্ট নয়</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনি যা লিখেছেন: "<code>${rawText}</code>"\nনিচের বাটনগুলো চেপে আপনার প্রয়োজনীয় অপশন নির্বাচন করুন:`;
       await sendTelegramMessage(fallbackHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_MAIN, 'HTML');
@@ -1295,4 +1598,266 @@ ${subCategory ? `📂 *সাব-ক্যাটাগরি:* ${subCategory}\n`
 📊 _আজকের সব খরচ দেখতে লিখুন:_ */expense*`;
 
   await sendTelegramMessage(text, customConfig);
+};
+
+// =========================================================================
+// Advanced Telegram Document / PDF Sender
+// =========================================================================
+export const sendTelegramDocument = async ({
+  fileContent,
+  fileName,
+  caption,
+  mimeType = 'text/html',
+  customConfig = null
+}) => {
+  const config = customConfig || getTelegramBackupConfig();
+  const token = (config.botToken || '').trim().replace(/^bot/i, '');
+  const chatId = (config.chatId || '').trim();
+  if (!token || !chatId) return false;
+
+  try {
+    const blob = fileContent instanceof Blob ? fileContent : new Blob([fileContent], { type: mimeType });
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('document', blob, fileName);
+    if (caption) {
+      formData.append('caption', caption);
+      formData.append('parse_mode', 'HTML');
+    }
+
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: 'POST',
+      body: formData
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('sendTelegramDocument error:', err);
+    return false;
+  }
+};
+
+// =========================================================================
+// Smart Item History & NLP Intelligence Query Engine ("বাদাম কতবার কিনেছি...")
+// =========================================================================
+export const parseSmartItemHistoryQuery = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const lower = rawText.toLowerCase().trim();
+
+  // Exclude regular sales or creation commands
+  if (
+    lower.startsWith('সেল') ||
+    lower.startsWith('বিক্রি') ||
+    lower.startsWith('মেমো') ||
+    lower.startsWith('কাস্টমার') ||
+    lower.startsWith('পণ্য') ||
+    lower.startsWith('খরচ') ||
+    lower.startsWith('বাজার') ||
+    lower.startsWith('আয়') ||
+    lower.startsWith('আয়')
+  ) {
+    return null;
+  }
+
+  const isHistoryIntent = (
+    lower.includes('কতবার') ||
+    lower.includes('হিস্ট্রি') ||
+    lower.includes('ইতিহাস') ||
+    lower.includes('কবে কবে') ||
+    lower.includes('কখন কখন') ||
+    (lower.includes('কিনেছি') && (lower.includes('কত') || lower.includes('কবে') || lower.includes('কোন দিন') || lower.includes('লিস্ট'))) ||
+    (lower.includes('কিনা') && lower.includes('হিসাব'))
+  );
+
+  if (!isHistoryIntent) return null;
+
+  // Clean out common question words to isolate item name
+  const cleaned = rawText
+    .replace(/[০-৯0-9]/g, '')
+    .replace(/কতবার|কিনেছি|কিনেছিলাম|কিনা|হয়েছে|হইছে|হিস্ট্রি|ইতিহাস|লিস্টটা|লিস্ট|দাও|দেখান|সব|সমস্ত|কোন দিন|কত টাকা|কত গ্রাম|করে|খরচের|খরচ|হিসাবটা|হিসাব|আমার|আমাকে|আমি|বটে|কি|দিয়ে|এর/gi, ' ')
+    .replace(/[?!,।\-_]/g, ' ')
+    .trim();
+
+  const words = cleaned.split(/\s+/).filter(w => w.length >= 2);
+  const keyword = words[0] || '';
+  if (!keyword || keyword.length < 2) return null;
+
+  return {
+    item: keyword,
+    rawText
+  };
+};
+
+export const sendTelegramItemHistoryReport = async ({ item, purchases, shopName }, customConfig = null) => {
+  if (!purchases || purchases.length === 0) {
+    const emptyMsg = `🔍 <b>পণ্য অনুসন্ধান রিপোর্ট: ${item}</b>
+━━━━━━━━━━━━━━━━━━━━━
+❌ আপনার অতীত খরচের তালিকায় <b>"${item}"</b> ক্রয়ের কোনো রেকর্ড পাওয়া যায়নি।
+
+💡 <i>খরচ লেখার সময় যেমন: "খরচ ২০০ বাদাম ২৫০ গ্রাম" লিখলে বট পরবর্তীতে তার সম্পূর্ণ হিস্ট্রি বের করে দেবে।</i>`;
+    await sendTelegramMessage(emptyMsg, customConfig, null, 'HTML');
+    return;
+  }
+
+  const totalCount = purchases.length;
+  const totalSpent = purchases.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  // Extract gram or kg metrics from title or note
+  let totalGrams = 0;
+  let hasGramMetrics = false;
+
+  purchases.forEach(p => {
+    const text = `${p.title || ''} ${p.note || ''}`.toLowerCase();
+    const kgMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:কেজি|kg)/i);
+    const gramMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:গ্রাম|gm|g)/i);
+    if (kgMatch) {
+      totalGrams += parseFloat(kgMatch[1]) * 1000;
+      hasGramMetrics = true;
+    } else if (gramMatch) {
+      totalGrams += parseFloat(gramMatch[1]);
+      hasGramMetrics = true;
+    }
+  });
+
+  let qtyFormatted = '';
+  if (hasGramMetrics && totalGrams > 0) {
+    if (totalGrams >= 1000) {
+      const kg = Math.floor(totalGrams / 1000);
+      const remGram = totalGrams % 1000;
+      qtyFormatted = `${kg} কেজি ${remGram > 0 ? remGram + ' গ্রাম' : ''}`.trim();
+    } else {
+      qtyFormatted = `${totalGrams} গ্রাম`;
+    }
+  }
+
+  const avgSpent = Math.round(totalSpent / totalCount);
+
+  let reportHtml = `🥜 <b>পণ্য ক্রয় ইতিহাস ও ইন্টেলিজেন্স রিপোর্ট: ${item}</b>
+━━━━━━━━━━━━━━━━━━━━━
+🔢 <b>মোট কেনা হয়েছে:</b> ${totalCount} বার
+💰 <b>সর্বমোট খরচ:</b> ৳${totalSpent.toLocaleString()}
+${qtyFormatted ? `⚖️ <b>মোট পরিমাণ:</b> ${qtyFormatted}\n` : ''}📊 <b>গড় খরচ:</b> প্রতিবারে প্রায় ৳${avgSpent.toLocaleString()}
+
+📋 <b>তারিখভিত্তিক ক্রয়ের তালিকা:</b>\n`;
+
+  purchases.slice(0, 10).forEach((p, idx) => {
+    const dateFormatted = p.date ? new Date(p.date).toLocaleDateString('bn-BD', { year: 'numeric', month: 'short', day: 'numeric' }) : 'তারিখ নেই';
+    reportHtml += `\n${idx + 1}. 📅 <b>${dateFormatted}</b>
+   • বিবরণ: <b>${p.title || item}</b>
+   • টাকা: <b>৳${Number(p.amount).toLocaleString()}</b>${p.note ? ` | নোট: <i>${p.note}</i>` : ''}`;
+  });
+
+  reportHtml += `\n\n━━━━━━━━━━━━━━━━━━━━━\n💡 <i>যেকোনো পণ্যের ইতিহাস জানতে লিখুন: "[পণ্য] কতবার কিনেছি" বা "[পণ্য] হিস্ট্রি"</i>`;
+
+  await sendTelegramMessage(reportHtml, customConfig, null, 'HTML');
+};
+
+// =========================================================================
+// Smart PDF Statement & Multi-Line Transaction Parser
+// =========================================================================
+export const parseSmartPdfStatement = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const prevMonthItems = [];
+  const currMonthItems = [];
+
+  for (const line of lines) {
+    const dateMatch = line.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})/);
+    const amtMatch = line.match(/(?:৳|\$)?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:টাকা|টাকার|tk|\/-)?/i);
+
+    if (dateMatch && amtMatch) {
+      const cleanAmt = parseFloat(amtMatch[1].replace(/,/g, ''));
+      if (cleanAmt > 0) {
+        let itemMonth = currentMonth;
+        let itemDateStr = dateMatch[1];
+        try {
+          const d = new Date(itemDateStr);
+          if (!isNaN(d.getTime())) {
+            itemMonth = d.getMonth() + 1;
+          }
+        } catch {}
+
+        const desc = line.replace(dateMatch[0], '').replace(amtMatch[0], '').trim() || 'স্টেটমেন্ট আইটেম';
+
+        const record = {
+          date: itemDateStr,
+          amount: cleanAmt,
+          title: desc,
+          note: 'PDF/স্টেটমেন্ট থেকে ইমপোর্টকৃত'
+        };
+
+        if (itemMonth === currentMonth) {
+          currMonthItems.push(record);
+        } else {
+          prevMonthItems.push(record);
+        }
+      }
+    }
+  }
+
+  if (prevMonthItems.length === 0 && currMonthItems.length === 0) return null;
+
+  return {
+    prevMonthItems,
+    prevMonthTotal: prevMonthItems.reduce((s, it) => s + it.amount, 0),
+    currMonthItems,
+    currMonthTotal: currMonthItems.reduce((s, it) => s + it.amount, 0)
+  };
+};
+
+// =========================================================================
+// Professional Printable HTML Report Builder
+// =========================================================================
+export const generateReportHtmlDoc = ({ title, shopName, dateStr, headers, rows, summary }) => {
+  return `<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 30px; color: #1e293b; background: #fff; }
+    .header { border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+    h1 { margin: 0; font-size: 20px; color: #1e3a8a; }
+    .sub { font-size: 13px; color: #64748b; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+    th { background: #f1f5f9; color: #334155; padding: 10px 8px; text-align: left; border: 1px solid #cbd5e1; font-weight: 700; }
+    td { padding: 8px; border: 1px solid #e2e8f0; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .summary-box { margin-top: 25px; padding: 12px 16px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; display: inline-block; min-width: 250px; font-size: 13px; }
+    .footer { margin-top: 35px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 11px; color: #94a3b8; text-align: center; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${shopName || 'হিসাবকিতাব ৩৬০'}</h1>
+      <div class="sub">${title}</div>
+    </div>
+    <div style="text-align: right; font-size: 12px; color: #64748b;">
+      তারিখ: <strong>${dateStr || new Date().toLocaleDateString('bn-BD')}</strong>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        ${headers.map(h => `<th>${h}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+    </tbody>
+  </table>
+
+  ${summary ? `<div class="summary-box">${summary}</div>` : ''}
+
+  <div class="footer">
+    প্রস্তুতকৃত: হিসাবকিতাব ৩৬০ ক্লাউড ইকোসিস্টেম • প্রিন্ট বা PDF হিসেবে সেভ করতে Ctrl + P চাপুন
+  </div>
+</body>
+</html>`;
 };

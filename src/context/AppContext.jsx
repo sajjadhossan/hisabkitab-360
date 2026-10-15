@@ -20,6 +20,9 @@ import {
   sendBackupToTelegram,
   pollTelegramBotCommands,
   sendTelegramMessage,
+  sendTelegramDocument,
+  sendTelegramItemHistoryReport,
+  generateReportHtmlDoc,
   TELEGRAM_FOLDER_ADD_BIZ,
   TELEGRAM_FOLDER_ADD_PERS,
   TELEGRAM_FOLDER_REPORTS,
@@ -3618,6 +3621,9 @@ export const AppProvider = ({ children }) => {
         await pollTelegramBotCommands({
           botToken: liveConfig.botToken,
           chatId: liveConfig.chatId,
+          products,
+          customers,
+          shopName: businessSettings.companyName || 'আমার প্রতিষ্ঠান',
           onBackupRequested: async (replyChatId) => {
             console.log('🤖 Telegram bot requested on-demand backup!');
             await syncToTelegram(null, true);
@@ -3988,6 +3994,230 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
 ━━━━━━━━━━━━━━━━━━━━━
 ⚡ _সকল টার্মিনালে ডাটা সিঙ্ক হচ্ছে!_`;
             await sendTelegramMessage(text, targetConfig, TELEGRAM_FOLDER_CONTROL, 'Markdown');
+          },
+          onItemHistoryRequested: async (item, replyChatId) => {
+            console.log('🤖 Telegram bot requested item history for:', item);
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const q = (item || '').toLowerCase().trim();
+
+            // Search personal expenses
+            const matchedPersonal = (personalExpenses || []).filter(e =>
+              (e.title || '').toLowerCase().includes(q) ||
+              (e.note || '').toLowerCase().includes(q) ||
+              (e.category || '').toLowerCase().includes(q)
+            ).map(e => ({
+              date: e.date,
+              amount: Number(e.amount) || 0,
+              title: `[ব্যক্তিগত] ${e.title || e.category || 'খরচ'}`,
+              note: e.note || e.familyMember || ''
+            }));
+
+            // Search business expenses
+            const matchedBiz = (businessExpenses || []).filter(e =>
+              (e.title || '').toLowerCase().includes(q) ||
+              (e.note || '').toLowerCase().includes(q) ||
+              (e.category || '').toLowerCase().includes(q)
+            ).map(e => ({
+              date: e.date,
+              amount: Number(e.amount) || 0,
+              title: `[দোকান খরচ] ${e.title || e.category || 'খরচ'}`,
+              note: e.note || ''
+            }));
+
+            // Search sales history
+            const matchedSales = [];
+            (salesHistory || []).forEach(s => {
+              (s.items || []).forEach(it => {
+                if ((it.name || '').toLowerCase().includes(q)) {
+                  matchedSales.push({
+                    date: s.date || s.createdAt,
+                    amount: it.total || (it.price * it.quantity),
+                    title: `[বিক্রয়] ${it.name} (${it.quantity} টি)`,
+                    note: `মেমো #${s.invoiceNumber || s.id}`
+                  });
+                }
+              });
+            });
+
+            const combined = [...matchedPersonal, ...matchedBiz, ...matchedSales].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+            await sendTelegramItemHistoryReport({
+              item,
+              purchases: combined,
+              shopName: businessSettings.companyName || 'হিসাবকিতাব ৩৬০'
+            }, targetConfig);
+          },
+          onPdfReportRequested: async (reportType, replyChatId) => {
+            console.log('🤖 Telegram bot requested PDF report:', reportType);
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            const company = businessSettings.companyName || 'হিসাবকিতাব ৩৬০';
+            const dateStr = new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            let htmlDoc = '';
+            let fileName = '';
+            let caption = '';
+
+            if (reportType === 'personal') {
+              const rows = (personalExpenses || []).slice(0, 100).map(e => [
+                e.date || '-',
+                e.title || e.category || 'খরচ',
+                `৳${Number(e.amount || 0).toLocaleString()}`,
+                e.familyMember || 'নিজে',
+                e.note || '-'
+              ]);
+              const total = (personalExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              htmlDoc = generateReportHtmlDoc({
+                title: 'ব্যক্তিগত খরচের পূর্ণাঙ্গ স্টেটমেন্ট (Personal Expenses)',
+                shopName: company,
+                dateStr,
+                headers: ['তারিখ', 'বিবরণ / খাত', 'টাকা (BDT)', 'ব্যক্তি', 'মন্তব্য'],
+                rows,
+                summary: `<strong>সর্বমোট ব্যক্তিগত খরচ:</strong> ৳${total.toLocaleString()} (${rows.length} টি রেকর্ড)`
+              });
+              fileName = `Personal_Expenses_${today}.html`;
+              caption = `📄 <b>ব্যক্তিগত খরচের স্টেটমেন্ট</b>\n💰 মোট খরচ: ৳${total.toLocaleString()}`;
+            } else if (reportType === 'business') {
+              const rows = (businessExpenses || []).slice(0, 100).map(e => [
+                e.date || '-',
+                e.title || e.category || 'দোকান খরচ',
+                `৳${Number(e.amount || 0).toLocaleString()}`,
+                e.note || '-'
+              ]);
+              const total = (businessExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+              htmlDoc = generateReportHtmlDoc({
+                title: 'দোকান ও ব্যবসা খরচের লেজার (Business Expenses)',
+                shopName: company,
+                dateStr,
+                headers: ['তারিখ', 'খরচের খাত / শিরোনাম', 'পরিমাণ (BDT)', 'নোট'],
+                rows,
+                summary: `<strong>সর্বমোট ব্যবসা খরচ:</strong> ৳${total.toLocaleString()} (${rows.length} টি খরচ)`
+              });
+              fileName = `Business_Expenses_${today}.html`;
+              caption = `📄 <b>দোকান ও ব্যবসার খরচের স্টেটমেন্ট</b>\n💰 মোট খরচ: ৳${total.toLocaleString()}`;
+            } else if (reportType === 'due') {
+              const dueList = (customers || []).filter(c => (Number(c.due) || Number(c.balance) || 0) > 0);
+              const rows = dueList.map(c => [
+                c.name || 'গ্রাহক',
+                c.phone || '-',
+                `৳${Number(c.due || c.balance || 0).toLocaleString()}`,
+                c.address || '-'
+              ]);
+              const totalDue = dueList.reduce((s, c) => s + (Number(c.due || c.balance || 0)), 0);
+              htmlDoc = generateReportHtmlDoc({
+                title: 'গ্রাহক বকেয়া ও দেনা-পাওনা খাতা (Customer Due Ledger)',
+                shopName: company,
+                dateStr,
+                headers: ['গ্রাহকের নাম', 'মোবাইল নম্বর', 'বকেয়া বাকি (BDT)', 'ঠিকানা'],
+                rows,
+                summary: `<strong>সর্বমোট বকেয়া পাওনা:</strong> ৳${totalDue.toLocaleString()} (বাকিদার: ${dueList.length} জন)`
+              });
+              fileName = `Due_Ledger_${today}.html`;
+              caption = `📄 <b>কাস্টমার বকেয়া খাতা ও দেনা-পাওনা স্টেটমেন্ট</b>\n💰 মোট বকেয়া: ৳${totalDue.toLocaleString()}`;
+            } else if (reportType === 'stock') {
+              const rows = (products || []).slice(0, 100).map(p => {
+                const qty = Number(p.stock !== undefined ? p.stock : p.quantity || 0);
+                const price = Number(p.price || p.sellingPrice || 0);
+                return [
+                  p.name,
+                  p.category || 'সাধারণ',
+                  `${qty} ${p.unit || 'টি'}`,
+                  `৳${price.toLocaleString()}`,
+                  `৳${(qty * price).toLocaleString()}`
+                ];
+              });
+              const totalVal = (products || []).reduce((s, p) => s + (Number(p.stock !== undefined ? p.stock : p.quantity || 0) * Number(p.price || p.sellingPrice || 0)), 0);
+              htmlDoc = generateReportHtmlDoc({
+                title: 'পণ্য স্টক ও ইনভেন্টরি ভ্যালুয়েশন রিপোর্ট (Inventory Stock)',
+                shopName: company,
+                dateStr,
+                headers: ['পণ্যের নাম', 'ক্যাটাগরি', 'মজুদ পরিমাণ', 'একক মূল্য', 'মোট মূল্য'],
+                rows,
+                summary: `<strong>মোট ইনভেন্টরি মূল্য:</strong> ৳${Math.round(totalVal).toLocaleString()} (আইটেম: ${products.length} প্রকার)`
+              });
+              fileName = `Stock_Inventory_${today}.html`;
+              caption = `📄 <b>পণ্য স্টক ও ইনভেন্টরি স্টেটমেন্ট</b>\n📦 মোট পণ্য: ${products.length} প্রকার`;
+            } else if (reportType === 'profit') {
+              const netProfit = Math.round(todaySales - todayCost - todayBizExpenseTotal);
+              const rows = [
+                ['আজকের মোট বিক্রি (Gross Revenue)', `৳${todaySales.toLocaleString()}`, 'সব বিক্রয় মেমো'],
+                ['বিক্রিত পণ্যের ক্রয়মূল্য (COGS)', `-৳${Math.round(todayCost).toLocaleString()}`, 'পণ্য কেনা খরচ'],
+                ['দোকান ও ব্যবসা খরচ (Opex)', `-৳${todayBizExpenseTotal.toLocaleString()}`, 'আজকের পরিচালন ব্যয়'],
+                ['আজকের নিট লাভ (Net Profit)', `৳${netProfit.toLocaleString()}`, netProfit >= 0 ? '🟢 লাভ' : '🔴 ক্ষতি']
+              ];
+              htmlDoc = generateReportHtmlDoc({
+                title: 'আজকের লাভ-ক্ষতি ও ব্যালেন্স শিট (Profit & Loss Statement)',
+                shopName: company,
+                dateStr,
+                headers: ['হিসাবের খাত', 'টাকা (BDT)', 'বিবরণ'],
+                rows,
+                summary: `<strong>নিট আর্থিক ফলাফল:</strong> ৳${netProfit.toLocaleString()} (${netProfit >= 0 ? 'লাভ' : 'ক্ষতি'})`
+              });
+              fileName = `Profit_Loss_${today}.html`;
+              caption = `📄 <b>লাভ-ক্ষতি ও ব্যালেন্স শিট স্টেটমেন্ট</b>\n${netProfit >= 0 ? '🟢 লাভ' : '🔴 ক্ষতি'}: ৳${netProfit.toLocaleString()}`;
+            } else {
+              // Default: Cash flow statement
+              const drawerBal = Math.max(0, todaySales - todayBizExpenseTotal);
+              const rows = [
+                [dateStr, 'আজকের বিক্রয় ক্যাশ ইন', `৳${todaySales.toLocaleString()}`, '৳০', `৳${todaySales.toLocaleString()}`],
+                [dateStr, 'দোকানের খরচের ক্যাশ আউট', '৳০', `৳${todayBizExpenseTotal.toLocaleString()}`, `৳${drawerBal.toLocaleString()}`]
+              ];
+              htmlDoc = generateReportHtmlDoc({
+                title: 'দৈনিক ক্যাশ ফ্লো বিবরণী (Daily Cash Flow Statement)',
+                shopName: company,
+                dateStr,
+                headers: ['তারিখ', 'খাত / বিবরণ', 'ক্যাশ ইন (BDT)', 'ক্যাশ আউট (BDT)', 'ব্যালেন্স'],
+                rows,
+                summary: `<strong>বর্তমান ক্যাশ ড্রয়ার ব্যালেন্স:</strong> ৳${drawerBal.toLocaleString()}`
+              });
+              fileName = `Cash_Flow_${today}.html`;
+              caption = `📄 <b>দৈনিক ক্যাশ ফ্লো বিবরণী</b>\n💰 ড্রয়ার ক্যাশ: ৳${drawerBal.toLocaleString()}`;
+            }
+
+            await sendTelegramDocument({
+              fileContent: htmlDoc,
+              fileName,
+              caption,
+              mimeType: 'text/html',
+              customConfig: targetConfig
+            });
+          },
+          onSavePdfMonthlyRecordsRequested: async (period, items, replyChatId) => {
+            console.log(`🤖 Telegram bot saving ${items?.length} items for period: ${period}`);
+            const targetConfig = replyChatId ? { ...liveConfig, chatId: replyChatId } : liveConfig;
+            if (!items || items.length === 0) {
+              await sendTelegramMessage('⚠️ কোনো রেকর্ড সেভ করার মতো পাওয়া যায়নি।', targetConfig, TELEGRAM_FOLDER_MAIN, 'HTML');
+              return;
+            }
+
+            const formattedRecords = items.map(it => ({
+              id: 'imp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+              title: it.title || 'স্টেটমেন্ট এন্ট্রি',
+              category: 'স্টেটমেন্ট খরচ',
+              subCategory: '',
+              familyMember: 'নিজে (Self)',
+              amount: Number(it.amount),
+              date: it.date || today,
+              note: it.note || 'PDF/স্টেটমেন্ট থেকে সংগৃহীত',
+              source: 'telegram_statement_import',
+              createdAt: new Date().toISOString()
+            }));
+
+            setPersonalExpenses(prev => {
+              const next = [...formattedRecords, ...(prev || [])];
+              localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(next));
+              return next;
+            });
+
+            const totalSum = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+            const confMsg = `✅ <b>${items.length} টি স্টেটমেন্ট ট্রানজ্যাকশন সফলভাবে যুক্ত হয়েছে!</b>
+━━━━━━━━━━━━━━━━━━━━━
+💰 <b>মোট টাকা:</b> ৳${totalSum.toLocaleString()}
+📅 <b>হিসাব খাত:</b> ${period === 'prev' ? 'পূর্ববর্তী মাসের পার্সোনাল খরচ' : 'বর্তমান মাসের হিসাব'}
+━━━━━━━━━━━━━━━━━━━━━
+📊 <i>সফটওয়্যারের সমস্ত ড্যাশবোর্ড ও রিপোর্টে অবিলম্বে আপডেট হয়ে গেছে।</i>`;
+
+            await sendTelegramMessage(confMsg, targetConfig, TELEGRAM_FOLDER_MAIN, 'HTML');
+            showToast(`টেলিগ্রাম স্টেটমেন্ট থেকে ${items.length} টি ট্রানজ্যাকশন যুক্ত হয়েছে!`, 'success');
           }
         });
       } catch (err) {
