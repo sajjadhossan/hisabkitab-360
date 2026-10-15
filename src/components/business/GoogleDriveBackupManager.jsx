@@ -34,6 +34,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { registerTelegramCommands } from '../../services/telegramBackupService';
+import { broadcastDeviceHeartbeat } from '../../services/deviceManagerService';
 
 export const GoogleDriveBackupManager = ({
   formState,
@@ -62,6 +63,13 @@ export const GoogleDriveBackupManager = ({
 
   // Primary Platform Selector: 'gdrive' | 'telegram'
   const [activePlatform, setActivePlatform] = useState('gdrive');
+
+  // Broadcast connected drive account to all devices
+  useEffect(() => {
+    if (driveUser?.email) {
+      broadcastDeviceHeartbeat({ driveAccount: driveUser.email });
+    }
+  }, [driveUser]);
 
   // Google Drive State
   const [isSyncingDrive, setIsSyncingDrive] = useState(false);

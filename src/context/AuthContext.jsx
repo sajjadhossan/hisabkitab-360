@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getSupabase, isSupabaseReady, getSupabaseConfig, saveSupabaseConfig } from '../services/supabaseClient';
+import { broadcastDeviceHeartbeat } from '../services/deviceManagerService';
 
 const AuthContext = createContext();
 
@@ -252,6 +253,9 @@ export const AuthProvider = ({ children }) => {
             isMasterAccount: isMaster
           };
           setUser(authUser);
+          try {
+            broadcastDeviceHeartbeat({ email: authUser.email });
+          } catch {}
           if (isMaster) {
             setIsSuperAdminUnlocked(true);
             try { sessionStorage.setItem('hk360_superadmin_unlocked', 'true'); } catch {}

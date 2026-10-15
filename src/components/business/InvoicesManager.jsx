@@ -702,6 +702,27 @@ export const InvoicesManager = () => {
                   <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s ease' }}>
                     <td style={{ padding: '12px 10px', fontWeight: '700', color: 'var(--business-primary)', fontFamily: 'monospace' }}>
                       {inv.id}
+                      {inv.deviceOrigin && (
+                        <div style={{ marginTop: '3px' }}>
+                          <span
+                            title={`বিক্রয় কাউন্টার / ডিভাইস: ${inv.deviceOrigin.name}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.68rem',
+                              fontWeight: '700',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: inv.deviceOrigin.type === 'mobile' ? 'rgba(16, 185, 129, 0.12)' : inv.deviceOrigin.type === 'web' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                              color: inv.deviceOrigin.type === 'mobile' ? '#10b981' : inv.deviceOrigin.type === 'web' ? '#8b5cf6' : '#3b82f6',
+                              border: `1px solid ${inv.deviceOrigin.type === 'mobile' ? 'rgba(16, 185, 129, 0.3)' : inv.deviceOrigin.type === 'web' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+                            }}
+                          >
+                            {inv.deviceOrigin.icon || (inv.deviceOrigin.type === 'mobile' ? '📱' : inv.deviceOrigin.type === 'web' ? '🌐' : '💻')} {inv.deviceOrigin.name}
+                          </span>
+                        </div>
+                      )}
                       {inv.returnTotal > 0 && (
                         <div style={{ fontSize: '0.7rem', color: '#f97316', fontWeight: '600' }}>
                           (রিটার্ন: ৳{Number(inv.returnTotal).toLocaleString()})

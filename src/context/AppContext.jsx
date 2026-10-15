@@ -70,6 +70,16 @@ import {
 import { sealInvoiceInChainSync } from '../services/hashChainService';
 import { allocateFefoStockDeduction } from '../services/fefoInventoryService';
 import { broadcastStockUpdateToChannels } from '../services/omniChannelService';
+import {
+  getDeviceOrigin,
+  getDeviceRegistry,
+  setDeviceName,
+  broadcastDeviceHeartbeat,
+  subscribeToDeviceSync,
+  detectDeviceType,
+  getDeviceName,
+  DEVICE_TYPES
+} from '../services/deviceManagerService';
 
 const AppContext = createContext();
 
@@ -520,6 +530,39 @@ export const AppProvider = ({ children }) => {
   // Instant zero-lag tab switching
   const handleSetActiveTab = useCallback((nextTab) => {
     setActiveTabState(nextTab);
+  }, []);
+
+  // Cross-Platform Device & Origin State (Mobile, PC, Web)
+  const [deviceRegistry, setDeviceRegistry] = useState(() => getDeviceRegistry());
+  const [currentDevice, setCurrentDevice] = useState(() => getDeviceOrigin());
+
+  useEffect(() => {
+    // Initial heartbeat
+    const reg = broadcastDeviceHeartbeat();
+    setDeviceRegistry(reg);
+    setCurrentDevice(getDeviceOrigin());
+
+    // Subscribe to cross-device sync
+    const unsubscribe = subscribeToDeviceSync((updatedRegistry) => {
+      setDeviceRegistry(updatedRegistry);
+    });
+
+    // Heartbeat interval every 60 seconds
+    const interval = setInterval(() => {
+      broadcastDeviceHeartbeat();
+    }, 60000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, []);
+
+  const updateDeviceName = useCallback((type, customName) => {
+    setDeviceName(type, customName);
+    const updated = broadcastDeviceHeartbeat();
+    setDeviceRegistry(updated);
+    setCurrentDevice(getDeviceOrigin());
   }, []);
 
   // Quick POS Counter Screen Lock
@@ -1898,6 +1941,7 @@ export const AppProvider = ({ children }) => {
       splitPayments: Array.isArray(splitPayments) && splitPayments.length > 0 ? splitPayments : null,
       paymentHistory: paymentHistoryList,
       status: saleStatus,
+      deviceOrigin: getDeviceOrigin(),
       prevHash: chainSeal.prevHash,
       blockHash: chainSeal.blockHash,
       signedAt: chainSeal.signedAt
@@ -2338,6 +2382,8 @@ export const AppProvider = ({ children }) => {
       note: invoice.paymentNote || (lang === 'bn' ? (paidAmount === grandTotal ? 'সম্পূর্ণ নগদ/ডিজিটাল পেমেন্ট' : 'প্রাথমিক আংশিক পেমেন্ট') : 'Initial Payment')
     }] : []);
 
+    const deviceOrigin = invoice.deviceOrigin || getDeviceOrigin();
+
     const newInv = {
       ...invoice,
       id: invoice.id || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -2348,6 +2394,7 @@ export const AppProvider = ({ children }) => {
       status,
       paymentMethod,
       paymentHistory,
+      deviceOrigin,
       returns: [],
       returnTotal: 0,
       items: invoice.items || []
@@ -2814,6 +2861,7 @@ export const AppProvider = ({ children }) => {
       vat: quote.vat || 0,
       grandTotal: quote.grandTotal,
       status: 'unpaid',
+      deviceOrigin: getDeviceOrigin(),
       notes: `অফিসিয়াল কোটেশন #${quote.id} থেকে স্বয়ংক্রিয়ভাবে তৈরি। ${quote.terms || ''}`
     };
 
@@ -4156,6 +4204,12 @@ export const AppProvider = ({ children }) => {
         updateQuotationStatus,
         deleteQuotation,
         convertQuotationToInvoice,
+
+        // Cross-Platform Device Management
+        currentDevice,
+        deviceRegistry,
+        updateDeviceName,
+        getDeviceOrigin,
 
         // Damaged Goods / Stock Loss
         damagedGoods,

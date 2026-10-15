@@ -9,6 +9,8 @@
  * - Backup creations, data restorations & permission updates
  */
 
+import { getDeviceOrigin } from './deviceManagerService';
+
 const AUDIT_STORAGE_KEY = 'hk360_audit_trail_logs';
 const MAX_AUDIT_LOGS = 2500; // Keep up to 2500 historical events locally
 
@@ -27,50 +29,7 @@ export const AUDIT_ACTIONS = {
   BIOMETRIC_AUTH: 'BIOMETRIC_AUTH'
 };
 
-const INITIAL_LOGS = [
-  {
-    id: 'adt-init-01',
-    timestamp: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
-    action: AUDIT_ACTIONS.BACKUP_EXPORT,
-    entityType: 'System',
-    entityId: 'backup-auto',
-    title: 'স্বয়ংক্রিয় ক্লাউড ব্যাকআপ সিঙ্ক সম্পন্ন',
-    operatorName: 'সিস্টেম অ্যাডমিন',
-    operatorRole: 'owner',
-    oldValue: '158 KB',
-    newValue: '184 KB',
-    note: 'সাপ্তাহিক রুটিন ব্যাকআপ সফল',
-    device: 'Desktop Chrome Windows'
-  },
-  {
-    id: 'adt-init-02',
-    timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-    action: AUDIT_ACTIONS.PRICE_CHANGE,
-    entityType: 'Product',
-    entityId: 'prod-oil-01',
-    title: 'রূপচাঁদা সয়াবিন তেলের মূল্য আপডেট',
-    operatorName: 'মোঃ সাজ্জাদ হোসেন',
-    operatorRole: 'owner',
-    oldValue: '৳১৮৫',
-    newValue: '৳১৯০',
-    note: 'ডিলার পাইকারি রেট বৃদ্ধির কারণে খুচরা মূল্য সমন্বয়',
-    device: 'POS Terminal 01'
-  },
-  {
-    id: 'adt-init-03',
-    timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
-    action: AUDIT_ACTIONS.STOCK_ADJUSTMENT,
-    entityType: 'Inventory',
-    entityId: 'prod-rice-miniket',
-    title: 'মিনিকেট চাল ২৫ কেজি বস্তা স্টক ইন',
-    operatorName: 'স্টোর কিপার',
-    operatorRole: 'manager',
-    oldValue: '১২ বস্তা',
-    newValue: '৩২ বস্তা',
-    note: 'চালান নং CH-8841 হতে ২০ বস্তা ইনটেক',
-    device: 'Mobile Barcode Scanner'
-  }
-];
+const INITIAL_LOGS = [];
 
 class AuditService {
   constructor() {
@@ -82,15 +41,14 @@ class AuditService {
       const saved = localStorage.getItem(AUDIT_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch (e) {
       console.warn('[AuditService] Failed to load audit logs:', e);
     }
-    this.saveLogs(INITIAL_LOGS);
-    return INITIAL_LOGS;
+    return [];
   }
 
   saveLogs(logs) {
@@ -128,7 +86,7 @@ class AuditService {
       oldValue: oldValue !== null && oldValue !== undefined ? String(oldValue) : null,
       newValue: newValue !== null && newValue !== undefined ? String(newValue) : null,
       note: note || '',
-      device: device || (typeof navigator !== 'undefined' ? (navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop Workstation') : 'System')
+      device: device || (typeof window !== 'undefined' ? getDeviceOrigin().badgeText : 'System')
     };
 
     this.logs = [newLog, ...this.logs].slice(0, MAX_AUDIT_LOGS);

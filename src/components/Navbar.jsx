@@ -73,6 +73,7 @@ import { PermissionManagerModal } from './common/PermissionManagerModal';
 import { MarketPriceTrackerModal } from './common/MarketPriceTrackerModal';
 import { RoutineShoppingPresetsModal } from './common/RoutineShoppingPresetsModal';
 import { RealtimeSyncBadge } from './common/RealtimeSyncBadge';
+import { DeviceStatusIndicator } from './common/DeviceStatusIndicator';
 
 export const Navbar = () => {
   const {
@@ -837,6 +838,9 @@ export const Navbar = () => {
 
           {/* Right Controls: Auth, Language, Theme, and 3-Dot Menu */}
           <div className="navbar-right-controls">
+            {/* 0. Cross-Platform 3-Device Hub Indicator */}
+            <DeviceStatusIndicator />
+
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 

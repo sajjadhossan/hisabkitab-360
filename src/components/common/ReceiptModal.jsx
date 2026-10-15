@@ -292,6 +292,14 @@ export const ReceiptModal = () => {
                   <span>{activeReceipt.date}</span>
                 </div>
 
+                {/* Device Origin / Counter Tag */}
+                {activeReceipt.deviceOrigin && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', margin: '3px 0', border: '1px solid #cbd5e1' }}>
+                    <span style={{ color: '#475569' }}>ডিভাইস / কাউন্টার:</span>
+                    <span style={{ fontWeight: '800', color: '#0f172a' }}>{activeReceipt.deviceOrigin.badgeText || `${activeReceipt.deviceOrigin.icon || '💻'} ${activeReceipt.deviceOrigin.name}`}</span>
+                  </div>
+                )}
+
                 {businessSettings.showCustomerDetails !== false && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#334155', marginTop: '3px' }}>
                     <span>{lang === 'bn' ? 'গ্রাহক:' : 'Customer:'} {activeReceipt.customerName}</span>

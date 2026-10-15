@@ -262,6 +262,11 @@ export const InvoicePrintModal = () => {
                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
                   <strong>{lang === 'bn' ? 'ইস্যুর তারিখ:' : 'Date:'}</strong> {inv.date}
                 </div>
+                {inv.deviceOrigin && (
+                  <div style={{ fontSize: '10.5px', color: '#1e293b', marginTop: '2px', fontWeight: '700' }}>
+                    <strong>{lang === 'bn' ? 'কাউন্টার / ডিভাইস:' : 'Terminal:'}</strong> {inv.deviceOrigin.badgeText || `${inv.deviceOrigin.icon || '💻'} ${inv.deviceOrigin.name}`}
+                  </div>
+                )}
                 <div style={{ fontSize: '11px', color: '#64748b' }}>
                   <strong>{lang === 'bn' ? 'পরিশোধের শেষ তারিখ:' : 'Due Date:'}</strong> {inv.dueDate || inv.date}
                 </div>
