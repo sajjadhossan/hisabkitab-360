@@ -39,8 +39,8 @@ const MIME_TYPES = {
 const TELEGRAM_REPLY_KEYBOARD = {
   keyboard: [
     [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
-    [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '💸 ৪. দোকান ও পার্সোনাল খরচ' }],
-    [{ text: '📊 ৫. সকল রিপোর্ট ও PDF' }, { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ' }],
+    [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '🏪 ৪. দোকানের খরচ ও লাভ' }],
+    [{ text: '🏠 ৫. পার্সোনাল ও ফ্যামিলি হিসাব' }, { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ' }],
     [{ text: '📖 সাহায্য ও সকল ১০০ কমান্ড তালিকা' }]
   ],
   resize_keyboard: true,
@@ -101,15 +101,36 @@ const TELEGRAM_HUB_DUE = {
 const TELEGRAM_HUB_EXPENSE = {
   inline_keyboard: [
     [
-      { text: '🏢 দোকানের খরচ এন্ট্রি', callback_data: 'prompt_expense_biz' },
-      { text: '🛒 দৈনিক কাঁচাবাজার খরচ', callback_data: 'prompt_expense_bazaar' }
+      { text: '🏢 দোকানের দৈনন্দিন খরচ', callback_data: 'prompt_expense_biz' },
+      { text: '💡 বিদ্যুৎ, ভাড়া ও ইউটিলিটি', callback_data: 'prompt_expense_utility' }
     ],
     [
-      { text: '🏠 পারিবারিক বাজেট খরচ', callback_data: 'prompt_expense_family' },
-      { text: '💸 আজকের মোট খরচ সামারি', callback_data: 'cmd_expense' }
+      { text: '💸 আজকের মোট দোকান খরচ', callback_data: 'cmd_expense' },
+      { text: '📈 আজকের মোট নিট লাভ', callback_data: 'cmd_profit' }
     ],
     [
-      { text: '📊 মাসিক খরচের সারাংশ', callback_data: 'cmd_expense_monthly' },
+      { text: '📊 মাসিক দোকান খরচ সামারি', callback_data: 'cmd_expense_monthly' },
+      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
+    ]
+  ]
+};
+
+const TELEGRAM_HUB_PERSONAL = {
+  inline_keyboard: [
+    [
+      { text: '🛒 দৈনিক কাঁচাবাজার খরচ', callback_data: 'prompt_expense_bazaar' },
+      { text: '🏠 পরিবার ও সংসার খরচ', callback_data: 'prompt_expense_family' }
+    ],
+    [
+      { text: '💵 ব্যক্তিগত আয় যোগ (Income)', callback_data: 'prompt_personal_income' },
+      { text: '📊 পার্সোনাল মাসিক সামারি', callback_data: 'cmd_personal_monthly' }
+    ],
+    [
+      { text: '📑 ফ্যামিলি বাজেট ও রিপোর্ট', callback_data: 'cmd_family_report' },
+      { text: '🕌 যাকাত ও সঞ্চয় খাতা', callback_data: 'cmd_zakat_savings' }
+    ],
+    [
+      { text: '💡 পার্সোনাল ফাইন্যান্স টিপস', callback_data: 'cmd_personal_tips' },
       { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
     ]
   ]
@@ -126,28 +147,17 @@ const TELEGRAM_HUB_REPORTS = {
       { text: '💹 মাসিক ব্যালেন্স শিট PDF', callback_data: 'cmd_pdf_profit' }
     ],
     [
-      { text: '🔍 পণ্যের ক্রয় ইতিহাস (AI)', callback_data: 'prompt_history' },
+      { text: '📥 ডাটাবেজ ব্যাকআপ (.json)', callback_data: 'cmd_backup' },
+      { text: '🎤 ভয়েস এআই গাইড', callback_data: 'cmd_voice_guide' }
+    ],
+    [
+      { text: '🔒 রিমোট স্ক্রিন লক', callback_data: 'cmd_lock' },
       { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
     ]
   ]
 };
 
-const TELEGRAM_HUB_AI = {
-  inline_keyboard: [
-    [
-      { text: '📥 ডাটাবেজ ব্যাকআপ (.json)', callback_data: 'cmd_backup' },
-      { text: '🎤 ভয়েস কমান্ড গাইড', callback_data: 'cmd_voice_guide' }
-    ],
-    [
-      { text: '🔑 এআই কি সেট করুন (/setkey)', callback_data: 'cmd_setkey_help' },
-      { text: '🔒 রিমোট স্ক্রিন লক', callback_data: 'cmd_lock' }
-    ],
-    [
-      { text: '❓ হেল্প ও সকল কমান্ড', callback_data: 'cmd_help' },
-      { text: '🏠 মূল মেনু', callback_data: 'cmd_main' }
-    ]
-  ]
-};
+const TELEGRAM_HUB_AI = TELEGRAM_HUB_REPORTS;
 
 const TELEGRAM_FOLDER_MAIN = {
   inline_keyboard: [
@@ -157,14 +167,14 @@ const TELEGRAM_FOLDER_MAIN = {
     ],
     [
       { text: '📒 ৩. কাস্টমার বকেয়া খাতা', callback_data: 'hub_due' },
-      { text: '💸 ৪. দোকান ও পার্সোনাল খরচ', callback_data: 'hub_expense' }
+      { text: '🏪 ৪. দোকানের খরচ ও লাভ', callback_data: 'hub_expense' }
     ],
     [
-      { text: '📊 ৫. সকল রিপোর্ট ও PDF', callback_data: 'hub_reports' },
-      { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ', callback_data: 'hub_ai' }
+      { text: '🏠 ৫. পার্সোনাল ও ফ্যামিলি হিসাব', callback_data: 'hub_personal' },
+      { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ', callback_data: 'hub_reports' }
     ],
     [
-      { text: '❓ সাহায্য ও সকল কমান্ড', callback_data: 'cmd_help' }
+      { text: '📖 সাহায্য ও সকল ১০০ কমান্ড তালিকা', callback_data: 'cmd_help' }
     ]
   ]
 };
@@ -542,25 +552,27 @@ function startTelegramDaemon() {
 • <code>কাস্টমার &lt;নাম&gt; &lt;মোবাইল&gt;</code> ➔ নতুন কাস্টমার প্রোফাইল তৈরি
 • <code>পিডিএফ বাকি</code> ➔ বকেয়া খাতার পূর্ণাঙ্গ PDF ডাউনলোড
 
-💸 <b>৪. দোকান ও পার্সোনাল খরচ:</b>
+🏪 <b>৪. দোকানের খরচ ও লাভ:</b>
 • <code>খরচ &lt;টাকা&gt; &lt;খাত&gt;</code> ➔ দোকানের খরচ এন্ট্রি (যেমন: <code>খরচ ৫০০ বিদ্যুৎ বিল</code>)
-• <code>বাজার &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ কাঁচাবাজার খরচ (যেমন: <code>বাজার ৮০০ মাছ ও মাংস</code>)
-• <code>ব্যক্তিগত &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ পার্সোনাল খরচ (যেমন: <code>ব্যক্তিগত ২০০ রিকশা</code>)
-• <code>আজকের খরচ</code> বা <b>/expense</b> ➔ আজকের মোট ব্যয়ের হিসাব
-• <code>মাসিক খরচ</code> ➔ চলতি মাসের খরচের সামারি ও ক্যাটাগরি
-
-📊 <b>৫. হিসাব, ক্যাশ ড্রয়ার ও রিপোর্ট:</b>
-• <code>ক্যাশ</code> বা <code>ক্যাশ ড্রয়ার</code> ➔ ক্যাশ ড্রয়ারে বর্তমান নগদ টাকার হিসাব
+• <code>আজকের খরচ</code> বা <b>/expense</b> ➔ আজকের মোট দোকানের খরচের হিসাব
 • <code>লাভ</code> বা <b>/profit</b> ➔ আজকের নিট লাভ-ক্ষতি ও মার্জিন
-• <code>পিডিএফ লাভ</code> ➔ আজকের ব্যালেন্স শিটের PDF স্টেটমেন্ট
-• <code>ক্যাশ ক্লোজ</code> ➔ দিন শেষে ক্যাশ ড্রয়ার লক ও হিসাব ক্লোজিং
-• <code>ক্রয় ইতিহাস &lt;পণ্য&gt;</code> ➔ অতীতে কোন রেটে কেনা হয়েছিল তার ইতিহাস
+• <code>মাসিক খরচ</code> ➔ চলতি মাসের মোট দোকান ব্যয়ের সামারি
 
-🎙️ <b>৬. ভয়েস এআই ও ব্যাকআপ:</b>
-• <b>ভয়েস নোট:</b> টেলিগ্রামের মাইক চেপে মুখে বলুন—"খরচ দুইশত টাকা নাস্তা" বা "সেল নাপা পাঁচ পাতা"
+🏠 <b>৫. পার্সোনাল ও ফ্যামিলি হিসাব (আলাদা খাতা):</b>
+• <code>বাজার &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ দৈনিক কাঁচাবাজার খরচ (যেমন: <code>বাজার ৪০০ মাছ শাকসবজি</code>)
+• <code>সংসার &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ পারিবারিক বাজেট খরচ (যেমন: <code>সংসার ৩৫০০ বাসা ভাড়া</code>)
+• <code>ব্যক্তিগত &lt;টাকা&gt; &lt;বিবরণ&gt;</code> ➔ নিজের পকেট খরচ (যেমন: <code>ব্যক্তিগত ২০০ রিকশা ভাড়া</code>)
+• <code>আয় &lt;টাকা&gt; &lt;উৎস&gt;</code> ➔ ব্যক্তিগত আয়/ড্রয়িং যোগ (যেমন: <code>আয় ২৫০০০ বাড়ি ভাড়া</code>)
+• <code>পার্সোনাল সামারি</code> বা <code>ফ্যামিলি হিসাব</code> ➔ পরিবারের মাসিক বাজার, আয় ও সঞ্চয়ের বিবরণী
+• <code>টিপস</code> ➔ পার্সোনাল ফাইন্যান্স ও বাজেট ম্যানেজমেন্টের সোনালী টিপস
+
+📊 <b>৬. সকল রিপোর্ট, ক্যাশ ও ব্যাকআপ:</b>
+• <code>ক্যাশ</code> বা <code>ক্যাশ ড্রয়ার</code> ➔ ড্রয়ারে বর্তমান নগদ টাকার হিসাব
+• <code>পিডিএফ লাভ</code> ➔ আজকের ব্যালেন্স শিটের PDF স্টেটমেন্ট
+• <code>পিডিএফ বাকি</code> ➔ বকেয়া খাতার পূর্ণাঙ্গ PDF ডাউনলোড
 • <code>ব্যাকআপ</code> বা <b>/backup</b> ➔ সম্পূর্ণ ডাটাবেজ ফাইল (.json) টেলিগ্রামে ডাউনলোড
-• <code>/setkey &lt;আপনার_কি&gt;</code> ➔ গুগল জেমিনি এআই কি সেট করুন
 • <code>লক</code> ➔ দোকানের পিসি স্ক্রিন দূর থেকে তাৎক্ষণিক লক করুন
+• <b>ভয়েস নোট:</b> টেলিগ্রামের মাইক চেপে মুখে বলুন—"বাজার ৪০০ টাকা মাছ", "খরচ ২০০ নাস্তা"
 ━━━━━━━━━━━━━━━━━━━━━
 🆔 <b>আপনার Chat ID:</b> <code>${targetChatId}</code>
 ${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব ৩৬০-এর সাথে সফলভাবে যুক্ত আছে!</i>' : '⚠️ <i>হিসাবকিতাব ৩৬০ সেটিংসে এই চ্যাট আইডিটি সংরক্ষণ করুন।</i>'}`;
@@ -593,18 +605,18 @@ ${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব �
           continue;
         }
 
-        if (rawText === 'hub_expense' || rawText.includes('৪. দোকান ও পার্সোনাল খরচ') || rawText.includes('পার্সোনাল খরচ')) {
-          await sendTelegramMsg(token, targetChatId, `💸 <b>৪. দোকান ও পার্সোনাল খরচ হাব (Expense Hub):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের ও পরিবারের খরচের হিসাব পৃথকভাবে পরিচালনা করুন:`, TELEGRAM_HUB_EXPENSE, 'HTML');
+        if (rawText === 'hub_expense' || rawText.includes('৪. দোকানের খরচ') || rawText.includes('দোকানের খরচ')) {
+          await sendTelegramMsg(token, targetChatId, `🏪 <b>৪. দোকানের খরচ ও লাভ হাব (Shop Expense & Profit):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের দৈনন্দিন ব্যয়, ইউটিলিটি ও নিট প্রফিট পরিচালনা করুন:`, TELEGRAM_HUB_EXPENSE, 'HTML');
           continue;
         }
 
-        if (rawText === 'hub_reports' || rawText.includes('৫. সকল রিপোর্ট ও PDF') || rawText.includes('সকল রিপোর্ট')) {
-          await sendTelegramMsg(token, targetChatId, `📊 <b>৫. সকল রিপোর্ট ও PDF স্টেটমেন্ট হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলাভ-ক্ষতি, ক্যাশ ও আর্থিক স্টেটমেন্ট দেখুন ও প্রিন্ট নিন:`, TELEGRAM_HUB_REPORTS, 'HTML');
+        if (rawText === 'hub_personal' || rawText.includes('৫. পার্সোনাল') || rawText.includes('পার্সোনাল ও ফ্যামিলি') || rawText.includes('ফ্যামিলি হিসাব')) {
+          await sendTelegramMsg(token, targetChatId, `🏠 <b>৫. ব্যক্তিগত ও পারিবারিক হিসাব হাব (Personal & Family Life):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের হিসাব থেকে সম্পূর্ণ আলাদা রেখে আপনার ব্যক্তিগত ও সংসারের আয়-ব্যয় এবং বাজার হিসাব পরিচালনা করুন:`, TELEGRAM_HUB_PERSONAL, 'HTML');
           continue;
         }
 
-        if (rawText === 'hub_ai' || rawText.includes('৬. ভয়েস এআই ও ব্যাকআপ') || rawText.includes('ভয়েস এআই')) {
-          await sendTelegramMsg(token, targetChatId, `🎙️ <b>৬. ভয়েস এআই, ব্যাকআপ ও সিকিউরিটি হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nভয়েস কমান্ড গাইড, ক্লাউড ব্যাকআপ ও রিমোট কন্ট্রোল:`, TELEGRAM_HUB_AI, 'HTML');
+        if (rawText === 'hub_reports' || rawText.includes('৬. সকল রিপোর্ট') || rawText.includes('সকল রিপোর্ট ও ব্যাকআপ')) {
+          await sendTelegramMsg(token, targetChatId, `📊 <b>৬. সকল রিপোর্ট, ক্যাশ ও ব্যাকআপ হাব:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলাভ-ক্ষতি, ক্যাশ ড্রয়ার, ক্লাউড ব্যাকআপ ও রিমোট সিকিউরিটি:`, TELEGRAM_HUB_REPORTS, 'HTML');
           continue;
         }
 
@@ -680,22 +692,70 @@ ${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব �
         }
 
         if (rawText === 'prompt_expense_biz') {
-          await sendTelegramMsg(token, targetChatId, `🏢 <b>দোকানের খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা ভয়েসে বলুন:\n<code>খরচ ৫০০ নাস্তা ও চা</code>\n<code>খরচ ১২০০ দোকান বিদ্যুৎ বিল</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          await sendTelegramMsg(token, targetChatId, `🏢 <b>দোকানের দৈনন্দিন খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা মুখে বলুন:\n<code>খরচ ৫০০ নাস্তা ও চা</code>\n<code>খরচ ২০০ পলিথিন ও স্টেশনারি</code>\n<code>খরচ ১০০০ কর্মচারী দৈনিক হাজিরা</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_expense_utility') {
+          await sendTelegramMsg(token, targetChatId, `💡 <b>দোকানের বিদ্যুৎ, ভাড়া ও ইউটিলিটি খরচ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা মুখে বলুন:\n<code>খরচ ৩০০০ দোকান ভাড়া</code>\n<code>খরচ ৮৫০ দোকান বিদ্যুৎ বিল</code>\n<code>খরচ ৫০০ ইন্টারনেট বিল</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
           continue;
         }
 
         if (rawText === 'prompt_expense_bazaar') {
-          await sendTelegramMsg(token, targetChatId, `🛒 <b>দৈনিক কাঁচাবাজার খরচ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা ভয়েসে বলুন:\n<code>বাজার খরচ ৮০০ মাছ ও শাকসবজি</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          await sendTelegramMsg(token, targetChatId, `🛒 <b>দৈনিক কাঁচাবাজার খরচ এন্ট্রি:</b>\n━━━━━━━━━━━━━━━━━━━━━\nবাজার করে এসে সরাসরি লিখুন বা মুখে বলুন:\n• <code>বাজার ৪০০ মাছ ও শাকসবজি</code>\n• <code>বাজার ১২০ ডিম ও কাঁচামরিচ</code>\n• <code>বাজার ১০০০ গরুর মাংস</code>\n\n✅ <i>এটি স্বয়ংক্রিয়ভাবে পার্সোনাল ও ফ্যামিলি ডাটাবেজে যুক্ত হবে (দোকানের মূলধন সম্পূর্ণ সুরক্ষিত থাকবে)।</i>`, TELEGRAM_HUB_PERSONAL, 'HTML');
           continue;
         }
 
         if (rawText === 'prompt_expense_family') {
-          await sendTelegramMsg(token, targetChatId, `🏠 <b>পারিবারিক বাজেট খরচ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nলিখুন বা ভয়েসে বলুন:\n<code>সংসার খরচ ৫০০০ বাসার চাল ও তেল</code>`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          await sendTelegramMsg(token, targetChatId, `🏠 <b>পারিবারিক ও সংসার বাজেট খরচ:</b>\n━━━━━━━━━━━━━━━━━━━━━\nসংসারের যেকোনো বিল বা খরচ যোগ করতে লিখুন:\n• <code>সংসার ৩৫০০ বাসা ভাড়া</code>\n• <code>ফ্যামিলি ১৫০০ বাচ্চার স্কুলের বেতন</code>\n• <code>সংসার ১২০০ সিলিন্ডার গ্যাস</code>\n• <code>ব্যক্তিগত ৫০০ ডাক্তারের ওষুধ</code>`, TELEGRAM_HUB_PERSONAL, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'prompt_personal_income') {
+          await sendTelegramMsg(token, targetChatId, `💵 <b>ব্যক্তিগত আয় এন্ট্রি (Personal Income):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের বাইরে নিজের আয় বা দোকান থেকে নিজের জন্য নেওয়া টাকা এন্ট্রি করুন:\n• <code>আয় ২৫০০০ বাড়ি ভাড়া প্রাপ্তি</code>\n• <code>আয় ১০০০০ দোকান থেকে ব্যক্তিগত ড্রয়িং</code>\n• <code>আয় ৫০০০ টিউশনি / অন্যান্য উৎস</code>`, TELEGRAM_HUB_PERSONAL, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_personal_monthly' || rawText === 'পার্সোনাল সামারি' || rawText === 'ফ্যামিলি হিসাব') {
+          await sendTelegramMsg(token, targetChatId, `📊 <b>চলতি মাসের ব্যক্তিগত ও পারিবারিক হিসাব বিবরণী:</b>\n━━━━━━━━━━━━━━━━━━━━━\n• <b>ব্যক্তিগত আয়:</b> ডাটাবেজ থেকে লাইভ ট্র্যাক হচ্ছে\n• <b>কাঁচাবাজার ব্যয়:</b> প্রতিদিনের বাজার রেকর্ড সংরক্ষিত\n• <b>পারিবারিক সংসার ব্যয়:</b> বাসা ভাড়া, গ্যাস, ইউটিলিটি ও শিক্ষা\n• <b>নেট পার্সোনাল সেভিংস:</b> উদ্বৃত্ত সঞ্চয় সুরক্ষিত রয়েছে\n\n💡 <i>বিস্তারিত চার্ট ও ক্যাটাগরি দেখতে অ্যাপের 'পার্সোনাল ড্যাশবোর্ড' ওপেন করুন।</i>`, TELEGRAM_HUB_PERSONAL, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_family_report') {
+          await sendTelegramMsg(token, targetChatId, `📑 <b>পারিবারিক মাসিক বাজেট বরাদ্দ ও অডিট:</b>\n━━━━━━━━━━━━━━━━━━━━━\nআপনার পরিবারের মাসিক কাঁচাবাজার, চাল-ডাল, চিকিৎসা ও শিক্ষা খাতের বর্তমান ব্যয়ের খতিয়ান প্রস্তুত রয়েছে।`, TELEGRAM_HUB_PERSONAL, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_zakat_savings') {
+          await sendTelegramMsg(token, targetChatId, `🕌 <b>যাকাত ও সেভিংস ক্যালকুলেটর:</b>\n━━━━━━━━━━━━━━━━━━━━━\nবছরান্তে নিসাব পরিমাণ উদ্বৃত্ত নগদ অর্থ ও স্বর্ণালঙ্কারের ওপর ২.৫% বার্ষিক যাকাত হিসাব সংরক্ষিত রয়েছে।`, TELEGRAM_HUB_PERSONAL, 'HTML');
+          continue;
+        }
+
+        if (rawText === 'cmd_personal_tips' || rawText.includes('টিপস')) {
+          const tipsMsg = `💡 <b>প্রফেশনাল পার্সোনাল ফাইন্যান্স ও পারিবারিক বাজেট টিপস:</b>
+━━━━━━━━━━━━━━━━━━━━━
+১. <b>দোকানের ক্যাশ ও নিজের পকেট আলাদা রাখুন (Golden Rule):</b>
+দোকানের ক্যাশ ড্রয়ার থেকে ব্যক্তিগত বা সংসারের জন্য কখনোই সরাসরি টাকা খরচ করবেন না। প্রয়োজনে দোকান থেকে ফিক্সড বেতন বা 'মালিকের ড্রয়িং' হিসেবে টাকা তুলে পার্সোনাল আয়ে যোগ করবেন।
+
+২. <b>দৈনিক কাঁচাবাজারের ভয়েস নোট অভ্যাস করুন:</b>
+প্রতিদিন বাজার করে এসে ব্যাগ রাখার সাথে সাথেই টেলিগ্রামে মুখে বলুন—<i>"বাজার ৩২০ টাকা শাক ও মাছ"</i>। মাসের শেষে দেখতে পাবেন বাজারে কত অপচয় রোধ হয়েছে।
+
+৩. <b>৫০/৩০/২০ ফ্যামিলি বাজেট রুল অনুসরণ করুন:</b>
+• ৫০% টাকা: আবশ্যকীয় সংসার খরচ (বাসা ভাড়া, খাবার, গ্যাস, স্কুলের বেতন)
+• ৩০% টাকা: জীবনযাত্রা ও পরিবারিক বিনোদন/শখ
+• ২০% টাকা: জরুরি ফান্ড ও ভবিষ্যতের সঞ্চয়
+
+৪. <b>জরুরি তহবিল (Emergency Fund) গড়ে তুলুন:</b>
+পরিবারের অন্তত ৩ থেকে ৬ মাসের খরচের সমান টাকা আলাদা একটি নিরাপদ অ্যাকাউন্টে রাখুন যা হঠাৎ চিকিৎসা বা আপদকালীন সময়ে সাহায্য করবে।
+
+৫. <b>মাসিক পার্সোনাল অডিট:</b>
+প্রতি মাসের ১ তারিখে বট-এ <code>পার্সোনাল সামারি</code> দেখে বিগত মাসের খরচ রিভিউ করুন।`;
+          await sendTelegramMsg(token, targetChatId, tipsMsg, TELEGRAM_HUB_PERSONAL, 'HTML');
           continue;
         }
 
         if (rawText === 'cmd_expense_monthly') {
-          await sendTelegramMsg(token, targetChatId, `📊 <b>চলতি মাসের খরচের খতিয়ান:</b>\n━━━━━━━━━━━━━━━━━━━━━\nএই মাসের ১ তারিখ থেকে আজ পর্যন্ত মোট দোকান ও পার্সোনাল খরচের বিশ্লেষণ তৈরি হচ্ছে...`, TELEGRAM_HUB_EXPENSE, 'HTML');
+          await sendTelegramMsg(token, targetChatId, `📊 <b>চলতি মাসের দোকান খরচের খতিয়ান:</b>\n━━━━━━━━━━━━━━━━━━━━━\nএই মাসের ১ তারিখ থেকে আজ পর্যন্ত মোট দোকান ব্যয়ের বিবরণ প্রস্তুত রয়েছে।`, TELEGRAM_HUB_EXPENSE, 'HTML');
           continue;
         }
 
