@@ -263,22 +263,31 @@ export const triggerImmediateCloudPush = async (stateSnapshot, reason = 'user_ac
 /**
  * Continuous Background Auto-Sync Engine (Phase 5 / Instant Cross-Device Sync)
  * - Listens for Realtime WebSocket broadcasts (sub-150ms zero-lag delivery)
- * - Runs a silent background heartbeat polling every 2.5s to ensure no dropped packets
+ * - Runs a silent background heartbeat polling every 2.0s to ensure no dropped packets
+ * - Instantly pulls latest state when app wakes, focuses, or reconnects
  */
-export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, intervalMs = 2500 } = {}) => {
+export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, intervalMs = 2000 } = {}) => {
   if (typeof window === 'undefined' || typeof onStateReceived !== 'function') {
     return () => {};
   }
 
   // 1. Instant Realtime WebSocket broadcast listener
-  const unsubscribeLive = subscribeLiveSync(async (event, payload) => {
-    if (event === 'CLOUD_STATE_UPDATED') {
+  const unsubscribeLive = subscribeLiveSync(async (eventObj, extraPayload) => {
+    // Normalizes both signature styles:
+    // Style A: ({ eventType, data, senderDeviceId, senderCounter })
+    // Style B: (eventType, payload)
+    const eventType = typeof eventObj === 'object' && eventObj !== null ? eventObj.eventType : eventObj;
+    const payload = typeof eventObj === 'object' && eventObj !== null ? (eventObj.data || eventObj) : extraPayload;
+    const senderDeviceId = eventObj?.senderDeviceId || payload?.senderDeviceId;
+    const senderDeviceName = eventObj?.senderCounter || payload?.senderDeviceName || 'অন্য ডিভাইস';
+
+    if (eventType === 'CLOUD_STATE_UPDATED') {
       const currentDeviceId = getLocalDeviceId();
-      if (payload?.senderDeviceId !== currentDeviceId) {
+      if (!senderDeviceId || senderDeviceId !== currentDeviceId) {
         try {
           const pullRes = await pullLatestStateFromCloud({ force: true });
           if (pullRes.success && pullRes.state) {
-            onStateReceived(pullRes.state, payload?.senderDeviceName || 'অন্য ডিভাইস');
+            onStateReceived(pullRes.state, senderDeviceName);
           }
         } catch (e) {
           console.debug('[CloudStateSync] Realtime pull failed:', e);
@@ -287,7 +296,7 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
     }
   });
 
-  // 2. Continuous silent background auto-sync loop (2.5s heartbeat)
+  // 2. Continuous silent background auto-sync loop (2.0s heartbeat)
   const timer = setInterval(async () => {
     if (typeof navigator !== 'undefined' && navigator.onLine && !isSyncing) {
       try {
@@ -301,9 +310,46 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
     }
   }, intervalMs);
 
+  // 3. Instant pull on app wake, window focus, or network reconnect
+  const handleImmediateCheck = async () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine && !isSyncing) {
+      try {
+        const pullRes = await pullLatestStateFromCloud({ force: false });
+        if (pullRes.success && pullRes.state) {
+          onStateReceived(pullRes.state, pullRes.deviceOrigin?.name || 'ক্লাউড');
+        }
+      } catch (err) {
+        console.debug('[CloudStateSync] Immediate pull error:', err);
+      }
+    }
+  };
+
+  const handleVisibility = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      handleImmediateCheck();
+    }
+  };
+  const handleFocus = () => handleImmediateCheck();
+  const handleOnline = () => setTimeout(handleImmediateCheck, 1000);
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibility);
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+  }
+
   return () => {
     if (typeof unsubscribeLive === 'function') unsubscribeLive();
     clearInterval(timer);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
+    }
   };
 };
 

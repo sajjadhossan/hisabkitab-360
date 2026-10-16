@@ -1205,48 +1205,68 @@ export const AppProvider = ({ children }) => {
     return () => unsubLive();
   }, [activeBranchId, activeCounterId, businessSettings.currentCashierName]);
 
+  const applyCloudStateRef = useRef(null);
+  const latestStateRef = useRef({});
+
+  // Keep latestStateRef updated on every render so sync snapshot is never stale
+  latestStateRef.current = {
+    personalExpenses,
+    personalIncomes,
+    personalSavings,
+    personalDebts,
+    personalEvents,
+    bazaarShoppingList,
+    products,
+    salesHistory,
+    customers,
+    businessExpenses,
+    businessDebts,
+    trashBin,
+    suppliers,
+    employees,
+    businessSettings,
+    operatingMode,
+    profile
+  };
+
   // Phase 4 & 5: Register Delta Sync & Continuous Real-Time Cross-Device Auto-Sync
   useEffect(() => {
     registerDeltaSyncContextHooks({
-      getProducts: () => products,
+      getProducts: () => latestStateRef.current.products || [],
       setProducts,
-      getCustomers: () => customers,
+      getCustomers: () => latestStateRef.current.customers || [],
       setCustomers,
-      getSalesHistory: () => salesHistory,
-      setSalesHistory
+      getSalesHistory: () => latestStateRef.current.salesHistory || [],
+      setSalesHistory,
+      syncNowWithCloud: async () => {
+        try {
+          const pullRes = await pullLatestStateFromCloud({ force: false });
+          if (pullRes?.success && pullRes?.state && typeof applyCloudStateRef.current === 'function') {
+            applyCloudStateRef.current(pullRes.state);
+          }
+        } catch (e) {
+          console.debug('[DeltaSyncHook] Background pull notice:', e);
+        }
+      }
     });
     initAutoDeltaSyncScheduler();
 
-    // Continuous Real-Time Auto-Sync Engine (Instant WebSocket Broadcast + 2.5s Heartbeat)
+    // Continuous Real-Time Auto-Sync Engine (Instant WebSocket Broadcast + 2.0s Heartbeat)
     const unsubContinuous = initContinuousCloudSync({
-      getSnapshot: () => ({
-        personalExpenses,
-        trashBin,
-        businessExpenses
-      }),
+      getSnapshot: () => latestStateRef.current,
       onStateReceived: (incomingState, senderName) => {
         if (!incomingState || typeof incomingState !== 'object') return;
-        
-        if (Array.isArray(incomingState.personalExpenses)) {
-          setPersonalExpenses(incomingState.personalExpenses);
-          scheduleStorageWrite(STORAGE_KEYS.PERSONAL_EXPENSES, incomingState.personalExpenses);
-        }
-        if (Array.isArray(incomingState.trashBin)) {
-          setTrashBin(incomingState.trashBin);
-          scheduleStorageWrite(STORAGE_KEYS.TRASH_BIN, incomingState.trashBin);
-        }
-        if (Array.isArray(incomingState.businessExpenses)) {
-          setBusinessExpenses(incomingState.businessExpenses);
-          scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, incomingState.businessExpenses);
+        if (typeof applyCloudStateRef.current === 'function') {
+          applyCloudStateRef.current(incomingState);
         }
       },
-      intervalMs: 2500
+      intervalMs: 2000
     });
 
     return () => {
       if (typeof unsubContinuous === 'function') unsubContinuous();
     };
-  }, [products, customers, salesHistory]);
+  }, []);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.LICENSE_INFO, licenseInfo);
@@ -4923,8 +4943,14 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       setBusinessDebts(cloudState.businessDebts);
       localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(cloudState.businessDebts));
     }
+    if (Array.isArray(cloudState.trashBin)) {
+      setTrashBin(cloudState.trashBin);
+      localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(cloudState.trashBin));
+    }
     return true;
   }, []);
+
+  applyCloudStateRef.current = applyCloudState;
 
   const syncNowWithCloud = useCallback(async ({ silent = false } = {}) => {
     try {

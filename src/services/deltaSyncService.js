@@ -208,6 +208,17 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
     }
 
     // -------------------------------------------------------------
+    // STEP 3.5: UNIFIED CLOUD STATE SYNC (Expenses, Incomes, Debts, Trash)
+    // -------------------------------------------------------------
+    if (typeof appContextHooks?.syncNowWithCloud === 'function') {
+      try {
+        await appContextHooks.syncNowWithCloud();
+      } catch (cloudSyncErr) {
+        console.debug('[DeltaSyncEngine] Unified cloud state sync skipped:', cloudSyncErr);
+      }
+    }
+
+    // -------------------------------------------------------------
     // STEP 4: UPDATE SYNC TIMESTAMPS
     // -------------------------------------------------------------
     setLastDeltaSyncTime(newSyncTimestamp || new Date().toISOString());
@@ -244,17 +255,20 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
   }
 };
 
+let isSchedulerInitialized = false;
+
 /**
  * Initialize background interval and online listener
  */
 export const initAutoDeltaSyncScheduler = () => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isSchedulerInitialized) return;
+  isSchedulerInitialized = true;
 
   // 1. Auto sync on network reconnect
   window.addEventListener('online', () => {
     setTimeout(() => {
       executeBiDirectionalSync({ forceFull: false });
-    }, 2000);
+    }, 1500);
   });
 
   // 2. Periodic continuous background delta sync every 5 seconds
