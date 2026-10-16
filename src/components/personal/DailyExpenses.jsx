@@ -73,6 +73,14 @@ export const DailyExpenses = () => {
   const [selectedMember, setSelectedMember] = useState('all');
   const [selectedSubCategory, setSelectedSubCategory] = useState('all');
 
+  // ----------------------------------------------------
+  // 📅 MONTH SEGREGATION & RUNNING MONTH LOGIC
+  // ----------------------------------------------------
+  const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    return new Date().toISOString().slice(0, 7);
+  });
+
   // Modals state
   const [showModal, setShowModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
@@ -235,8 +243,55 @@ export const DailyExpenses = () => {
     return personalExpenses.filter(e => e.type === 'daily');
   }, [personalExpenses]);
 
+  // Extract all distinct months available in daily transactions
+  const availableMonths = useMemo(() => {
+    const monthMap = new Map();
+    (dailyList || []).forEach((item) => {
+      const d = item.date || '';
+      if (d.length >= 7) {
+        const mKey = d.slice(0, 7);
+        if (!monthMap.has(mKey)) {
+          monthMap.set(mKey, { key: mKey, count: 0, total: 0 });
+        }
+        const m = monthMap.get(mKey);
+        m.count += 1;
+        m.total += Number(item.amount) || 0;
+      }
+    });
+
+    if (!monthMap.has(currentMonthKey)) {
+      monthMap.set(currentMonthKey, { key: currentMonthKey, count: 0, total: 0 });
+    }
+
+    return Array.from(monthMap.values()).sort((a, b) => b.key.localeCompare(a.key));
+  }, [dailyList, currentMonthKey]);
+
+  // Bangla Month Title Formatter
+  const getBanglaMonthTitle = (monthKey) => {
+    if (!monthKey || monthKey === 'all') return lang === 'bn' ? 'সকল মাসের খরচ (একসাথে)' : 'All Months';
+    const parts = monthKey.split('-');
+    if (parts.length < 2) return monthKey;
+    const year = parts[0];
+    const monthNum = parseInt(parts[1], 10);
+    const bnMonths = [
+      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+      'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+    ];
+    const bnNums = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    const toBnNum = (n) => String(n).split('').map(d => bnNums[parseInt(d, 10)] ?? d).join('');
+    const monthName = bnMonths[monthNum - 1] || monthKey;
+    const isCurrent = monthKey === currentMonthKey;
+    return `${monthName} ${toBnNum(year)}${isCurrent ? (lang === 'bn' ? ' (চলতি মাস)' : ' (Current)') : ''}`;
+  };
+
+  // Scoped to selected month (Running month October by default)
+  const activeMonthExpenses = useMemo(() => {
+    if (selectedMonth === 'all') return dailyList;
+    return dailyList.filter(e => (e.date || '').startsWith(selectedMonth));
+  }, [dailyList, selectedMonth]);
+
   const filteredExpenses = useMemo(() => {
-    return dailyList.filter(item => {
+    return activeMonthExpenses.filter(item => {
       const search = searchTerm.toLowerCase().trim();
       const matchesSearch =
         !search ||
@@ -254,11 +309,11 @@ export const DailyExpenses = () => {
 
       return matchesSearch && matchesCat && matchesUnit && matchesMember && matchesSubCat;
     });
-  }, [dailyList, searchTerm, selectedCategory, selectedUnit, selectedMember, selectedSubCategory]);
+  }, [activeMonthExpenses, searchTerm, selectedCategory, selectedUnit, selectedMember, selectedSubCategory]);
 
   const totalDaily = useMemo(() => {
-    return dailyList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  }, [dailyList]);
+    return activeMonthExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  }, [activeMonthExpenses]);
 
   const totalFiltered = useMemo(() => {
     return filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -574,6 +629,169 @@ export const DailyExpenses = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 📅 MONTH SEGREGATION BAR (মাসভিত্তিক পৃথকীকরণ ও রানিং ফিল্টার) */}
+      {/* ======================================================== */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05))',
+          border: '1.5px solid rgba(16, 185, 129, 0.28)',
+          borderRadius: '16px',
+          padding: '14px 16px',
+          marginBottom: '1.25rem',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.06)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              <Calendar size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.94rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>{lang === 'bn' ? 'বাজারের মাস নির্বাচন:' : 'Select Bazaar Month:'}</span>
+                <span style={{ fontSize: '0.82rem', padding: '2px 10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.16)', color: '#10b981', fontWeight: '900', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  {getBanglaMonthTitle(selectedMonth)}
+                </span>
+                {selectedMonth === currentMonthKey && (
+                  <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: '#10b981', color: '#ffffff', fontWeight: '800' }}>
+                    {lang === 'bn' ? 'চলতি রানিং মাস' : 'Active Month'}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {lang === 'bn' ? 'চলতি মাস বা পূর্ববর্তী যেকোনো মাসের আলাদা হিসাব দেখতে নিচের বাটনগুলো চাপুন' : 'Click below to switch between active and previous months'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+              {lang === 'bn' ? 'মাসের ড্রপডাউন:' : 'Jump to Month:'}
+            </span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                fontSize: '0.84rem',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              {availableMonths.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {getBanglaMonthTitle(m.key)} — ৳{m.total.toLocaleString('en-IN')} ({m.count}টি)
+                </option>
+              ))}
+              <option value="all">
+                {lang === 'bn' ? '🌐 সকল মাস (একসাথে সম্পূর্ণ তালিকা)' : '🌐 All Months Combined'}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        {/* Scrollable Month Pills */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+            scrollbarWidth: 'thin'
+          }}
+        >
+          {availableMonths.map((m) => {
+            const isSelected = selectedMonth === m.key;
+            const isCurrent = m.key === currentMonthKey;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setSelectedMonth(m.key)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '12px',
+                  border: isSelected ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                  background: isSelected
+                    ? 'linear-gradient(135deg, #10b981, #059669)'
+                    : isCurrent
+                    ? 'rgba(16, 185, 129, 0.08)'
+                    : 'var(--bg-card)',
+                  color: isSelected ? '#ffffff' : 'var(--text-main)',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isSelected ? '0 4px 14px rgba(16, 185, 129, 0.35)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Calendar size={14} style={{ color: isSelected ? '#ffffff' : '#10b981' }} />
+                <span>{getBanglaMonthTitle(m.key)}</span>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    background: isSelected ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0,0,0,0.06)',
+                    color: isSelected ? '#ffffff' : '#f43f5e',
+                    fontWeight: '900'
+                  }}
+                >
+                  ৳{m.total.toLocaleString('en-IN')}
+                </span>
+                <span style={{ fontSize: '0.7rem', opacity: isSelected ? 0.9 : 0.6 }}>
+                  ({m.count}টি)
+                </span>
+              </button>
+            );
+          })}
+
+          {/* All Months button */}
+          <button
+            type="button"
+            onClick={() => setSelectedMonth('all')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              borderRadius: '12px',
+              border: selectedMonth === 'all' ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
+              background: selectedMonth === 'all' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--bg-card)',
+              color: selectedMonth === 'all' ? '#ffffff' : 'var(--text-main)',
+              fontSize: '0.8rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <span>{lang === 'bn' ? 'সব মাস' : 'All Months'}</span>
+          </button>
         </div>
       </div>
 
