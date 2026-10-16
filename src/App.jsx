@@ -206,7 +206,11 @@ const AppContent = () => {
 
     const unsubLive = subscribeLiveSync((evt) => {
       const cur = appStateRef.current;
-      if (evt?.eventType === 'sale_created') {
+      if (evt?.eventType === 'CLOUD_STATE_UPDATED') {
+        if (cur.syncNowWithCloud) {
+          cur.syncNowWithCloud({ silent: false });
+        }
+      } else if (evt?.eventType === 'sale_created') {
         if (cur.showToast) {
           cur.showToast(cur.lang === 'bn' ? '⚡ লাইভ ক্লাউড আপডেট: নতুন বিক্রি রেকর্ড হয়েছে' : '⚡ Live Sync: New sale recorded', 'info');
         }

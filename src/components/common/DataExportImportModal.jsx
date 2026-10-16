@@ -90,7 +90,8 @@ export const DataExportImportModal = ({
     driveUser,
     connectDriveOAuth,
     disconnectDriveOAuth,
-    switchDriveOAuth
+    switchDriveOAuth,
+    syncNowWithCloud
   } = useApp();
 
   const [activeTab, setActiveTab] = useState(defaultTab || 'cloud_drive'); // 'cloud_drive' | 'encrypted_backup' | 'import' | 'export' | 'history'
@@ -968,6 +969,13 @@ export const DataExportImportModal = ({
       entityType: 'SmartExpenseImport',
       note: `ফাইল: ${backupSnapshot.fileName} | রেকর্ড: ${count}টি | মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}`
     });
+
+    // Automatically trigger unified cloud sync so Mobile APK and PC App update instantly
+    if (typeof syncNowWithCloud === 'function') {
+      setTimeout(() => {
+        syncNowWithCloud({ silent: true }).catch(() => {});
+      }, 600);
+    }
 
     // Check if any candidate rows remain (e.g. from other months)
     const selectedIds = new Set(selectedRows.map(r => r.id));

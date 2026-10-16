@@ -88,6 +88,14 @@ import {
   getDeviceName,
   DEVICE_TYPES
 } from '../services/deviceManagerService';
+import {
+  pushStateToCloud,
+  pullLatestStateFromCloud,
+  scheduleDebouncedCloudPush,
+  subscribeCloudStateSync,
+  getLastCloudSyncTimestamp,
+  getLastSyncDeviceName
+} from '../services/cloudStateSyncService';
 
 const AppContext = createContext();
 
@@ -4656,6 +4664,158 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     localStorage.setItem('hk360_pos_display_mode', mode);
   };
 
+  // ----------------------------------------------------
+  // UNIFIED CROSS-DEVICE CLOUD STATE SYNCHRONIZATION ENGINE
+  // ----------------------------------------------------
+  const [cloudSyncState, setCloudSyncState] = useState({
+    isSyncing: false,
+    lastSyncTimestamp: getLastCloudSyncTimestamp(),
+    lastDevice: getLastSyncDeviceName(),
+    statusText: ''
+  });
+
+  useEffect(() => {
+    const unsub = subscribeCloudStateSync((s) => {
+      setCloudSyncState(prev => ({ ...prev, ...s }));
+    });
+    return () => unsub();
+  }, []);
+
+  const getActiveStateSnapshot = useCallback(() => {
+    return {
+      personalExpenses,
+      personalIncomes,
+      personalSavings,
+      personalDebts,
+      personalEvents,
+      bazaarShoppingList,
+      products,
+      salesHistory,
+      customers,
+      businessExpenses,
+      businessDebts,
+      suppliers,
+      employees,
+      businessSettings,
+      operatingMode,
+      profile
+    };
+  }, [
+    personalExpenses,
+    personalIncomes,
+    personalSavings,
+    personalDebts,
+    personalEvents,
+    bazaarShoppingList,
+    products,
+    salesHistory,
+    customers,
+    businessExpenses,
+    businessDebts,
+    suppliers,
+    employees,
+    businessSettings,
+    operatingMode,
+    profile
+  ]);
+
+  const applyCloudState = useCallback((cloudState) => {
+    if (!cloudState || typeof cloudState !== 'object') return false;
+
+    if (Array.isArray(cloudState.personalExpenses)) {
+      setPersonalExpenses(cloudState.personalExpenses);
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(cloudState.personalExpenses));
+    }
+    if (Array.isArray(cloudState.personalIncomes)) {
+      setPersonalIncomes(cloudState.personalIncomes);
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_INCOMES, JSON.stringify(cloudState.personalIncomes));
+    }
+    if (Array.isArray(cloudState.personalSavings)) {
+      setPersonalSavings(cloudState.personalSavings);
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_SAVINGS, JSON.stringify(cloudState.personalSavings));
+    }
+    if (Array.isArray(cloudState.personalDebts)) {
+      setPersonalDebts(cloudState.personalDebts);
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_DEBTS, JSON.stringify(cloudState.personalDebts));
+    }
+    if (Array.isArray(cloudState.personalEvents)) {
+      setPersonalEvents(cloudState.personalEvents);
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_EVENTS, JSON.stringify(cloudState.personalEvents));
+    }
+    if (Array.isArray(cloudState.bazaarShoppingList)) {
+      setBazaarShoppingList(cloudState.bazaarShoppingList);
+      localStorage.setItem(STORAGE_KEYS.BAZAAR_SHOPPING_LIST, JSON.stringify(cloudState.bazaarShoppingList));
+    }
+    if (Array.isArray(cloudState.products)) {
+      setProducts(cloudState.products);
+      localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(cloudState.products));
+    }
+    if (Array.isArray(cloudState.salesHistory)) {
+      setSalesHistory(cloudState.salesHistory);
+      localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(cloudState.salesHistory));
+    }
+    if (Array.isArray(cloudState.customers)) {
+      setCustomers(cloudState.customers);
+      localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(cloudState.customers));
+    }
+    if (Array.isArray(cloudState.businessExpenses)) {
+      setBusinessExpenses(cloudState.businessExpenses);
+      localStorage.setItem(STORAGE_KEYS.BIZ_EXPENSES, JSON.stringify(cloudState.businessExpenses));
+    }
+    if (Array.isArray(cloudState.businessDebts)) {
+      setBusinessDebts(cloudState.businessDebts);
+      localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(cloudState.businessDebts));
+    }
+    return true;
+  }, []);
+
+  const syncNowWithCloud = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const pullRes = await pullLatestStateFromCloud({ force: false });
+      if (pullRes.success && pullRes.state) {
+        applyCloudState(pullRes.state);
+        if (!silent) {
+          showToast(
+            lang === 'bn'
+              ? `⚡ ক্লাউড থেকে লেটেস্ট ডাটা সিঙ্ক সম্পন্ন হয়েছে (${pullRes.deviceOrigin?.name || 'অন্য ডিভাইস'} থেকে)`
+              : '⚡ Synced latest state from cloud!',
+            'success'
+          );
+        }
+        return { success: true, action: 'pulled', timestamp: pullRes.timestamp };
+      } else {
+        const snapshot = getActiveStateSnapshot();
+        const pushRes = await pushStateToCloud(snapshot, 'manual_sync_trigger');
+        if (pushRes.success) {
+          if (!silent) {
+            showToast(
+              lang === 'bn'
+                ? '✓ সমস্ত ডাটা ক্লাউডে নিরাপদে সিঙ্ক হয়েছে'
+                : '✓ State synced to cloud successfully',
+              'success'
+            );
+          }
+          return { success: true, action: 'pushed', timestamp: pushRes.timestamp };
+        }
+      }
+    } catch (e) {
+      console.warn('[CloudSync] Manual trigger notice:', e);
+    }
+    return { success: false };
+  }, [applyCloudState, getActiveStateSnapshot, lang, showToast]);
+
+  // Automatic boot check: pulls newer state from cloud if available
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      pullLatestStateFromCloud().then(res => {
+        if (res.success && res.state) {
+          applyCloudState(res.state);
+        }
+      }).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [applyCloudState]);
+
   return (
     <AppContext.Provider
       value={{
@@ -4913,6 +5073,16 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         // Phase 4: Bi-Directional Delta Sync & Conflict Resolution
         executeBiDirectionalSync,
         getLastDeltaSyncTime,
+
+        // Unified Cross-Device Cloud Sync Engine (Web, Mobile APK, PC)
+        syncNowWithCloud,
+        getActiveStateSnapshot,
+        pushStateToCloud,
+        pullLatestStateFromCloud,
+        cloudSyncState,
+        isCloudSyncing: cloudSyncState.isSyncing,
+        lastCloudSyncTimestamp: cloudSyncState.lastSyncTimestamp,
+        lastCloudSyncDevice: cloudSyncState.lastDevice,
 
         // Robust AppContext Aliases & Fallbacks
         debtRecords: personalDebts,

@@ -33,7 +33,7 @@ import { executeBiDirectionalSync, getLastDeltaSyncTime } from '../../services/d
 import { hapticFeedback } from '../../services/nativeAppService';
 
 export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true }) => {
-  const { lang, businessSettings, showToast, deviceRegistry, currentDevice } = useApp();
+  const { lang, businessSettings, showToast, deviceRegistry, currentDevice, syncNowWithCloud } = useApp();
   const { isSupabaseActive } = useAuth();
 
   const [connected, setConnected] = useState(() => isLiveSyncConnected());
@@ -131,13 +131,16 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
     setIsDeltaSyncing(true);
     hapticFeedback.light();
     try {
+      if (typeof syncNowWithCloud === 'function') {
+        await syncNowWithCloud({ silent: false });
+      }
       const res = await executeBiDirectionalSync();
       if (res?.success) {
         if (showToast) {
           showToast(
             lang === 'bn'
-              ? `✓ ডেল্টা সিঙ্ক সম্পন্ন! (${res.pushedCount} আপলোড, ${res.pulledProductsCount + res.pulledCustomersCount + res.pulledInvoicesCount} ডাউনলোড)`
-              : `✓ Delta sync complete!`,
+              ? `✓ ক্লাউড ও ডেল্টা সিঙ্ক সম্পন্ন!`
+              : `✓ Cloud and delta sync complete!`,
             'success'
           );
         }
