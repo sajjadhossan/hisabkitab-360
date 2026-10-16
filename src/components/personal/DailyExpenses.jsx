@@ -43,6 +43,7 @@ import { MarketPriceTrackerModal } from '../common/MarketPriceTrackerModal';
 import { RoutineShoppingPresetsModal } from '../common/RoutineShoppingPresetsModal';
 import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
+import SmartAITextImportModal from './SmartAITextImportModal';
 
 const DEFAULT_CATEGORY_SUB_MAP = {
   transport: ['বাস ভাড়া', 'অটো / সিএনজি ভাড়া', 'রিকশা ভাড়া', 'উবার / পাঠাও রাইড', 'মেট্রোরেল ভাড়া', 'মোটরসাইকেল তেল', 'ট্রেন / লঞ্চ ভাড়া'],
@@ -99,6 +100,7 @@ export const DailyExpenses = () => {
   const [showRoutinePresetsModal, setShowRoutinePresetsModal] = useState(false);
   const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
   const [showSmartExportModal, setShowSmartExportModal] = useState(false);
+  const [showAIImportModal, setShowAIImportModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
 
@@ -564,6 +566,30 @@ export const DailyExpenses = () => {
           >
             <FileSpreadsheet size={16} />
             <span>{lang === 'bn' ? 'স্মার্ট এক্সপোর্ট' : 'Smart Export'}</span>
+          </button>
+
+          {/* Smart AI Text Import Button */}
+          <button
+            onClick={() => setShowAIImportModal(true)}
+            title={lang === 'bn' ? 'ChatGPT বা Gemini-র টেক্সট থেকে স্মার্ট ইমপোর্ট' : 'Smart AI Text Import'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15))',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
+            }}
+          >
+            <Sparkles size={16} />
+            <span>{lang === 'bn' ? '⚡ এআই টেক্সট ইমপোর্ট' : '⚡ AI Text Import'}</span>
           </button>
 
           {/* Add Daily Expense Button */}
@@ -1512,6 +1538,13 @@ export const DailyExpenses = () => {
       <SmartExpenseExportModal
         isOpen={showSmartExportModal}
         onClose={() => setShowSmartExportModal(false)}
+      />
+
+      {/* Smart AI Text Import Modal */}
+      <SmartAITextImportModal
+        isOpen={showAIImportModal}
+        onClose={() => setShowAIImportModal(false)}
+        defaultType="daily"
       />
     </div>
   );
