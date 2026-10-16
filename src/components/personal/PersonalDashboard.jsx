@@ -57,43 +57,101 @@ export const PersonalDashboard = () => {
   const [showZakatModal, setShowZakatModal] = useState(false);
   const [showShoppingListModal, setShowShoppingListModal] = useState(false);
 
-  // Calculate totals (Memoized)
-  const totalIncome = useMemo(() => personalIncomes.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0), [personalIncomes]);
-  const totalExpense = useMemo(() => personalExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0), [personalExpenses]);
-  const netBalance = totalIncome - totalExpense;
+  // ----------------------------------------------------
+  // 📅 TIME FRAME INTELLIGENCE & SCOPED METRICS
+  // ----------------------------------------------------
+  const now = useMemo(() => new Date(), []);
+  const toYMD = (d) => d.toISOString().split('T')[0];
+  const pad = (n) => String(n).padStart(2, '0');
 
-  const dailyExpensesTotal = useMemo(() => personalExpenses
-    .filter(e => e.type === 'daily')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0), [personalExpenses]);
+  const thisYear = now.getFullYear();
+  const thisMonth = now.getMonth();
+  const thisMonthPrefix = `${thisYear}-${pad(thisMonth + 1)}`;
+  const lastMonthDate = useMemo(() => new Date(thisYear, thisMonth - 1, 1), [thisYear, thisMonth]);
+  const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${pad(lastMonthDate.getMonth() + 1)}`;
+  const thisYearPrefix = String(thisYear);
 
-  const familyExpensesTotal = useMemo(() => personalExpenses
-    .filter(e => e.type === 'family')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0), [personalExpenses]);
+  // Available unique months from dataset
+  const availableMonths = useMemo(() => {
+    const set = new Set();
+    personalExpenses.forEach(e => {
+      if (e.date && e.date.length >= 7) set.add(e.date.slice(0, 7));
+    });
+    return Array.from(set).sort().reverse();
+  }, [personalExpenses]);
 
-  const familySharePercent = totalExpense > 0 ? Math.round((familyExpensesTotal / totalExpense) * 100) : 0;
+  const getMonthNameBengali = (yyyyMm) => {
+    if (!yyyyMm) return '';
+    const parts = yyyyMm.split('-');
+    if (parts.length !== 2) return yyyyMm;
+    const monthNum = parseInt(parts[1], 10);
+    const monthsBn = [
+      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+      'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+    ];
+    return `${monthsBn[monthNum - 1] || parts[1]} ${parts[0]}`;
+  };
+
+  // Strictly Scoped Metrics
+  const thisMonthExpenseList = useMemo(() => {
+    return personalExpenses.filter(e => (e.date || '').startsWith(thisMonthPrefix));
+  }, [personalExpenses, thisMonthPrefix]);
+
+  const thisMonthTotalExpense = useMemo(() => {
+    return thisMonthExpenseList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [thisMonthExpenseList]);
+
+  const thisMonthDailyTotal = useMemo(() => {
+    return thisMonthExpenseList.filter(e => e.type === 'daily').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  }, [thisMonthExpenseList]);
+
+  const thisMonthFamilyTotal = useMemo(() => {
+    return thisMonthExpenseList.filter(e => e.type === 'family').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  }, [thisMonthExpenseList]);
+
+  const lastMonthExpenseList = useMemo(() => {
+    return personalExpenses.filter(e => (e.date || '').startsWith(lastMonthPrefix));
+  }, [personalExpenses, lastMonthPrefix]);
+
+  const lastMonthTotalExpense = useMemo(() => {
+    return lastMonthExpenseList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [lastMonthExpenseList]);
+
+  const thisYearExpenseList = useMemo(() => {
+    return personalExpenses.filter(e => (e.date || '').startsWith(thisYearPrefix));
+  }, [personalExpenses, thisYearPrefix]);
+
+  const thisYearTotalExpense = useMemo(() => {
+    return thisYearExpenseList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [thisYearExpenseList]);
+
+  // Income metrics
+  const thisMonthIncome = useMemo(() => {
+    return personalIncomes
+      .filter(i => (i.date || '').startsWith(thisMonthPrefix))
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [personalIncomes, thisMonthPrefix]);
+
+  const totalAllTimeIncome = useMemo(() => {
+    return personalIncomes.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [personalIncomes]);
+
+  const totalAllTimeExpense = useMemo(() => {
+    return personalExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [personalExpenses]);
+
+  const thisMonthNetBalance = thisMonthIncome - thisMonthTotalExpense;
+  const totalAllTimeNetBalance = totalAllTimeIncome - totalAllTimeExpense;
+
+  const familySharePercent = thisMonthTotalExpense > 0
+    ? Math.round((thisMonthFamilyTotal / thisMonthTotalExpense) * 100)
+    : (totalAllTimeExpense > 0 ? Math.round((personalExpenses.filter(e => e.type === 'family').reduce((s, e) => s + (Number(e.amount) || 0), 0) / totalAllTimeExpense) * 100) : 0);
 
   // 🕒 Multi-Timeframe Personal Expense Intelligence (Today, This Month, Last Month - with imported records)
   const timeframeExpenses = useMemo(() => {
-    const now = new Date();
-    const toYMD = (d) => d.toISOString().split('T')[0];
     const todayStr = toYMD(now);
-
-    const thisYear = now.getFullYear();
-    const thisMonth = now.getMonth();
-    const pad = (n) => String(n).padStart(2, '0');
-
-    const thisMonthPrefix = `${thisYear}-${pad(thisMonth + 1)}`;
-    const lastMonthDate = new Date(thisYear, thisMonth - 1, 1);
-    const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${pad(lastMonthDate.getMonth() + 1)}`;
-
     const todayList = personalExpenses.filter(e => (e.date || '').startsWith(todayStr));
     const todayTotal = todayList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-    const thisMonthList = personalExpenses.filter(e => (e.date || '').startsWith(thisMonthPrefix));
-    const thisMonthTotal = thisMonthList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-    const lastMonthList = personalExpenses.filter(e => (e.date || '').startsWith(lastMonthPrefix));
-    const lastMonthTotal = lastMonthList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     // 7-day breakdown
     const bnDayNames = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
@@ -115,14 +173,43 @@ export const PersonalDashboard = () => {
     return {
       todayTotal,
       todayCount: todayList.length,
-      thisMonthTotal,
-      thisMonthCount: thisMonthList.length,
-      lastMonthTotal,
-      lastMonthCount: lastMonthList.length,
+      thisMonthTotal: thisMonthTotalExpense,
+      thisMonthCount: thisMonthExpenseList.length,
+      lastMonthTotal: lastMonthTotalExpense,
+      lastMonthCount: lastMonthExpenseList.length,
       lastMonthName,
       past7Days
     };
-  }, [personalExpenses, lang]);
+  }, [personalExpenses, lang, now, lastMonthDate, thisMonthTotalExpense, thisMonthExpenseList.length, lastMonthTotalExpense, lastMonthExpenseList.length]);
+
+  // ----------------------------------------------------
+  // 🔍 TABLE TIMEFRAME FILTER STATE
+  // ----------------------------------------------------
+  const [tableTimeframe, setTableTimeframe] = useState('this_month'); // 'this_month' | 'last_month' | 'today' | 'week' | 'custom_month' | 'year' | 'all'
+  const [customSelectedMonth, setCustomSelectedMonth] = useState(() => availableMonths[0] || thisMonthPrefix);
+
+  const filteredTableExpenses = useMemo(() => {
+    const todayStr = toYMD(now);
+    const d7 = new Date(now);
+    d7.setDate(now.getDate() - 7);
+    const weekAgoStr = toYMD(d7);
+
+    return personalExpenses.filter(e => {
+      const d = e.date || '';
+      if (tableTimeframe === 'today') return d.startsWith(todayStr);
+      if (tableTimeframe === 'week') return d >= weekAgoStr && d <= todayStr;
+      if (tableTimeframe === 'this_month') return d.startsWith(thisMonthPrefix);
+      if (tableTimeframe === 'last_month') return d.startsWith(lastMonthPrefix);
+      if (tableTimeframe === 'custom_month') return customSelectedMonth ? d.startsWith(customSelectedMonth) : true;
+      if (tableTimeframe === 'year') return d.startsWith(thisYearPrefix);
+      if (tableTimeframe === 'all') return true;
+      return true;
+    });
+  }, [personalExpenses, tableTimeframe, customSelectedMonth, now, thisMonthPrefix, lastMonthPrefix, thisYearPrefix]);
+
+  const tableFilterTotalAmount = useMemo(() => {
+    return filteredTableExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  }, [filteredTableExpenses]);
 
   // Quick Rename Handler
   const handleQuickRename = (expense) => {
@@ -311,60 +398,58 @@ export const PersonalDashboard = () => {
 
       {/* KPI Stats Grid */}
       <div className="stats-grid">
-        {/* Total Income */}
-        <div className="glass-card stat-card glow-card">
-          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-            <Wallet size={24} />
-          </div>
-          <div className="stat-info">
-            <h3>{t.personal.totalIncome}</h3>
-            <div className="stat-value">৳{totalIncome.toLocaleString()}</div>
-            <div className="stat-trend" style={{ color: '#10b981' }}>
-              <TrendingUp size={14} /> {lang === 'bn' ? 'চলতি মাস' : 'Current Month'}
-            </div>
-          </div>
-        </div>
-
-        {/* Total Expense */}
-        <div className="glass-card stat-card glow-card">
-          <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+        {/* Card 1: Current Month Expenses */}
+        <div className="glass-card stat-card glow-card" style={{ border: '1.5px solid rgba(14, 165, 233, 0.35)' }}>
+          <div className="stat-icon" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9' }}>
             <TrendingDown size={24} />
           </div>
           <div className="stat-info">
-            <h3>{t.personal.totalExpense}</h3>
-            <div className="stat-value">৳{totalExpense.toLocaleString()}</div>
-            <div className="stat-trend" style={{ color: '#ef4444' }}>
-              {dailyExpensesTotal.toLocaleString()} {lang === 'bn' ? 'দৈনিক' : 'Daily'} + {familyExpensesTotal.toLocaleString()} {lang === 'bn' ? 'পারিবারিক' : 'Family'}
+            <h3 style={{ color: '#0ea5e9' }}>{lang === 'bn' ? 'চলতি মাসের মোট খরচ' : 'This Month Expense'}</h3>
+            <div className="stat-value" style={{ color: '#0ea5e9' }}>৳{thisMonthTotalExpense.toLocaleString()}</div>
+            <div className="stat-trend" style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+              ৳{thisMonthDailyTotal.toLocaleString()} {lang === 'bn' ? 'দৈনিক' : 'Daily'} + ৳{thisMonthFamilyTotal.toLocaleString()} {lang === 'bn' ? 'পারিবারিক' : 'Family'}
             </div>
           </div>
         </div>
 
-        {/* Net Remaining Balance */}
-        <div className="glass-card stat-card glow-card">
-          <div className="stat-icon" style={{ background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' }}>
-            <PieIcon size={24} />
+        {/* Card 2: Last Month Expenses (Pre-imported Month) */}
+        <div className="glass-card stat-card glow-card" style={{ border: '1.5px solid rgba(245, 158, 11, 0.35)' }}>
+          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+            <Calendar size={24} />
           </div>
           <div className="stat-info">
-            <h3>{t.personal.netBalance}</h3>
-            <div className="stat-value" style={{ color: netBalance >= 0 ? '#10b981' : '#ef4444' }}>
-              ৳{netBalance.toLocaleString()}
-            </div>
-            <div className="stat-trend" style={{ color: 'var(--text-muted)' }}>
-              {netBalance >= 0 ? (lang === 'bn' ? 'সঞ্চয়ের সুযোগ আছে' : 'Positive Surplus') : (lang === 'bn' ? 'বাজেট ঘাটতি' : 'Overbudget')}
+            <h3 style={{ color: '#f59e0b' }}>{lang === 'bn' ? `গত মাসের খরচ (${timeframeExpenses.lastMonthName})` : 'Last Month Expense'}</h3>
+            <div className="stat-value" style={{ color: '#f59e0b' }}>৳{lastMonthTotalExpense.toLocaleString()}</div>
+            <div className="stat-trend" style={{ color: '#f59e0b', fontSize: '0.74rem' }}>
+              {lastMonthExpenseList.length} {lang === 'bn' ? 'টি এন্ট্রি (এক্সেল/পিডিএফ ইমপোর্ট)' : 'items (imported)'}
             </div>
           </div>
         </div>
 
-        {/* Family Share */}
-        <div className="glass-card stat-card glow-card">
+        {/* Card 3: This Year Total Expense */}
+        <div className="glass-card stat-card glow-card" style={{ border: '1.5px solid rgba(139, 92, 246, 0.35)' }}>
           <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
             <Home size={24} />
           </div>
           <div className="stat-info">
-            <h3>{t.personal.familyShare}</h3>
-            <div className="stat-value">{familySharePercent}%</div>
-            <div className="stat-trend" style={{ color: '#8b5cf6' }}>
-              ৳{familyExpensesTotal.toLocaleString()} {lang === 'bn' ? 'পারিবারিক ব্যয়' : 'Family Cost'}
+            <h3 style={{ color: '#8b5cf6' }}>{lang === 'bn' ? `এই বছরের খরচ (${thisYear})` : 'This Year Expense'}</h3>
+            <div className="stat-value" style={{ color: '#8b5cf6' }}>৳{thisYearTotalExpense.toLocaleString()}</div>
+            <div className="stat-trend" style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+              {lang === 'bn' ? 'সর্বমোট অল-টাইম:' : 'All-time:'} ৳{totalAllTimeExpense.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Current Month Income & Net Balance */}
+        <div className="glass-card stat-card glow-card" style={{ border: '1.5px solid rgba(16, 185, 129, 0.35)' }}>
+          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+            <Wallet size={24} />
+          </div>
+          <div className="stat-info">
+            <h3 style={{ color: '#10b981' }}>{lang === 'bn' ? 'চলতি মাসের আয় ও ব্যালেন্স' : 'This Month Income & Net'}</h3>
+            <div className="stat-value" style={{ color: '#10b981' }}>৳{thisMonthIncome.toLocaleString()}</div>
+            <div className="stat-trend" style={{ color: thisMonthNetBalance >= 0 ? '#10b981' : '#ef4444', fontSize: '0.74rem', fontWeight: '700' }}>
+              {lang === 'bn' ? 'নিট ব্যালেন্স:' : 'Net:'} ৳{thisMonthNetBalance.toLocaleString()} {thisMonthNetBalance >= 0 ? '(উদ্বৃত্ত)' : '(ঘাটতি)'}
             </div>
           </div>
         </div>
@@ -541,10 +626,10 @@ export const PersonalDashboard = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: '700', margin: 0 }}>
-              {lang === 'bn' ? 'ব্যক্তিগত ও পারিবারিক খরচের তালিকা (এডিট ও রিনেম সুবিধা সহ)' : 'Personal & Family Expenses (Editable)'}
+              {lang === 'bn' ? 'ব্যক্তিগত ও পারিবারিক খরচের তালিকা (সময়কাল ফিল্টার সহ)' : 'Personal & Family Expenses (Filtered)'}
             </h3>
             <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-              {personalExpenses.length} {lang === 'bn' ? 'টি মোট এন্ট্রি' : 'total entries'}
+              {lang === 'bn' ? 'নির্বাচিত ফিল্টারে মোট এন্ট্রি:' : 'Filtered Entries:'} <strong style={{ color: '#0ea5e9' }}>{filteredTableExpenses.length}</strong> {lang === 'bn' ? 'টি' : ''} | {lang === 'bn' ? 'মোট:' : 'Total:'} <strong style={{ color: '#ef4444' }}>৳{tableFilterTotalAmount.toLocaleString('en-IN')}</strong>
             </span>
           </div>
 
@@ -564,8 +649,89 @@ export const PersonalDashboard = () => {
           >
             {showAllEntries
               ? (lang === 'bn' ? 'সংক্ষিপ্ত দেখুন (১০টি)' : 'Show 10')
-              : (lang === 'bn' ? `সবগুলো দেখুন (${personalExpenses.length}টি)` : `Show All (${personalExpenses.length})`)}
+              : (lang === 'bn' ? `সবগুলো দেখুন (${filteredTableExpenses.length}টি)` : `Show All (${filteredTableExpenses.length})`)}
           </button>
+        </div>
+
+        {/* 📅 Comprehensive Timeframe Filter Bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginBottom: '1rem',
+            padding: '10px 14px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)'
+          }}
+        >
+          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar size={14} style={{ color: '#0ea5e9' }} /> {lang === 'bn' ? 'ফিল্টার:' : 'Filter:'}
+          </span>
+
+          {[
+            { id: 'today', label: lang === 'bn' ? 'আজ' : 'Today' },
+            { id: 'week', label: lang === 'bn' ? 'এই সপ্তাহ' : 'This Week' },
+            { id: 'this_month', label: lang === 'bn' ? 'চলতি মাস (অক্টোবর)' : 'This Month' },
+            { id: 'last_month', label: lang === 'bn' ? 'গত মাস (সেপ্টেম্বর)' : 'Last Month' },
+            { id: 'year', label: lang === 'bn' ? `এই বছর (${thisYear})` : 'This Year' },
+            { id: 'all', label: lang === 'bn' ? 'সকল লেনদেন' : 'All Time' }
+          ].map(f => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setTableTimeframe(f.id)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: tableTimeframe === f.id ? '#0284c7' : 'rgba(255, 255, 255, 0.06)',
+                color: tableTimeframe === f.id ? '#ffffff' : 'var(--text-muted)',
+                fontWeight: tableTimeframe === f.id ? '800' : '600',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+
+          {/* Specific Month Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'নির্দিষ্ট মাস:' : 'Specific Month:'}</span>
+            <select
+              value={tableTimeframe === 'custom_month' ? customSelectedMonth : ''}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setCustomSelectedMonth(e.target.value);
+                  setTableTimeframe('custom_month');
+                }
+              }}
+              style={{
+                padding: '5px 10px',
+                borderRadius: '8px',
+                backgroundColor: tableTimeframe === 'custom_month' ? '#0284c7' : 'rgba(255, 255, 255, 0.08)',
+                color: '#ffffff',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.78rem',
+                fontWeight: '600',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="" style={{ backgroundColor: '#1e2230' }}>
+                {lang === 'bn' ? '📅 মাস নির্বাচন করুন...' : 'Select month...'}
+              </option>
+              {availableMonths.map(m => (
+                <option key={m} value={m} style={{ backgroundColor: '#1e2230' }}>
+                  {getMonthNameBengali(m)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="table-responsive">
@@ -581,7 +747,14 @@ export const PersonalDashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {(showAllEntries ? personalExpenses : personalExpenses.slice(0, 10)).map((exp) => (
+              {filteredTableExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '28px', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'নির্বাচিত সময়কালে কোনো খরচের তথ্য পাওয়া যায়নি।' : 'No expenses found in selected timeframe.'}
+                  </td>
+                </tr>
+              ) : (
+                (showAllEntries ? filteredTableExpenses : filteredTableExpenses.slice(0, 10)).map((exp) => (
                 <tr key={exp.id}>
                   <td style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                     <Calendar size={13} style={{ display: 'inline', marginRight: '4px' }} />
@@ -643,7 +816,7 @@ export const PersonalDashboard = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

@@ -152,11 +152,26 @@ export const BusinessDashboard = () => {
     }, 0);
   }, [todaySalesList]);
 
-  // Selected Time Horizon Metrics (Today / Yesterday / 7 Days / 30 Days / All)
+  // Selected Time Horizon Metrics (Today / Yesterday / 7 Days / This Month / Last Month / Year / All)
   const yesterdayDateStr = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toISOString().split('T')[0];
+  }, []);
+
+  const thisMonthStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const lastMonthStr = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const thisYearStr = useMemo(() => {
+    return `${new Date().getFullYear()}`;
   }, []);
 
   const periodSalesList = useMemo(() => {
@@ -173,14 +188,17 @@ export const BusinessDashboard = () => {
       const weekAgoStr = weekAgo.toISOString().split('T')[0];
       return filteredSales.filter(s => (s.date || '').split('T')[0] >= weekAgoStr);
     }
-    if (timeHorizon === 'month') {
-      const monthAgo = new Date();
-      monthAgo.setDate(now.getDate() - 30);
-      const monthAgoStr = monthAgo.toISOString().split('T')[0];
-      return filteredSales.filter(s => (s.date || '').split('T')[0] >= monthAgoStr);
+    if (timeHorizon === 'this_month' || timeHorizon === 'month') {
+      return filteredSales.filter(s => (s.date || '').startsWith(thisMonthStr));
+    }
+    if (timeHorizon === 'last_month') {
+      return filteredSales.filter(s => (s.date || '').startsWith(lastMonthStr));
+    }
+    if (timeHorizon === 'year') {
+      return filteredSales.filter(s => (s.date || '').startsWith(thisYearStr));
     }
     return filteredSales;
-  }, [filteredSales, timeHorizon, todayDateStr, yesterdayDateStr]);
+  }, [filteredSales, timeHorizon, todayDateStr, yesterdayDateStr, thisMonthStr, lastMonthStr, thisYearStr]);
 
   const periodExpensesList = useMemo(() => {
     const now = new Date();
@@ -196,14 +214,17 @@ export const BusinessDashboard = () => {
       const weekAgoStr = weekAgo.toISOString().split('T')[0];
       return businessExpenses.filter(e => (e.date || '').split('T')[0] >= weekAgoStr);
     }
-    if (timeHorizon === 'month') {
-      const monthAgo = new Date();
-      monthAgo.setDate(now.getDate() - 30);
-      const monthAgoStr = monthAgo.toISOString().split('T')[0];
-      return businessExpenses.filter(e => (e.date || '').split('T')[0] >= monthAgoStr);
+    if (timeHorizon === 'this_month' || timeHorizon === 'month') {
+      return businessExpenses.filter(e => (e.date || '').startsWith(thisMonthStr));
+    }
+    if (timeHorizon === 'last_month') {
+      return businessExpenses.filter(e => (e.date || '').startsWith(lastMonthStr));
+    }
+    if (timeHorizon === 'year') {
+      return businessExpenses.filter(e => (e.date || '').startsWith(thisYearStr));
     }
     return businessExpenses;
-  }, [businessExpenses, timeHorizon, todayDateStr, yesterdayDateStr]);
+  }, [businessExpenses, timeHorizon, todayDateStr, yesterdayDateStr, thisMonthStr, lastMonthStr, thisYearStr]);
 
   const periodSalesTotal = useMemo(() => periodSalesList.reduce((acc, s) => acc + (Number(s.grandTotal) || 0), 0), [periodSalesList]);
   const periodExpensesTotal = useMemo(() => periodExpensesList.reduce((acc, e) => acc + (Number(e.amount) || 0), 0), [periodExpensesList]);
@@ -867,10 +888,12 @@ export const BusinessDashboard = () => {
 
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {[
-            { id: 'today', label: lang === 'bn' ? 'আজ (Today)' : 'Today' },
+            { id: 'today', label: lang === 'bn' ? 'আজ' : 'Today' },
             { id: 'yesterday', label: lang === 'bn' ? 'গতকাল' : 'Yesterday' },
             { id: 'week', label: lang === 'bn' ? 'বিগত ৭ দিন' : 'Last 7 Days' },
-            { id: 'month', label: lang === 'bn' ? 'চলতি মাস (৩০ দিন)' : '30 Days' },
+            { id: 'this_month', label: lang === 'bn' ? 'চলতি মাস' : 'This Month' },
+            { id: 'last_month', label: lang === 'bn' ? 'গত মাস' : 'Last Month' },
+            { id: 'year', label: lang === 'bn' ? 'এই বছর' : 'This Year' },
             { id: 'all', label: lang === 'bn' ? 'সর্বমোট' : 'All Time' }
           ].map(tab => (
             <button
@@ -884,11 +907,11 @@ export const BusinessDashboard = () => {
                 padding: '5px 12px',
                 borderRadius: '8px',
                 fontSize: '0.78rem',
-                fontWeight: timeHorizon === tab.id ? '800' : '600',
-                background: timeHorizon === tab.id ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-card)',
-                color: timeHorizon === tab.id ? '#ffffff' : 'var(--text-muted)',
-                border: timeHorizon === tab.id ? '1px solid #10b981' : '1px solid var(--border-color)',
-                boxShadow: timeHorizon === tab.id ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
+                fontWeight: (timeHorizon === tab.id || (tab.id === 'this_month' && timeHorizon === 'month')) ? '800' : '600',
+                background: (timeHorizon === tab.id || (tab.id === 'this_month' && timeHorizon === 'month')) ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-card)',
+                color: (timeHorizon === tab.id || (tab.id === 'this_month' && timeHorizon === 'month')) ? '#ffffff' : 'var(--text-muted)',
+                border: (timeHorizon === tab.id || (tab.id === 'this_month' && timeHorizon === 'month')) ? '1px solid #10b981' : '1px solid var(--border-color)',
+                boxShadow: (timeHorizon === tab.id || (tab.id === 'this_month' && timeHorizon === 'month')) ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none',
                 cursor: 'pointer',
                 transition: 'all 0.18s ease'
               }}
@@ -931,7 +954,11 @@ export const BusinessDashboard = () => {
               {lang === 'bn' ? '⚡ লাইভ ডিজিটাল ককপিট ও ক্যাশ-ফ্লো' : '⚡ Live Digital Cockpit & Cashflow'}
             </span>
             <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              {timeHorizon === 'today' ? (lang === 'bn' ? 'আজকের লাইভ' : 'Today Live') : `${timeHorizon.toUpperCase()} VIEW`}
+              {timeHorizon === 'today' ? (lang === 'bn' ? 'আজকের লাইভ' : 'Today Live') :
+               (timeHorizon === 'this_month' || timeHorizon === 'month') ? (lang === 'bn' ? 'চলতি মাস' : 'This Month') :
+               timeHorizon === 'last_month' ? (lang === 'bn' ? 'গত মাস' : 'Last Month') :
+               timeHorizon === 'year' ? (lang === 'bn' ? 'এই বছর' : 'This Year') :
+               `${timeHorizon.toUpperCase()} VIEW`}
             </span>
           </div>
 
