@@ -96,9 +96,31 @@ export const SmartAITextImportModal = ({ isOpen, onClose, defaultType = 'daily' 
 ৫. কোনো ভূমিকা, ইংরেজি ব্যাখ্যা বা অতিরিক্ত কথা লিখবে না। শুধুমাত্র ডাটার লাইনগুলো আউটপুট হিসেবে দাও।`;
 
   const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(promptTemplate);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(promptTemplate);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = promptTemplate;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+    } catch {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = promptTemplate;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      } catch (err) {
+        console.error("Copy failed:", err);
+      }
+    }
     setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 2500);
+    setTimeout(() => setCopiedPrompt(false), 3000);
   };
 
   // Robust Text Parsing
@@ -388,86 +410,182 @@ export const SmartAITextImportModal = ({ isOpen, onClose, defaultType = 'daily' 
           {/* STEP 1: AI Prompt Generator & Copy Box */}
           <div
             style={{
-              borderRadius: '14px',
-              background: 'rgba(16, 185, 129, 0.06)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              overflow: 'hidden'
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.06))',
+              border: '1.5px solid rgba(16, 185, 129, 0.35)',
+              overflow: 'hidden',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
             }}
           >
+            {/* Top Header of Prompt Card */}
             <div
               style={{
-                padding: '10px 14px',
+                padding: '12px 16px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: 'rgba(16, 185, 129, 0.1)',
-                cursor: 'pointer'
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 182, 212, 0.12))',
+                borderBottom: '1px solid rgba(16, 185, 129, 0.25)',
+                flexWrap: 'wrap',
+                gap: '10px'
               }}
-              onClick={() => setShowPromptBox(!showPromptBox)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.9rem' }}>📋</span>
-                <span style={{ fontSize: '0.86rem', fontWeight: '800', color: '#10b981' }}>
-                  {lang === 'bn' ? 'ধাপ ১: ChatGPT বা Gemini-র রেডি প্রম্পট (১-ক্লিক কপি)' : 'Step 1: Ready AI Prompt for ChatGPT / Gemini'}
-                </span>
-              </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {showPromptBox ? '▲ সংক্ষেপ করুন' : '▼ বিস্তারিত দেখুন'}
-              </span>
-            </div>
-
-            {showPromptBox && (
-              <div style={{ padding: '12px 14px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                  {lang === 'bn'
-                    ? 'নিচের প্রম্পটটি কপি করে ChatGPT বা Gemini-তে আপনার PDF, Excel বা ছবি ফাইলের সাথে পেস্ট করুন। এআই স্বয়ংক্রিয়ভাবে ক্যাটাগরি, সাব-ক্যাটাগরি ও ব্যক্তি ফিল্টার করে দেবে:'
-                    : 'Copy this prompt and paste it into ChatGPT/Gemini along with your document. It will extract dates, items, categories, sub-categories, and persons:'}
-                </p>
-
                 <div
                   style={{
-                    background: 'rgba(0, 0, 0, 0.35)',
-                    padding: '10px 12px',
+                    width: '28px',
+                    height: '28px',
                     borderRadius: '8px',
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    color: '#e2e8f0',
-                    lineHeight: '1.45',
-                    maxHeight: '120px',
-                    overflowY: 'auto',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    whiteSpace: 'pre-wrap'
+                    background: '#10b981',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '900',
+                    fontSize: '0.85rem'
                   }}
                 >
-                  {promptTemplate}
+                  ১
                 </div>
-
-                <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    type="button"
-                    onClick={handleCopyPrompt}
-                    style={{
-                      padding: '7px 16px',
-                      borderRadius: '8px',
-                      background: copiedPrompt ? '#10b981' : 'linear-gradient(135deg, #10b981, #059669)',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '0.82rem',
-                      fontWeight: '800',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {copiedPrompt ? <Check size={16} /> : <Copy size={16} />}
-                    <span>{copiedPrompt ? (lang === 'bn' ? '✓ প্রম্পট কপি হয়েছে!' : 'Copied!') : (lang === 'bn' ? '📋 প্রম্পট কপি করুন' : 'Copy Prompt')}</span>
-                  </button>
+                <div>
+                  <span style={{ fontSize: '0.92rem', fontWeight: '900', color: '#10b981' }}>
+                    {lang === 'bn' ? 'ChatGPT বা Gemini-র জন্য রেডিমেড এআই প্রম্পট' : 'AI Prompt for ChatGPT / Gemini'}
+                  </span>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'এই প্রম্পটটি কপি করে এআই-তে ফাইল সহ পেস্ট করুন' : 'Copy prompt and paste in ChatGPT/Gemini'}
+                  </div>
                 </div>
               </div>
-            )}
+
+              {/* DIRECT HIGH-VISIBILITY 1-CLICK PROMPT COPY BUTTON */}
+              <button
+                type="button"
+                onClick={handleCopyPrompt}
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: '12px',
+                  background: copiedPrompt
+                    ? '#10b981'
+                    : 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#ffffff',
+                  border: copiedPrompt ? '2px solid #34d399' : '1px solid rgba(255, 255, 255, 0.2)',
+                  fontSize: '0.88rem',
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: copiedPrompt
+                    ? '0 0 18px rgba(16, 185, 129, 0.6)'
+                    : '0 4px 16px rgba(16, 185, 129, 0.4)',
+                  transition: 'all 0.2s ease',
+                  letterSpacing: '0.3px'
+                }}
+                title={lang === 'bn' ? 'এক ক্লিকে সম্পূর্ণ প্রম্পট কপি করুন' : 'Copy Entire Prompt'}
+              >
+                {copiedPrompt ? <Check size={18} /> : <Copy size={18} />}
+                <span>
+                  {copiedPrompt
+                    ? (lang === 'bn' ? '✓ প্রম্পট কপি হয়েছে!' : '✓ Prompt Copied!')
+                    : (lang === 'bn' ? '📋 প্রম্পট কপি করুন' : '📋 Copy Prompt')}
+                </span>
+              </button>
+            </div>
+
+            {/* Prompt Content View */}
+            <div style={{ padding: '14px 16px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px'
+                }}
+              >
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  {lang === 'bn'
+                    ? '💡 নিচের সম্পূর্ণ প্রম্পটটি স্বয়ংক্রিয়ভাবে কপি হবে। এরপর ChatGPT বা Gemini-তে আপনার ফাইল আপলোড করে পেস্ট করে দিন:'
+                    : 'Copy this prompt and paste it into ChatGPT/Gemini along with your document:'}
+                </p>
+
+                {copiedPrompt && (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: '800',
+                      color: '#34d399',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      padding: '2px 8px',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    <Check size={12} /> ক্লিপবোর্ডে কপি করা হয়েছে!
+                  </span>
+                )}
+              </div>
+
+              {/* Code Box with Corner Copy Button */}
+              <div
+                style={{
+                  position: 'relative',
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  color: '#e2e8f0',
+                  lineHeight: '1.45',
+                  maxHeight: '130px',
+                  overflowY: 'auto',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  whiteSpace: 'pre-wrap'
+                }}
+              >
+                {promptTemplate}
+              </div>
+
+              {/* Quick instructions strip */}
+              <div
+                style={{
+                  marginTop: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  fontSize: '0.75rem',
+                  color: '#94a3b8'
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>👉</span>
+                  <span><strong>কপি বাটনে চাপুন</strong> ➔ ChatGPT/Gemini-তে যান ➔ ফাইল আপলোড করে পেস্ট করুন ➔ এআই-এর উত্তরটি নিচের ২য় ধাপে পেস্ট করুন।</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleCopyPrompt}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Copy size={13} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* STEP 2: Paste AI Output Area */}
