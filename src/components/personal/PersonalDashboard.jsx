@@ -139,6 +139,7 @@ export const PersonalDashboard = () => {
   const totalAllTimeExpense = useMemo(() => {
     return personalExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   }, [personalExpenses]);
+  const totalExpense = totalAllTimeExpense;
 
   const thisMonthNetBalance = thisMonthIncome - thisMonthTotalExpense;
   const totalAllTimeNetBalance = totalAllTimeIncome - totalAllTimeExpense;
@@ -568,7 +569,8 @@ export const PersonalDashboard = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {categoryTotals.map((item, idx) => {
-              const pct = totalExpense > 0 ? Math.round((item.total / totalExpense) * 100) : 0;
+              const catTotalSum = categoryTotals.reduce((s, c) => s + c.total, 0) || totalExpense || 1;
+              const pct = catTotalSum > 0 ? Math.round((item.total / catTotalSum) * 100) : 0;
               return (
                 <div key={idx}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
