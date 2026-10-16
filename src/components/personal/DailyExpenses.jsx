@@ -41,6 +41,8 @@ import { SavingsGoalManagerModal } from './SavingsGoalManagerModal';
 import { ZakatCalculatorModal } from './ZakatCalculatorModal';
 import { MarketPriceTrackerModal } from '../common/MarketPriceTrackerModal';
 import { RoutineShoppingPresetsModal } from '../common/RoutineShoppingPresetsModal';
+import RecycleBinModal from './RecycleBinModal';
+import SmartExpenseExportModal from './SmartExpenseExportModal';
 
 const DEFAULT_CATEGORY_SUB_MAP = {
   transport: ['বাস ভাড়া', 'অটো / সিএনজি ভাড়া', 'রিকশা ভাড়া', 'উবার / পাঠাও রাইড', 'মেট্রোরেল ভাড়া', 'মোটরসাইকেল তেল', 'ট্রেন / লঞ্চ ভাড়া'],
@@ -61,6 +63,7 @@ export const DailyExpenses = () => {
     addPersonalExpense,
     updatePersonalExpense,
     deletePersonalExpense,
+    trashBin = [],
     categories = {},
     addCategory,
     t,
@@ -94,6 +97,8 @@ export const DailyExpenses = () => {
   const [showZakatModal, setShowZakatModal] = useState(false);
   const [showPriceTrackerModal, setShowPriceTrackerModal] = useState(false);
   const [showRoutinePresetsModal, setShowRoutinePresetsModal] = useState(false);
+  const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
+  const [showSmartExportModal, setShowSmartExportModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
 
@@ -497,6 +502,68 @@ export const DailyExpenses = () => {
           >
             {isListening ? <MicOff size={16} /> : <Mic size={16} />}
             <span>{isListening ? (lang === 'bn' ? 'শুনছি...' : 'Listening...') : (lang === 'bn' ? 'মুখে বলুন' : 'Voice')}</span>
+          </button>
+
+          {/* Recycle Bin Button */}
+          <button
+            onClick={() => setShowRecycleBinModal(true)}
+            title={lang === 'bn' ? 'রিসাইকেল বিন (মুছে ফেলা খরচ ও রিস্টোর)' : 'Recycle Bin'}
+            style={{
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Trash2 size={16} />
+            <span>{lang === 'bn' ? 'রিসাইকেল বিন' : 'Trash'}</span>
+            {trashBin.length > 0 && (
+              <span
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.7rem',
+                  fontWeight: '800',
+                  borderRadius: '10px',
+                  padding: '1px 6px',
+                  marginLeft: '2px'
+                }}
+              >
+                {trashBin.length}
+              </span>
+            )}
+          </button>
+
+          {/* Smart Export Button */}
+          <button
+            onClick={() => setShowSmartExportModal(true)}
+            title={lang === 'bn' ? 'মান্থ-ওয়াইজ, প্রোডাক্ট-ওয়াইজ ও প্রাইস-ওয়াইজ এক্সপোর্ট' : 'Smart Expense Export'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.12)',
+              color: '#818cf8',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <FileSpreadsheet size={16} />
+            <span>{lang === 'bn' ? 'স্মার্ট এক্সপোর্ট' : 'Smart Export'}</span>
           </button>
 
           {/* Add Daily Expense Button */}
@@ -1433,6 +1500,18 @@ export const DailyExpenses = () => {
         isOpen={showRoutinePresetsModal}
         onClose={() => setShowRoutinePresetsModal(false)}
         defaultProfile="personal"
+      />
+
+      {/* Recycle Bin Modal */}
+      <RecycleBinModal
+        isOpen={showRecycleBinModal}
+        onClose={() => setShowRecycleBinModal(false)}
+      />
+
+      {/* Smart Expense Export Modal */}
+      <SmartExpenseExportModal
+        isOpen={showSmartExportModal}
+        onClose={() => setShowSmartExportModal(false)}
       />
     </div>
   );

@@ -228,7 +228,7 @@ export const pullLatestStateFromCloud = async ({ force = false } = {}) => {
 /**
  * Debounced push helper to avoid excessive network requests while editing
  */
-export const scheduleDebouncedCloudPush = (getStateSnapshotFn, delay = 2000, reason = 'auto') => {
+export const scheduleDebouncedCloudPush = (getStateSnapshotFn, delay = 1500, reason = 'auto') => {
   if (syncDebounceTimer) {
     clearTimeout(syncDebounceTimer);
   }
@@ -242,6 +242,69 @@ export const scheduleDebouncedCloudPush = (getStateSnapshotFn, delay = 2000, rea
       console.debug('[CloudStateSync] Debounce push err:', err);
     }
   }, delay);
+};
+
+/**
+ * Triggers an immediate non-blocking cloud push on critical user actions (add, delete, restore)
+ */
+export const triggerImmediateCloudPush = async (stateSnapshot, reason = 'user_action') => {
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = null;
+  }
+  try {
+    return await pushStateToCloud(stateSnapshot, reason);
+  } catch (err) {
+    console.debug('[CloudStateSync] Immediate push error:', err);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Continuous Background Auto-Sync Engine (Phase 5 / Instant Cross-Device Sync)
+ * - Listens for Realtime WebSocket broadcasts (sub-150ms zero-lag delivery)
+ * - Runs a silent background heartbeat polling every 2.5s to ensure no dropped packets
+ */
+export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, intervalMs = 2500 } = {}) => {
+  if (typeof window === 'undefined' || typeof onStateReceived !== 'function') {
+    return () => {};
+  }
+
+  // 1. Instant Realtime WebSocket broadcast listener
+  const unsubscribeLive = subscribeLiveSync(async (event, payload) => {
+    if (event === 'CLOUD_STATE_UPDATED') {
+      const currentDeviceId = getLocalDeviceId();
+      if (payload?.senderDeviceId !== currentDeviceId) {
+        try {
+          const pullRes = await pullLatestStateFromCloud({ force: true });
+          if (pullRes.success && pullRes.state) {
+            onStateReceived(pullRes.state, payload?.senderDeviceName || 'অন্য ডিভাইস');
+          }
+        } catch (e) {
+          console.debug('[CloudStateSync] Realtime pull failed:', e);
+        }
+      }
+    }
+  });
+
+  // 2. Continuous silent background auto-sync loop (2.5s heartbeat)
+  const timer = setInterval(async () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine && !isSyncing) {
+      try {
+        const pullRes = await pullLatestStateFromCloud({ force: false });
+        if (pullRes.success && pullRes.state) {
+          onStateReceived(pullRes.state, pullRes.deviceOrigin?.name || 'ক্লাউড');
+        }
+      } catch (err) {
+        console.debug('[CloudStateSync] Heartbeat poll err:', err);
+      }
+    }
+  }, intervalMs);
+
+  return () => {
+    if (typeof unsubscribeLive === 'function') unsubscribeLive();
+    clearInterval(timer);
+  };
 };
 
 /**
@@ -265,3 +328,4 @@ async function cleanupOldCloudSyncLogs(supabase) {
     console.debug('[CloudStateSync] Cleanup skipped:', e);
   }
 }
+

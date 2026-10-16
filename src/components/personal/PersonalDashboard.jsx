@@ -16,7 +16,8 @@ import {
   Users,
   Zap,
   Coins,
-  ShoppingCart
+  ShoppingCart,
+  FileSpreadsheet
 } from 'lucide-react';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
 import { CashflowCalendarModal } from './CashflowCalendarModal';
@@ -25,6 +26,8 @@ import { RecurringBillsManagerModal } from './RecurringBillsManagerModal';
 import { SavingsGoalManagerModal } from './SavingsGoalManagerModal';
 import { ZakatCalculatorModal } from './ZakatCalculatorModal';
 import { BazaarShoppingListModal } from './BazaarShoppingListModal';
+import RecycleBinModal from './RecycleBinModal';
+import SmartExpenseExportModal from './SmartExpenseExportModal';
 
 export const PersonalDashboard = () => {
   const {
@@ -34,6 +37,7 @@ export const PersonalDashboard = () => {
     personalEvents = [],
     updatePersonalExpense,
     deletePersonalExpense,
+    trashBin = [],
     t,
     lang
   } = useApp();
@@ -42,6 +46,8 @@ export const PersonalDashboard = () => {
   const [editingExpense, setEditingExpense] = useState(null);
   const [modalType, setModalType] = useState('daily'); // 'daily' | 'family'
   const [showAllEntries, setShowAllEntries] = useState(false);
+  const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
+  const [showSmartExportModal, setShowSmartExportModal] = useState(false);
 
   // Category 7 Modals
   const [showCashflowModal, setShowCashflowModal] = useState(false);
@@ -178,7 +184,69 @@ export const PersonalDashboard = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Recycle Bin Button */}
+          <button
+            onClick={() => setShowRecycleBinModal(true)}
+            title={lang === 'bn' ? 'রিসাইকেল বিন (মুছে ফেলা খরচ ও রিস্টোর)' : 'Recycle Bin'}
+            style={{
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Trash2 size={16} />
+            <span>{lang === 'bn' ? 'রিসাইকেল বিন' : 'Trash'}</span>
+            {trashBin.length > 0 && (
+              <span
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.7rem',
+                  fontWeight: '800',
+                  borderRadius: '10px',
+                  padding: '1px 6px',
+                  marginLeft: '2px'
+                }}
+              >
+                {trashBin.length}
+              </span>
+            )}
+          </button>
+
+          {/* Smart Export Button */}
+          <button
+            onClick={() => setShowSmartExportModal(true)}
+            title={lang === 'bn' ? 'মান্থ-ওয়াইজ, প্রোডাক্ট-ওয়াইজ ও প্রাইস-ওয়াইজ এক্সপোর্ট' : 'Smart Expense Export'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.12)',
+              color: '#818cf8',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <FileSpreadsheet size={16} />
+            <span>{lang === 'bn' ? 'স্মার্ট এক্সপোর্ট' : 'Smart Export'}</span>
+          </button>
+
           <button className="btn btn-primary" onClick={() => handleOpenModal('daily')}>
             <ShoppingBag size={16} />
             <span>{t.personal.addDailyExpense}</span>
@@ -628,6 +696,18 @@ export const PersonalDashboard = () => {
         isOpen={showShoppingListModal}
         onClose={() => setShowShoppingListModal(false)}
         onOpenExpenseModal={() => handleOpenModal('daily')}
+      />
+
+      {/* Recycle Bin Modal */}
+      <RecycleBinModal
+        isOpen={showRecycleBinModal}
+        onClose={() => setShowRecycleBinModal(false)}
+      />
+
+      {/* Smart Expense Export Modal */}
+      <SmartExpenseExportModal
+        isOpen={showSmartExportModal}
+        onClose={() => setShowSmartExportModal(false)}
       />
     </div>
   );

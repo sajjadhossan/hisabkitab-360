@@ -257,8 +257,8 @@ export const initAutoDeltaSyncScheduler = () => {
     }, 2000);
   });
 
-  // 2. Periodic idle background sync every 3 minutes
-  const INTERVAL_MS = 3 * 60 * 1000;
+  // 2. Periodic continuous background delta sync every 5 seconds
+  const INTERVAL_MS = 5 * 1000;
   setInterval(() => {
     if (typeof navigator !== 'undefined' && navigator.onLine && !isDeltaSyncing) {
       executeBiDirectionalSync({ forceFull: false });
