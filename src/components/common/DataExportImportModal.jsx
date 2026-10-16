@@ -52,7 +52,8 @@ import {
   parseAmountSafely,
   guessFolderFromText,
   guessFolderAndSubFolder,
-  guessPersonFromText
+  guessPersonFromText,
+  formatBanglaMonthYear
 } from '../../services/exportImportService';
 import { printHtmlContent } from '../../services/printService';
 import { encryptData, decryptData, downloadEncryptedBackupFile } from '../../services/cryptoService';
@@ -226,11 +227,56 @@ export const DataExportImportModal = ({
   });
 
   // PDF parsing state
-  const [_pdfData, setPdfData] = useState(null); // { rawLinesCount, parsedRecords }
+  const [_pdfData, setPdfData] = useState(null); // { rawLinesCount, parsedRecords, monthGroups }
+  const [_detectedMonthGroups, setDetectedMonthGroups] = useState([]);
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
 
   // Candidate rows to import (with checked status)
   const [candidateRows, setCandidateRows] = useState([]);
   const [selectAll, setSelectAll] = useState(true);
+
+  // Dynamic live month breakdown (auto-syncs with edits or deletions)
+  const dynamicMonthGroups = useMemo(() => {
+    const map = {};
+    candidateRows.forEach(r => {
+      const mKey = r.month || (r.date ? r.date.slice(0, 7) : 'Unknown');
+      if (!map[mKey]) {
+        map[mKey] = {
+          monthKey: mKey,
+          monthNameBn: formatBanglaMonthYear(mKey) || mKey,
+          count: 0,
+          totalAmount: 0,
+          selectedCount: 0,
+          selectedAmount: 0,
+          dateMin: r.date,
+          dateMax: r.date
+        };
+      }
+      map[mKey].count += 1;
+      map[mKey].totalAmount += (Number(r.amount) || 0);
+      if (r.selected) {
+        map[mKey].selectedCount += 1;
+        map[mKey].selectedAmount += (Number(r.amount) || 0);
+      }
+      if (r.date && r.date < map[mKey].dateMin) map[mKey].dateMin = r.date;
+      if (r.date && r.date > map[mKey].dateMax) map[mKey].dateMax = r.date;
+    });
+    return Object.values(map).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+  }, [candidateRows]);
+
+  const handleSelectMonth = (monthKey) => {
+    setSelectedMonthFilter(monthKey);
+    if (monthKey === 'all') {
+      setCandidateRows(prev => prev.map(r => ({ ...r, selected: true })));
+      setSelectAll(true);
+    } else {
+      setCandidateRows(prev => prev.map(r => ({
+        ...r,
+        selected: (r.month === monthKey || (r.date && r.date.startsWith(monthKey)))
+      })));
+      setSelectAll(false);
+    }
+  };
 
   // Backup Snapshots History State
   const [importHistory, setImportHistory] = useState(() => {
@@ -797,6 +843,8 @@ export const DataExportImportModal = ({
         businessItemsToInsert.push({
           title: row.item,
           amount: Number(row.amount),
+          quantity: row.quantity,
+          unit: row.unit,
           category: row.folder || 'other',
           subCategory: row.subFolder || '',
           person: row.person || row.member || '',
@@ -808,10 +856,12 @@ export const DataExportImportModal = ({
           name: row.item,
           barcode: `IMP-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substr(2, 4)}`,
           sku: `SKU-${Date.now().toString().slice(-4)}`,
-          category: 'General',
-          stock: row.quantity || 10,
+          category: row.folder || 'General',
+          stock: row.quantity || 1,
+          unit: row.unit || 'পিস',
           costPrice: Math.round(row.amount * 0.8),
-          sellingPrice: row.amount
+          sellingPrice: row.amount,
+          date: row.date
         });
       }
     });
@@ -832,6 +882,8 @@ export const DataExportImportModal = ({
       }
     }
 
+    const count = selectedRows.length;
+
     // Automatically Create Persistent Backup Snapshot
     const backupSnapshot = {
       id: `bk-${Date.now()}`,
@@ -839,7 +891,7 @@ export const DataExportImportModal = ({
       fileSize: importFile ? importFile.size : 0,
       importedAt: new Date().toISOString(),
       destination: importDestination,
-      itemCount: selectedRows.length,
+      itemCount: count,
       totalAmount: candidateMetrics.selectedAmount,
       dateRange: dateRangeSummary,
       categoryBreakdown: Object.entries(candidateMetrics.categoryBreakdown).map(([cat, info]) => ({
@@ -866,16 +918,27 @@ export const DataExportImportModal = ({
       note: `ফাইল: ${backupSnapshot.fileName} | রেকর্ড: ${count}টি | মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}`
     });
 
-    showToast(
-      lang === 'bn'
-        ? `🎉 সফলভাবে ${count}টি রেকর্ড (সর্বমোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}) রানিং খরচে যুক্ত ও ব্যাকআপ সংরক্ষণ সম্পন্ন হয়েছে!`
-        : `Successfully imported ${count} records (Total ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})!`
-    );
+    // Check if any candidate rows remain (e.g. from other months)
+    const selectedIds = new Set(selectedRows.map(r => r.id));
+    const remainingRows = candidateRows.filter(r => !selectedIds.has(r.id));
+    setCandidateRows(remainingRows);
 
-    // Reset and close
-    setImportFile(null);
-    setCandidateRows([]);
-    onClose();
+    if (remainingRows.length > 0) {
+      setSelectedMonthFilter('all');
+      showToast(
+        lang === 'bn'
+          ? `🎉 সফলভাবে ${count}টি রেকর্ড (৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}) সিস্টেমে যুক্ত হয়েছে! বাকি ${remainingRows.length}টি লেনদেন নিচে প্রস্তুত রয়েছে।`
+          : `Successfully imported ${count} records! ${remainingRows.length} records remain for other months.`
+      );
+    } else {
+      showToast(
+        lang === 'bn'
+          ? `🎉 সফলভাবে সকল ${count}টি রেকর্ড (সর্বমোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')}) রানিং খরচে যুক্ত ও ব্যাকআপ সংরক্ষণ সম্পন্ন হয়েছে!`
+          : `Successfully imported all ${count} records (Total ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})!`
+      );
+      setImportFile(null);
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -2125,6 +2188,188 @@ export const DataExportImportModal = ({
                   </div>
                 </div>
 
+                {/* 1.5. MULTI-MONTH SEGREGATION & MONTH-WISE SELECTION CARD */}
+                {dynamicMonthGroups.length > 1 && (
+                  <div
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.10))',
+                      border: '1.5px solid rgba(14, 165, 233, 0.4)',
+                      borderRadius: '14px',
+                      padding: '16px',
+                      boxShadow: '0 4px 18px rgba(0, 0, 0, 0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <div
+                          style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '10px',
+                            background: 'rgba(14, 165, 233, 0.2)',
+                            color: '#0284c7',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}
+                        >
+                          <Calendar size={20} />
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.88rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                              {lang === 'bn' ? '🗓️ একাধিক মাসের লেনদেন বিভাজন ও বাছাই' : 'Multi-Month Segregation & Selection'}
+                            </span>
+                            <span
+                              style={{
+                                background: '#0284c7',
+                                color: '#fff',
+                                fontSize: '0.66rem',
+                                fontWeight: '800',
+                                padding: '2px 8px',
+                                borderRadius: '10px'
+                              }}
+                            >
+                              {dynamicMonthGroups.length}টি আলাদা মাস সনাক্ত
+                            </span>
+                          </div>
+                          <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                            {lang === 'bn'
+                              ? 'আপনার ফাইলে একাধিক মাসের লেনদেন রয়েছে। প্রতিটি মাসের মোট টাকা আলাদা করে দেখানো হলো। আপনি যে মাসের ডাটা আগে এন্ট্রি করতে চান সেই বাটনে চাপুন অথবা সব মাস একসাথে নিন:'
+                              : 'Multiple months detected. Select which month to enter first or import all months together:'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Select All Months Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMonth('all')}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          background: selectedMonthFilter === 'all' ? 'linear-gradient(135deg, #0ea5e9, #0284c7)' : 'var(--bg-card)',
+                          color: selectedMonthFilter === 'all' ? '#ffffff' : 'var(--text-main)',
+                          border: selectedMonthFilter === 'all' ? 'none' : '1px solid var(--border-color)',
+                          fontSize: '0.78rem',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: selectedMonthFilter === 'all' ? '0 2px 8px rgba(14, 165, 233, 0.35)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Sparkles size={14} />
+                        <span>{lang === 'bn' ? '🌟 সব মাসের ডাটা একসাথে এন্ট্রি করুন' : 'Import All Months Together'}</span>
+                      </button>
+                    </div>
+
+                    {/* Month Cards Grid */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                        gap: '10px'
+                      }}
+                    >
+                      {dynamicMonthGroups.map((group) => {
+                        const isCurrentActive = selectedMonthFilter === group.monthKey;
+                        return (
+                          <div
+                            key={group.monthKey}
+                            style={{
+                              background: isCurrentActive ? 'rgba(14, 165, 233, 0.15)' : 'var(--bg-card)',
+                              border: isCurrentActive ? '2px solid #0284c7' : '1px solid var(--border-color)',
+                              borderRadius: '12px',
+                              padding: '12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '8px',
+                              position: 'relative',
+                              boxShadow: isCurrentActive ? '0 4px 14px rgba(2, 132, 199, 0.2)' : '0 1px 4px rgba(0,0,0,0.04)',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <div style={{ fontSize: '0.92rem', fontWeight: '900', color: isCurrentActive ? '#0284c7' : 'var(--text-main)' }}>
+                                  📅 {group.monthNameBn}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  তারিখ: {group.dateMin} থেকে {group.dateMax}
+                                </div>
+                              </div>
+                              <span
+                                style={{
+                                  background: isCurrentActive ? 'rgba(2, 132, 199, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                                  color: isCurrentActive ? '#0284c7' : 'var(--text-muted)',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                {group.count}টি লেনদেন
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>মোট খরচ:</span>
+                              <span style={{ fontSize: '1.18rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+                                ৳{group.totalAmount.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+
+                            {/* Action Button: Choose this month */}
+                            <button
+                              type="button"
+                              onClick={() => handleSelectMonth(group.monthKey)}
+                              style={{
+                                marginTop: '4px',
+                                width: '100%',
+                                padding: '8px 10px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: isCurrentActive
+                                  ? 'linear-gradient(135deg, #10b981, #059669)'
+                                  : 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+                                color: '#ffffff',
+                                fontSize: '0.8rem',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                boxShadow: isCurrentActive ? '0 2px 8px rgba(16, 185, 129, 0.35)' : '0 2px 8px rgba(2, 132, 199, 0.25)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {isCurrentActive ? (
+                                <>
+                                  <Check size={14} />
+                                  <span>✓ এই মাসের ডাটা সক্রিয় (এন্ট্রি করার জন্য প্রস্তুত)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Download size={14} />
+                                  <span>📥 এই মাসের ডাটা আগে এন্ট্রি করো (৳{group.totalAmount.toLocaleString('en-IN')})</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* 2. INTERACTIVE EDITABLE PREVIEW TABLE */}
                 <div style={{
                   border: '1px solid var(--border-color)',
@@ -2132,13 +2377,61 @@ export const DataExportImportModal = ({
                   background: 'var(--bg-card)',
                   overflow: 'hidden'
                 }}>
-                  <div style={{ padding: '8px 12px', background: 'var(--bg-main)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                      {lang === 'bn' ? '📝 লেনদেনের তালিকা (প্রয়োজনে তারিখ, নাম, ক্যাটাগরি ও টাকা সংশোধন করুন):' : 'Detailed Records (Editable):'}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      {candidateRows.filter(r => r.selected).length}/{candidateRows.length} {lang === 'bn' ? 'নির্বাচিত' : 'selected'}
-                    </span>
+                  <div style={{ padding: '8px 12px', background: 'var(--bg-main)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                        {lang === 'bn' ? '📝 লেনদেনের তালিকা (প্রয়োজনে তারিখ, নাম, ক্যাটাগরি ও টাকা সংশোধন করুন):' : 'Detailed Records (Editable):'}
+                      </span>
+                      {selectedMonthFilter !== 'all' && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#0284c7', background: 'rgba(2, 132, 199, 0.12)', padding: '2px 8px', borderRadius: '6px' }}>
+                          📅 ফিল্টার: {formatBanglaMonthYear(selectedMonthFilter)}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {dynamicMonthGroups.length > 1 && (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectMonth('all')}
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: selectedMonthFilter === 'all' ? '1px solid #0284c7' : '1px solid var(--border-color)',
+                              background: selectedMonthFilter === 'all' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
+                              color: selectedMonthFilter === 'all' ? '#0284c7' : 'var(--text-muted)',
+                              fontSize: '0.68rem',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            সব মাস ({candidateRows.length})
+                          </button>
+                          {dynamicMonthGroups.map(g => (
+                            <button
+                              key={g.monthKey}
+                              type="button"
+                              onClick={() => handleSelectMonth(g.monthKey)}
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                border: selectedMonthFilter === g.monthKey ? '1px solid #0284c7' : '1px solid var(--border-color)',
+                                background: selectedMonthFilter === g.monthKey ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
+                                color: selectedMonthFilter === g.monthKey ? '#0284c7' : 'var(--text-muted)',
+                                fontSize: '0.68rem',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {g.monthNameBn} ({g.count})
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {candidateRows.filter(r => r.selected).length}/{candidateRows.length} {lang === 'bn' ? 'নির্বাচিত' : 'selected'}
+                      </span>
+                    </div>
                   </div>
 
                   <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
@@ -2158,7 +2451,11 @@ export const DataExportImportModal = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {candidateRows.map((r, idx) => {
+                        {(() => {
+                          const visibleRows = selectedMonthFilter === 'all'
+                            ? candidateRows
+                            : candidateRows.filter(r => r.month === selectedMonthFilter || (r.date && r.date.startsWith(selectedMonthFilter)));
+                          return visibleRows.map((r, idx) => {
                           const dateObj = r.date ? new Date(r.date) : null;
                           const monthName = dateObj && !isNaN(dateObj.getTime())
                             ? dateObj.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', year: 'numeric' })
@@ -2403,7 +2700,8 @@ export const DataExportImportModal = ({
                             </td>
                           </tr>
                           );
-                        })}
+                        });
+                      })()}
                       </tbody>
                     </table>
                   </div>
@@ -2434,7 +2732,9 @@ export const DataExportImportModal = ({
                   <CheckCircle2 size={20} />
                   <span>
                     {lang === 'bn'
-                      ? `💾 নির্বাচিত ${candidateMetrics.selectedCount}টি খরচ সিস্টেমে যোগ ও অটো-ব্যাকআপ করুন (মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})`
+                      ? selectedMonthFilter !== 'all'
+                        ? `💾 ${formatBanglaMonthYear(selectedMonthFilter)}-এর নির্বাচিত ${candidateMetrics.selectedCount}টি খরচ সিস্টেমে যোগ ও অটো-ব্যাকআপ করুন (মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})`
+                        : `💾 নির্বাচিত ${candidateMetrics.selectedCount}টি খরচ সিস্টেমে যোগ ও অটো-ব্যাকআপ করুন (মোট ৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})`
                       : `💾 Import & Auto-Backup ${candidateMetrics.selectedCount} Records (৳${candidateMetrics.selectedAmount.toLocaleString('en-IN')})`}
                   </span>
                 </button>

@@ -1,11 +1,43 @@
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { printHtmlContent } from './printService';
 
-// Set up pdfjs worker using inline/bundled approach or disable worker for basic text extraction
+// Set up pdfjs worker using local bundled worker asset (works offline in APK and Web)
 if (pdfjsLib.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.0.379'}/pdf.worker.min.mjs`;
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+  } catch (err) {
+    console.warn('Could not set pdf workerSrc, will fallback to inline worker:', err);
+  }
 }
+
+export const BANGLA_MONTH_NAMES = {
+  '01': 'জানুয়ারি',
+  '02': 'ফেব্রুয়ারি',
+  '03': 'মার্চ',
+  '04': 'এপ্রিল',
+  '05': 'মে',
+  '06': 'জুন',
+  '07': 'জুলাই',
+  '08': 'আগস্ট',
+  '09': 'সেপ্টেম্বর',
+  '10': 'অক্টোবর',
+  '11': 'নভেম্বর',
+  '12': 'ডিসেম্বর'
+};
+
+export const formatBanglaMonthYear = (monthKey) => {
+  if (!monthKey || typeof monthKey !== 'string') return '';
+  const parts = monthKey.split('-');
+  if (parts.length < 2) return monthKey;
+  const year = parts[0];
+  const month = parts[1];
+  const bnMonth = BANGLA_MONTH_NAMES[month] || month;
+  const bnDigits = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
+  const bnYear = String(year).replace(/[0-9]/g, d => bnDigits[d] || d);
+  return `${bnMonth} ${bnYear}`;
+};
 
 // ----------------------------------------------------
 // 1. EXCEL EXPORT HELPERS
@@ -1118,8 +1150,27 @@ export const parsePdfFile = async (file, onProgress) => {
   const buffer = await file.arrayBuffer();
 
   reportProgress(25, 'PDF ইঞ্জিন প্রস্তুত হচ্ছে ও পেজ ডিটেক্ট করা হচ্ছে...');
-  const loadingTask = pdfjsLib.getDocument({ data: buffer });
-  const pdf = await loadingTask.promise;
+  let pdf;
+  try {
+    const loadingTask = pdfjsLib.getDocument({
+      data: buffer,
+      isEvalSupported: false,
+      useSystemFonts: true
+    });
+    pdf = await loadingTask.promise;
+  } catch (err) {
+    console.warn('Primary PDF loading failed, attempting offline fallback:', err);
+    try {
+      if (pdfjsLib.GlobalWorkerOptions) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+      }
+      const fallbackTask = pdfjsLib.getDocument({ data: buffer });
+      pdf = await fallbackTask.promise;
+    } catch (fallbackErr) {
+      console.error('Fatal PDF loading error:', fallbackErr);
+      throw new Error(`PDF ফাইলটি লোড করা যায়নি: ${fallbackErr.message || 'ডকুমেন্ট ফরম্যাট ত্রুটি'}`);
+    }
+  }
 
   let allLines = [];
   const totalPages = pdf.numPages || 1;
@@ -1496,9 +1547,32 @@ export const parsePdfFile = async (file, onProgress) => {
 
   reportProgress(100, `অ্যানালাইসিস সম্পন্ন! মোট ${parsedRecords.length}টি আইটেম-ভিত্তিক খরচ পাওয়া গেছে।`);
 
+  // Group records by month (YYYY-MM) and compute summary stats per month
+  const monthMap = {};
+  parsedRecords.forEach(rec => {
+    const mKey = rec.month || (rec.date ? rec.date.slice(0, 7) : 'Unknown');
+    if (!monthMap[mKey]) {
+      monthMap[mKey] = {
+        monthKey: mKey,
+        monthNameBn: formatBanglaMonthYear(mKey) || mKey,
+        count: 0,
+        totalAmount: 0,
+        dateMin: rec.date,
+        dateMax: rec.date
+      };
+    }
+    monthMap[mKey].count += 1;
+    monthMap[mKey].totalAmount += (Number(rec.amount) || 0);
+    if (rec.date && rec.date < monthMap[mKey].dateMin) monthMap[mKey].dateMin = rec.date;
+    if (rec.date && rec.date > monthMap[mKey].dateMax) monthMap[mKey].dateMax = rec.date;
+  });
+
+  const monthGroups = Object.values(monthMap).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+
   return {
     rawLinesCount: allLines.length,
-    parsedRecords
+    parsedRecords,
+    monthGroups
   };
 };
 
