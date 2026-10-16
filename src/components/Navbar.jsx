@@ -900,69 +900,81 @@ export const Navbar = () => {
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 
-            {/* Prominent Login Status Indicator (সুপার অ্যাডমিন = নীল বাতি, ওনার/ব্যবসায়িক = সবুজ বাতি, লগইন নেই = লাল বাতি) */}
-            {user ? (
-              <div
-                className="navbar-user-pill"
-                onClick={() => openAuthModal('login')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '7px',
-                  padding: '4px 11px 4px 8px',
-                  borderRadius: '24px',
-                  background: isSuperAdmin ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.1)',
-                  border: isSuperAdmin ? '1.5px solid #3b82f6' : '1.5px solid #10b981',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  userSelect: 'none',
-                  boxShadow: isSuperAdmin ? '0 0 10px rgba(59, 130, 246, 0.25)' : '0 0 10px rgba(16, 185, 129, 0.2)',
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap'
-                }}
-                title={lang === 'bn' ? `লগইন সক্রিয়: ${user.email || user.name} (ক্লিক করে প্রোফাইল দেখুন)` : `Logged in: ${user.email || user.name}`}
-              >
-                {/* 🔵 নীল বাতি (সুপার অ্যাডমিন) / 🟢 সবুজ বাতি (ওনার ও ব্যবসায়িক অ্যাকাউন্ট) */}
-                <span
+            {/* Prominent Login Status Indicator (সুপার অ্যাডমিন, ওনার, ক্যাশিয়ার, এসআর, সেলসম্যান) */}
+            {user ? (() => {
+              const pillColor = isSuperAdmin ? '#3b82f6' :
+                                isSR ? '#0284c7' :
+                                isSalesman ? '#f59e0b' :
+                                '#10b981';
+
+              const roleTag = isSuperAdmin ? (lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin') :
+                              isOwner ? (lang === 'bn' ? '🟢 ওনার অ্যাকাউন্ট' : '🟢 Owner') :
+                              isCashier ? (lang === 'bn' ? '🟢 ক্যাশিয়ার' : '🟢 Cashier') :
+                              isSR ? (lang === 'bn' ? '🔵 এসআর অফিসার' : '🔵 SR Rep') :
+                              isSalesman ? (lang === 'bn' ? '🟡 সেলসম্যান' : '🟡 Salesman') :
+                              (lang === 'bn' ? '🟢 ব্যবসায়িক অ্যাকাউন্ট' : '🟢 Business');
+
+              const displayName = user.name || user.email || (lang === 'bn' ? 'অ্যাকাউন্ট' : 'Account');
+
+              return (
+                <div
+                  className="navbar-user-pill"
+                  onClick={() => openAuthModal('login')}
                   style={{
-                    width: '9px',
-                    height: '9px',
-                    borderRadius: '50%',
-                    background: isSuperAdmin ? '#3b82f6' : '#10b981',
-                    boxShadow: isSuperAdmin ? '0 0 8px #3b82f6, 0 0 3px #3b82f6' : '0 0 8px #10b981, 0 0 3px #10b981',
-                    display: 'inline-block',
-                    animation: 'pulse 1.8s infinite',
-                    flexShrink: 0
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '4px 11px 4px 8px',
+                    borderRadius: '24px',
+                    background: isSuperAdmin ? 'rgba(59, 130, 246, 0.12)' : (isSR ? 'rgba(2, 132, 199, 0.12)' : (isSalesman ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.1)')),
+                    border: `1.5px solid ${pillColor}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    userSelect: 'none',
+                    boxShadow: `0 0 10px ${isSuperAdmin ? 'rgba(59, 130, 246, 0.25)' : 'rgba(16, 185, 129, 0.2)'}`,
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap'
                   }}
-                />
-                <div className="navbar-user-pill-text" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
-                  <span style={{
-                    fontSize: '0.76rem',
-                    fontWeight: '800',
-                    color: isSuperAdmin ? '#3b82f6' : '#10b981',
-                    maxWidth: '140px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {user.email || user.name || (lang === 'bn' ? 'অ্যাকাউন্ট' : 'Account')}
-                  </span>
-                  <span style={{
-                    fontSize: '0.62rem',
-                    fontWeight: '700',
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {isSuperAdmin ? (lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin') :
-                     isOwner ? (lang === 'bn' ? '🟢 ওনার অ্যাকাউন্ট' : '🟢 Owner') :
-                     (isSalesman ? (lang === 'bn' ? '🟡 সেলসম্যান' : '🟡 Salesman') :
-                      (isSR ? (lang === 'bn' ? '🔵 এসআর অফিসার' : '🔵 SR Rep') :
-                       (lang === 'bn' ? '🟢 ব্যবসায়িক অ্যাকাউন্ট' : '🟢 Business')))}
-                  </span>
+                  title={lang === 'bn' ? `${roleTag} | ${displayName} (${user.email || ''}) - ক্লিক করে প্রোফাইল দেখুন` : `${roleTag} | ${displayName} - Click to view profile`}
+                >
+                  {/* ইন্ডিকেটর বাত্তি (সুপার অ্যাডমিন=নীল, এসআর=আকাশী নীল, সেলসম্যান=হলুদ, ওনার/ক্যাশিয়ার=সবুজ) */}
+                  <span
+                    style={{
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '50%',
+                      background: pillColor,
+                      boxShadow: `0 0 8px ${pillColor}, 0 0 3px ${pillColor}`,
+                      display: 'inline-block',
+                      animation: 'pulse 1.8s infinite',
+                      flexShrink: 0
+                    }}
+                  />
+                  <div className="navbar-user-pill-text" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
+                    <span style={{
+                      fontSize: '0.76rem',
+                      fontWeight: '800',
+                      color: pillColor,
+                      maxWidth: '140px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {displayName}
+                    </span>
+                    <span style={{
+                      fontSize: '0.62rem',
+                      fontWeight: '700',
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {roleTag}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <div
                 className="navbar-user-pill"
                 onClick={() => openAuthModal('login')}
