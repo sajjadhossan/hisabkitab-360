@@ -1110,6 +1110,243 @@ export const DailyExpenses = () => {
         </div>
       )}
 
+      {/* 🚀 Mobile Slidable 9-in-1 Tools Suite Ribbon */}
+      <div
+        className="personal-suite-slidable-bar"
+        style={{
+          display: 'flex',
+          gap: '10px',
+          overflowX: 'auto',
+          padding: '8px 4px 12px 4px',
+          marginBottom: '1rem',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        {/* 1. Trash (Recycle Bin) */}
+        <button
+          onClick={() => setShowRecycleBinModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(239, 68, 68, 0.12)',
+            color: '#ef4444',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Trash2 size={15} />
+          <span>{lang === 'bn' ? 'রিসাইকেল বিন' : 'Trash'}</span>
+          {(trashBin || []).length > 0 && (
+            <span
+              style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                fontSize: '0.68rem',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                marginLeft: '2px',
+                fontWeight: '900'
+              }}
+            >
+              {(trashBin || []).length}
+            </span>
+          )}
+        </button>
+
+        {/* 2. Smart Export */}
+        <button
+          onClick={() => setShowSmartExportModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(99, 102, 241, 0.12)',
+            color: '#818cf8',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <FileSpreadsheet size={15} />
+          <span>{lang === 'bn' ? 'স্মার্ট এক্সপোর্ট' : 'Smart Export'}</span>
+        </button>
+
+        {/* 3. AI Text Export */}
+        <button
+          onClick={() => setShowSmartExportModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.12))',
+            color: '#38bdf8',
+            border: '1px solid rgba(14, 165, 233, 0.35)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Sparkles size={15} />
+          <span>{lang === 'bn' ? 'AI টেক্সট এক্সপোর্ট' : 'AI Text Export'}</span>
+        </button>
+
+        {/* 4. AI Text Import */}
+        <button
+          onClick={() => setShowAIImportModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15))',
+            color: '#34d399',
+            border: '1px solid rgba(16, 185, 129, 0.35)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Sparkles size={15} />
+          <span>{lang === 'bn' ? '⚡ AI টেক্সট ইমপোর্ট' : '⚡ AI Text Import'}</span>
+        </button>
+
+        {/* 5. Cash Flow */}
+        <button
+          onClick={() => setShowCashflowModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(6, 182, 212, 0.1)',
+            color: '#06b6d4',
+            border: '1px solid rgba(6, 182, 212, 0.25)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Zap size={15} />
+          <span>{lang === 'bn' ? 'ক্যাশ ফ্লো' : 'Cash Flow'}</span>
+        </button>
+
+        {/* 6. Calendar */}
+        <button
+          onClick={() => setShowCashflowModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(59, 130, 246, 0.1)',
+            color: '#60a5fa',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Calendar size={15} />
+          <span>{lang === 'bn' ? 'ক্যালেন্ডার' : 'Calendar'}</span>
+        </button>
+
+        {/* 7. Paribarik Budget */}
+        <button
+          onClick={() => setShowFamilyBudgetModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(139, 92, 246, 0.1)',
+            color: '#a78bfa',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Users size={15} />
+          <span>{lang === 'bn' ? 'পারিবারিক বাজেট' : 'Family Budget'}</span>
+        </button>
+
+        {/* 8. Sonchoy */}
+        <button
+          onClick={() => setShowSavingsGoalModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(16, 185, 129, 0.1)',
+            color: '#10b981',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <TargetIcon size={15} />
+          <span>{lang === 'bn' ? 'সঞ্চয় লক্ষ্য' : 'Savings Goals'}</span>
+        </button>
+
+        {/* 9. Zakat Calculation */}
+        <button
+          onClick={() => setShowZakatModal(true)}
+          style={{
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            background: 'rgba(236, 72, 153, 0.1)',
+            color: '#f472b6',
+            border: '1px solid rgba(236, 72, 153, 0.25)',
+            fontSize: '0.82rem',
+            fontWeight: '700',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Coins size={15} />
+          <span>{lang === 'bn' ? 'যাকাত ক্যালকুলেটর' : 'Zakat Calculator'}</span>
+        </button>
+      </div>
+
       {/* Filter Bar */}
       <div
         style={{

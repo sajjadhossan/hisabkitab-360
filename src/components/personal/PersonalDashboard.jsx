@@ -18,8 +18,10 @@ import {
   Coins,
   ShoppingCart,
   FileSpreadsheet,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
+import { FastSearchInput } from '../common/FastSearchInput';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
 import { CashflowCalendarModal } from './CashflowCalendarModal';
 import { FamilyBudgetAllocationModal } from './FamilyBudgetAllocationModal';
@@ -187,29 +189,40 @@ export const PersonalDashboard = () => {
   }, [personalExpenses, lang, now, lastMonthDate, thisMonthTotalExpense, thisMonthExpenseList.length, lastMonthTotalExpense, lastMonthExpenseList.length]);
 
   // ----------------------------------------------------
-  // 🔍 TABLE TIMEFRAME FILTER STATE
+  // 🔍 TABLE TIMEFRAME FILTER & CONCURRENT SEARCH STATE
   // ----------------------------------------------------
   const [tableTimeframe, setTableTimeframe] = useState('this_month'); // 'this_month' | 'last_month' | 'today' | 'week' | 'custom_month' | 'year' | 'all'
   const [customSelectedMonth, setCustomSelectedMonth] = useState(() => availableMonths[0] || thisMonthPrefix);
+  const [tableSearchQuery, setTableSearchQuery] = useState('');
 
   const filteredTableExpenses = useMemo(() => {
     const todayStr = toYMD(now);
     const d7 = new Date(now);
     d7.setDate(now.getDate() - 7);
     const weekAgoStr = toYMD(d7);
+    const q = (tableSearchQuery || '').toLowerCase().trim();
 
     return personalExpenses.filter(e => {
       const d = e.date || '';
-      if (tableTimeframe === 'today') return d.startsWith(todayStr);
-      if (tableTimeframe === 'week') return d >= weekAgoStr && d <= todayStr;
-      if (tableTimeframe === 'this_month') return d.startsWith(thisMonthPrefix);
-      if (tableTimeframe === 'last_month') return d.startsWith(lastMonthPrefix);
-      if (tableTimeframe === 'custom_month') return customSelectedMonth ? d.startsWith(customSelectedMonth) : true;
-      if (tableTimeframe === 'year') return d.startsWith(thisYearPrefix);
-      if (tableTimeframe === 'all') return true;
-      return true;
+      let matchesTime = true;
+      if (tableTimeframe === 'today') matchesTime = d.startsWith(todayStr);
+      else if (tableTimeframe === 'week') matchesTime = d >= weekAgoStr && d <= todayStr;
+      else if (tableTimeframe === 'this_month') matchesTime = d.startsWith(thisMonthPrefix);
+      else if (tableTimeframe === 'last_month') matchesTime = d.startsWith(lastMonthPrefix);
+      else if (tableTimeframe === 'custom_month') matchesTime = customSelectedMonth ? d.startsWith(customSelectedMonth) : true;
+      else if (tableTimeframe === 'year') matchesTime = d.startsWith(thisYearPrefix);
+
+      if (!matchesTime) return false;
+
+      if (!q) return true;
+      const itemTitle = String(e.item || e.title || '').toLowerCase();
+      const cat = String(e.category || '').toLowerCase();
+      const folder = String(e.folder || '').toLowerCase();
+      const note = String(e.note || '').toLowerCase();
+      const amt = String(e.amount || '');
+      return itemTitle.includes(q) || cat.includes(q) || folder.includes(q) || note.includes(q) || amt.includes(q);
     });
-  }, [personalExpenses, tableTimeframe, customSelectedMonth, now, thisMonthPrefix, lastMonthPrefix, thisYearPrefix]);
+  }, [personalExpenses, tableTimeframe, customSelectedMonth, tableSearchQuery, now, thisMonthPrefix, lastMonthPrefix, thisYearPrefix]);
 
   const tableFilterTotalAmount = useMemo(() => {
     return filteredTableExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -1001,6 +1014,64 @@ export const PersonalDashboard = () => {
               ))}
             </select>
           </div>
+        </div>
+
+        {/* ⚡ High-Performance Concurrent Search Bar */}
+        <div style={{ marginBottom: '14px', position: 'relative' }}>
+          <Search
+            size={16}
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-dim)',
+              pointerEvents: 'none'
+            }}
+          />
+          <input
+            type="text"
+            className="input-field"
+            value={tableSearchQuery}
+            onChange={(e) => setTableSearchQuery(e.target.value)}
+            placeholder={lang === 'bn' ? '⚡ খরচের নাম, পণ্য, ক্যাটাগরি বা নোট লিখে নিমেষেই খুঁজুন...' : 'Search expense name, category, folder or note...'}
+            style={{
+              width: '100%',
+              paddingLeft: '38px',
+              paddingRight: tableSearchQuery ? '36px' : '14px',
+              borderRadius: '10px',
+              fontSize: '0.85rem',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+            }}
+          />
+          {tableSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setTableSearchQuery('')}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                color: 'var(--text-muted)',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="table-responsive">
