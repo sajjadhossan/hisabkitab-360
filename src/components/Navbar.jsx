@@ -655,17 +655,26 @@ export const Navbar = () => {
                 width: '42px',
                 height: '42px',
                 borderRadius: '12px',
+                overflow: 'hidden',
                 background: 'var(--mode-gradient)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#ffffff',
                 boxShadow: '0 4px 14px var(--mode-glow)',
-                fontWeight: '800',
-                fontSize: '1.25rem'
+                border: '1px solid rgba(255, 255, 255, 0.15)'
               }}
             >
-              {profile === 'personal' ? '👤' : '💼'}
+              <img
+                src="/logo.png"
+                alt="HisabKitab 360"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  if (e.target.parentNode) {
+                    e.target.parentNode.innerText = profile === 'personal' ? '👤' : '💼';
+                  }
+                }}
+              />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
