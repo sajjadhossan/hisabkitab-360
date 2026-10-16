@@ -900,54 +900,65 @@ export const Navbar = () => {
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 
-            {/* Prominent Login Status Indicator (সবুজ বাতি = লগইন সক্রিয়, লাল বাতি = লগইন নেই) */}
+            {/* Prominent Login Status Indicator (সুপার অ্যাডমিন = নীল বাতি, ওনার/ব্যবসায়িক = সবুজ বাতি, লগইন নেই = লাল বাতি) */}
             {user ? (
               <div
                 className="navbar-user-pill"
                 onClick={() => openAuthModal('login')}
                 style={{
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '5px 12px 5px 8px',
+                  gap: '7px',
+                  padding: '4px 11px 4px 8px',
                   borderRadius: '24px',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  border: '1.5px solid #10b981',
+                  background: isSuperAdmin ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.1)',
+                  border: isSuperAdmin ? '1.5px solid #3b82f6' : '1.5px solid #10b981',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   userSelect: 'none',
-                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)',
+                  boxShadow: isSuperAdmin ? '0 0 10px rgba(59, 130, 246, 0.25)' : '0 0 10px rgba(16, 185, 129, 0.2)',
                   flexShrink: 0,
                   whiteSpace: 'nowrap'
                 }}
-                title={lang === 'bn' ? `লগইন সক্রিয়: ${user.name || user.email} (ক্লিক করে প্রোফাইল দেখুন)` : `Logged in: ${user.name || user.email}`}
+                title={lang === 'bn' ? `লগইন সক্রিয়: ${user.email || user.name} (ক্লিক করে প্রোফাইল দেখুন)` : `Logged in: ${user.email || user.name}`}
               >
-                {/* 🟢 সবুজ বাতি (Green Indicator) */}
+                {/* 🔵 নীল বাতি (সুপার অ্যাডমিন) / 🟢 সবুজ বাতি (ওনার ও ব্যবসায়িক অ্যাকাউন্ট) */}
                 <span
                   style={{
-                    width: '10px',
-                    height: '10px',
+                    width: '9px',
+                    height: '9px',
                     borderRadius: '50%',
-                    background: '#10b981',
-                    boxShadow: '0 0 8px #10b981, 0 0 3px #10b981',
+                    background: isSuperAdmin ? '#3b82f6' : '#10b981',
+                    boxShadow: isSuperAdmin ? '0 0 8px #3b82f6, 0 0 3px #3b82f6' : '0 0 8px #10b981, 0 0 3px #10b981',
                     display: 'inline-block',
-                    animation: 'pulse 1.8s infinite'
+                    animation: 'pulse 1.8s infinite',
+                    flexShrink: 0
                   }}
                 />
                 <div className="navbar-user-pill-text" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user.name?.split(' ')[0] || user.email?.split('@')[0]}
+                  <span style={{
+                    fontSize: '0.76rem',
+                    fontWeight: '800',
+                    color: isSuperAdmin ? '#3b82f6' : '#10b981',
+                    maxWidth: '140px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {user.email || user.name || (lang === 'bn' ? 'অ্যাকাউন্ট' : 'Account')}
                   </span>
                   <span style={{
                     fontSize: '0.62rem',
                     fontWeight: '700',
                     color: 'var(--text-muted)',
-                    textTransform: 'uppercase'
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap'
                   }}>
-                    {isOwner ? (lang === 'bn' ? '🟢 মালিক (সক্রিয়)' : '🟢 Owner') :
+                    {isSuperAdmin ? (lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin') :
+                     isOwner ? (lang === 'bn' ? '🟢 ওনার অ্যাকাউন্ট' : '🟢 Owner') :
                      (isSalesman ? (lang === 'bn' ? '🟡 সেলসম্যান' : '🟡 Salesman') :
                       (isSR ? (lang === 'bn' ? '🔵 এসআর অফিসার' : '🔵 SR Rep') :
-                       (lang === 'bn' ? '🟢 ক্যাশিয়ার' : '🟢 Cashier')))}
+                       (lang === 'bn' ? '🟢 ব্যবসায়িক অ্যাকাউন্ট' : '🟢 Business')))}
                   </span>
                 </div>
               </div>

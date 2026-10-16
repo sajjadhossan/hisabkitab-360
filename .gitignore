@@ -33,6 +33,7 @@ dist-electron
 .kilo/
 latest_run.json
 scratch/
+telegram_config.json
 # Prevent binary blobs from entering public web assets (prevent APK size bloat)
 public/*.apk
 public/*.exe
