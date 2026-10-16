@@ -110,7 +110,7 @@ export const TELEGRAM_REPLY_KEYBOARD = {
   keyboard: [
     [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
     [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '🏪 ৪. দোকানের খরচ ও লাভ' }],
-    [{ text: '🏠 ৫. পার্সোনাল ও ফ্যামিলি হিসাব' }, { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ' }],
+    [{ text: '🏠 ৫. পার্সোনাল লেনদেন' }, { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ' }],
     [{ text: '📖 সাহায্য ও সকল ১০০ কমান্ড তালিকা' }]
   ],
   resize_keyboard: true,
@@ -244,7 +244,7 @@ export const TELEGRAM_FOLDER_MAIN = {
       { text: '🏪 ৪. দোকানের খরচ ও লাভ', callback_data: 'hub_expense' }
     ],
     [
-      { text: '🏠 ৫. পার্সোনাল ও ফ্যামিলি হিসাব', callback_data: 'hub_personal' },
+      { text: '🏠 ৫. পার্সোনাল লেনদেন', callback_data: 'hub_personal' },
       { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ', callback_data: 'hub_reports' }
     ],
     [
@@ -705,7 +705,7 @@ export const parseSmartExpenseMessage = (rawText) => {
     .trim();
 
   if (!cleanTitle) {
-    cleanTitle = subCategory || note || (isPersonal ? 'ব্যক্তিগত খরচ' : 'দোকানের খরচ');
+    cleanTitle = subCategory || note || (isPersonal ? 'পার্সোনাল লেনদেন' : 'দোকানের খরচ');
   }
 
   return {
@@ -1194,8 +1194,8 @@ export const pollTelegramBotCommands = async ({
         continue;
       }
 
-      if (rawText === 'hub_expense' || rawText.includes('৪. দোকান ও পার্সোনাল খরচ') || rawText.includes('পার্সোনাল খরচ')) {
-        const text = `💸 <b>৪. দোকান ও পার্সোনাল খরচ হাব (Expense Hub):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের ও পরিবারের খরচের হিসাব পৃথকভাবে পরিচালনা করুন:`;
+      if (rawText === 'hub_expense' || rawText.includes('৪. দোকানের খরচ') || rawText.includes('দোকানের খরচ') || rawText.includes('দোকান খরচ')) {
+        const text = `🏪 <b>৪. দোকানের ব্যবসায়িক খরচ ও লাভ হাব (Shop Expense & Profit):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের ব্যবসায়িক পরিচালনা ব্যয় ও লাভ-ক্ষতি পরিচালনা করুন:`;
         await sendTelegramMessage(text, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_EXPENSE, 'HTML');
         continue;
       }
@@ -1479,8 +1479,8 @@ export const pollTelegramBotCommands = async ({
         continue;
       }
 
-      if (rawText === 'hub_personal' || rawText.includes('৫. পার্সোনাল') || rawText.includes('পার্সোনাল ও ফ্যামিলি') || rawText.includes('ফ্যামিলি হিসাব')) {
-        await sendTelegramMessage(`🏠 <b>৫. ব্যক্তিগত ও পারিবারিক হিসাব হাব (Personal & Family Life):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের হিসাব থেকে সম্পূর্ণ আলাদা রেখে আপনার ব্যক্তিগত ও সংসারের আয়-ব্যয় এবং বাজার হিসাব পরিচালনা করুন:`, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_PERSONAL, 'HTML');
+      if (rawText === 'hub_personal' || rawText.includes('৫. পার্সোনাল') || rawText.includes('পার্সোনাল লেনদেন') || rawText.includes('পার্সোনাল ও ফ্যামিলি') || rawText.includes('ফ্যামিলি হিসাব')) {
+        await sendTelegramMessage(`🏠 <b>৫. পার্সোনাল লেনদেন ও ফ্যামিলি হাব (Personal Transactions):</b>\n━━━━━━━━━━━━━━━━━━━━━\nদোকানের ব্যবসায়িক মূলধন থেকে সম্পূর্ণ পৃথকভাবে আপনার ব্যক্তিগত ও সংসারের বাজার এবং পার্সোনাল লেনদেন পরিচালনা করুন:`, { botToken: token, chatId: targetChatId }, TELEGRAM_HUB_PERSONAL, 'HTML');
         continue;
       }
 
@@ -2012,14 +2012,25 @@ export const sendTelegramExpenseAddedConfirmation = async ({
   note,
   isPersonal
 }, customConfig = null) => {
-  const text = `✅ *${isPersonal ? 'ব্যক্তিগত' : 'দোকানের'} খরচ সফলভাবে সফটওয়্যারে যুক্ত হয়েছে!*
+  const text = isPersonal
+    ? `✅ *পার্সোনাল লেনদেন সফলভাবে সফটওয়্যারে যুক্ত হয়েছে!*
 ━━━━━━━━━━━━━━━━━━━━━
 💰 *টাকার পরিমাণ:* ৳${Number(amount).toLocaleString()}
-🏷️ *শিরোনাম:* ${title || 'সাধারণ খরচ'}
+🏷️ *লেনদেনের খাত:* ${title || 'পার্সোনাল লেনদেন'}
 📁 *ক্যাটাগরি:* ${category || 'দৈনন্দিন'}
-${subCategory ? `📂 *সাব-ক্যাটাগরি:* ${subCategory}\n` : ''}${familyMember ? `👤 *ব্যক্তি:* ${familyMember}\n` : ''}${note ? `📝 *নোট:* ${note}\n` : ''}⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+${subCategory ? `📂 *উপ-খাত:* ${subCategory}\n` : ''}${familyMember ? `👤 *সদস্য:* ${familyMember}\n` : ''}${note ? `📝 *নোট:* ${note}\n` : ''}⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
 ━━━━━━━━━━━━━━━━━━━━━
-📊 _আজকের সব খরচ দেখতে লিখুন:_ */expense*`;
+🏠 _এটি পার্সোনাল লেনদেন হিসেবে সংরক্ষিত হয়েছে (দোকানের মূলধন সম্পূর্ণ অক্ষত)।_
+📊 _মাসিক পার্সোনাল হিসাব দেখতে লিখুন:_ *পার্সোনাল সামারি*`
+    : `✅ *দোকানের ব্যবসায়িক খরচ সফলভাবে সফটওয়্যারে যুক্ত হয়েছে!*
+━━━━━━━━━━━━━━━━━━━━━
+💰 *টাকার পরিমাণ:* ৳${Number(amount).toLocaleString()}
+🏷️ *ব্যবসায়িক খরচের খাত:* ${title || 'সাধারণ খরচ'}
+📁 *ক্যাটাগরি:* ${category || 'দোকান পরিচালনা'}
+${subCategory ? `📂 *উপ-খাত:* ${subCategory}\n` : ''}⏰ *সময়:* ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+━━━━━━━━━━━━━━━━━━━━━
+🏢 _এটি দোকানের ব্যবসায়িক ব্যয় হিসেবে সংরক্ষিত হয়েছে।_
+📊 _আজকের সব দোকান খরচ দেখতে লিখুন:_ */expense*`;
 
   await sendTelegramMessage(text, customConfig);
 };

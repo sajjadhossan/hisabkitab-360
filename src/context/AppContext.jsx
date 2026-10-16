@@ -3739,8 +3739,10 @@ export const AppProvider = ({ children }) => {
 
             showToast(
               lang === 'bn'
-                ? `টেলিগ্রাম থেকে ৳${Number(amount).toLocaleString()} খরচ যোগ হয়েছে (${title || note})`
-                : `Expense ৳${amount} added via Telegram (${title || note})`,
+                ? isPersonal
+                  ? `টেলিগ্রাম থেকে ৳${Number(amount).toLocaleString()} পার্সোনাল লেনদেন যোগ হয়েছে (${title || note || 'পার্সোনাল'})`
+                  : `টেলিগ্রাম থেকে ৳${Number(amount).toLocaleString()} দোকান খরচ যোগ হয়েছে (${title || note})`
+                : `${isPersonal ? 'Personal transaction' : 'Expense'} ৳${amount} added via Telegram (${title || note})`,
               'success'
             );
           },

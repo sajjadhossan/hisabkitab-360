@@ -173,8 +173,8 @@ export default async function handler(req, res) {
           reply_markup: {
             keyboard: [
               [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
-              [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '💸 ৪. দোকান ও পার্সোনাল খরচ' }],
-              [{ text: '📊 ৫. সকল রিপোর্ট ও PDF' }, { text: '🎙️ ৬. ভয়েস এআই ও ব্যাকআপ' }]
+              [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '🏪 ৪. দোকানের খরচ ও লাভ' }],
+              [{ text: '🏠 ৫. পার্সোনাল লেনদেন' }, { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ' }]
             ],
             resize_keyboard: true,
             is_persistent: true

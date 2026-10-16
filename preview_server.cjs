@@ -40,7 +40,7 @@ const TELEGRAM_REPLY_KEYBOARD = {
   keyboard: [
     [{ text: '🛒 ১. নতুন বিক্রি (POS)' }, { text: '📦 ২. স্টক ও ইনভেন্টরি' }],
     [{ text: '📒 ৩. কাস্টমার বকেয়া খাতা' }, { text: '🏪 ৪. দোকানের খরচ ও লাভ' }],
-    [{ text: '🏠 ৫. পার্সোনাল ও ফ্যামিলি হিসাব' }, { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ' }],
+    [{ text: '🏠 ৫. পার্সোনাল লেনদেন' }, { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ' }],
     [{ text: '📖 সাহায্য ও সকল ১০০ কমান্ড তালিকা' }]
   ],
   resize_keyboard: true,
@@ -170,7 +170,7 @@ const TELEGRAM_FOLDER_MAIN = {
       { text: '🏪 ৪. দোকানের খরচ ও লাভ', callback_data: 'hub_expense' }
     ],
     [
-      { text: '🏠 ৫. পার্সোনাল ও ফ্যামিলি হিসাব', callback_data: 'hub_personal' },
+      { text: '🏠 ৫. পার্সোনাল লেনদেন', callback_data: 'hub_personal' },
       { text: '📊 ৬. সকল রিপোর্ট ও ব্যাকআপ', callback_data: 'hub_reports' }
     ],
     [
