@@ -591,8 +591,19 @@ export const AppProvider = ({ children }) => {
 
   // Personal Profile Data
   const [personalExpenses, setPersonalExpenses] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
-    return saved ? JSON.parse(saved) : initialData.personalExpenses;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
+      const list = saved ? JSON.parse(saved) : initialData.personalExpenses;
+      // Auto-heal any daily expense that was erroneously stamped with 'বাসা ও ফ্ল্যাট খরচ'
+      return (list || []).map(exp => {
+        if (exp.type === 'daily' && (exp.folder === 'বাসা ও ফ্ল্যাট খরচ' || exp.folder === 'বাসা ও ফ্লাট খরচ' || exp.folder === 'বাসা ভাড়া ও সার্ভিস চার্জ')) {
+          return { ...exp, folder: 'দৈনন্দিন বাজার খরচ' };
+        }
+        return exp;
+      });
+    } catch {
+      return initialData.personalExpenses;
+    }
   });
 
   // Soft-deleted Expenses Recycle Bin (রিসাইকেল বিন)
@@ -1328,9 +1339,9 @@ export const AppProvider = ({ children }) => {
       item: (expense.item || expense.title || '').trim(),
       amount: Number(expense.amount) || 0,
       quantity: expense.quantity !== undefined && expense.quantity !== '' && expense.quantity !== null ? Number(expense.quantity) : null,
-      unit: expense.unit || '',
-      folder: expense.folder || (expense.type === 'family' ? 'অন্যান্য পারিবারিক খরচ' : ''),
-      subFolder: expense.subFolder || expense.subCategory || '',
+      folder: (expense.type === 'daily' && (!expense.folder || expense.folder === 'বাসা ও ফ্ল্যাট খরচ' || expense.folder === 'বাসা ও ফ্লাট খরচ'))
+        ? 'দৈনন্দিন বাজার খরচ'
+        : (expense.folder || (expense.type === 'family' ? 'অন্যান্য পারিবারিক খরচ' : 'দৈনন্দিন বাজার খরচ')),
       person: expense.person || expense.member || '',
       member: expense.member || expense.person || '',
       eventId: expense.eventId || '',

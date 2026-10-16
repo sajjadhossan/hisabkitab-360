@@ -373,55 +373,295 @@ export const PersonalDashboard = () => {
         </div>
       </div>
 
-      {/* Quick Smart Finance Suite Chips Row */}
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '1.5rem', scrollbarWidth: 'none' }}>
-        <button
-          onClick={() => setShowCashflowModal(true)}
-          className="badge"
-          style={{ padding: '7px 14px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
-        >
-          <Calendar size={14} /> ক্যাশফ্লো ক্যালেন্ডার
-        </button>
+      {/* 🚀 Mobile / Desktop Slidable Smart Personal Suite Bar */}
+      <div
+        className="personal-suite-slidable-bar"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01))',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '10px 12px',
+          marginBottom: '1.5rem',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.15)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '0 4px' }}>
+          <span style={{ fontSize: '0.76rem', fontWeight: '800', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.02em' }}>
+            <span>⚡ স্মার্ট পার্সোনাল স্যুট (স্ক্রল/স্লাইড করুন):</span>
+          </span>
+          <span style={{ fontSize: '0.68rem', color: '#0ea5e9', fontWeight: '700' }}>
+            {lang === 'bn' ? '👉 ডানে স্লাইড করুন' : '👉 Slide right'}
+          </span>
+        </div>
 
-        <button
-          onClick={() => setShowFamilyBudgetModal(true)}
-          className="badge"
-          style={{ padding: '7px 14px', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch'
+          }}
         >
-          <Users size={14} /> পারিবারিক বাজেট বণ্টন
-        </button>
+          {/* 1. Trash (রিসাইকেল বিন) */}
+          <button
+            onClick={() => setShowRecycleBinModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Trash2 size={15} />
+            <span>{lang === 'bn' ? 'ট্র্যাশ (রিসাইকেল)' : 'Trash Bin'}</span>
+            {trashBin.length > 0 && (
+              <span style={{ backgroundColor: '#ef4444', color: '#ffffff', fontSize: '0.68rem', fontWeight: '800', borderRadius: '10px', padding: '1px 6px', marginLeft: '2px' }}>
+                {trashBin.length}
+              </span>
+            )}
+          </button>
 
-        <button
-          onClick={() => setShowRecurringBillsModal(true)}
-          className="badge"
-          style={{ padding: '7px 14px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
-        >
-          <Zap size={14} /> রিকারিং বিল ও ইউটিলিটি
-        </button>
+          {/* 2. Smart Export */}
+          <button
+            onClick={() => setShowSmartExportModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.12)',
+              color: '#818cf8',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <FileSpreadsheet size={15} />
+            <span>{lang === 'bn' ? 'স্মার্ট এক্সপোর্ট' : 'Smart Export'}</span>
+          </button>
 
-        <button
-          onClick={() => setShowSavingsGoalModal(true)}
-          className="badge"
-          style={{ padding: '7px 14px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
-        >
-          <Target size={14} /> সঞ্চয় লক্ষ্যমাত্রা পোর্টফোলিও
-        </button>
+          {/* 3. AI Text Export */}
+          <button
+            onClick={() => setShowSmartExportModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.12))',
+              color: '#38bdf8',
+              border: '1px solid rgba(14, 165, 233, 0.35)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Sparkles size={15} />
+            <span>{lang === 'bn' ? 'AI টেক্সট এক্সপোর্ট' : 'AI Text Export'}</span>
+          </button>
 
-        <button
-          onClick={() => setShowZakatModal(true)}
-          className="badge"
-          style={{ padding: '7px 14px', background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', border: '1px solid rgba(236, 72, 153, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
-        >
-          <Coins size={14} /> যাকাত ক্যালকুলেটর
-        </button>
+          {/* 4. AI Text Import */}
+          <button
+            onClick={() => setShowAIImportModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15))',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Sparkles size={15} />
+            <span>{lang === 'bn' ? '⚡ AI টেক্সট ইমপোর্ট' : '⚡ AI Text Import'}</span>
+          </button>
 
-        <button
-          onClick={() => setShowShoppingListModal(true)}
-          className="badge"
-          style={{ padding: '7px 14px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '20px', whiteSpace: 'nowrap' }}
-        >
-          <ShoppingCart size={14} /> বাজারের ফর্দ
-        </button>
+          {/* 5. Cash Flow */}
+          <button
+            onClick={() => setShowCashflowModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(6, 182, 212, 0.1)',
+              color: '#06b6d4',
+              border: '1px solid rgba(6, 182, 212, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <TrendingUp size={15} />
+            <span>{lang === 'bn' ? 'ক্যাশ ফ্লো (Cash Flow)' : 'Cash Flow'}</span>
+          </button>
+
+          {/* 6. Calendar */}
+          <button
+            onClick={() => setShowCashflowModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(59, 130, 246, 0.1)',
+              color: '#60a5fa',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Calendar size={15} />
+            <span>{lang === 'bn' ? 'ক্যালেন্ডার ও দিনলিপি' : 'Calendar'}</span>
+          </button>
+
+          {/* 7. Paribarik Budget */}
+          <button
+            onClick={() => setShowFamilyBudgetModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(139, 92, 246, 0.1)',
+              color: '#a78bfa',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Users size={15} />
+            <span>{lang === 'bn' ? 'পারিবারিক বাজেট' : 'Family Budget'}</span>
+          </button>
+
+          {/* 8. Sonchoy */}
+          <button
+            onClick={() => setShowSavingsGoalModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(16, 185, 129, 0.1)',
+              color: '#10b981',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Target size={15} />
+            <span>{lang === 'bn' ? 'সঞ্চয় ও সেভিংস লক্ষ্য' : 'Savings Goals'}</span>
+          </button>
+
+          {/* 9. Zakat Calculation */}
+          <button
+            onClick={() => setShowZakatModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(236, 72, 153, 0.1)',
+              color: '#f472b6',
+              border: '1px solid rgba(236, 72, 153, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Coins size={15} />
+            <span>{lang === 'bn' ? 'যাকাত ক্যালকুলেটর' : 'Zakat Calculator'}</span>
+          </button>
+
+          {/* 10. Recurring Bills */}
+          <button
+            onClick={() => setShowRecurringBillsModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(245, 158, 11, 0.1)',
+              color: '#fbbf24',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Zap size={15} />
+            <span>{lang === 'bn' ? 'রিকারিং বিল' : 'Recurring Bills'}</span>
+          </button>
+
+          {/* 11. Shopping List */}
+          <button
+            onClick={() => setShowShoppingListModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'rgba(16, 185, 129, 0.1)',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <ShoppingCart size={15} />
+            <span>{lang === 'bn' ? 'বাজারের ফর্দ' : 'Shopping List'}</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Stats Grid */}
@@ -792,7 +1032,7 @@ export const PersonalDashboard = () => {
                   <td>
                     <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-main)' }}>
                       <Tag size={12} />
-                      {t.personal.expenseCategories[exp.category] || exp.folder || exp.category}
+                      {t.personal.expenseCategories[exp.category] || (exp.category && exp.category !== 'other' ? exp.category : (exp.type === 'family' ? (exp.folder || 'পারিবারিক খরচ') : (exp.folder || 'দৈনন্দিন বাজার')))}
                     </span>
                   </td>
                   <td>
