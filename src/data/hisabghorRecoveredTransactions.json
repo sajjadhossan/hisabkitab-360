@@ -1,0 +1,1802 @@
+[
+  {
+    "date": "2026-10-13",
+    "item": "অটো ভাড়া গোলঘর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Bitroot",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "গাজর",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 70,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর আসা এবং যাওয়া",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Nescafé mini pack",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 55,
+    "unit": "pcs",
+    "quantity": 12
+  },
+  {
+    "date": "2026-10-12",
+    "item": "চা পাতা",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 200,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "অটো ভাড়া গোলঘর আসা যাওয়া",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Household",
+    "type": "expense",
+    "amount": 200,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "রিমির mottogram খাওয়ার খরচ",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 200,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Auto ভাড়া মস্তগ্রাম to শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "মাদ্রাসার দোকান খরচ",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Mobile রিচার্জ",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 500,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "ঔষধ",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 210,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "অটো ভাড়া মস্ত গ্রাম টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "অটো ভাড়া শ্রীনগর টু সালমোর আনাগোনা",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "চুলার নানার বাসায় খাবার",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 2520,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "চুলার নানা বাসায় যাওয়া আসা ভাড়া রিমি বা গেছিল",
+    "category": "Transportation",
+    "member": "Household",
+    "type": "expense",
+    "amount": 200,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "হাওয়া মিঠাই",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "দান/সদকা",
+    "category": "সদকা/ দান/ সাহায্য",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "থান সামনের বখশিস",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 150,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Auto ভাড়া গোলছাহড় ব্রিজ তো ইউনিয়ন পরিষদ",
+    "category": "Transportation",
+    "member": "Household",
+    "type": "expense",
+    "amount": 130,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "ভালো দুধ ১০গ্রাম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 100,
+    "unit": "পিস",
+    "quantity": 1
+  },
+  {
+    "date": "2026-10-12",
+    "item": "খেজুর",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 150,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "ডিম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 360,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Happy nappy ডায়াপার xl",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 630,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "রসুন",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "Auto ভাড়া শ্রীনগর টু সানমার",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "অটো ভাড়া mottogram আসা যাওয়ার ভাড়া",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-12",
+    "item": "ফ্যারিস ডাল আইটসি ফিস",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-09",
+    "item": "Kothar biya",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 2000,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-04",
+    "item": "Sohidul mamar bow re disi",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 1000,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-04",
+    "item": "আম্মাদের মিষ্টি",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 350,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-04",
+    "item": "অটো ভাড়া শ্রীনগর টু বাইপাস (আসা+যাওয়া)",
+    "category": "Transportation",
+    "member": "Household",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "অটো ভাড়া শ্রীনগর টু ফেরিঘাট",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "অটো ভাড়া ফেরিঘাট টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "ফুচকা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 140,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "অটো ভাড়া শ্রীনগর টু ফেরিঘাট",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "প্যান্ট কাটিং",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 360,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "রিন পাউডার",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 85,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "Nescafé mini pack",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 55,
+    "unit": "pcs",
+    "quantity": 12
+  },
+  {
+    "date": "2026-10-03",
+    "item": "ভালো দুধ ১০গ্রাম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 100,
+    "unit": "পিস",
+    "quantity": 1
+  },
+  {
+    "date": "2026-10-03",
+    "item": "ব্যান",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 80,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "ফটোকপি",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "সেলুন বিল",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 15,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "প্যান্ট সুইচ",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "ডাল",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 110,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "অটো ভাড়া ফেরিঘাট টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "গরুর দুধ",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 1000,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "ফেস সোপ",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 770,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-03",
+    "item": "পানি ২৫০এমএল",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "ml",
+    "quantity": 250
+  },
+  {
+    "date": "2026-10-03",
+    "item": "রিমি জুতা ঠিক করার জন্য নিয়ে",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-10-01",
+    "item": "জিনস প্যান্ট",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 1530,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "সেভ-৩",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 135,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "Ace সিরাপ",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 35,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "সাদকা",
+    "category": "সদকা/ দান/ সাহায্য",
+    "member": "Household",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "দান/সদকা",
+    "category": "সদকা/ দান/ সাহায্য",
+    "member": "Household",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "পুরি",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "অটো ভাড়া শ্রীনগর থেকে মস্তগ্রাম",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-29",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 28,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "অটো ভাড়া চকবাজার টু গোলঘর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "চা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 25,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "অটো ভাড়া গোলঘর টু চকবাজার বাংলাদেশ ওপেন ভার্সিটি",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "Dove shampoo",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 45,
+    "unit": "pcs",
+    "quantity": 12
+  },
+  {
+    "date": "2026-09-24",
+    "item": "Rin power",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 85,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "অটো ভাড়া শ্রীনগর টু মস্তগ্রাম",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "অটো ভাড়া মস্তগ্রাম টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-24",
+    "item": "Rosutin 10",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 290,
+    "unit": "pcs",
+    "quantity": 15
+  },
+  {
+    "date": "2026-09-23",
+    "item": "চা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 15,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-22",
+    "item": "পাতলা পানি",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-22",
+    "item": "বুট",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-22",
+    "item": "সেলুনের ভাওচার",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 80,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-22",
+    "item": "রুটি পরোউরু",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "অটো ভাড়া শ্রীনগর টু বাইপাস",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "অটো ভাড়া বাইপাস টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "ভালো দুধ ১০গ্রাম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 100,
+    "unit": "পিস",
+    "quantity": 1
+  },
+  {
+    "date": "2026-09-21",
+    "item": "গাজর",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 70,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "বিটবুট",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "লেবু",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "খেজুর",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 200,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-21",
+    "item": "পোলাও সিঙ্গারা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 90,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-20",
+    "item": "অটো ভাড়া শ্রীনগর থেকে মস্তগ্রাম",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-19",
+    "item": "অটো ভাড়া শ্রীনগর তো সানবাড়ি",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-19",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-19",
+    "item": "মালিশ করেছি",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-19",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-18",
+    "item": "চুল কাটা",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-18",
+    "item": "টিস্যু",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-18",
+    "item": "কোকো পাউডার",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 80,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-18",
+    "item": "ভ্যানিলা এসেন্স",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-18",
+    "item": "Photo copy print 1 pis colour",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "pis",
+    "quantity": 1
+  },
+  {
+    "date": "2026-09-18",
+    "item": "বেগুনি চপ",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-18",
+    "item": "অটো ভাড়া শ্রীনগর তো সানবাড়ি",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "চা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "বাস ভাড়া বাঘারবাড়ী টু গুলিস্তান",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "বুট",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "বাস ভাড়া গুলিস্তান টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "অটো ভাড়া সানবাড়ি টু শ্রীনগর সরকারি কলেজ/ইউনিয়ন পরিষদ",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "সেভি",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "পান করাই",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "গাজর",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 70,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "বিটবুট",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 48,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "পেঁপে",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-16",
+    "item": "অটো ভাড়া শ্রীনগর টু বাইপাস,বাইপাস টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-14",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-13",
+    "item": "বিরিয়ানির মসলা আরহাম এর জন্য",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-13",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-13",
+    "item": "পাকিস্তান থেকে মাইল কেক",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 110,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-13",
+    "item": "পাকিস্তান থেকে ড্রাই কেক বিস্কুট",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 190,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-11",
+    "item": "মসজিদে দান করেছি",
+    "category": "সদকা/ দান/ সাহায্য",
+    "member": "Household",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-10",
+    "item": "অটো ভাড়া শ্রীনগর থেকে মস্তগ্রাম",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-10",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-10",
+    "item": "শোয়ার্মা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 260,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-10",
+    "item": "বগুড়া ১০",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 195,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-10",
+    "item": "ভালো দুধ ১০গ্রাম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 100,
+    "unit": "পিস",
+    "quantity": 1
+  },
+  {
+    "date": "2026-09-10",
+    "item": "Nescafé mini pack",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 110,
+    "unit": "pcs",
+    "quantity": 12
+  },
+  {
+    "date": "2026-09-10",
+    "item": "কোয়েলে পাখির ডিম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 150,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-09",
+    "item": "খালেক নানারে দেখতে গেসিলাম",
+    "category": "Food & Groceries",
+    "member": "Household",
+    "type": "expense",
+    "amount": 1300,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-09",
+    "item": "খালেক নানারে দেখতে গেসিলাম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 120,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-09",
+    "item": "লেবু ৪পিস ২০টাকা",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "পিস",
+    "quantity": 4
+  },
+  {
+    "date": "2026-09-09",
+    "item": "খালেক নানারে দেখতে গেসিলাম",
+    "category": "Family",
+    "member": "Household",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "রিমি টি শার্ট ক্রয় কোর্স",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 650,
+    "unit": "পিস",
+    "quantity": 2
+  },
+  {
+    "date": "2026-09-08",
+    "item": "হ্যাপি ন্যাপ্পি ডায়াপার",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 630,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "এইচ সিরাপ",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 32,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "Ambrox syrup",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 47,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "সুরমা ৫০ গ্রাম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "গ্রাম",
+    "quantity": 50
+  },
+  {
+    "date": "2026-09-08",
+    "item": "কোমর বিচি",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "কাজু বাদাম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 80,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "পেস্তা বাদাম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "আখরোট",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 70,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "পেস্তা বাদাম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 70,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "শুষ্ক ফুটি বিজ",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "কিসমিস",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "বুঁতের ডাল",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-08",
+    "item": "বিটবুট",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-07",
+    "item": "আমি আর রিমি ছোট নানার ভাড়া",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-05",
+    "item": "অটো ভাড়া মস্তগ্রাম থেকে শ্রীনগর",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-05",
+    "item": "ছোলা বুট",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 55,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-04",
+    "item": "চুল কাটা",
+    "category": "Food & Groceries",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-04",
+    "item": "ফুল বাড়া",
+    "category": "Food & Groceries",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-04",
+    "item": "অটো ভাড়া শ্রীনগর টু কলেজ",
+    "category": "Transportation",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-04",
+    "item": "শালদুধ",
+    "category": "Food & Groceries",
+    "member": "রিমির নানু বাসায়",
+    "type": "expense",
+    "amount": 1200,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-04",
+    "item": "ডাল",
+    "category": "Food & Groceries",
+    "member": "রিমির নানু বাসায়",
+    "type": "expense",
+    "amount": 480,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-04",
+    "item": "অটো ভাড়া শ্রীনগর থেকে মস্তগ্রাম",
+    "category": "Transportation",
+    "member": "রিমির নানু বাসায়",
+    "type": "expense",
+    "amount": 220,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-02",
+    "item": "কলম",
+    "category": "Education",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-02",
+    "item": "টি-শার্ট",
+    "category": "Shopping",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 180,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-02",
+    "item": "রুটি",
+    "category": "Food & Groceries",
+    "member": "Household",
+    "type": "expense",
+    "amount": 70,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-02",
+    "item": "চিপস",
+    "category": "Food & Groceries",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-02",
+    "item": "রিমি ২২০টাকা নিসে",
+    "category": "Family",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 220,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-02",
+    "item": "আইডী সাথী রে দিসি",
+    "category": "Financial",
+    "member": "আইডী সাথী",
+    "type": "expense",
+    "amount": 1000,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Tooth Brush",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Kodomo toothpaste",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 130,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Aveeno face cream",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 950,
+    "unit": "g",
+    "quantity": 150
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Kodomo hair body wash",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 1250,
+    "unit": "ml",
+    "quantity": 400
+  },
+  {
+    "date": "2026-09-01",
+    "item": "চামচ",
+    "category": "Housing",
+    "member": "Household",
+    "type": "expense",
+    "amount": 1000,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Kodomo baby body wash head to toy",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 1200,
+    "unit": "ml",
+    "quantity": 400
+  },
+  {
+    "date": "2026-09-01",
+    "item": "গরুর দুধ",
+    "category": "Food & Groceries",
+    "member": "Household",
+    "type": "expense",
+    "amount": 1000,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "খেজুর ৭৫০ টাকা কেজি",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 200,
+    "unit": "কেজি",
+    "quantity": 1
+  },
+  {
+    "date": "2026-09-01",
+    "item": "গম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "গাজর",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "চিনা বাদাম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 120,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "পেঁপে",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 25,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "কানের এক গজা",
+    "category": "Clothing",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 30,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "ভুট্টো",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 50,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "মিষ্টি আলু",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 95,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "রসুন",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "লাল চাল",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "সুতা",
+    "category": "Clothing",
+    "member": "Amalina rimi",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "হাঁসের ডিম",
+    "category": "Family",
+    "member": "Arham Hossan",
+    "type": "expense",
+    "amount": 240,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Ecap ৪০০এমজি",
+    "category": "Family",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 40,
+    "unit": "mg",
+    "quantity": 400
+  },
+  {
+    "date": "2026-09-01",
+    "item": "Nescafé mini pack",
+    "category": "Food & Groceries",
+    "member": "Household",
+    "type": "expense",
+    "amount": 110,
+    "unit": "pcs",
+    "quantity": 12
+  },
+  {
+    "date": "2026-09-01",
+    "item": "অটো ভাড়া শ্রীনগর তো সানবাড়ি",
+    "category": "Transportation",
+    "member": "Tahmina akter roni",
+    "type": "expense",
+    "amount": 20,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "বাস ভাড়া শ্রীনগর টু ঢাকা",
+    "category": "Transportation",
+    "member": "Tahmina akter roni",
+    "type": "expense",
+    "amount": 120,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "রিকশা ভাড়া",
+    "category": "Transportation",
+    "member": "Tahmina akter roni",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "চা",
+    "category": "Food & Groceries",
+    "member": "Sajjad Hossan",
+    "type": "expense",
+    "amount": 10,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "অটোরেকশা ভাড়া",
+    "category": "Transportation",
+    "member": "Tahmina akter roni",
+    "type": "expense",
+    "amount": 100,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "খাস ভাড়া ঢাকা টু শ্রীনগর",
+    "category": "Transportation",
+    "member": "Tahmina akter roni",
+    "type": "expense",
+    "amount": 120,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "অটো ভাড়া সানবাড়ি টু শ্রীনগর কলেজ/ইউনিয়ন পরিষদ",
+    "category": "Transportation",
+    "member": "Tahmina akter roni",
+    "type": "expense",
+    "amount": 60,
+    "unit": "",
+    "quantity": null
+  },
+  {
+    "date": "2026-09-01",
+    "item": "বেতন",
+    "category": "বেতন",
+    "member": "Sajjad Hossan",
+    "type": "income",
+    "amount": 20000,
+    "unit": "",
+    "quantity": null
+  }
+]

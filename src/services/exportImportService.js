@@ -1568,11 +1568,14 @@ export const parsePdfFile = async (file, onProgress) => {
   });
 
   const monthGroups = Object.values(monthMap).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+  const isImageOnlyPdf = totalPages > 0 && allLines.length === 0;
 
   return {
     rawLinesCount: allLines.length,
     parsedRecords,
-    monthGroups
+    monthGroups,
+    isImageOnlyPdf,
+    totalPages
   };
 };
 
