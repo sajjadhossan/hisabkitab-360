@@ -19,11 +19,16 @@ export const resolveConflictLWW = (localItem, incomingItem) => {
   const localTime = getEntityTimestamp(localItem);
   const incomingTime = getEntityTimestamp(incomingItem);
 
+  // Soft-delete awareness: If either is explicitly marked deleted, preserve deletion flag with latest timestamp
+  const isIncomingDeleted = Boolean(incomingItem.isDeleted || incomingItem.deleted_at || incomingItem._deleted);
+  const isLocalDeleted = Boolean(localItem.isDeleted || localItem.deleted_at || localItem._deleted);
+
   // If incoming record is strictly newer, it wins
   if (incomingTime > localTime) {
     return {
       ...localItem,
       ...incomingItem,
+      isDeleted: isIncomingDeleted,
       _conflictResolved: true,
       _winner: 'incoming',
       _resolvedAt: Date.now()
@@ -35,6 +40,7 @@ export const resolveConflictLWW = (localItem, incomingItem) => {
     return {
       ...incomingItem,
       ...localItem,
+      isDeleted: isLocalDeleted,
       _conflictResolved: true,
       _winner: 'local',
       _resolvedAt: Date.now()
@@ -46,10 +52,10 @@ export const resolveConflictLWW = (localItem, incomingItem) => {
   const incomingVer = Number(incomingItem.version || incomingItem._v || 0);
 
   if (incomingVer > localVer) {
-    return { ...localItem, ...incomingItem, _conflictResolved: true };
+    return { ...localItem, ...incomingItem, isDeleted: isIncomingDeleted || isLocalDeleted, _conflictResolved: true };
   }
 
-  return { ...incomingItem, ...localItem, _conflictResolved: true };
+  return { ...incomingItem, ...localItem, isDeleted: isLocalDeleted || isIncomingDeleted, _conflictResolved: true };
 };
 
 /**

@@ -23,7 +23,8 @@ import {
   Users,
   Compass,
   Check,
-  MoreVertical
+  MoreVertical,
+  ShoppingCart
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { DataExportImportModal } from '../common/DataExportImportModal';
@@ -33,6 +34,7 @@ import { VoiceInputButton } from '../common/VoiceInputButton';
 import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
+import SmartGroceryFolderModal from './SmartGroceryFolderModal';
 import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
 
 export const FamilyExpenses = () => {
@@ -69,6 +71,7 @@ export const FamilyExpenses = () => {
   const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
   const [showSmartExportModal, setShowSmartExportModal] = useState(false);
   const [showAIImportModal, setShowAIImportModal] = useState(false);
+  const [showGroceryModal, setShowGroceryModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [categoryModalDefaultGroup, setCategoryModalDefaultGroup] = useState('familyExpenseFolders');
   const [editingExpense, setEditingExpense] = useState(null);
@@ -509,6 +512,30 @@ export const FamilyExpenses = () => {
           >
             <Sparkles size={16} />
             <span>{lang === 'bn' ? '⚡ এআই টেক্সট ইমপোর্ট' : '⚡ AI Text Import'}</span>
+          </button>
+
+          {/* Smart Grocery Folders & Price Memory Button */}
+          <button
+            onClick={() => setShowGroceryModal(true)}
+            title={lang === 'bn' ? 'ফোল্ডারভিত্তিক রেগুলার বাজার, ওজন হিসাব ও দর মেমোরি' : 'Smart Grocery Folders & Price Memory'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(16, 185, 129, 0.15))',
+              color: '#60a5fa',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 10px rgba(59, 130, 246, 0.2)'
+            }}
+          >
+            <ShoppingCart size={16} />
+            <span>{lang === 'bn' ? '🛒 রেগুলার বাজার ও দর মেমোরি' : '🛒 Grocery & Price Memory'}</span>
           </button>
 
           {/* Add Family Expense Button */}
@@ -2329,6 +2356,12 @@ export const FamilyExpenses = () => {
         isOpen={showAIImportModal}
         onClose={() => setShowAIImportModal(false)}
         defaultType="family"
+      />
+
+      {/* SMART GROCERY FOLDERS & PRICE MEMORY MODAL */}
+      <SmartGroceryFolderModal
+        isOpen={showGroceryModal}
+        onClose={() => setShowGroceryModal(false)}
       />
     </div>
   );

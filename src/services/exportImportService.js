@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { printHtmlContent } from './printService';
+import { downloadNativeFile } from './nativeAppService';
 
 // Set up pdfjs worker using local bundled worker asset (works offline in APK and Web)
 if (pdfjsLib.GlobalWorkerOptions) {
@@ -43,32 +44,75 @@ export const formatBanglaMonthYear = (monthKey) => {
 // 1. EXCEL EXPORT HELPERS
 // ----------------------------------------------------
 
-export const exportToExcel = (data, sheetName = 'Sheet1', fileName = 'Export.xlsx') => {
+export const exportToExcel = async (data, sheetName = 'Sheet1', fileName = 'Export.xlsx') => {
   try {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
-    // Native Android APK Direct Spooler/Download Bridge
+    // 1. Native Android APK Direct Spooler/Download Bridge
     if (typeof window !== 'undefined' && window.AndroidFileBridge && typeof window.AndroidFileBridge.downloadBase64File === 'function') {
-      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
-      window.AndroidFileBridge.downloadBase64File(
-        wbout,
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        fileName
-      );
-      return true;
+      try {
+        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+        window.AndroidFileBridge.downloadBase64File(
+          wbout,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          fileName
+        );
+        return true;
+      } catch (bridgeErr) {
+        console.warn('[Excel Export] AndroidFileBridge failed, falling back to Blob download:', bridgeErr);
+      }
     }
 
-    XLSX.writeFile(workbook, fileName);
-    return true;
+    // 2. High-reliability Blob download via nativeAppService (works in modern Web, Chrome, Edge, Safari, Electron, Capacitor)
+    try {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const downloaded = await downloadNativeFile(
+        blob,
+        fileName,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      if (downloaded) return true;
+    } catch (blobErr) {
+      console.warn('[Excel Export] Blob download failed, attempting XLSX.writeFile:', blobErr);
+    }
+
+    // 3. Direct XLSX.writeFile
+    try {
+      XLSX.writeFile(workbook, fileName);
+      return true;
+    } catch (writeErr) {
+      console.warn('[Excel Export] XLSX.writeFile failed, trying UTF-8 CSV fallback:', writeErr);
+    }
+
+    // 4. Universal Fallback: UTF-8 BOM CSV (Guaranteed readable by Excel on Windows/Mac with proper Bengali text)
+    const csvData = XLSX.utils.sheet_to_csv(worksheet);
+    const csvBlob = new Blob(['\uFEFF' + csvData], { type: 'text/csv;charset=utf-8;' });
+    const csvFileName = fileName.replace(/\.xlsx$/i, '.csv');
+    return await downloadNativeFile(csvBlob, csvFileName, 'text/csv;charset=utf-8;');
   } catch (error) {
     console.error('Excel Export Error:', error);
+    // Emergency plain CSV fallback
+    try {
+      if (Array.isArray(data) && data.length > 0) {
+        const headers = Object.keys(data[0]);
+        const rows = data.map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','));
+        const rawCsv = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+        const fallbackBlob = new Blob([rawCsv], { type: 'text/csv;charset=utf-8;' });
+        return await downloadNativeFile(fallbackBlob, fileName.replace(/\.xlsx$/i, '.csv'), 'text/csv;charset=utf-8;');
+      }
+    } catch (e) {
+      console.error('Critical Export Fallback Error:', e);
+    }
     throw error;
   }
 };
 
-export const exportMultiSheetToExcel = (sheets = [], fileName = 'Full_Export.xlsx') => {
+export const exportMultiSheetToExcel = async (sheets = [], fileName = 'Full_Export.xlsx') => {
   try {
     const workbook = XLSX.utils.book_new();
     sheets.forEach(({ data, sheetName }) => {
@@ -77,17 +121,49 @@ export const exportMultiSheetToExcel = (sheets = [], fileName = 'Full_Export.xls
     });
 
     if (typeof window !== 'undefined' && window.AndroidFileBridge && typeof window.AndroidFileBridge.downloadBase64File === 'function') {
-      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
-      window.AndroidFileBridge.downloadBase64File(
-        wbout,
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        fileName
-      );
-      return true;
+      try {
+        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+        window.AndroidFileBridge.downloadBase64File(
+          wbout,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          fileName
+        );
+        return true;
+      } catch (bridgeErr) {
+        console.warn('[MultiSheet Export] AndroidFileBridge failed:', bridgeErr);
+      }
     }
 
-    XLSX.writeFile(workbook, fileName);
-    return true;
+    try {
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const downloaded = await downloadNativeFile(
+        blob,
+        fileName,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      if (downloaded) return true;
+    } catch (blobErr) {
+      console.warn('[MultiSheet Export] Blob download failed, trying XLSX.writeFile:', blobErr);
+    }
+
+    try {
+      XLSX.writeFile(workbook, fileName);
+      return true;
+    } catch (writeErr) {
+      console.warn('[MultiSheet Export] XLSX.writeFile failed:', writeErr);
+    }
+
+    // Fallback: download first sheet as UTF-8 BOM CSV
+    if (sheets.length > 0 && Array.isArray(sheets[0].data)) {
+      const firstSheet = XLSX.utils.json_to_sheet(sheets[0].data);
+      const csvData = XLSX.utils.sheet_to_csv(firstSheet);
+      const csvBlob = new Blob(['\uFEFF' + csvData], { type: 'text/csv;charset=utf-8;' });
+      return await downloadNativeFile(csvBlob, fileName.replace(/\.xlsx$/i, '.csv'), 'text/csv;charset=utf-8;');
+    }
+    return false;
   } catch (error) {
     console.error('MultiSheet Excel Export Error:', error);
     throw error;

@@ -33,6 +33,7 @@ import { BazaarShoppingListModal } from './BazaarShoppingListModal';
 import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
+import SmartGroceryFolderModal from './SmartGroceryFolderModal';
 import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
 
 export const PersonalDashboard = () => {
@@ -58,6 +59,7 @@ export const PersonalDashboard = () => {
   const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
   const [showSmartExportModal, setShowSmartExportModal] = useState(false);
   const [showAIImportModal, setShowAIImportModal] = useState(false);
+  const [showGroceryModal, setShowGroceryModal] = useState(false);
   const [showQuickIncomeModal, setShowQuickIncomeModal] = useState(false);
   const [quickIncomeForm, setQuickIncomeForm] = useState({
     amount: '',
@@ -469,6 +471,30 @@ export const PersonalDashboard = () => {
           >
             <Sparkles size={15} />
             <span>{lang === 'bn' ? '⚡ AI টেক্সট ইমপোর্ট' : '⚡ AI Text Import'}</span>
+          </button>
+
+          {/* Smart Grocery Folders & Price Memory */}
+          <button
+            onClick={() => setShowGroceryModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(16, 185, 129, 0.15))',
+              color: '#60a5fa',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)'
+            }}
+          >
+            <ShoppingCart size={15} />
+            <span>{lang === 'bn' ? '🛒 বাজার ও দর মেমোরি' : '🛒 Grocery & Price Memory'}</span>
           </button>
 
           {/* 5. Cash Flow */}
@@ -1233,6 +1259,12 @@ export const PersonalDashboard = () => {
         isOpen={showAIImportModal}
         onClose={() => setShowAIImportModal(false)}
         defaultType="daily"
+      />
+
+      {/* Smart Grocery Folders & Price Memory Modal */}
+      <SmartGroceryFolderModal
+        isOpen={showGroceryModal}
+        onClose={() => setShowGroceryModal(false)}
       />
 
       {/* 💵 Quick Monthly Income Entry Modal (Requirement 12) */}

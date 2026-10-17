@@ -45,6 +45,7 @@ import { RoutineShoppingPresetsModal } from '../common/RoutineShoppingPresetsMod
 import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
+import SmartGroceryFolderModal from './SmartGroceryFolderModal';
 
 const DEFAULT_CATEGORY_SUB_MAP = {
   transport: ['বাস ভাড়া', 'অটো / সিএনজি ভাড়া', 'রিকশা ভাড়া', 'উবার / পাঠাও রাইড', 'মেট্রোরেল ভাড়া', 'মোটরসাইকেল তেল', 'ট্রেন / লঞ্চ ভাড়া'],
@@ -103,6 +104,7 @@ export const DailyExpenses = () => {
   const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
   const [showSmartExportModal, setShowSmartExportModal] = useState(false);
   const [showAIImportModal, setShowAIImportModal] = useState(false);
+  const [showGroceryModal, setShowGroceryModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
 
@@ -835,6 +837,31 @@ export const DailyExpenses = () => {
                   {trashBin.length}
                 </span>
               )}
+            </button>
+
+            {/* Smart Grocery Folders & Price Memory Button */}
+            <button
+              onClick={() => setShowGroceryModal(true)}
+              title={lang === 'bn' ? 'ফোল্ডারভিত্তিক রেগুলার বাজার, ওজন হিসাব ও দর মেমোরি' : 'Smart Grocery Folders & Price Memory'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '10px 16px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(16, 185, 129, 0.15))',
+                color: '#60a5fa',
+                border: '1.5px solid rgba(59, 130, 246, 0.35)',
+                fontSize: '0.9rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                boxShadow: '0 2px 10px rgba(59, 130, 246, 0.2)'
+              }}
+            >
+              <ShoppingCart size={17} />
+              <span>{lang === 'bn' ? '🛒 বাজার ও দর মেমোরি' : '🛒 Grocery & Price Memory'}</span>
             </button>
           </div>
         </div>
@@ -1634,6 +1661,12 @@ export const DailyExpenses = () => {
         isOpen={showAIImportModal}
         onClose={() => setShowAIImportModal(false)}
         defaultType="daily"
+      />
+
+      {/* Smart Grocery Folders & Price Memory Modal */}
+      <SmartGroceryFolderModal
+        isOpen={showGroceryModal}
+        onClose={() => setShowGroceryModal(false)}
       />
     </div>
   );

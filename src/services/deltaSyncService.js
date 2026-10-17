@@ -109,103 +109,95 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
 
   try {
     // -------------------------------------------------------------
-    // STEP 1: UPSTREAM PUSH (Flush offline mutations to Supabase)
+    // STEP 1: DOWNSTREAM PULL FIRST (Fetch-Before-Push Pre-Check)
     // -------------------------------------------------------------
-    notifyDeltaSyncState({ isSyncing: true, progress: 25, step: 'অফলাইন ট্রানজেকশন ক্লাউডে সিঙ্ক হচ্ছে...' });
-    const flushRes = await flushOfflineQueue();
-    pushedCount = flushRes?.syncedCount || 0;
-
-    // -------------------------------------------------------------
-    // STEP 2: DOWNSTREAM PULL (Fetch modified delta rows from Cloud)
-    // -------------------------------------------------------------
-    notifyDeltaSyncState({ isSyncing: true, progress: 50, step: 'ক্লাউড থেকে সাম্প্রতিক আপডেট আনা হচ্ছে...' });
+    notifyDeltaSyncState({ isSyncing: true, progress: 20, step: 'ক্লাউড থেকে সর্বশেষ আপডেট যাচাই ও আনা হচ্ছে...' });
     const sinceTimestamp = forceFull ? null : getLastDeltaSyncTime();
     const deltaRes = await fetchDeltaChangesFromCloud(sinceTimestamp);
 
-    if (!deltaRes.success) {
-      isDeltaSyncing = false;
-      notifyDeltaSyncState({ isSyncing: false, error: deltaRes.message || deltaRes.error });
-      return {
-        success: false,
-        pushedCount,
-        error: deltaRes.message || deltaRes.error
-      };
-    }
+    if (deltaRes && deltaRes.success) {
+      const { deltaProducts = [], deltaCustomers = [], deltaInvoices = [], timestamp: newSyncTimestamp } = deltaRes;
+      pulledProductsCount = deltaProducts.length;
+      pulledCustomersCount = deltaCustomers.length;
+      pulledInvoicesCount = deltaInvoices.length;
 
-    const { deltaProducts = [], deltaCustomers = [], deltaInvoices = [], timestamp: newSyncTimestamp } = deltaRes;
-    pulledProductsCount = deltaProducts.length;
-    pulledCustomersCount = deltaCustomers.length;
-    pulledInvoicesCount = deltaInvoices.length;
+      // -------------------------------------------------------------
+      // STEP 2: CONFLICT RESOLUTION & RECONCILIATION
+      // -------------------------------------------------------------
+      notifyDeltaSyncState({ isSyncing: true, progress: 45, step: 'কনফ্লিক্ট রেজোলিউশন ও লোকাল মার্জ...' });
+
+      // 2a. Reconcile Products
+      if (deltaProducts.length > 0 && appContextHooks?.getProducts && appContextHooks?.setProducts) {
+        const currentProducts = appContextHooks.getProducts() || [];
+        const reconciled = reconcileEntitiesLWW(currentProducts, deltaProducts, 'id');
+
+        for (const p of reconciled) {
+          if (p._conflictResolved) {
+            conflictsResolvedCount++;
+            recordConflictEvent('product', p.name, p._winner || 'LWW', `Updated stock: ${p.stock}`);
+          }
+        }
+
+        appContextHooks.setProducts(reconciled);
+        await idbBulkSet({ 'products_data': reconciled });
+      }
+
+      // 2b. Reconcile Customers
+      if (deltaCustomers.length > 0 && appContextHooks?.getCustomers && appContextHooks?.setCustomers) {
+        const currentCustomers = appContextHooks.getCustomers() || [];
+        const reconciled = reconcileEntitiesLWW(currentCustomers, deltaCustomers, 'id');
+
+        for (const c of reconciled) {
+          if (c._conflictResolved) {
+            conflictsResolvedCount++;
+            recordConflictEvent('customer', c.name, c._winner || 'LWW', `Due balance: ${c.due_balance}`);
+          }
+        }
+
+        appContextHooks.setCustomers(reconciled);
+        await idbBulkSet({ 'customers_data': reconciled });
+      }
+
+      // 2c. Append New Invoices
+      if (deltaInvoices.length > 0 && appContextHooks?.getSalesHistory && appContextHooks?.setSalesHistory) {
+        const currentSales = appContextHooks.getSalesHistory() || [];
+        const existingIds = new Set(currentSales.map((s) => s.id || s.invoice_number));
+
+        const newSales = [];
+        for (const inv of deltaInvoices) {
+          if (!existingIds.has(inv.id) && !existingIds.has(inv.invoice_number) && !existingIds.has(inv.client_uuid)) {
+            newSales.push({
+              id: inv.client_uuid || inv.id,
+              cloud_id: inv.id,
+              invoiceNumber: inv.invoice_number,
+              customerName: inv.customer_name,
+              customerPhone: inv.customer_phone,
+              total: Number(inv.grand_total || 0),
+              subtotal: Number(inv.subtotal || 0),
+              paidAmount: Number(inv.paid_amount || 0),
+              paymentMethod: inv.payment_method || 'cash',
+              items: inv.invoice_items || [],
+              date: inv.created_at,
+              synced: true
+            });
+          }
+        }
+
+        if (newSales.length > 0) {
+          const mergedSales = [...newSales, ...currentSales];
+          appContextHooks.setSalesHistory(mergedSales);
+          await idbBulkSet({ 'sales_history': mergedSales });
+        }
+      }
+    }
 
     // -------------------------------------------------------------
-    // STEP 3: LWW CONFLICT RESOLUTION & RECONCILIATION
+    // STEP 3: UPSTREAM PUSH (Flush verified offline mutations to Supabase)
     // -------------------------------------------------------------
-    notifyDeltaSyncState({ isSyncing: true, progress: 75, step: 'কনফ্লিক্ট রেজোলিউশন ও লোকাল মার্জ...' });
+    notifyDeltaSyncState({ isSyncing: true, progress: 70, step: 'অফলাইন ট্রানজেকশন ক্লাউডে সুরক্ষিতভাবে পুশ হচ্ছে...' });
+    const flushRes = await flushOfflineQueue();
+    pushedCount = flushRes?.syncedCount || 0;
 
-    // 3a. Reconcile Products
-    if (deltaProducts.length > 0 && appContextHooks?.getProducts && appContextHooks?.setProducts) {
-      const currentProducts = appContextHooks.getProducts() || [];
-      const reconciled = reconcileEntitiesLWW(currentProducts, deltaProducts, 'id');
-
-      // Check conflict count
-      for (const p of reconciled) {
-        if (p._conflictResolved) {
-          conflictsResolvedCount++;
-          recordConflictEvent('product', p.name, p._winner || 'LWW', `Updated stock: ${p.stock}`);
-        }
-      }
-
-      appContextHooks.setProducts(reconciled);
-      await idbBulkSet({ 'products_data': reconciled });
-    }
-
-    // 3b. Reconcile Customers
-    if (deltaCustomers.length > 0 && appContextHooks?.getCustomers && appContextHooks?.setCustomers) {
-      const currentCustomers = appContextHooks.getCustomers() || [];
-      const reconciled = reconcileEntitiesLWW(currentCustomers, deltaCustomers, 'id');
-
-      for (const c of reconciled) {
-        if (c._conflictResolved) {
-          conflictsResolvedCount++;
-          recordConflictEvent('customer', c.name, c._winner || 'LWW', `Due balance: ${c.due_balance}`);
-        }
-      }
-
-      appContextHooks.setCustomers(reconciled);
-      await idbBulkSet({ 'customers_data': reconciled });
-    }
-
-    // 3c. Append New Invoices
-    if (deltaInvoices.length > 0 && appContextHooks?.getSalesHistory && appContextHooks?.setSalesHistory) {
-      const currentSales = appContextHooks.getSalesHistory() || [];
-      const existingIds = new Set(currentSales.map((s) => s.id || s.invoice_number));
-
-      const newSales = [];
-      for (const inv of deltaInvoices) {
-        if (!existingIds.has(inv.id) && !existingIds.has(inv.invoice_number) && !existingIds.has(inv.client_uuid)) {
-          newSales.push({
-            id: inv.client_uuid || inv.id,
-            cloud_id: inv.id,
-            invoiceNumber: inv.invoice_number,
-            customerName: inv.customer_name,
-            customerPhone: inv.customer_phone,
-            total: Number(inv.grand_total || 0),
-            subtotal: Number(inv.subtotal || 0),
-            paidAmount: Number(inv.paid_amount || 0),
-            paymentMethod: inv.payment_method || 'cash',
-            items: inv.invoice_items || [],
-            date: inv.created_at,
-            synced: true
-          });
-        }
-      }
-
-      if (newSales.length > 0) {
-        const mergedSales = [...newSales, ...currentSales];
-        appContextHooks.setSalesHistory(mergedSales);
-        await idbBulkSet({ 'sales_history': mergedSales });
-      }
-    }
 
     // -------------------------------------------------------------
     // STEP 3.5: UNIFIED CLOUD STATE SYNC (Expenses, Incomes, Debts, Trash)

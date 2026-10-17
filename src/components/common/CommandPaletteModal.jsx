@@ -26,6 +26,7 @@ import {
   Stethoscope,
   Cloud,
   Printer,
+  Trash2,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -284,6 +285,28 @@ export const CommandPaletteModal = () => {
         icon: Printer,
         action: () => {
           if (window.__openHardwareScaling) window.__openHardwareScaling();
+        }
+      },
+      // Smart Grocery Folders & Price Intelligence
+      {
+        id: 'cmd_grocery_folders',
+        category: lang === 'bn' ? 'বাজার ও পরিবার' : 'Grocery & Family',
+        title: lang === 'bn' ? '🛒 রেগুলার বাজার ফোল্ডার ও প্রাইস ইন্টেলিজেন্স' : '🛒 Smart Grocery Folders & Price Intelligence',
+        subtitle: lang === 'bn' ? 'কাঁচাবাজার, ফলমূল, মুদিখানা, মাছ-মাংস ও কেজি/গ্রাম দর হিসাব' : 'Folder grocery shopping, weight calculator & price memory',
+        icon: ShoppingCart,
+        action: () => {
+          setActiveTab('family_expenses');
+        }
+      },
+      // Soft-Delete Recycle Bin
+      {
+        id: 'cmd_recycle_bin',
+        category: lang === 'bn' ? 'ডাটা ও ব্যাকআপ' : 'Data & Backup',
+        title: lang === 'bn' ? '🗑️ সফট-ডিলিট রিসাইকেল বিন (Recycle Bin)' : '🗑️ Recycle Bin & Soft-Delete Recovery',
+        subtitle: lang === 'bn' ? 'মুছে ফেলা যেকোনো খরচের এন্ট্রি এক ক্লিকে রিস্টোর করুন' : '1-click recovery of deleted expense records',
+        icon: Trash2,
+        action: () => {
+          setActiveTab('family_expenses');
         }
       }
     ];
