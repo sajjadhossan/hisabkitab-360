@@ -225,7 +225,7 @@ export const CounterShiftOpeningModal = ({ isOpen, onClose, onShiftOpened }) => 
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  ৳{val.toLocaleString()}
+                  ৳{(Number(val) || 0).toLocaleString()}
                 </button>
               ))}
             </div>

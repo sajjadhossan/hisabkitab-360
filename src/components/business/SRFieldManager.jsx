@@ -169,7 +169,7 @@ export const SRFieldManager = () => {
         <div class="flex pad-y"><span>মোবাইল:</span><span>${item.customerPhone || 'N/A'}</span></div>
         <div class="line"></div>
         <div class="flex pad-y"><span>পূর্ববর্তী বকেয়া:</span><span>৳${item.previousDue.toLocaleString()}</span></div>
-        <div class="flex pad-y bold" style="font-size: 14px;"><span>আদায়কৃত টাকা:</span><span>৳${item.amount.toLocaleString()}</span></div>
+        <div class="flex pad-y bold" style="font-size: 14px;"><span>আদায়কৃত টাকা:</span><span>৳${ite(Number(m?.amount) || 0).toLocaleString()}</span></div>
         <div class="flex pad-y bold"><span>অবশিষ্ট বকেয়া:</span><span>৳${item.remainingDue.toLocaleString()}</span></div>
         <div class="flex pad-y"><span>পদ্ধতি:</span><span>${item.method === 'cash' ? 'নগদ ক্যাশ' : 'বিকাশ / ডিজিটাল'}</span></div>
         ${item.note ? `<div class="pad-y">মন্তব্য: ${item.note}</div>` : ''}

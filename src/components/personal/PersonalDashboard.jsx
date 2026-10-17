@@ -810,7 +810,7 @@ export const PersonalDashboard = () => {
               >
                 <div style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)' }}>{d.label}</div>
                 <div style={{ fontSize: '0.82rem', fontWeight: '900', color: d.total > 0 ? '#ef4444' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                  ৳{d.total.toLocaleString('en-IN')}
+                  ৳{(Number(d?.total) || 0).toLocaleString('en-IN')}
                 </div>
               </div>
             ))}
@@ -840,7 +840,7 @@ export const PersonalDashboard = () => {
                       {item.label}
                     </span>
                     <span style={{ fontWeight: '600', fontFamily: 'var(--font-mono)' }}>
-                      ৳{item.total.toLocaleString()} ({pct}%)
+                      ৳{(Number(item?.total) || 0).toLocaleString()} ({pct}%)
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -871,8 +871,8 @@ export const PersonalDashboard = () => {
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                    <span>{t.personal.saved}: ৳{goal.saved.toLocaleString()}</span>
-                    <span>{t.personal.target}: ৳{goal.target.toLocaleString()}</span>
+                    <span>{t.personal.saved}: ৳{(Number(goal?.saved) || 0).toLocaleString()}</span>
+                    <span>{t.personal.target}: ৳{(Number(goal?.target) || 0).toLocaleString()}</span>
                   </div>
                   <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                     <div style={{ width: `${progress}%`, height: '100%', background: goal.color, borderRadius: '4px' }} />
@@ -1118,7 +1118,7 @@ export const PersonalDashboard = () => {
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: '700', fontFamily: 'var(--font-mono)', color: '#ef4444' }}>
-                    -৳{exp.amount.toLocaleString()}
+                    -৳{(Number(exp?.amount) || 0).toLocaleString()}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>

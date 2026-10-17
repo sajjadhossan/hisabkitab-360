@@ -149,7 +149,7 @@ export const PersonalIncome = () => {
                       {item.note && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.note}</div>}
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: '700', fontFamily: 'var(--font-mono)', color: '#10b981' }}>
-                      +৳{item.amount.toLocaleString()}
+                      +৳{ite(Number(m?.amount) || 0).toLocaleString()}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>

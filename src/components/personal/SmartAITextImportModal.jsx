@@ -861,7 +861,7 @@ export const SmartAITextImportModal = ({ isOpen, onClose, defaultType = 'daily' 
                           {item.quantity ? `${item.quantity} ${item.unit}` : (item.unit || '-')}
                         </td>
                         <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: '800', fontFamily: 'var(--font-mono)', color: '#ef4444' }}>
-                          ৳{item.amount.toLocaleString()}
+                          ৳{ite(Number(m?.amount) || 0).toLocaleString()}
                         </td>
                         <td style={{ padding: '6px 10px', textAlign: 'center' }}>
                           <button

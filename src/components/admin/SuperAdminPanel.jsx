@@ -1753,7 +1753,7 @@ export const SuperAdminPanel = () => {
                           </span>
                         </td>
                         <td style={{ padding: '8px', fontWeight: '800', color: m.type === 'deposit' ? '#10b981' : '#ef4444' }}>
-                          {m.type === 'deposit' ? '+' : '-'}৳{m.amount.toLocaleString()}
+                          {m.type === 'deposit' ? '+' : '-'}৳{(Number(m?.amount) || 0).toLocaleString()}
                         </td>
                         <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{m.reason}</td>
                         <td style={{ padding: '8px', fontWeight: '700', color: 'var(--text-main)' }}>{m.authorizedBy}</td>

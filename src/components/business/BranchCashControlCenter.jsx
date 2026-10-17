@@ -504,7 +504,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
               {lang === 'bn' ? 'সব কাউন্টারে মোট ক্যাশ টাকা' : 'Total Drawer Cash (All Stores)'}
             </h3>
             <p className="stat-value" style={{ color: '#10b981', fontSize: '1.75rem', fontWeight: '900' }}>
-              ৳{grandTotalCashInDrawers.toLocaleString()}
+              ৳{(Number(grandTotalCashInDrawers) || 0).toLocaleString()}
             </p>
             <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
               {branches.length} {lang === 'bn' ? 'টি শাখায়' : 'branches'} • {totalCountersCount} {lang === 'bn' ? 'টি ক্যাশ ড্রয়ারে বর্তমান ক্যাশ' : 'counters'}
@@ -522,7 +522,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
               {lang === 'bn' ? 'আজকের মোট বিক্রয় (সব শাখা)' : "Today's Gross Sales (All)"}
             </h3>
             <p className="stat-value" style={{ color: '#6366f1', fontSize: '1.75rem', fontWeight: '900' }}>
-              ৳{grandTotalTodaySales.toLocaleString()}
+              ৳{(Number(grandTotalTodaySales) || 0).toLocaleString()}
             </p>
             <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
               {lang === 'bn' ? 'নগদ + ডিজিটাল পেমেন্ট সহ' : 'Cash + Digital transactions'}
@@ -636,7 +636,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'শাখার মোট ক্যাশ' : 'Branch Cash'}</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#10b981' }}>
-                      ৳{branchTotalCash.toLocaleString()}
+                      ৳{(Number(branchTotalCash) || 0).toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -676,7 +676,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
                           <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'ড্রয়ারে নগদ ক্যাশ:' : 'Cash in Drawer:'}</div>
                             <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#10b981' }}>
-                              ৳{counterData.currentCashInDrawer.toLocaleString()}
+                              ৳{(Number(counterData?.currentCashInDrawer) || 0).toLocaleString()}
                             </div>
                           </div>
                         </div>
@@ -695,7 +695,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
                           }}
                         >
                           <span>{lang === 'bn' ? 'ওপেনিং ফ্লোট:' : 'Float:'} ৳{(Number(counter.openingFloat) || 0).toLocaleString()}</span>
-                          <span>{lang === 'bn' ? 'আজকের নগদ সেল:' : 'Cash Sales:'} +৳{counterData.cashSales.toLocaleString()}</span>
+                          <span>{lang === 'bn' ? 'আজকের নগদ সেল:' : 'Cash Sales:'} +৳{(Number(counterData?.cashSales) || 0).toLocaleString()}</span>
                           <span>{lang === 'bn' ? 'মোট লেনদেন:' : 'Transactions:'} {counterData.transactionsCount} {lang === 'bn' ? 'টি' : ''}</span>
                         </div>
 
@@ -1144,7 +1144,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
                         fontWeight: '600'
                       }}
                     >
-                      +৳{val.toLocaleString()}
+                      +৳{(Number(val) || 0).toLocaleString()}
                     </button>
                   ))}
                 </div>

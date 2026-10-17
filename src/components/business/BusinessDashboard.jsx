@@ -399,13 +399,13 @@ export const BusinessDashboard = () => {
       `📅 তারিখ: ${new Date().toLocaleDateString('bn-BD')}\n` +
       `🕒 সময়: ${new Date().toLocaleTimeString('bn-BD')}\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
-      `• মোট বিক্রয়: ৳${todaySalesTotal.toLocaleString()} (${todaySalesList.length}টি মেমো)\n` +
-      `• ক্যাশ বিক্রয় আদায়: ৳${todayCashSales.toLocaleString()}\n` +
-      `• ডিজিটাল/মোবাইল পেমেন্ট: ৳${todayDigitalSales.toLocaleString()}\n` +
-      `• বকেয়া/বাকিতে বিক্রি: ৳${todayDueSales.toLocaleString()}\n` +
-      `• আজকের মোট খরচ: ৳${todayExpensesTotal.toLocaleString()}\n` +
+      `• মোট বিক্রয়: ৳${(Number(todaySalesTotal) || 0).toLocaleString()} (${todaySalesList.length}টি মেমো)\n` +
+      `• ক্যাশ বিক্রয় আদায়: ৳${(Number(todayCashSales) || 0).toLocaleString()}\n` +
+      `• ডিজিটাল/মোবাইল পেমেন্ট: ৳${(Number(todayDigitalSales) || 0).toLocaleString()}\n` +
+      `• বকেয়া/বাকিতে বিক্রি: ৳${(Number(todayDueSales) || 0).toLocaleString()}\n` +
+      `• আজকের মোট খরচ: ৳${(Number(todayExpensesTotal) || 0).toLocaleString()}\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
-      `📈 *আজকের প্রাক্কলিত লাভ:* ৳${todayNetProfit.toLocaleString()}\n` +
+      `📈 *আজকের প্রাক্কলিত লাভ:* ৳${(Number(todayNetProfit) || 0).toLocaleString()}\n` +
       `💵 *ক্যাশ ড্রয়ার স্থিতি:* ৳${Math.max(0, todayCashSales - todayExpensesTotal).toLocaleString()}\n` +
       `━━━━━━━━━━━━━━━━━━\n` +
       `হিসাবকিতাব ৩৬০ সিস্টেম থেকে স্বয়ংক্রিয়ভাবে প্রস্তুতকৃত।`;
@@ -1123,7 +1123,7 @@ export const BusinessDashboard = () => {
 
             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               {lang === 'bn' ? 'আজকের বিক্রয়:' : 'Today:'}{' '}
-              <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{todaySalesTotal.toLocaleString()}</strong> /{' '}
+              <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{(Number(todaySalesTotal) || 0).toLocaleString()}</strong> /{' '}
               {lang === 'bn' ? 'টার্গেট:' : 'Goal:'}{' '}
               <strong style={{ color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>৳{dailySalesTarget.toLocaleString()}</strong> ({targetAchievedPct}%)
             </div>
@@ -1359,7 +1359,7 @@ export const BusinessDashboard = () => {
                         lineHeight: 1.2
                       }}
                     >
-                      ৳{d.total.toLocaleString()}
+                      ৳{(Number(d?.total) || 0).toLocaleString()}
                     </div>
                     <div
                       style={{
@@ -1465,7 +1465,7 @@ export const BusinessDashboard = () => {
               <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'মোট বিক্রয়' : 'Total Sales'}</div>
                 <div style={{ fontSize: '1.15rem', fontWeight: '900', color: selectedChartDay.palette?.primary || '#10b981', fontFamily: 'var(--font-mono)' }}>
-                  ৳{selectedChartDay.total.toLocaleString()}
+                  ৳{(Number(selectedChartDay?.total) || 0).toLocaleString()}
                 </div>
               </div>
 
@@ -1486,7 +1486,7 @@ export const BusinessDashboard = () => {
               <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'নগদ আদায়' : 'Cash Collected'}</div>
                 <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-                  ৳{selectedChartDay.cashTotal.toLocaleString()}
+                  ৳{(Number(selectedChartDay?.cashTotal) || 0).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -1637,16 +1637,16 @@ export const BusinessDashboard = () => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
               <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'বিক্রি:' : 'Sales:'}</span>
-              <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.today.sales.toLocaleString('en-IN')}</strong>
+              <strong style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{(Number(timeframeAnalytics?.today?.sales) || 0).toLocaleString('en-IN')}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
               <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'খরচ:' : 'Expenses:'}</span>
-              <strong style={{ color: '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.today.expenses.toLocaleString('en-IN')}</strong>
+              <strong style={{ color: '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{(Number(timeframeAnalytics?.today?.expenses) || 0).toLocaleString('en-IN')}</strong>
             </div>
             <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
               <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{lang === 'bn' ? 'মার্জিন/উদ্বৃত্ত:' : 'Net:'}</span>
               <strong style={{ color: timeframeAnalytics.today.margin >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>
-                {timeframeAnalytics.today.margin >= 0 ? '+' : ''}৳{timeframeAnalytics.today.margin.toLocaleString('en-IN')}
+                {timeframeAnalytics.today.margin >= 0 ? '+' : ''}৳{(Number(timeframeAnalytics?.today?.margin) || 0).toLocaleString('en-IN')}
               </strong>
             </div>
           </div>
@@ -1660,16 +1660,16 @@ export const BusinessDashboard = () => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
               <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'বিক্রি:' : 'Sales:'}</span>
-              <strong style={{ color: '#6366f1', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.yesterday.sales.toLocaleString('en-IN')}</strong>
+              <strong style={{ color: '#6366f1', fontFamily: 'var(--font-mono)' }}>৳{(Number(timeframeAnalytics?.yesterday?.sales) || 0).toLocaleString('en-IN')}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
               <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'খরচ:' : 'Expenses:'}</span>
-              <strong style={{ color: '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{timeframeAnalytics.yesterday.expenses.toLocaleString('en-IN')}</strong>
+              <strong style={{ color: '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{(Number(timeframeAnalytics?.yesterday?.expenses) || 0).toLocaleString('en-IN')}</strong>
             </div>
             <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
               <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{lang === 'bn' ? 'মার্জিন/উদ্বৃত্ত:' : 'Net:'}</span>
               <strong style={{ color: timeframeAnalytics.yesterday.margin >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>
-                {timeframeAnalytics.yesterday.margin >= 0 ? '+' : ''}৳{timeframeAnalytics.yesterday.margin.toLocaleString('en-IN')}
+                {timeframeAnalytics.yesterday.margin >= 0 ? '+' : ''}৳{(Number(timeframeAnalytics?.yesterday?.margin) || 0).toLocaleString('en-IN')}
               </strong>
             </div>
           </div>
@@ -1683,22 +1683,22 @@ export const BusinessDashboard = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'চলতি সপ্তাহ:' : 'This Week:'}</span>
                 <span>
-                  <strong style={{ color: '#10b981' }}>৳{timeframeAnalytics.thisWeek.sales.toLocaleString('en-IN')}</strong>
-                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.thisWeek.expenses.toLocaleString('en-IN')})</span>
+                  <strong style={{ color: '#10b981' }}>৳{(Number(timeframeAnalytics?.thisWeek?.sales) || 0).toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{(Number(timeframeAnalytics?.thisWeek?.expenses) || 0).toLocaleString('en-IN')})</span>
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'লাস্ট উইক (বিগত সপ্তাহ):' : 'Last Week:'}</span>
                 <span>
-                  <strong style={{ color: 'var(--text-main)' }}>৳{timeframeAnalytics.lastWeek.sales.toLocaleString('en-IN')}</strong>
-                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.lastWeek.expenses.toLocaleString('en-IN')})</span>
+                  <strong style={{ color: 'var(--text-main)' }}>৳{(Number(timeframeAnalytics?.lastWeek?.sales) || 0).toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{(Number(timeframeAnalytics?.lastWeek?.expenses) || 0).toLocaleString('en-IN')})</span>
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'পূর্ববর্তী সপ্তাহ (৩য় লাস্ট উইক):' : '2 Wks Ago:'}</span>
                 <span>
-                  <strong style={{ color: 'var(--text-main)' }}>৳{timeframeAnalytics.thirdLastWeek.sales.toLocaleString('en-IN')}</strong>
-                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.thirdLastWeek.expenses.toLocaleString('en-IN')})</span>
+                  <strong style={{ color: 'var(--text-main)' }}>৳{(Number(timeframeAnalytics?.thirdLastWeek?.sales) || 0).toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{(Number(timeframeAnalytics?.thirdLastWeek?.expenses) || 0).toLocaleString('en-IN')})</span>
                 </span>
               </div>
             </div>
@@ -1713,21 +1713,21 @@ export const BusinessDashboard = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'চলতি মাস:' : 'This Month:'}</span>
                 <span>
-                  <strong style={{ color: '#10b981' }}>৳{timeframeAnalytics.thisMonth.sales.toLocaleString('en-IN')}</strong>
-                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.thisMonth.expenses.toLocaleString('en-IN')})</span>
+                  <strong style={{ color: '#10b981' }}>৳{(Number(timeframeAnalytics?.thisMonth?.sales) || 0).toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{(Number(timeframeAnalytics?.thisMonth?.expenses) || 0).toLocaleString('en-IN')})</span>
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'গত মাস (Last Month):' : 'Last Month:'}</span>
                 <span>
-                  <strong style={{ color: '#3b82f6' }}>৳{timeframeAnalytics.lastMonth.sales.toLocaleString('en-IN')}</strong>
-                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{timeframeAnalytics.lastMonth.expenses.toLocaleString('en-IN')})</span>
+                  <strong style={{ color: '#3b82f6' }}>৳{(Number(timeframeAnalytics?.lastMonth?.sales) || 0).toLocaleString('en-IN')}</strong>
+                  <span style={{ color: '#ef4444', marginLeft: '4px', fontSize: '0.7rem' }}>(-৳{(Number(timeframeAnalytics?.lastMonth?.expenses) || 0).toLocaleString('en-IN')})</span>
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-color)', paddingTop: '3px', marginTop: '2px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'bn' ? 'চলতি বছর vs গত বছর:' : 'Yearly:'}</span>
                 <span>
-                  <strong style={{ color: '#10b981' }}>৳{timeframeAnalytics.thisYear.sales.toLocaleString('en-IN')}</strong> / <span style={{ color: 'var(--text-muted)' }}>৳{timeframeAnalytics.lastYear.sales.toLocaleString('en-IN')}</span>
+                  <strong style={{ color: '#10b981' }}>৳{(Number(timeframeAnalytics?.thisYear?.sales) || 0).toLocaleString('en-IN')}</strong> / <span style={{ color: 'var(--text-muted)' }}>৳{(Number(timeframeAnalytics?.lastYear?.sales) || 0).toLocaleString('en-IN')}</span>
                 </span>
               </div>
             </div>
@@ -1777,15 +1777,15 @@ export const BusinessDashboard = () => {
                     </td>
 
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '800', fontFamily: 'var(--font-mono)', color: row.sales > 0 ? '#10b981' : 'var(--text-muted)' }}>
-                      ৳{row.sales.toLocaleString('en-IN')}
+                      ৳{(Number(row?.sales) || 0).toLocaleString('en-IN')}
                     </td>
 
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '800', fontFamily: 'var(--font-mono)', color: row.expenses > 0 ? '#ef4444' : 'var(--text-muted)' }}>
-                      ৳{row.expenses.toLocaleString('en-IN')}
+                      ৳{(Number(row?.expenses) || 0).toLocaleString('en-IN')}
                     </td>
 
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '900', fontFamily: 'var(--font-mono)', color: row.margin >= 0 ? '#10b981' : '#ef4444' }}>
-                      {row.margin >= 0 ? '+' : ''}৳{row.margin.toLocaleString('en-IN')}
+                      {row.margin >= 0 ? '+' : ''}৳{(Number(row?.margin) || 0).toLocaleString('en-IN')}
                     </td>
 
                     <td style={{ padding: '8px 12px', textAlign: 'center' }}>
@@ -2125,7 +2125,7 @@ export const BusinessDashboard = () => {
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'শাখার মোট বিক্রয়' : 'Branch Sales'}</div>
                       <div style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                        ৳{branchTotalSales.toLocaleString()}
+                        ৳{(Number(branchTotalSales) || 0).toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -2175,7 +2175,7 @@ export const BusinessDashboard = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{ textAlign: 'right' }}>
                               <div style={{ fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-main)' }}>
-                                ৳{counterTotal.toLocaleString()}
+                                ৳{(Number(counterTotal) || 0).toLocaleString()}
                               </div>
                             </div>
                             <button
@@ -2235,7 +2235,7 @@ export const BusinessDashboard = () => {
                 {lang === 'bn' ? 'আজকের বিক্রি' : 'Sales'}:
               </span>
               <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#6366f1', fontFamily: 'monospace' }}>
-                ৳{todaySalesTotal.toLocaleString()}
+                ৳{(Number(todaySalesTotal) || 0).toLocaleString()}
               </span>
             </div>
             {canViewNetProfit && (
@@ -2244,7 +2244,7 @@ export const BusinessDashboard = () => {
                   {lang === 'bn' ? 'আজকের নিট লাভ' : 'Net Profit'}:
                 </span>
                 <span style={{ fontSize: '1.25rem', fontWeight: '800', color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontFamily: 'monospace' }}>
-                  ৳{todayNetProfit.toLocaleString()}
+                  ৳{(Number(todayNetProfit) || 0).toLocaleString()}
                 </span>
               </div>
             )}
@@ -2253,7 +2253,7 @@ export const BusinessDashboard = () => {
                 {lang === 'bn' ? 'আজকের খরচ' : 'Expense'}:
               </span>
               <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444', fontFamily: 'monospace' }}>
-                -৳{todayExpensesTotal.toLocaleString()}
+                -৳{(Number(todayExpensesTotal) || 0).toLocaleString()}
               </span>
             </div>
           </div>
@@ -2411,7 +2411,7 @@ export const BusinessDashboard = () => {
           <div className="stat-info">
             <h3>{t.business.totalDue}</h3>
             <div className="stat-value" style={{ color: '#f59e0b' }}>
-              ৳{totalMarketDue.toLocaleString()}
+              ৳{(Number(totalMarketDue) || 0).toLocaleString()}
             </div>
             <div className="stat-trend" style={{ color: '#f59e0b' }}>
               {lang === 'bn' ? 'কাস্টমারদের কাছে পাওনা' : 'Receivables'}
@@ -2441,7 +2441,7 @@ export const BusinessDashboard = () => {
                   {lang === 'bn' ? '⚠️ ড্যামেজ / নষ্ট পণ্যের মোট ক্ষতি' : 'Total Damaged Goods Loss'}
                 </div>
                 <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ef4444', fontFamily: 'monospace' }}>
-                  ৳{totalDamagedLoss.toLocaleString()} ({damagedGoods.length} {lang === 'bn' ? 'টি এন্ট্রি' : 'entries'})
+                  ৳{(Number(totalDamagedLoss) || 0).toLocaleString()} ({damagedGoods.length} {lang === 'bn' ? 'টি এন্ট্রি' : 'entries'})
                 </div>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2469,7 +2469,7 @@ export const BusinessDashboard = () => {
                   {lang === 'bn' ? '🔄 বিক্রিত পণ্য ফেরত (Sales Return)' : 'Total Sales Returns'}
                 </div>
                 <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#f97316', fontFamily: 'monospace' }}>
-                  ৳{totalSalesReturnVal.toLocaleString()} {lang === 'bn' ? 'টাকা সমন্বয়' : 'adjusted'}
+                  ৳{(Number(totalSalesReturnVal) || 0).toLocaleString()} {lang === 'bn' ? 'টাকা সমন্বয়' : 'adjusted'}
                 </div>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -2678,7 +2678,7 @@ export const BusinessDashboard = () => {
                   {lang === 'bn' ? 'আটকে থাকা পুঁজির পরিমাণ:' : 'Total Blocked Capital:'}
                 </div>
                 <div style={{ fontSize: '1.25rem', fontWeight: '800', color: deadStockProducts.length > 0 ? '#ef4444' : '#10b981', fontFamily: 'monospace', margin: '2px 0' }}>
-                  ৳{totalDeadStockCapital.toLocaleString()}
+                  ৳{(Number(totalDeadStockCapital) || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
                   {deadStockProducts.length > 0
@@ -2721,11 +2721,11 @@ export const BusinessDashboard = () => {
                   {lang === 'bn' ? 'প্রত্যাশিত আগামী ৭ দিনের বিক্রয়:' : 'Projected 7-Day Revenue:'}
                 </div>
                 <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#6366f1', fontFamily: 'monospace', margin: '2px 0' }}>
-                  ৳{projected7DaySales.toLocaleString()}
+                  ৳{(Number(projected7DaySales) || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{lang === 'bn' ? 'দৈনিক গড়:' : 'Daily avg:'} ৳{avgDailySales.toLocaleString()}</span>
-                  <span style={{ color: '#10b981', fontWeight: '700' }}>+৳{projected7DayProfit.toLocaleString()} লাভ</span>
+                  <span>{lang === 'bn' ? 'দৈনিক গড়:' : 'Daily avg:'} ৳{(Number(avgDailySales) || 0).toLocaleString()}</span>
+                  <span style={{ color: '#10b981', fontWeight: '700' }}>+৳{(Number(projected7DayProfit) || 0).toLocaleString()} লাভ</span>
                 </div>
               </div>
             </div>
@@ -2822,7 +2822,7 @@ export const BusinessDashboard = () => {
                   </td>
                   <td>
                     <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
-                      {sale.items.reduce((s, i) => s + i.qty, 0)} {lang === 'bn' ? 'টি পণ্য' : 'pcs'}
+                      {(sale?.items || []).reduce((s, i) => s + (Number(i?.qty) || 0), 0)} {lang === 'bn' ? 'টি পণ্য' : 'pcs'}
                     </span>
                   </td>
                   <td>
@@ -2831,7 +2831,7 @@ export const BusinessDashboard = () => {
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-main)', fontSize: '0.95rem' }}>
-                    ৳{sale.grandTotal.toLocaleString()}
+                    ৳{(Number(sale?.grandTotal) || 0).toLocaleString()}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <button
@@ -2892,23 +2892,23 @@ export const BusinessDashboard = () => {
             <div style={{ background: 'var(--bg-main)', borderRadius: '14px', padding: '1rem', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>মোট বিক্রয় ({todaySalesList.length} মেমো):</span>
-                <span style={{ fontWeight: '800', fontFamily: 'var(--font-mono)' }}>৳{todaySalesTotal.toLocaleString()}</span>
+                <span style={{ fontWeight: '800', fontFamily: 'var(--font-mono)' }}>৳{(Number(todaySalesTotal) || 0).toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>💵 ক্যাশ আদায়:</span>
-                <span style={{ fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{todayCashSales.toLocaleString()}</span>
+                <span style={{ fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}>৳{(Number(todayCashSales) || 0).toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>📱 ডিজিটাল/মোবাইল পেমেন্ট:</span>
-                <span style={{ fontWeight: '800', color: '#6366f1', fontFamily: 'var(--font-mono)' }}>৳{todayDigitalSales.toLocaleString()}</span>
+                <span style={{ fontWeight: '800', color: '#6366f1', fontFamily: 'var(--font-mono)' }}>৳{(Number(todayDigitalSales) || 0).toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>📒 বকেয়া/বাকি দেওয়া:</span>
-                <span style={{ fontWeight: '800', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>৳{todayDueSales.toLocaleString()}</span>
+                <span style={{ fontWeight: '800', color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>৳{(Number(todayDueSales) || 0).toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>💸 আজকের মোট খরচ:</span>
-                <span style={{ fontWeight: '800', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>-৳{todayExpensesTotal.toLocaleString()}</span>
+                <span style={{ fontWeight: '800', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>-৳{(Number(todayExpensesTotal) || 0).toLocaleString()}</span>
               </div>
               <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: '800' }}>
                 <span>💰 নিট ক্যাশ ড্রয়ার স্থিতি:</span>
@@ -2916,7 +2916,7 @@ export const BusinessDashboard = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.92rem', fontWeight: '800' }}>
                 <span>📈 আজকের প্রাক্কলিত লাভ:</span>
-                <span style={{ color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{todayNetProfit.toLocaleString()}</span>
+                <span style={{ color: todayNetProfit >= 0 ? '#10b981' : '#ef4444', fontFamily: 'var(--font-mono)' }}>৳{(Number(todayNetProfit) || 0).toLocaleString()}</span>
               </div>
             </div>
 
