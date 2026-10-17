@@ -838,6 +838,35 @@ export const GoogleDriveBackupManager = ({
                       onChange={(e) => setFormState({ ...formState, googleDriveFolder: e.target.value })}
                     />
                   </div>
+
+                  <div>
+                    <label className="field-label" style={{ fontSize: '0.78rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>{lang === 'bn' ? '⏱️ অটো-ব্যাকআপ সময় বিরতি (Auto-Backup Interval):' : '⏱️ Auto-Backup Interval:'}</span>
+                      <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 'bold' }}>
+                        {lang === 'bn' ? 'সুপার ও বিজনেস এডমিন সক্রিয়' : 'Admin Enabled'}
+                      </span>
+                    </label>
+                    <select
+                      className="input-field"
+                      style={{ fontSize: '0.8rem', fontWeight: '600' }}
+                      value={formState.googleDriveBackupInterval || '1min'}
+                      onChange={(e) => setFormState({ ...formState, googleDriveBackupInterval: e.target.value })}
+                    >
+                      <option value="30s">{lang === 'bn' ? '⚡ প্রতি ৩০ সেকেন্ড (দ্রুততম সিঙ্ক)' : '⚡ Every 30 Seconds'}</option>
+                      <option value="1min">{lang === 'bn' ? '⏱️ প্রতি ১ মিনিট (ডিফল্ট অটো-সিঙ্ক)' : '⏱️ Every 1 Minute (Default)'}</option>
+                      <option value="5min">{lang === 'bn' ? '⏱️ প্রতি ৫ মিনিট (মাঝারি বিরতি)' : '⏱️ Every 5 Minutes'}</option>
+                      <option value="15min">{lang === 'bn' ? '⏱️ প্রতি ১৫ মিনিট' : '⏱️ Every 15 Minutes'}</option>
+                      <option value="30min">{lang === 'bn' ? '⭐ প্রতি ৩০ মিনিট (প্রস্তাবিত ও আদর্শ)' : '⭐ Every 30 Minutes (Recommended)'}</option>
+                      <option value="1hr">{lang === 'bn' ? '🕒 প্রতি ১ ঘণ্টা (Hourly)' : '🕒 Every 1 Hour'}</option>
+                      <option value="daily">{lang === 'bn' ? '📅 প্রতিদিন একবার (Daily)' : '📅 Daily Once'}</option>
+                      <option value="monthly">{lang === 'bn' ? '🗓️ প্রতি মাসে একবার (Monthly)' : '🗓️ Monthly Once'}</option>
+                    </select>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: '1.4' }}>
+                      {lang === 'bn'
+                        ? '💡 প্রফেশনাল টিপ: গুগল ড্রাইভ API কোটা ও ডিভাইসের ব্যাটারি সাশ্রয়ের জন্য ১ থেকে ৩০ মিনিটের বিরতি সবচেয়ে উপযুক্ত।'
+                        : '💡 Tip: 1 to 30 minutes interval is ideal for balancing Google Drive API quotas and device battery.'}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Google Drive Guide Tabs */}

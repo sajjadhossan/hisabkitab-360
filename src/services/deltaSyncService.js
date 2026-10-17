@@ -237,7 +237,13 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
       timestamp: newSyncTimestamp
     };
 
-    notifyDeltaSyncState({ isSyncing: false, progress: 100, result });
+    notifyDeltaSyncState({
+      type: 'SYNC_COMPLETE',
+      isSyncing: false,
+      progress: 100,
+      result,
+      timestamp: newSyncTimestamp || new Date().toISOString()
+    });
 
     try {
       hapticFeedback.success();
@@ -247,7 +253,7 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
   } catch (err) {
     console.warn('[DeltaSyncEngine] Execution failed:', err);
     isDeltaSyncing = false;
-    notifyDeltaSyncState({ isSyncing: false, error: err.message });
+    notifyDeltaSyncState({ type: 'SYNC_ERROR', isSyncing: false, error: err.message });
     return {
       success: false,
       error: err.message
@@ -258,7 +264,7 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
 let isSchedulerInitialized = false;
 
 /**
- * Initialize background interval and online listener
+ * Initialize background interval and multi-lifecycle listeners for Android APK, Web, and Desktop
  */
 export const initAutoDeltaSyncScheduler = () => {
   if (typeof window === 'undefined' || isSchedulerInitialized) return;
@@ -268,11 +274,39 @@ export const initAutoDeltaSyncScheduler = () => {
   window.addEventListener('online', () => {
     setTimeout(() => {
       executeBiDirectionalSync({ forceFull: false });
-    }, 1500);
+    }, 1200);
   });
 
-  // 2. Periodic continuous background delta sync every 5 seconds
-  const INTERVAL_MS = 5 * 1000;
+  // 2. Android APK / Mobile foreground resume listener (fixes stationary badge)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      setTimeout(() => {
+        executeBiDirectionalSync({ forceFull: false });
+      }, 500);
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    setTimeout(() => {
+      executeBiDirectionalSync({ forceFull: false });
+    }, 500);
+  });
+
+  // Capacitor native appStateChange listener for Android APK
+  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+    try {
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', (state) => {
+          if (state?.isActive) {
+            executeBiDirectionalSync({ forceFull: false });
+          }
+        });
+      }).catch(() => {});
+    } catch {}
+  }
+
+  // 3. Periodic continuous background delta sync every 15 seconds when online
+  const INTERVAL_MS = 15 * 1000;
   setInterval(() => {
     if (typeof navigator !== 'undefined' && navigator.onLine && !isDeltaSyncing) {
       executeBiDirectionalSync({ forceFull: false });

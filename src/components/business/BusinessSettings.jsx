@@ -1992,12 +1992,17 @@ export const BusinessSettings = () => {
                   </label>
                   <select
                     className="input-field"
-                    value={formState.autoBackupInterval || 'daily'}
-                    onChange={(e) => setFormState({ ...formState, autoBackupInterval: e.target.value })}
+                    value={formState.googleDriveBackupInterval || formState.autoBackupInterval || '1min'}
+                    onChange={(e) => setFormState({ ...formState, googleDriveBackupInterval: e.target.value, autoBackupInterval: e.target.value })}
                   >
-                    <option value="daily">{lang === 'bn' ? 'প্রতিদিন একবার (Daily)' : 'Daily'}</option>
-                    <option value="weekly">{lang === 'bn' ? 'প্রতি সপ্তাহে একবার (Weekly)' : 'Weekly'}</option>
-                    <option value="realtime">{lang === 'bn' ? 'গুরুত্বপূর্ণ বিক্রয় শেষে (After Sales)' : 'After Major Sales'}</option>
+                    <option value="30s">{lang === 'bn' ? '⚡ প্রতি ৩০ সেকেন্ড (দ্রুততম)' : '⚡ Every 30 Seconds'}</option>
+                    <option value="1min">{lang === 'bn' ? '⏱️ প্রতি ১ মিনিট (ডিফল্ট অটো-সিঙ্ক)' : '⏱️ Every 1 Minute (Default)'}</option>
+                    <option value="5min">{lang === 'bn' ? '⏱️ প্রতি ৫ মিনিট' : '⏱️ Every 5 Minutes'}</option>
+                    <option value="15min">{lang === 'bn' ? '⏱️ প্রতি ১৫ মিনিট' : '⏱️ Every 15 Minutes'}</option>
+                    <option value="30min">{lang === 'bn' ? '⭐ প্রতি ৩০ মিনিট (প্রস্তাবিত ও আদর্শ)' : '⭐ Every 30 Minutes (Recommended)'}</option>
+                    <option value="1hr">{lang === 'bn' ? '🕒 প্রতি ১ ঘণ্টা (Hourly)' : '🕒 Every 1 Hour'}</option>
+                    <option value="daily">{lang === 'bn' ? '📅 প্রতিদিন একবার (Daily)' : '📅 Daily Once'}</option>
+                    <option value="monthly">{lang === 'bn' ? '🗓️ প্রতি মাসে একবার (Monthly)' : '🗓️ Monthly Once'}</option>
                   </select>
                 </div>
               </div>

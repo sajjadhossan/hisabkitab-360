@@ -91,16 +91,26 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
     });
 
     const unsubDelta = subscribeDeltaSync((state) => {
-      if (state?.type === 'SYNC_COMPLETE' || state?.type === 'SYNC_SUCCESS') {
-        setLastDeltaSyncTime(getLastDeltaSyncTime() || new Date().toISOString());
+      if (state?.type === 'SYNC_COMPLETE' || state?.type === 'SYNC_SUCCESS' || state?.result?.success) {
+        setLastDeltaSyncTime(state?.timestamp || getLastDeltaSyncTime() || new Date().toISOString());
+      }
+      if (typeof state?.isSyncing === 'boolean') {
+        setIsDeltaSyncing(state.isSyncing);
       }
     });
+
+    // Auto-refresh last sync relative display every 30 seconds
+    const interval = setInterval(() => {
+      const stored = getLastDeltaSyncTime();
+      if (stored) setLastDeltaSyncTime(stored);
+    }, 30000);
 
     return () => {
       unsubStatus();
       unsubPresence();
       unsubEvents();
       unsubDelta();
+      clearInterval(interval);
     };
   }, []);
 

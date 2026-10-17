@@ -1035,8 +1035,8 @@ export const Navbar = () => {
               title={
                 isDriveConnected || businessSettings.googleDriveWebhookUrl
                   ? (lang === 'bn' 
-                      ? `গুগল ড্রাইভ অটো-ব্যাকআপ সক্রিয় (প্রতি ১ মিনিট) | অনুমোদিত ড্রাইভ: ${driveAccount} | শেষ সিঙ্ক: ${businessSettings.googleDriveLastSync || 'হয়নি'} | সর্বোচ্চ ৩০ ফাইল সংরক্ষিত`
-                      : `Google Drive 1-Min Auto-Sync Active | Authorized: ${driveAccount} | Last: ${businessSettings.googleDriveLastSync || 'Never'} | Max 30 files retained`)
+                      ? `গুগল ড্রাইভ অটো-ব্যাকআপ সক্রিয় (${businessSettings.googleDriveBackupInterval || '১ মিনিট'}) | অনুমোদিত ড্রাইভ: ${driveAccount} | শেষ সিঙ্ক: ${businessSettings.googleDriveLastSync || 'হয়নি'} | সর্বোচ্চ ৩০ ফাইল সংরক্ষিত`
+                      : `Google Drive Auto-Sync Active (${businessSettings.googleDriveBackupInterval || '1-Min'}) | Authorized: ${driveAccount} | Last: ${businessSettings.googleDriveLastSync || 'Never'} | Max 30 files retained`)
                   : (lang === 'bn' ? `গুগল ড্রাইভ সংযুক্ত করুন (১ ক্লিকে অটো-ব্যাকআপ) | ড্রাইভ: ${driveAccount}` : `Connect Google Drive for Auto-Backup | Drive: ${driveAccount}`)
               }
               style={{

@@ -3684,9 +3684,30 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // 1-Minute Smart Auto-Sync Loop to Google Drive & Telegram (strictly maintains max 30 backups)
+  // Configurable Smart Auto-Sync Loop to Google Drive & Telegram (strictly maintains max 30 backups)
   useEffect(() => {
-    // Runs every 60 seconds (1 minute)
+    const getBackupIntervalMs = () => {
+      const val = businessSettings.googleDriveBackupInterval || businessSettings.autoBackupInterval;
+      switch (val) {
+        case '30s': return 30 * 1000;
+        case '1min': return 60 * 1000;
+        case '5min': return 5 * 60 * 1000;
+        case '15min': return 15 * 60 * 1000;
+        case '30min': return 30 * 60 * 1000;
+        case '1hr':
+        case 'hourly': return 60 * 60 * 1000;
+        case 'daily': return 24 * 60 * 60 * 1000;
+        case 'weekly': return 7 * 24 * 60 * 60 * 1000;
+        case 'monthly': return 30 * 24 * 60 * 60 * 1000;
+        default: {
+          const num = Number(val);
+          if (!isNaN(num) && num >= 15) return num * 1000;
+          return 60 * 1000; // default 1 min
+        }
+      }
+    };
+
+    const intervalMs = getBackupIntervalMs();
     const intervalTimer = setInterval(() => {
       const autoSyncActive = businessSettings.autoBackupEnabled !== false && businessSettings.googleDriveEnabled !== false;
       const canSyncDrive = isGoogleDriveConnected() || !!businessSettings.googleDriveWebhookUrl;
@@ -3708,13 +3729,15 @@ export const AppProvider = ({ children }) => {
           }
         }
       }
-    }, 60000); // 1 minute (60,000 ms)
+    }, intervalMs);
 
     return () => clearInterval(intervalTimer);
   }, [
     businessSettings.autoBackupEnabled,
     businessSettings.googleDriveEnabled,
     businessSettings.googleDriveWebhookUrl,
+    businessSettings.googleDriveBackupInterval,
+    businessSettings.autoBackupInterval,
     salesHistory.length,
     products.length,
     customers.length,
