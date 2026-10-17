@@ -19,7 +19,8 @@ import {
   ShoppingCart,
   FileSpreadsheet,
   Sparkles,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import { FastSearchInput } from '../common/FastSearchInput';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
@@ -41,6 +42,9 @@ export const PersonalDashboard = () => {
     personalEvents = [],
     updatePersonalExpense,
     deletePersonalExpense,
+    addPersonalIncome,
+    setActiveTab,
+    showToast,
     trashBin = [],
     t,
     lang
@@ -53,6 +57,39 @@ export const PersonalDashboard = () => {
   const [showRecycleBinModal, setShowRecycleBinModal] = useState(false);
   const [showSmartExportModal, setShowSmartExportModal] = useState(false);
   const [showAIImportModal, setShowAIImportModal] = useState(false);
+  const [showQuickIncomeModal, setShowQuickIncomeModal] = useState(false);
+  const [quickIncomeForm, setQuickIncomeForm] = useState({
+    amount: '',
+    source: 'মাসিক বেতন / পেশাগত আয়',
+    date: new Date().toISOString().split('T')[0],
+    note: ''
+  });
+
+  const handleSaveQuickIncome = (e) => {
+    e.preventDefault();
+    const amt = Number(quickIncomeForm.amount);
+    if (!amt || amt <= 0) {
+      if (showToast) showToast(lang === 'bn' ? 'সঠিক আয়ের পরিমাণ লিখুন' : 'Enter a valid amount', 'warning');
+      return;
+    }
+    if (typeof addPersonalIncome === 'function') {
+      addPersonalIncome({
+        amount: amt,
+        source: quickIncomeForm.source || 'মাসিক আয়',
+        date: quickIncomeForm.date || new Date().toISOString().split('T')[0],
+        category: 'salary',
+        note: quickIncomeForm.note || ''
+      });
+      if (showToast) showToast(lang === 'bn' ? `৳${amt.toLocaleString()} টাকা মাসিক আয় সফলভাবে যোগ হয়েছে!` : `BDT ${amt.toLocaleString()} income added!`, 'success');
+      setShowQuickIncomeModal(false);
+      setQuickIncomeForm({
+        amount: '',
+        source: 'মাসিক বেতন / পেশাগত আয়',
+        date: new Date().toISOString().split('T')[0],
+        note: ''
+      });
+    }
+  };
 
   // Category 7 Modals
   const [showCashflowModal, setShowCashflowModal] = useState(false);
@@ -288,12 +325,12 @@ export const PersonalDashboard = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenModal('daily')}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', minWidth: '280px' }}>
+          <button className="btn btn-primary" onClick={() => handleOpenModal('daily')} style={{ width: '100%', justifyContent: 'center', whiteSpace: 'nowrap', padding: '10px 14px' }}>
             <ShoppingBag size={16} />
             <span>{t.personal.addDailyExpense}</span>
           </button>
-          <button className="btn btn-secondary" onClick={() => handleOpenModal('family')}>
+          <button className="btn btn-secondary" onClick={() => handleOpenModal('family')} style={{ width: '100%', justifyContent: 'center', whiteSpace: 'nowrap', padding: '10px 14px' }}>
             <Home size={16} />
             <span>{t.personal.addFamilyExpense}</span>
           </button>
@@ -636,13 +673,37 @@ export const PersonalDashboard = () => {
         </div>
 
         {/* Card 4: Current Month Income & Net Balance */}
-        <div className="glass-card stat-card glow-card" style={{ border: '1.5px solid rgba(16, 185, 129, 0.35)' }}>
+        <div className="glass-card stat-card glow-card" style={{ border: '1.5px solid rgba(16, 185, 129, 0.35)', position: 'relative' }}>
           <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
             <Wallet size={24} />
           </div>
-          <div className="stat-info">
-            <h3 style={{ color: '#10b981' }}>{lang === 'bn' ? 'চলতি মাসের আয় ও ব্যালেন্স' : 'This Month Income & Net'}</h3>
-            <div className="stat-value" style={{ color: '#10b981' }}>৳{thisMonthIncome.toLocaleString()}</div>
+          <div className="stat-info" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '6px' }}>
+              <h3 style={{ color: '#10b981', margin: 0 }}>{lang === 'bn' ? 'চলতি মাসের আয় ও ব্যালেন্স' : 'This Month Income & Net'}</h3>
+              <button
+                type="button"
+                onClick={() => setShowQuickIncomeModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '3px 8px',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                  flexShrink: 0
+                }}
+              >
+                <PlusCircle size={12} />
+                <span>{lang === 'bn' ? '+ আয় যোগ' : '+ Income'}</span>
+              </button>
+            </div>
+            <div className="stat-value" style={{ color: '#10b981', marginTop: '4px' }}>৳{thisMonthIncome.toLocaleString()}</div>
             <div className="stat-trend" style={{ color: thisMonthNetBalance >= 0 ? '#10b981' : '#ef4444', fontSize: '0.74rem', fontWeight: '700' }}>
               {lang === 'bn' ? 'নিট ব্যালেন্স:' : 'Net:'} ৳{thisMonthNetBalance.toLocaleString()} {thisMonthNetBalance >= 0 ? '(উদ্বৃত্ত)' : '(ঘাটতি)'}
             </div>
@@ -849,55 +910,71 @@ export const PersonalDashboard = () => {
           </button>
         </div>
 
-        {/* 📅 Comprehensive Timeframe Filter Bar */}
+        {/* 📅 Comprehensive Timeframe Filter Bar (Side-by-side period & month selection) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            justifyContent: 'space-between',
+            gap: '10px',
             flexWrap: 'wrap',
             marginBottom: '1rem',
             padding: '10px 14px',
             background: 'rgba(255, 255, 255, 0.03)',
-            borderRadius: '12px',
+            borderRadius: '14px',
             border: '1px solid var(--border-color)'
           }}
         >
-          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Calendar size={14} style={{ color: '#0ea5e9' }} /> {lang === 'bn' ? 'ফিল্টার:' : 'Filter:'}
-          </span>
+          {/* Left: Scrollable Period Filter Pills */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              overflowX: 'auto',
+              flex: '1 1 320px',
+              paddingBottom: '2px',
+              scrollbarWidth: 'none',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, marginRight: '4px' }}>
+              <Calendar size={14} style={{ color: '#0ea5e9' }} /> {lang === 'bn' ? 'ফিল্টার:' : 'Filter:'}
+            </span>
 
-          {[
-            { id: 'today', label: lang === 'bn' ? 'আজ' : 'Today' },
-            { id: 'week', label: lang === 'bn' ? 'এই সপ্তাহ' : 'This Week' },
-            { id: 'this_month', label: lang === 'bn' ? 'চলতি মাস (অক্টোবর)' : 'This Month' },
-            { id: 'last_month', label: lang === 'bn' ? 'গত মাস (সেপ্টেম্বর)' : 'Last Month' },
-            { id: 'year', label: lang === 'bn' ? `এই বছর (${thisYear})` : 'This Year' },
-            { id: 'all', label: lang === 'bn' ? 'সকল লেনদেন' : 'All Time' }
-          ].map(f => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setTableTimeframe(f.id)}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: tableTimeframe === f.id ? '#0284c7' : 'rgba(255, 255, 255, 0.06)',
-                color: tableTimeframe === f.id ? '#ffffff' : 'var(--text-muted)',
-                fontWeight: tableTimeframe === f.id ? '800' : '600',
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
+            {[
+              { id: 'today', label: lang === 'bn' ? 'আজ' : 'Today' },
+              { id: 'week', label: lang === 'bn' ? 'এই সপ্তাহ' : 'This Week' },
+              { id: 'this_month', label: lang === 'bn' ? 'চলতি মাস' : 'This Month' },
+              { id: 'last_month', label: lang === 'bn' ? 'গত মাস' : 'Last Month' },
+              { id: 'year', label: lang === 'bn' ? `এই বছর (${thisYear})` : 'This Year' },
+              { id: 'all', label: lang === 'bn' ? 'সকল লেনদেন' : 'All Time' }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setTableTimeframe(f.id)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: tableTimeframe === f.id ? '#0284c7' : 'rgba(255, 255, 255, 0.06)',
+                  color: tableTimeframe === f.id ? '#ffffff' : 'var(--text-muted)',
+                  fontWeight: tableTimeframe === f.id ? '800' : '600',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
 
-          {/* Specific Month Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'নির্দিষ্ট মাস:' : 'Specific Month:'}</span>
+          {/* Right: Specific Month Selector (Side-by-side) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
             <select
               value={tableTimeframe === 'custom_month' ? customSelectedMonth : ''}
               onChange={(e) => {
@@ -907,19 +984,19 @@ export const PersonalDashboard = () => {
                 }
               }}
               style={{
-                padding: '5px 10px',
+                padding: '6px 12px',
                 borderRadius: '8px',
-                backgroundColor: tableTimeframe === 'custom_month' ? '#0284c7' : 'rgba(255, 255, 255, 0.08)',
+                backgroundColor: tableTimeframe === 'custom_month' ? '#0284c7' : 'var(--bg-secondary)',
                 color: '#ffffff',
                 border: '1px solid var(--border-color)',
                 fontSize: '0.78rem',
-                fontWeight: '600',
+                fontWeight: '700',
                 outline: 'none',
                 cursor: 'pointer'
               }}
             >
               <option value="" style={{ backgroundColor: '#1e2230' }}>
-                {lang === 'bn' ? '📅 মাস নির্বাচন করুন...' : 'Select month...'}
+                {lang === 'bn' ? '📅 নির্দিষ্ট মাস নির্বাচন...' : 'Select month...'}
               </option>
               {availableMonths.map(m => (
                 <option key={m} value={m} style={{ backgroundColor: '#1e2230' }}>
@@ -1143,6 +1220,119 @@ export const PersonalDashboard = () => {
         onClose={() => setShowAIImportModal(false)}
         defaultType="daily"
       />
+
+      {/* 💵 Quick Monthly Income Entry Modal (Requirement 12) */}
+      {showQuickIncomeModal && (
+        <div className="modal-overlay" style={{ zIndex: 1200, backdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.75)' }}>
+          <div
+            className="modal-content animate-fade-in"
+            style={{
+              maxWidth: '440px',
+              width: '92%',
+              padding: '1.25rem',
+              borderRadius: '20px',
+              background: 'var(--bg-card)',
+              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Wallet size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {lang === 'bn' ? 'মাসিক আয় যোগ করুন' : 'Add Monthly Income'}
+                  </h3>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'বেতন, ব্যবসা বা অন্য কোনো উৎসের আয় সংরক্ষণ করুন' : 'Record salary, profits or other revenue'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setShowQuickIncomeModal(false)}
+                style={{ borderRadius: '50%' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickIncome} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', display: 'block' }}>
+                  {lang === 'bn' ? 'আয়ের পরিমাণ (টাকা) *' : 'Income Amount (BDT) *'}
+                </label>
+                <input
+                  type="number"
+                  required
+                  autoFocus
+                  placeholder="যেমন: 20000"
+                  className="input-field"
+                  value={quickIncomeForm.amount}
+                  onChange={(e) => setQuickIncomeForm({ ...quickIncomeForm, amount: e.target.value })}
+                  style={{ width: '100%', borderRadius: '10px', fontSize: '1.1rem', fontWeight: '800', color: '#10b981', fontFamily: 'var(--font-mono)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', display: 'block' }}>
+                  {lang === 'bn' ? 'আয়ের উৎস / বিবরণ' : 'Income Source / Title'}
+                </label>
+                <input
+                  type="text"
+                  placeholder="যেমন: মাসিক বেতন / বাড়ি ভাড়া / টিউশন"
+                  className="input-field"
+                  value={quickIncomeForm.source}
+                  onChange={(e) => setQuickIncomeForm({ ...quickIncomeForm, source: e.target.value })}
+                  style={{ width: '100%', borderRadius: '10px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', display: 'block' }}>
+                  {lang === 'bn' ? 'আয়ের তারিখ' : 'Date'}
+                </label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={quickIncomeForm.date}
+                  onChange={(e) => setQuickIncomeForm({ ...quickIncomeForm, date: e.target.value })}
+                  style={{ width: '100%', borderRadius: '10px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowQuickIncomeModal(false)}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px' }}
+                >
+                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="btn press-scale"
+                  style={{
+                    flex: 2,
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontWeight: '800',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  {lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Income'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

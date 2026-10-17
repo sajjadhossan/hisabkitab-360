@@ -158,6 +158,10 @@ jobs:
         run: |
           mkdir -p artifacts
           npx electron-builder --mac --x64 --arm64 --publish never
+          for f in dist-electron/*x64*.dmg; do [ -f "$f" ] && cp "$f" "artifacts/HisabKitab-360-Mac-Intel-x64.dmg" || true; done
+          for f in dist-electron/*arm64*.dmg; do [ -f "$f" ] && cp "$f" "artifacts/HisabKitab-360-Mac-AppleSilicon-M-Series-arm64.dmg" || true; done
+          for f in dist-electron/*x64*.zip; do [ -f "$f" ] && cp "$f" "artifacts/HisabKitab-360-Mac-Intel-x64.zip" || true; done
+          for f in dist-electron/*arm64*.zip; do [ -f "$f" ] && cp "$f" "artifacts/HisabKitab-360-Mac-AppleSilicon-M-Series-arm64.zip" || true; done
           cp dist-electron/*.dmg artifacts/ 2>/dev/null || true
           cp dist-electron/*.zip artifacts/ 2>/dev/null || true
           echo "=== Generated macOS Artifacts ==="
@@ -179,12 +183,12 @@ jobs:
           name: "HisabKitab 360 Latest Release"
           fail_on_unmatched_files: false
           body: |
-            ### হিসাবকিতাব ৩৬০ (HisabKitab 360) সর্বজনীন রিলিজ
-            - 📱 **Android Mobile APK:** `HisabKitab-360.apk` (মোবাইল অ্যাপ)
-            - 💻 **Windows Desktop Setup:** `HisabKitab-360-Setup.exe` (উইন্ডোজ পিসি সেটআপ)
-            - ⚡ **Windows Portable:** `HisabKitab-360-PC.exe` (উইন্ডোজ পোর্টেবল)
-            - 🍏 **macOS Intel (x64):** `HisabKitab 360-*-x64.dmg` (ইনটেল প্রসেসরযুক্ত ম্যাকবুক)
-            - 🍏 **macOS Apple Silicon (arm64):** `HisabKitab 360-*-arm64.dmg` (M1/M2/M3/M4 ম্যাকবুক)
+            ### হিসাবকিতাব ৩৬০ (HisabKitab 360) সর্বজনীন রিলিজ প্যাকেজ
+            - 📱 **অ্যান্ড্রয়েড এপিকে (Android APK):** `HisabKitab-360.apk` (মোবাইল ফোনের জন্য)
+            - 💻 **উইন্ডোজ পিসি সেটআপ (Windows PC Setup):** `HisabKitab-360-Setup.exe` (উইন্ডোজ ১০/১১ ইন্সটলার)
+            - ⚡ **উইন্ডোজ পোর্টেবল (Windows Portable):** `HisabKitab-360-PC.exe` (কোনো ইন্সটল ছাড়াই সরাসরি ক্লিক করে চালু)
+            - 🍏 **ম্যাকবুক ইনটেল চিপ (MacBook Intel x64):** `HisabKitab-360-Mac-Intel-x64.dmg` (Intel Core i3/i5/i7/i9 প্রসেসরযুক্ত ম্যাকবুকের জন্য)
+            - 🍏 **ম্যাকবুক অ্যাপল সিলিকন এম-চিপ (MacBook Apple Silicon M-Series):** `HisabKitab-360-Mac-AppleSilicon-M-Series-arm64.dmg` (M1, M2, M3, M4 চিপের জন্য সুপারফাস্ট নেটিভ অ্যাপ)
           files: |
             artifacts/*.dmg
             artifacts/*.zip

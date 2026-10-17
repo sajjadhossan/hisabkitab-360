@@ -51,6 +51,7 @@
       "output": "dist-electron"
     },
     "win": {
+      "icon": "public/logo-512.png",
       "target": [
         "nsis",
         "portable"

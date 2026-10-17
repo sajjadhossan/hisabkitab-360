@@ -26,43 +26,45 @@ export const BulkDueSmsModal = ({
   const storeName = businessSettings?.storeName || businessSettings?.shopName || (lang === 'bn' ? 'আমাদের দোকান' : 'Our Store');
   const storePhone = businessSettings?.phone || businessSettings?.contactNumber || '';
 
-  // Extract valid debtors who owe money and have phone numbers
+  // Extract valid debtors who owe money (with or without phone numbers)
   const eligibleDebtors = useMemo(() => {
-    return debtList.filter(person => {
-      // Calculate net receivable
+    return (debtList || []).map(person => {
       let netDue = 0;
       if (typeof person.netReceivable === 'number') {
         netDue = person.netReceivable;
-      } else if (Array.isArray(person.transactions)) {
-        netDue = person.transactions.reduce((acc, tx) => {
+      } else if (typeof person.netDebt === 'number') {
+        netDue = person.netDebt;
+      } else if (Array.isArray(person.transactions) && person.transactions.length > 0) {
+        let totalLent = 0;
+        let totalRepayReceived = 0;
+        let totalBorrowed = 0;
+        let totalRepaidPaid = 0;
+        person.transactions.forEach(tx => {
           const amt = Number(tx.amount) || 0;
-          return tx.type === 'lend' ? acc + amt : acc - amt;
-        }, 0);
+          if (tx.type === 'lend') totalLent += amt;
+          else if (tx.type === 'repay_lend') totalRepayReceived += amt;
+          else if (tx.type === 'borrow') totalBorrowed += amt;
+          else if (tx.type === 'repay_borrow') totalRepaidPaid += amt;
+        });
+        netDue = (totalLent - totalRepayReceived) - (totalBorrowed - totalRepaidPaid);
       } else if (typeof person.outstandingDue === 'number') {
         netDue = person.outstandingDue;
+      } else if (typeof person.amount === 'number') {
+        netDue = person.amount;
       }
-      const hasPhone = person.phone && person.phone.trim().length >= 6;
-      return netDue > 0 && hasPhone;
-    }).map(person => {
-      let netDue = 0;
-      if (typeof person.netReceivable === 'number') {
-        netDue = person.netReceivable;
-      } else if (Array.isArray(person.transactions)) {
-        netDue = person.transactions.reduce((acc, tx) => {
-          const amt = Number(tx.amount) || 0;
-          return tx.type === 'lend' ? acc + amt : acc - amt;
-        }, 0);
-      } else if (typeof person.outstandingDue === 'number') {
-        netDue = person.outstandingDue;
-      }
+
+      const rawPhone = person.phone ? String(person.phone).trim() : '';
+      const hasPhone = rawPhone.length >= 6;
+
       return {
         id: person.id,
-        name: person.name,
-        phone: person.phone.trim(),
-        dueAmount: netDue
+        name: person.name || (lang === 'bn' ? 'অজ্ঞাত ব্যক্তি' : 'Unknown Person'),
+        phone: rawPhone,
+        hasPhone,
+        dueAmount: Math.max(0, netDue)
       };
-    });
-  }, [debtList]);
+    }).filter(p => p.dueAmount > 0);
+  }, [debtList, lang]);
 
   const [selectedIds, setSelectedIds] = useState(() => new Set(eligibleDebtors.map(d => d.id)));
   const [templatePrefix, setTemplatePrefix] = useState(
@@ -124,6 +126,26 @@ export const BulkDueSmsModal = ({
     onClose();
   };
 
+  const sendWhatsAppReminder = (debtor) => {
+    const text = formatMessageForDebtor(debtor);
+    let phone = debtor.phone ? debtor.phone.replace(/[^0-9]/g, '') : '';
+    if (phone.startsWith('0')) phone = '88' + phone;
+    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const sendTelegramReminder = (debtor) => {
+    const text = formatMessageForDebtor(debtor);
+    const url = `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const copyDebtorReminder = (debtor) => {
+    const text = formatMessageForDebtor(debtor);
+    navigator.clipboard.writeText(text);
+    if (showToast) showToast(lang === 'bn' ? `📋 ${debtor.name}-এর তাগাদা মেসেজ কপি হয়েছে!` : `Reminder copied for ${debtor.name}!`, 'success');
+  };
+
   const handleCopySample = () => {
     if (selectedDebtors.length > 0) {
       const msg = formatMessageForDebtor(selectedDebtors[0]);
@@ -139,7 +161,7 @@ export const BulkDueSmsModal = ({
       <div
         className="modal-content animate-fade-in"
         style={{
-          maxWidth: '560px',
+          maxWidth: '580px',
           width: '94%',
           maxHeight: '90vh',
           display: 'flex',
@@ -159,10 +181,10 @@ export const BulkDueSmsModal = ({
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                {lang === 'bn' ? '📢 ১-ক্লিক বাল্ক এসএমএস তাগাদা' : '📢 1-Click Bulk Due SMS Recovery'}
+                {lang === 'bn' ? '📢 ১-ক্লিক বাল্ক এসএমএস ও সোশ্যাল তাগাদা' : '📢 1-Click Due SMS & Social Recovery'}
               </h3>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                {lang === 'bn' ? 'এক ক্লিকে সব বকেয়াদারের ফোনে স্বয়ংক্রিয় তাগাদা বার্তা' : 'Automated due reminder dispatch to all debtors'}
+                {lang === 'bn' ? 'এসএমএস, হোয়াটসঅ্যাপ বা টেলিগ্রামে দ্রুত বকেয়া আদায়ের তাগাদা পাঠান' : 'Send reminders via SMS, WhatsApp, or Telegram'}
               </div>
             </div>
           </div>
@@ -181,7 +203,7 @@ export const BulkDueSmsModal = ({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
           <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '14px', padding: '10px 14px' }}>
             <div style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: '800' }}>
-              {lang === 'bn' ? 'নির্বাচিত বাকিদার' : 'Selected Debtors'}
+              {lang === 'bn' ? 'মোট বাকিদার তালিকা' : 'Total Debtors'}
             </div>
             <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
               {selectedDebtors.length} / {eligibleDebtors.length} <span style={{ fontSize: '0.8rem', fontWeight: '600' }}>জন</span>
@@ -202,7 +224,7 @@ export const BulkDueSmsModal = ({
         <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', padding: '10px 12px', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)' }}>
-              {lang === 'bn' ? '📝 এসএমএস মেসেজ টেমপ্লেট' : '📝 SMS Message Template'}
+              {lang === 'bn' ? '📝 তাগাদা মেসেজ টেমপ্লেট' : '📝 Message Template'}
             </span>
             <button
               type="button"
@@ -229,7 +251,7 @@ export const BulkDueSmsModal = ({
             }}
           />
           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            {lang === 'bn' ? 'ℹ️ [দোকান] এবং [টাকা] মান স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট কাস্টমারের তথ্য দিয়ে পূরণ হবে।' : 'ℹ️ [store] and [amount] will be automatically personalized.'}
+            {lang === 'bn' ? 'ℹ️ [দোকান] এবং [টাকা] মান স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট কাস্টমারের নাম ও বকেয়া দিয়ে তৈরি হবে।' : 'ℹ️ [store] and [amount] will be automatically replaced.'}
           </div>
         </div>
 
@@ -252,7 +274,7 @@ export const BulkDueSmsModal = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
             {eligibleDebtors.length === 0 ? (
               <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                {lang === 'bn' ? 'কোনো বাকিদার কাস্টমার পাওয়া যায়নি যাদের ফোন নম্বর দেওয়া আছে।' : 'No debtors with phone numbers found.'}
+                {lang === 'bn' ? 'খাতায় এই মুহূর্তে কোনো বকেয়াদারের পাওনা অবশিষ্ট নেই।' : 'No outstanding debtors found in the ledger.'}
               </div>
             ) : (
               eligibleDebtors.map(debtor => {
@@ -260,7 +282,6 @@ export const BulkDueSmsModal = ({
                 return (
                   <div
                     key={debtor.id}
-                    onClick={() => toggleSelect(debtor.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -268,29 +289,93 @@ export const BulkDueSmsModal = ({
                       padding: '8px 10px',
                       borderRadius: '10px',
                       background: isSelected ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
-                      border: isSelected ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid transparent',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
+                      border: isSelected ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(255, 255, 255, 0.04)',
+                      transition: 'all 0.15s ease',
+                      gap: '8px'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      onClick={() => toggleSelect(debtor.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1, minWidth: 0 }}
+                    >
                       {isSelected ? <CheckSquare size={16} color="#ef4444" /> : <Square size={16} color="var(--text-muted)" />}
-                      <div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {debtor.name}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Phone size={10} /> {debtor.phone}
+                        <div style={{ fontSize: '0.7rem', color: debtor.hasPhone ? 'var(--text-muted)' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Phone size={10} /> {debtor.hasPhone ? debtor.phone : (lang === 'bn' ? '⚠️ ফোন নম্বর নেই' : 'No phone')}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.86rem', fontWeight: '900', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>
-                        ৳{debtor.dueAmount.toLocaleString()}
-                      </div>
-                      <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)' }}>
-                        বকেয়া
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      {/* 1-Click WhatsApp reminder */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); sendWhatsAppReminder(debtor); }}
+                        title={lang === 'bn' ? 'হোয়াটসঅ্যাপে তাগাদা পাঠান' : 'Send via WhatsApp'}
+                        style={{
+                          background: 'rgba(37, 211, 102, 0.15)',
+                          border: '1px solid rgba(37, 211, 102, 0.4)',
+                          color: '#25d366',
+                          borderRadius: '6px',
+                          padding: '4px 7px',
+                          fontSize: '0.68rem',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                      >
+                        <span>💬 WA</span>
+                      </button>
+
+                      {/* 1-Click Telegram reminder */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); sendTelegramReminder(debtor); }}
+                        title={lang === 'bn' ? 'টেলিগ্রামে তাগাদা শেয়ার করুন' : 'Share via Telegram'}
+                        style={{
+                          background: 'rgba(0, 136, 204, 0.15)',
+                          border: '1px solid rgba(0, 136, 204, 0.4)',
+                          color: '#0088cc',
+                          borderRadius: '6px',
+                          padding: '4px 7px',
+                          fontSize: '0.68rem',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                      >
+                        <span>✈️ TG</span>
+                      </button>
+
+                      {/* 1-Click Copy */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); copyDebtorReminder(debtor); }}
+                        title={lang === 'bn' ? 'মেসেজ কপি করুন' : 'Copy Message'}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-main)',
+                          borderRadius: '6px',
+                          padding: '4px 6px',
+                          fontSize: '0.68rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Copy size={12} />
+                      </button>
+
+                      <div style={{ textAlign: 'right', minWidth: '60px' }}>
+                        <div style={{ fontSize: '0.86rem', fontWeight: '900', color: '#ef4444', fontFamily: 'var(--font-mono)' }}>
+                          ৳{debtor.dueAmount.toLocaleString()}
+                        </div>
                       </div>
                     </div>
                   </div>
