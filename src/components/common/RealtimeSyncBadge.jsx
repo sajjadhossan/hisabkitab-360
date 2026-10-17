@@ -29,7 +29,7 @@ import {
   getLocalDeviceMeta,
   isLiveSyncConnected
 } from '../../services/liveSyncService';
-import { executeBiDirectionalSync, getLastDeltaSyncTime } from '../../services/deltaSyncService';
+import { executeBiDirectionalSync, getLastDeltaSyncTime, subscribeDeltaSync } from '../../services/deltaSyncService';
 import { hapticFeedback } from '../../services/nativeAppService';
 
 export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true }) => {
@@ -43,8 +43,20 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
   const [lastPingLatency, setLastPingLatency] = useState(null);
   const [isPinging, setIsPinging] = useState(false);
   const [pingReplies, setPingReplies] = useState([]);
+  const [lastDeltaSyncTime, setLastDeltaSyncTime] = useState(() => getLastDeltaSyncTime() || new Date().toISOString());
 
   const pingStartTimeRef = useRef(null);
+
+  const formatSyncTimeDisplay = (isoStr, language) => {
+    if (!isoStr) return language === 'bn' ? 'সদ্য' : 'Just now';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return language === 'bn' ? 'সদ্য' : 'Just now';
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return language === 'bn' ? 'সদ্য' : 'Just now';
+    }
+  };
 
   // Subscribe to connection status & presence state
   useEffect(() => {
@@ -78,10 +90,17 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
       }
     });
 
+    const unsubDelta = subscribeDeltaSync((state) => {
+      if (state?.type === 'SYNC_COMPLETE' || state?.type === 'SYNC_SUCCESS') {
+        setLastDeltaSyncTime(getLastDeltaSyncTime() || new Date().toISOString());
+      }
+    });
+
     return () => {
       unsubStatus();
       unsubPresence();
       unsubEvents();
+      unsubDelta();
     };
   }, []);
 
@@ -136,6 +155,7 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
       }
       const res = await executeBiDirectionalSync();
       if (res?.success) {
+        setLastDeltaSyncTime(new Date().toISOString());
         if (showToast) {
           showToast(
             lang === 'bn'
@@ -221,8 +241,8 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
         }}
         title={
           lang === 'bn'
-            ? `সুপাবেস রিয়েলটাইম লাইভ সিঙ্ক: ${connected ? `অনলাইন (${onlineCount}টি কাউন্টার সক্রিয়)` : 'সংযোগ নেই'}`
-            : `Supabase Realtime Live Sync: ${connected ? `Online (${onlineCount} active terminals)` : 'Offline'}`
+            ? `Run Bi-Directional Data (দ্বি-মুখী সিঙ্ক) | শেষ সিঙ্ক: ${formatSyncTimeDisplay(lastDeltaSyncTime, lang)} | ${connected ? `অনলাইন (${onlineCount}টি সক্রিয়)` : 'অফলাইন'}`
+            : `Run Bi-Directional Data | Last: ${formatSyncTimeDisplay(lastDeltaSyncTime, lang)} | ${connected ? `Online (${onlineCount} active)` : 'Offline'}`
         }
       >
         {/* Glowing Indicator Dot */}
@@ -263,18 +283,28 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
 
         <Radio size={13} style={{ strokeWidth: 2.2 }} />
 
-        {/* Text Details */}
-        <span style={{ letterSpacing: '0.2px' }}>
-          {connected ? (
-            onlineCount > 1 ? (
-              <span>{lang === 'bn' ? `${onlineCount}টি কাউন্টার লাইভ` : `${onlineCount} Counters Live`}</span>
-            ) : (
-              <span>{lang === 'bn' ? '১টি কাউন্টার লাইভ' : '1 Counter Live'}</span>
-            )
-          ) : isReconnecting ? (
-            <span>{lang === 'bn' ? 'কানেক্ট হচ্ছে...' : 'Connecting...'}</span>
+        {/* Text Details: Run Bi-Directional Data & Last Sync Time */}
+        <span style={{ letterSpacing: '0.2px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+          {isDeltaSyncing ? (
+            <span>{lang === 'bn' ? '🔄 সিঙ্ক হচ্ছে...' : '🔄 Syncing...'}</span>
           ) : (
-            <span>{lang === 'bn' ? 'অফলাইন' : 'Offline'}</span>
+            <>
+              <span style={{ fontWeight: '800' }}>
+                Run Bi-Directional Data
+              </span>
+              <span
+                style={{
+                  fontSize: '0.67rem',
+                  fontWeight: '900',
+                  padding: '1px 5px',
+                  borderRadius: '6px',
+                  background: connected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.15)',
+                  color: connected ? '#10b981' : 'var(--text-muted)'
+                }}
+              >
+                {formatSyncTimeDisplay(lastDeltaSyncTime, lang)}
+              </span>
+            </>
           )}
         </span>
       </button>

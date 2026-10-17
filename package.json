@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "preview:host": "vite preview --host 0.0.0.0 --port 4173",
     "electron:start": "electron .",
-    "electron:build": "vite build && electron-builder --win"
+    "electron:build": "vite build && electron-builder --win",
+    "electron:build:mac": "vite build && electron-builder --mac dmg zip --x64 --arm64"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
@@ -53,6 +54,36 @@
       "target": [
         "nsis",
         "portable"
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64", "universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64", "universal"]
+        }
+      ],
+      "icon": "public/logo.png",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "files": [

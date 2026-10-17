@@ -1488,18 +1488,26 @@ export const Navbar = () => {
               })()}
             </div>
 
-            {/* ONE SINGLE LARGE THREE-DOT / HAMBURGER MENU BUTTON */}
+            {/* ONE SINGLE MODERN THREE-DOT ALL-MENU BUTTON (HYPER-SENSITIVE TOUCH) */}
             <button
               type="button"
-              onClick={() => {
+              onTouchStart={(e) => {
+                e.stopPropagation();
                 playButtonClick();
+                hapticFeedback.light();
+                setShowMobileDrawer(true);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                playButtonClick();
+                hapticFeedback.light();
                 setShowMobileDrawer(true);
               }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '9px',
-                padding: '8px 18px',
+                gap: '8px',
+                padding: '9px 18px',
                 borderRadius: '12px',
                 background: showMobileDrawer ? 'var(--mode-color)' : 'rgba(99, 102, 241, 0.12)',
                 border: showMobileDrawer ? '2px solid var(--mode-color)' : '1.5px solid rgba(99, 102, 241, 0.4)',
@@ -1507,11 +1515,15 @@ export const Navbar = () => {
                 fontWeight: '800',
                 fontSize: '0.92rem',
                 cursor: 'pointer',
-                transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
                 boxShadow: showMobileDrawer ? '0 4px 16px var(--mode-glow)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
-                marginLeft: 'auto'
+                marginLeft: 'auto',
+                touchAction: 'manipulation',
+                userSelect: 'none',
+                WebkitTapHighlightColor: 'transparent',
+                minHeight: '44px'
               }}
-              title={lang === 'bn' ? 'সকল ফিচার, খাতা ও সেটিংস মেনু (Alt+M / F4)' : 'Open All Features Menu (Alt+M / F4)'}
+              title={lang === 'bn' ? 'সকল ফিচার ও সেটিংস মেনু (Alt+M / F4)' : 'Open All Features Menu (Alt+M / F4)'}
               onMouseEnter={(e) => {
                 if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
               }}
@@ -1519,8 +1531,8 @@ export const Navbar = () => {
                 if (!showMobileDrawer) e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
               }}
             >
-              <Menu size={19} strokeWidth={2.4} />
-              <span>{lang === 'bn' ? '☰ মেনু ও ফিচারস' : '☰ All Menu'}</span>
+              <MoreVertical size={20} style={{ pointerEvents: 'none' }} />
+              <span style={{ pointerEvents: 'none' }}>{lang === 'bn' ? 'সকল মেনু' : 'All Menu'}</span>
               <span
                 style={{
                   fontSize: '0.7rem',
@@ -1528,7 +1540,8 @@ export const Navbar = () => {
                   padding: '2px 7px',
                   borderRadius: '12px',
                   background: showMobileDrawer ? '#ffffff' : 'var(--mode-color)',
-                  color: showMobileDrawer ? 'var(--mode-color)' : '#ffffff'
+                  color: showMobileDrawer ? 'var(--mode-color)' : '#ffffff',
+                  pointerEvents: 'none'
                 }}
               >
                 {profile === 'business' ? '12+' : '7+'}
@@ -1651,17 +1664,23 @@ export const Navbar = () => {
               );
             })}
 
-            {/* Menu Drawer Toggle */}
+            {/* Menu Drawer Toggle (Instant Touch Responsive) */}
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                hapticFeedback.light();
+                setShowMobileDrawer(!showMobileDrawer);
+              }}
               onClick={() => {
                 hapticFeedback.light();
                 setShowMobileDrawer(!showMobileDrawer);
               }}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minHeight: '48px', minWidth: '48px' }}
             >
-              <Menu size={20} />
-              <span>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
+              <MoreVertical size={22} style={{ pointerEvents: 'none' }} />
+              <span style={{ pointerEvents: 'none' }}>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
             </button>
           </>
         ) : (
@@ -1709,17 +1728,23 @@ export const Navbar = () => {
               <span>{lang === 'bn' ? 'দেনা-পাওনা' : 'Debts'}</span>
             </button>
 
-            {/* 5. Menu Drawer */}
+            {/* 5. Menu Drawer (Instant Touch Responsive) */}
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                hapticFeedback.light();
+                setShowMobileDrawer(!showMobileDrawer);
+              }}
               onClick={() => {
                 hapticFeedback.light();
                 setShowMobileDrawer(!showMobileDrawer);
               }}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minHeight: '48px', minWidth: '48px' }}
             >
-              <Menu size={20} />
-              <span>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
+              <MoreVertical size={22} style={{ pointerEvents: 'none' }} />
+              <span style={{ pointerEvents: 'none' }}>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
             </button>
           </>
         )}

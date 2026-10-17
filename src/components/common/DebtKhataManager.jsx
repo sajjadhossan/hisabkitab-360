@@ -630,73 +630,19 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            title={lang === 'bn' ? 'সম্পর্ক ও ক্যাটাগরি তালিকা পরিচালনা (যোগ/রিনেম/ডিলিট)' : 'Manage relation categories'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'var(--bg-card)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--border-color)',
-              fontSize: '0.88rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
-            }}
-          >
-            <Tag size={16} style={{ color: 'var(--primary)' }} />
-            <span>{lang === 'bn' ? 'ক্যাটাগরি / ধরন তালিকা' : 'Manage Categories'}</span>
-          </button>
-
-          <button
-            onClick={() => exportDebtKhataToCSV(debtList, getPersonStats, lang)}
-            title={lang === 'bn' ? 'সম্পূর্ণ দেনা-পাওনার খতিয়ান এক্সেলে ডাউনলোড করুন' : 'Export Debt Ledger to Excel CSV'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'var(--bg-card)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--border-color)',
-              fontSize: '0.88rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
-            }}
-          >
-            <Download size={16} style={{ color: '#10b981' }} />
-            <span>{lang === 'bn' ? 'এক্সেল খতিয়ান' : 'Excel Export'}</span>
-          </button>
-
-          <button
-            onClick={() => setShowBulkSmsModal(true)}
-            title={lang === 'bn' ? '১-ক্লিকে সব বাকিদারকে ফোনে তাগাদা বার্তা পাঠান' : '1-Click Bulk Due SMS Recovery'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(249, 115, 22, 0.12))',
-              color: '#ef4444',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              fontSize: '0.88rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)'
-            }}
-          >
-            <MessageSquare size={16} style={{ color: '#ef4444' }} />
-            <span>{lang === 'bn' ? '📢 বাল্ক এসএমএস তাগাদা' : 'Bulk SMS Due Alert'}</span>
-          </button>
-
+        {/* Pinned Primary Action + Horizontal Movable Ribbon */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            width: '100%',
+            maxWidth: '100%',
+            marginTop: '8px',
+            flexWrap: 'wrap'
+          }}
+        >
+          {/* 1. STABLE / PINNED: New Person Ledger Button (Always Fixed & Accessible) */}
           <button
             onClick={handleOpenAddPerson}
             style={{
@@ -704,20 +650,116 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
               alignItems: 'center',
               gap: '8px',
               padding: '10px 18px',
-              borderRadius: '10px',
+              borderRadius: '12px',
               background: 'linear-gradient(135deg, #10b981, #059669)',
               color: '#ffffff',
               border: 'none',
               fontSize: '0.92rem',
-              fontWeight: '700',
+              fontWeight: '800',
               cursor: 'pointer',
               boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
             <Plus size={18} />
             <span>{lang === 'bn' ? '+ নতুন ব্যক্তির খাতা খুলুন' : '+ New Person Ledger'}</span>
           </button>
+
+          {/* 2. MOVABLE HORIZONTAL CAROUSEL (Right & Left Smooth Scrollable) */}
+          <div
+            className="smooth-scroll-x"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              padding: '4px 4px 4px 0',
+              flex: 1,
+              minWidth: '220px',
+              maxWidth: '100%',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x pan-y',
+              scrollbarWidth: 'none'
+            }}
+          >
+            {/* Bulk Due SMS Alert */}
+            <button
+              onClick={() => setShowBulkSmsModal(true)}
+              title={lang === 'bn' ? '১-ক্লিকে সব বাকিদারকে ফোনে তাগাদা বার্তা পাঠান' : '1-Click Bulk Due SMS Recovery'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '10px 16px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(249, 115, 22, 0.12))',
+                color: '#ef4444',
+                border: '1.5px solid rgba(239, 68, 68, 0.35)',
+                fontSize: '0.88rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.12)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <MessageSquare size={16} style={{ color: '#ef4444' }} />
+              <span>{lang === 'bn' ? '📢 বাল্ক এসএমএস তাগাদা' : 'Bulk SMS Due Alert'}</span>
+            </button>
+
+            {/* Manage Categories Button */}
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              title={lang === 'bn' ? 'সম্পর্ক ও ক্যাটাগরি তালিকা পরিচালনা (যোগ/রিনেম/ডিলিট)' : 'Manage relation categories'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '10px 16px',
+                borderRadius: '12px',
+                background: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                border: '1.5px solid var(--border-color)',
+                fontSize: '0.88rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <Tag size={16} style={{ color: 'var(--primary)' }} />
+              <span>{lang === 'bn' ? 'ক্যাটাগরি / ধরন তালিকা' : 'Manage Categories'}</span>
+            </button>
+
+            {/* Excel Export Button */}
+            <button
+              onClick={() => exportDebtKhataToCSV(debtList, getPersonStats, lang)}
+              title={lang === 'bn' ? 'সম্পূর্ণ দেনা-পাওনার খতিয়ান এক্সেলে ডাউনলোড করুন' : 'Export Debt Ledger to Excel CSV'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '10px 16px',
+                borderRadius: '12px',
+                background: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                border: '1.5px solid var(--border-color)',
+                fontSize: '0.88rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <Download size={16} style={{ color: '#10b981' }} />
+              <span>{lang === 'bn' ? 'এক্সেল খতিয়ান এক্সপোর্ট' : 'Excel Export'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
