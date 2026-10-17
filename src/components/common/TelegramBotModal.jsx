@@ -643,6 +643,77 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                 />
               </div>
 
+              {/* Instant Backup on Sale & Expense */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(14, 165, 233, 0.08)',
+                  border: '1px solid rgba(14, 165, 233, 0.25)'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: '800', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span>⚡ {lang === 'bn' ? 'প্রতি বিক্রয় ও খরচে ইনস্ট্যান্ট ব্যাকআপ' : 'Instant Backup on Sale & Expense'}</span>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'দোকানে বিক্রি বা খরচ এন্ট্রি হওয়ামাত্রই টেলিগ্রাম বটে তাৎক্ষণিক ব্যাকআপ যাবে' : 'Sends instant backup on every sale or cost record'}
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={tgConfig.syncOnSaleOrExpense !== false}
+                  onChange={(e) => setTgConfig(prev => ({ ...prev, syncOnSaleOrExpense: e.target.checked }))}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+              </div>
+
+              {/* Backup Frequency Dropdown */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  flexWrap: 'wrap',
+                  gap: '8px'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                    ⏱️ {lang === 'bn' ? 'রুটিন ব্যাকআপ সময় বিরতি:' : 'Routine Backup Interval:'}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'নির্দিষ্ট সময় পর পর স্বয়ংক্রিয় ব্যাকআপ' : 'Scheduled periodic cloud backup'}
+                  </div>
+                </div>
+                <select
+                  value={tgConfig.intervalMinutes || 5}
+                  onChange={(e) => setTgConfig(prev => ({ ...prev, intervalMinutes: Number(e.target.value) }))}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.8rem',
+                    fontWeight: '700'
+                  }}
+                >
+                  <option value={5}>⚡ {lang === 'bn' ? 'প্রতি ৫ মিনিট (সুপার ফাস্ট)' : 'Every 5 Minutes'}</option>
+                  <option value={15}>⏱️ {lang === 'bn' ? 'প্রতি ১৫ মিনিট' : 'Every 15 Minutes'}</option>
+                  <option value={30}>⭐ {lang === 'bn' ? 'প্রতি ৩০ মিনিট (প্রস্তাবিত)' : 'Every 30 Minutes'}</option>
+                  <option value={60}>🕒 {lang === 'bn' ? 'প্রতি ১ ঘণ্টা (Hourly)' : 'Every 1 Hour'}</option>
+                  <option value={1440}>📅 {lang === 'bn' ? 'প্রতিদিন একবার (Daily)' : 'Daily Once'}</option>
+                </select>
+              </div>
+
               {/* Feedback messages */}
               {testSuccess && (
                 <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>

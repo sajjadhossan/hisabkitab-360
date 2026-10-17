@@ -3747,6 +3747,45 @@ export const AppProvider = ({ children }) => {
     personalEvents?.length
   ]);
 
+  // Instant Realtime Event-Driven Backup to Telegram on Every Sale or Cost Record
+  const lastEventSyncSigRef = useRef(null);
+  useEffect(() => {
+    const tgConfig = getTelegramBackupConfig();
+    const canSyncTelegram = tgConfig.enabled && tgConfig.autoSync && tgConfig.syncOnSaleOrExpense !== false && tgConfig.botToken && tgConfig.chatId;
+    if (!canSyncTelegram) return;
+
+    const currentSig = `${salesHistory.length}_${invoices.length}_${businessExpenses.length}_${personalExpenses.length}`;
+    if (lastEventSyncSigRef.current === null) {
+      lastEventSyncSigRef.current = currentSig;
+      return;
+    }
+
+    if (currentSig !== lastEventSyncSigRef.current) {
+      lastEventSyncSigRef.current = currentSig;
+      // Debounce 1.5 seconds to batch rapid entries or finish disk write
+      const timer = setTimeout(() => {
+        if (!isTelegramSyncingRef.current) {
+          syncToTelegram(null, true).catch(() => {});
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [salesHistory.length, invoices.length, businessExpenses.length, personalExpenses.length]);
+
+  // Dedicated 5-Minute (Configurable) Telegram Routine Backup Loop
+  useEffect(() => {
+    const tgConfig = getTelegramBackupConfig();
+    const intervalMs = Math.max(1, (tgConfig.intervalMinutes || 5)) * 60 * 1000;
+    const tgTimer = setInterval(() => {
+      const activeConfig = getTelegramBackupConfig();
+      if (activeConfig.enabled && activeConfig.autoSync && activeConfig.botToken && activeConfig.chatId && !isTelegramSyncingRef.current) {
+        syncToTelegram(null, true).catch(() => {});
+      }
+    }, intervalMs);
+
+    return () => clearInterval(tgTimer);
+  }, []);
+
   // Daily auto-backup snapshot check on startup
   useEffect(() => {
     if (businessSettings.autoBackupEnabled) {

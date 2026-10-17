@@ -77,7 +77,7 @@ namespace HisabKitab360
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
                         FileName = browserPath,
-                        Arguments = string.Format("--app={0} --user-data-dir=\"{1}\" --new-window --no-first-run --no-default-browser-check --disable-extensions --disable-background-mode --window-size=1366,850", url, userDataDir),
+                        Arguments = string.Format("--app={0} --user-data-dir=\"{1}\" --new-window --no-first-run --no-default-browser-check --disable-extensions --disable-background-mode --enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist --disable-renderer-backgrounding --disable-background-timer-throttling --disable-features=CalculateNativeWinOcclusion --window-size=1366,850", url, userDataDir),
                         UseShellExecute = false
                     };
                     browserProc = Process.Start(psi);
@@ -151,6 +151,8 @@ namespace HisabKitab360
             }
         }
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> memoryCache = new System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>();
+
         private static void HandleRequest(object state)
         {
             HttpListenerContext context = (HttpListenerContext)state;
@@ -162,14 +164,28 @@ namespace HisabKitab360
 
                 if (!File.Exists(localPath))
                 {
-                    localPath = Path.Combine(webRoot, "index.html");
+                    if (rawUrl.EndsWith("logo.png") && File.Exists(Path.Combine(webRoot, "logo-512.png")))
+                    {
+                        localPath = Path.Combine(webRoot, "logo-512.png");
+                    }
+                    else
+                    {
+                        localPath = Path.Combine(webRoot, "index.html");
+                    }
                 }
 
                 if (File.Exists(localPath))
                 {
-                    byte[] bytes = File.ReadAllBytes(localPath);
+                    byte[] bytes;
+                    if (!memoryCache.TryGetValue(localPath, out bytes))
+                    {
+                        bytes = File.ReadAllBytes(localPath);
+                        memoryCache.TryAdd(localPath, bytes);
+                    }
+
                     context.Response.ContentType = GetMimeType(localPath);
                     context.Response.ContentLength64 = bytes.Length;
+                    context.Response.Headers.Add("Cache-Control", "public, max-age=31536000, immutable");
                     context.Response.StatusCode = 200;
                     context.Response.OutputStream.Write(bytes, 0, bytes.Length);
                 }

@@ -77,6 +77,7 @@ import { RealtimeSyncBadge } from './common/RealtimeSyncBadge';
 import { DeviceStatusIndicator } from './common/DeviceStatusIndicator';
 import { TelegramBotModal } from './common/TelegramBotModal';
 import { getTelegramBackupConfig } from '../services/telegramBackupService';
+import appBrandLogo from '../assets/logo.png';
 
 export const Navbar = () => {
   const {
@@ -665,13 +666,17 @@ export const Navbar = () => {
               }}
             >
               <img
-                src="/logo.png"
+                src={appBrandLogo || './logo.png'}
                 alt="HisabKitab 360"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  if (e.target.parentNode) {
-                    e.target.parentNode.innerText = profile === 'personal' ? '👤' : '💼';
+                  if (e.target.src !== './logo-512.png') {
+                    e.target.src = './logo-512.png';
+                  } else {
+                    e.target.style.display = 'none';
+                    if (e.target.parentNode) {
+                      e.target.parentNode.innerHTML = '<span style="font-weight:900;font-size:0.8rem;color:#fff;background:linear-gradient(135deg,#f59e0b,#d97706);width:100%;height:100%;display:flex;align-items:center;justify-content:center;letter-spacing:-0.5px;">360</span>';
+                    }
                   }
                 }}
               />
@@ -1664,20 +1669,16 @@ export const Navbar = () => {
               );
             })}
 
-            {/* Menu Drawer Toggle (Instant Touch Responsive) */}
+            {/* Menu Drawer Toggle */}
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}
-              onTouchStart={(e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 hapticFeedback.light();
-                setShowMobileDrawer(!showMobileDrawer);
+                setShowMobileDrawer((prev) => !prev);
               }}
-              onClick={() => {
-                hapticFeedback.light();
-                setShowMobileDrawer(!showMobileDrawer);
-              }}
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minHeight: '48px', minWidth: '48px' }}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minHeight: '48px', minWidth: '48px', cursor: 'pointer' }}
             >
               <MoreVertical size={22} style={{ pointerEvents: 'none' }} />
               <span style={{ pointerEvents: 'none' }}>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
@@ -1728,20 +1729,16 @@ export const Navbar = () => {
               <span>{lang === 'bn' ? 'দেনা-পাওনা' : 'Debts'}</span>
             </button>
 
-            {/* 5. Menu Drawer (Instant Touch Responsive) */}
+            {/* 5. Menu Drawer */}
             <button
               type="button"
               className={`mobile-bottom-nav-item ${showMobileDrawer ? 'active' : ''}`}
-              onTouchStart={(e) => {
+              onClick={(e) => {
                 e.stopPropagation();
                 hapticFeedback.light();
-                setShowMobileDrawer(!showMobileDrawer);
+                setShowMobileDrawer((prev) => !prev);
               }}
-              onClick={() => {
-                hapticFeedback.light();
-                setShowMobileDrawer(!showMobileDrawer);
-              }}
-              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minHeight: '48px', minWidth: '48px' }}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', minHeight: '48px', minWidth: '48px', cursor: 'pointer' }}
             >
               <MoreVertical size={22} style={{ pointerEvents: 'none' }} />
               <span style={{ pointerEvents: 'none' }}>{lang === 'bn' ? 'মেনু' : 'Menu'}</span>
