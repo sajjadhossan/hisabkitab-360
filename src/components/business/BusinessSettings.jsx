@@ -409,6 +409,75 @@ export const BusinessSettings = () => {
 
           <button
             type="button"
+            onClick={() => {
+              if (window.__openFinancialIntelligence) window.__openFinancialIntelligence();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(6, 182, 212, 0.15)',
+              color: '#0891b2',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Sparkles size={14} />
+            <span>{lang === 'bn' ? 'ফাইন্যান্সিয়াল ইন্টেলিজেন্স ও এআই' : 'AI Financial Hub'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openBankMfsReconciliation) window.__openBankMfsReconciliation();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(236, 72, 153, 0.15)',
+              color: '#db2777',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Building2 size={14} />
+            <span>{lang === 'bn' ? 'ব্যাংক/বিকাশ রিকনসিলিয়েশন' : 'MFS & Bank Reconcile'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openClvIntelligence) window.__openClvIntelligence();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(168, 85, 247, 0.15)',
+              color: '#9333ea',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Users size={14} />
+            <span>{lang === 'bn' ? 'কাস্টমার লাইফটাইম ভ্যালু (CLV)' : 'Customer CLV Matrix'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSubTab('commercial')}
             style={{
               padding: '6px 14px',

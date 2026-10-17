@@ -20,6 +20,8 @@ import {
   Palette,
   ShieldCheck,
   Banknote,
+  Building2,
+  TrendingUp,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -205,6 +207,37 @@ export const CommandPaletteModal = () => {
         icon: ShieldAlert,
         action: () => {
           if (window.__openAntiTheftAudit) window.__openAntiTheftAudit();
+        }
+      },
+      // Phase 7 Financial Intelligence & AI Predictions
+      {
+        id: 'cmd_fin_intelligence',
+        category: lang === 'bn' ? 'ইন্টেলিজেন্স' : 'Intelligence',
+        title: lang === 'bn' ? 'ফাইন্যান্সিয়াল ইন্টেলিজেন্স ও নিট লাভ' : 'Financial Intelligence & Net Profit',
+        subtitle: lang === 'bn' ? 'প্রকৃত লাভ, ৪-কোয়াড্রেন্ট ম্যাট্রিক্স ও রানওয়ে' : 'Real-time profit & AI forecasting',
+        icon: Sparkles,
+        action: () => {
+          if (window.__openFinancialIntelligence) window.__openFinancialIntelligence();
+        }
+      },
+      {
+        id: 'cmd_bank_reconcile',
+        category: lang === 'bn' ? 'ইন্টেলিজেন্স' : 'Intelligence',
+        title: lang === 'bn' ? 'ব্যাংক ও বিকাশ/নগদ রিকনসিলিয়েশন' : 'Bank & MFS Reconciliation',
+        subtitle: lang === 'bn' ? 'ডিজিটাল সেলস বনাম স্টেটমেন্ট অমিল ও মূসক ৬.৩' : 'Reconcile digital payment accounts',
+        icon: Building2,
+        action: () => {
+          if (window.__openBankMfsReconciliation) window.__openBankMfsReconciliation();
+        }
+      },
+      {
+        id: 'cmd_clv_vip',
+        category: lang === 'bn' ? 'ইন্টেলিজেন্স' : 'Intelligence',
+        title: lang === 'bn' ? 'কাস্টমার লাইফটাইম ভ্যালু ও ভিআইপি ম্যাট্রিক্স' : 'Customer Lifetime Value (CLV)',
+        subtitle: lang === 'bn' ? 'শীর্ষ ক্রেতা তালিকা ও ডে-এন্ড রিপোর্ট' : 'VIP loyalty & Day-End report',
+        icon: Users,
+        action: () => {
+          if (window.__openClvIntelligence) window.__openClvIntelligence();
         }
       }
     ];

@@ -89,6 +89,11 @@ const BlindShiftHandoverModal = lazyNamed(() => import('./components/security/Bl
 const AntiTheftAuditHubModal = lazyNamed(() => import('./components/security/AntiTheftAuditHubModal'), 'AntiTheftAuditHubModal');
 const AntiLeakWatermark = lazyNamed(() => import('./components/security/AntiLeakWatermark'), 'AntiLeakWatermark');
 
+// Phase 7 Financial Intelligence & AI Insights Modules
+const FinancialIntelligenceHubModal = lazyNamed(() => import('./components/intelligence/FinancialIntelligenceHubModal'), 'FinancialIntelligenceHubModal');
+const BankMfsReconciliationModal = lazyNamed(() => import('./components/intelligence/BankMfsReconciliationModal'), 'BankMfsReconciliationModal');
+const CustomerLifetimeValueModal = lazyNamed(() => import('./components/intelligence/CustomerLifetimeValueModal'), 'CustomerLifetimeValueModal');
+
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
@@ -162,6 +167,11 @@ const AppContent = () => {
   const [showBlindShiftModal, setShowBlindShiftModal] = useState(false);
   const [showAntiTheftModal, setShowAntiTheftModal] = useState(false);
 
+  // Phase 7 Financial Intelligence & AI Prediction Modal States
+  const [showFinancialIntelligenceModal, setShowFinancialIntelligenceModal] = useState(false);
+  const [showBankMfsModal, setShowBankMfsModal] = useState(false);
+  const [showClvModal, setShowClvModal] = useState(false);
+
   React.useEffect(() => {
     telemetryService.init();
     pwaSyncManager.register();
@@ -170,6 +180,11 @@ const AppContent = () => {
     window.__openRbacSecurity = () => setShowRbacModal(true);
     window.__openBlindShiftHandover = () => setShowBlindShiftModal(true);
     window.__openAntiTheftAudit = () => setShowAntiTheftModal(true);
+
+    // Phase 7 Window Triggers
+    window.__openFinancialIntelligence = () => setShowFinancialIntelligenceModal(true);
+    window.__openBankMfsReconciliation = () => setShowBankMfsModal(true);
+    window.__openClvIntelligence = () => setShowClvModal(true);
 
     // Phase 6 Feature 60: Auto-lock on inactivity
     const cleanupWatchdog = initInactivityWatchdog(() => {
@@ -184,6 +199,9 @@ const AppContent = () => {
       delete window.__openRbacSecurity;
       delete window.__openBlindShiftHandover;
       delete window.__openAntiTheftAudit;
+      delete window.__openFinancialIntelligence;
+      delete window.__openBankMfsReconciliation;
+      delete window.__openClvIntelligence;
       if (typeof cleanupWatchdog === 'function') cleanupWatchdog();
     };
   }, [lockScreen]);
@@ -917,6 +935,27 @@ const AppContent = () => {
         <AntiTheftAuditHubModal
           isOpen={showAntiTheftModal}
           onClose={() => setShowAntiTheftModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 7 Features 61, 62, 63, 64, 67: Financial Intelligence & AI Predictions Modal */}
+        <FinancialIntelligenceHubModal
+          isOpen={showFinancialIntelligenceModal}
+          onClose={() => setShowFinancialIntelligenceModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 7 Features 66, 69: Bank & MFS Reconciliation & NBR VAT 6.3 Hub Modal */}
+        <BankMfsReconciliationModal
+          isOpen={showBankMfsModal}
+          onClose={() => setShowBankMfsModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 7 Features 65, 68, 70: Customer Lifetime Value (CLV) & Voice Intelligence Modal */}
+        <CustomerLifetimeValueModal
+          isOpen={showClvModal}
+          onClose={() => setShowClvModal(false)}
           lang={lang}
         />
 
