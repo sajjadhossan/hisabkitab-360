@@ -3747,14 +3747,14 @@ export const AppProvider = ({ children }) => {
     personalEvents?.length
   ]);
 
-  // Instant Realtime Event-Driven Backup to Telegram on Every Sale or Cost Record
+  // Instant Realtime Event-Driven Backup to Telegram on Every Sale, Expense, Income, or Debt Record
   const lastEventSyncSigRef = useRef(null);
   useEffect(() => {
     const tgConfig = getTelegramBackupConfig();
     const canSyncTelegram = tgConfig.enabled && tgConfig.autoSync && tgConfig.syncOnSaleOrExpense !== false && tgConfig.botToken && tgConfig.chatId;
     if (!canSyncTelegram) return;
 
-    const currentSig = `${salesHistory.length}_${invoices.length}_${businessExpenses.length}_${personalExpenses.length}`;
+    const currentSig = `${salesHistory.length}_${invoices.length}_${businessExpenses.length}_${personalExpenses.length}_${personalIncomes?.length || 0}_${businessDebts?.length || 0}_${personalDebts?.length || 0}`;
     if (lastEventSyncSigRef.current === null) {
       lastEventSyncSigRef.current = currentSig;
       return;
@@ -3770,7 +3770,32 @@ export const AppProvider = ({ children }) => {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [salesHistory.length, invoices.length, businessExpenses.length, personalExpenses.length]);
+  }, [
+    salesHistory.length,
+    invoices.length,
+    businessExpenses.length,
+    personalExpenses.length,
+    personalIncomes?.length,
+    businessDebts?.length,
+    personalDebts?.length
+  ]);
+
+  // Global transaction listener for explicit triggers
+  useEffect(() => {
+    const handleTransactionEvent = () => {
+      const tgConfig = getTelegramBackupConfig();
+      if (tgConfig.enabled && tgConfig.autoSync && tgConfig.syncOnSaleOrExpense !== false && tgConfig.botToken && tgConfig.chatId) {
+        setTimeout(() => {
+          if (!isTelegramSyncingRef.current) {
+            syncToTelegram(null, true).catch(() => {});
+          }
+        }, 1200);
+      }
+    };
+
+    window.addEventListener('hk360_transaction_recorded', handleTransactionEvent);
+    return () => window.removeEventListener('hk360_transaction_recorded', handleTransactionEvent);
+  }, []);
 
   // Dedicated 5-Minute (Configurable) Telegram Routine Backup Loop
   useEffect(() => {

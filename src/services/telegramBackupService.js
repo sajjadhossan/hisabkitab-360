@@ -21,6 +21,8 @@ export const getTelegramBackupConfig = () => {
       groqApiKey: parsed.groqApiKey || '',
       enabled: parsed.enabled !== undefined ? parsed.enabled : true,
       autoSync: parsed.autoSync !== undefined ? parsed.autoSync : true,
+      syncOnSaleOrExpense: parsed.syncOnSaleOrExpense !== false,
+      intervalMinutes: parsed.intervalMinutes || 5,
       lastSync: parsed.lastSync || null,
       lastFileName: parsed.lastFileName || null
     };
@@ -35,6 +37,8 @@ export const getTelegramBackupConfig = () => {
       groqApiKey: '',
       enabled: true,
       autoSync: true,
+      syncOnSaleOrExpense: true,
+      intervalMinutes: 5,
       lastSync: null,
       lastFileName: null
     };
