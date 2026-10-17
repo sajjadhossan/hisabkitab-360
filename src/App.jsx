@@ -84,6 +84,9 @@ const AuditTrailModal = lazyNamed(() => import('./components/admin/AuditTrailMod
 const KeyboardShortcutsModal = lazyNamed(() => import('./components/common/KeyboardShortcutsModal'), 'KeyboardShortcutsModal');
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
+import { CommandPaletteModal } from './components/common/CommandPaletteModal';
+import { UndoNotificationToast } from './components/common/UndoNotificationToast';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -699,6 +702,7 @@ const AppContent = () => {
       <Navbar />
       <PullToRefresh onRefresh={handlePullRefresh}>
         <main className="main-content">
+          <DynamicBreadcrumbs />
           <Suspense fallback={<ViewLoadingFallback />}>
             {renderContent()}
           </Suspense>
@@ -849,6 +853,12 @@ const AppContent = () => {
 
         {/* Modern Glassmorphic Action & Confirm Dialog System */}
         <ModernConfirmModal />
+
+        {/* Global Spotlight Search Command Palette (Ctrl+K) */}
+        <CommandPaletteModal />
+
+        {/* Interactive Undo Action Snackbar */}
+        <UndoNotificationToast lang={lang} />
 
         {/* PWA & ServiceWorker Seamless Auto-Updater */}
         <AutoUpdateToast lang={lang} />

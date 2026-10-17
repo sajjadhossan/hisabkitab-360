@@ -60,6 +60,9 @@ import { exportUniversalBackupAsync, validateUniversalBackup } from '../services
 import { auditService, AUDIT_ACTIONS } from '../services/auditService';
 import { hapticFeedback } from '../services/nativeAppService';
 import { showConfirmDialog, showPromptDialog } from '../services/dialogService';
+import { soundService } from '../services/soundService';
+import { triggerConfetti } from '../services/confettiService';
+import { showUndoToast } from '../components/common/UndoNotificationToast';
 import { enqueueOfflineAction } from '../utils/syncQueue';
 import { notifyLowStockAlert, notifySaleCompleted } from '../services/localNotificationService';
 import { submitPosSaleToCloud } from '../services/supabaseBackendService';
@@ -5326,6 +5329,17 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         showPromptDialog,
         confirmAction: showConfirmDialog,
         promptAction: showPromptDialog,
+
+        // Phase 1 Ultra-Smooth Experience Suite
+        soundService,
+        playSound: soundService,
+        playSuccessChime: () => soundService.playSuccessChime(),
+        playCashChime: () => soundService.playCashChime(),
+        playBeep: () => soundService.playBeep(),
+        playWarningTone: () => soundService.playWarningTone(),
+        playDeleteTone: () => soundService.playDeleteTone(),
+        triggerConfetti,
+        showUndoToast,
 
         // Partial Payments on Invoices
         recordInvoicePayment,
