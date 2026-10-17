@@ -541,6 +541,31 @@ export const AppProvider = ({ children }) => {
   // UI Data Density Mode: 'standard' | 'compact'
   const [densityMode, setDensityMode] = useState(() => localStorage.getItem('hk360_density') || 'standard');
 
+  // Phase 2: Theme Engine & UI Customization States
+  const [brandAccent, setBrandAccent] = useState(() => localStorage.getItem('hk360_accent') || 'emerald');
+  const [fontScale, setFontScale] = useState(() => localStorage.getItem('hk360_font_scale') || '100');
+  const [highContrast, setHighContrast] = useState(() => localStorage.getItem('hk360_high_contrast') === 'true');
+  const [invoiceStyle, setInvoiceStyle] = useState(() => localStorage.getItem('hk360_invoice_style') || 'thermal');
+  const [isThemeCustomizerOpen, setIsThemeCustomizerOpen] = useState(false);
+  const [customMobileNav, setCustomMobileNav] = useState(() => {
+    try {
+      const stored = localStorage.getItem('hk360_mobile_nav');
+      return stored ? JSON.parse(stored) : ['pos', 'debts', 'inventory', 'daily_expenses', 'crm'];
+    } catch {
+      return ['pos', 'debts', 'inventory', 'daily_expenses', 'crm'];
+    }
+  });
+
+  const updateCustomMobileNav = useCallback((tabs) => {
+    setCustomMobileNav(tabs);
+    try {
+      localStorage.setItem('hk360_mobile_nav', JSON.stringify(tabs));
+    } catch {}
+  }, []);
+
+  const openThemeCustomizer = useCallback(() => setIsThemeCustomizerOpen(true), []);
+  const closeThemeCustomizer = useCallback(() => setIsThemeCustomizerOpen(false), []);
+
   const toggleDensityMode = useCallback(() => {
     setDensityMode(prev => {
       const next = prev === 'compact' ? 'standard' : 'compact';
@@ -976,11 +1001,22 @@ export const AppProvider = ({ children }) => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-profile', profile);
     document.documentElement.setAttribute('data-density', densityMode);
+    document.documentElement.setAttribute('data-accent', brandAccent);
+    document.documentElement.setAttribute('data-font-scale', fontScale);
+    if (highContrast) {
+      document.documentElement.setAttribute('data-contrast', 'high');
+    } else {
+      document.documentElement.removeAttribute('data-contrast');
+    }
     localStorage.setItem(STORAGE_KEYS.PROFILE, profile);
     localStorage.setItem(STORAGE_KEYS.LANG, lang);
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
     localStorage.setItem('hk360_density', densityMode);
-  }, [profile, lang, theme, densityMode]);
+    localStorage.setItem('hk360_accent', brandAccent);
+    localStorage.setItem('hk360_font_scale', fontScale);
+    localStorage.setItem('hk360_high_contrast', String(highContrast));
+    localStorage.setItem('hk360_invoice_style', invoiceStyle);
+  }, [profile, lang, theme, densityMode, brandAccent, fontScale, highContrast, invoiceStyle]);
 
   // Sync state to LocalStorage (Non-blocking debounced queue for 60fps UI)
   useEffect(() => {
@@ -5340,6 +5376,21 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         playDeleteTone: () => soundService.playDeleteTone(),
         triggerConfetti,
         showUndoToast,
+
+        // Phase 2 Theme Engine & UI Customization Suite
+        brandAccent,
+        setBrandAccent,
+        fontScale,
+        setFontScale,
+        highContrast,
+        setHighContrast,
+        invoiceStyle,
+        setInvoiceStyle,
+        isThemeCustomizerOpen,
+        openThemeCustomizer,
+        closeThemeCustomizer,
+        customMobileNav,
+        updateCustomMobileNav,
 
         // Partial Payments on Invoices
         recordInvoicePayment,

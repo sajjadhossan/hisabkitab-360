@@ -27,6 +27,7 @@ import {
   Cloud,
   Camera,
   Upload,
+  Palette,
   Maximize2,
   Minimize2,
   Keyboard,
@@ -91,6 +92,7 @@ export const Navbar = () => {
     setTheme,
     densityMode,
     toggleDensityMode,
+    openThemeCustomizer,
     activeTab,
     setActiveTab,
     t,
@@ -1110,6 +1112,16 @@ export const Navbar = () => {
               style={{ transition: 'transform 0.1s ease', flexShrink: 0 }}
             >
               {theme === 'dark' ? <Sun size={17} color="#fbbf24" /> : <Moon size={17} color="#6366f1" />}
+            </button>
+
+            {/* Phase 2: Theme & UI Customizer Modal Trigger */}
+            <button
+              className="btn-icon press-scale"
+              onClick={openThemeCustomizer}
+              title={lang === 'bn' ? 'থিম ও ডিসপ্লে কাস্টমাইজেশন' : 'Theme & Display Customizer'}
+              style={{ transition: 'transform 0.1s ease', flexShrink: 0, color: '#38bdf8' }}
+            >
+              <Palette size={17} />
             </button>
 
             {/* High-Density Compact Mode Switch */}

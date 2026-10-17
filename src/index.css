@@ -122,6 +122,121 @@ body.oled-black-mode {
   --elevation-3: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 12px 32px rgba(0, 0, 0, 0.95) !important;
 }
 
+/* Phase 2: Cyber Slate Theme */
+[data-theme='cyber_slate'] {
+  --bg-primary: #0b1329 !important;
+  --bg-secondary: #0f1d3a !important;
+  --bg-card: rgba(18, 32, 60, 0.9) !important;
+  --bg-card-hover: rgba(28, 48, 86, 0.95) !important;
+  --bg-glass: rgba(15, 29, 58, 0.85) !important;
+  --border-color: rgba(56, 189, 248, 0.18) !important;
+  --border-hover: rgba(56, 189, 248, 0.35) !important;
+  --text-main: #f0f6fc !important;
+  --text-muted: #94a9c9 !important;
+  --text-dim: #5c7294 !important;
+  --business-primary: #0284c7 !important;
+  --business-glow: rgba(2, 132, 199, 0.3) !important;
+}
+
+/* Phase 2: Luxury Gold Theme */
+[data-theme='luxury_gold'] {
+  --bg-primary: #0c0a09 !important;
+  --bg-secondary: #171412 !important;
+  --bg-card: rgba(28, 25, 23, 0.92) !important;
+  --bg-card-hover: rgba(41, 37, 36, 0.95) !important;
+  --bg-glass: rgba(23, 20, 18, 0.88) !important;
+  --border-color: rgba(245, 158, 11, 0.22) !important;
+  --border-hover: rgba(251, 191, 36, 0.45) !important;
+  --text-main: #fffbeb !important;
+  --text-muted: #d6d3d1 !important;
+  --text-dim: #78716c !important;
+  --business-primary: #d97706 !important;
+  --business-accent: #fbbf24 !important;
+  --business-glow: rgba(217, 119, 6, 0.3) !important;
+  --personal-primary: #d97706 !important;
+}
+
+/* Phase 2: Nordic Clean Theme (Crisp Daytime Scandi Minimal) */
+[data-theme='nordic_clean'] {
+  --bg-primary: #f4f5f7 !important;
+  --bg-secondary: #ffffff !important;
+  --bg-card: #ffffff !important;
+  --bg-card-hover: #ebeef2 !important;
+  --bg-glass: rgba(255, 255, 255, 0.95) !important;
+  --border-color: rgba(209, 213, 219, 0.85) !important;
+  --border-hover: rgba(156, 163, 175, 1) !important;
+  --text-main: #111827 !important;
+  --text-muted: #4b5563 !important;
+  --text-dim: #9ca3af !important;
+  --business-primary: #2563eb !important;
+  --personal-primary: #059669 !important;
+}
+
+/* Phase 2: Emerald Matrix Theme */
+[data-theme='emerald_matrix'] {
+  --bg-primary: #021a12 !important;
+  --bg-secondary: #04291c !important;
+  --bg-card: rgba(6, 46, 32, 0.9) !important;
+  --bg-card-hover: rgba(8, 64, 45, 0.95) !important;
+  --bg-glass: rgba(4, 41, 28, 0.85) !important;
+  --border-color: rgba(16, 185, 129, 0.25) !important;
+  --border-hover: rgba(52, 211, 153, 0.45) !important;
+  --text-main: #ecfdf5 !important;
+  --text-muted: #a7f3d0 !important;
+  --text-dim: #059669 !important;
+  --business-primary: #10b981 !important;
+  --business-glow: rgba(16, 185, 129, 0.35) !important;
+}
+
+/* Phase 2: High Contrast Mode for Direct Outdoor Sunlight */
+[data-contrast='high'] {
+  --border-color: rgba(255, 255, 255, 0.45) !important;
+  --border-hover: rgba(255, 255, 255, 0.8) !important;
+  --text-main: #ffffff !important;
+  --text-muted: #e2e8f0 !important;
+  font-weight: 500 !important;
+}
+
+[data-theme='light'][data-contrast='high'],
+[data-theme='nordic_clean'][data-contrast='high'] {
+  --bg-primary: #ffffff !important;
+  --bg-secondary: #f0f0f0 !important;
+  --bg-card: #ffffff !important;
+  --border-color: #000000 !important;
+  --text-main: #000000 !important;
+  --text-muted: #111111 !important;
+}
+
+/* Phase 2: Font Accessibility Scaling */
+[data-font-scale='115'] {
+  font-size: 115% !important;
+}
+[data-font-scale='130'] {
+  font-size: 130% !important;
+}
+
+/* Phase 2: Custom Brand Accent Overrides */
+[data-accent='emerald'] {
+  --business-primary: #10b981 !important;
+  --personal-primary: #10b981 !important;
+}
+[data-accent='sapphire'] {
+  --business-primary: #0284c7 !important;
+  --personal-primary: #0284c7 !important;
+}
+[data-accent='amethyst'] {
+  --business-primary: #9333ea !important;
+  --personal-primary: #9333ea !important;
+}
+[data-accent='ruby'] {
+  --business-primary: #e11d48 !important;
+  --personal-primary: #e11d48 !important;
+}
+[data-accent='amber'] {
+  --business-primary: #d97706 !important;
+  --personal-primary: #d97706 !important;
+}
+
 /* =========================================================
    Ultra-Smooth 60FPS Performance & Active Tactile Micro-UX
    ========================================================= */

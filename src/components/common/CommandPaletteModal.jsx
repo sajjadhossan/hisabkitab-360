@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Sparkles,
   Command,
+  Palette,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -32,6 +33,7 @@ export const CommandPaletteModal = () => {
     products = [],
     crmCustomers = [],
     lockScreen,
+    openThemeCustomizer,
     lang = 'bn'
   } = useApp() || {};
 
@@ -143,6 +145,14 @@ export const CommandPaletteModal = () => {
       },
 
       // Quick Utility Actions
+      {
+        id: 'act_theme_customizer',
+        category: lang === 'bn' ? 'কুইক অ্যাকশন' : 'Quick Actions',
+        title: lang === 'bn' ? '🎨 থিম ও ডিসপ্লে কাস্টমাইজেশন' : '🎨 Theme & Display Customizer',
+        subtitle: lang === 'bn' ? 'কালার প্যালেট, ওলেড মোড, ফন্ট স্কেল ও মেমো স্টাইল' : 'Color palette, OLED mode, font scale & invoices',
+        icon: Palette,
+        action: () => openThemeCustomizer && openThemeCustomizer()
+      },
       {
         id: 'act_lock',
         category: lang === 'bn' ? 'কুইক অ্যাকশন' : 'Quick Actions',

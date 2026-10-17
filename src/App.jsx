@@ -87,6 +87,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
 import { CommandPaletteModal } from './components/common/CommandPaletteModal';
 import { UndoNotificationToast } from './components/common/UndoNotificationToast';
+import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -138,7 +139,9 @@ const AppContent = () => {
     handleBarcodeScanned = () => {},
     products = [],
     salesHistory = [],
-    debtRecords = []
+    debtRecords = [],
+    isThemeCustomizerOpen = false,
+    closeThemeCustomizer = () => {}
   } = appContext;
   const { user = null, openAuthModal = () => {}, isAuthModalOpen = false, closeAuthModal = () => {}, isSuperAdmin = false } = useAuth() || {};
 
@@ -859,6 +862,12 @@ const AppContent = () => {
 
         {/* Interactive Undo Action Snackbar */}
         <UndoNotificationToast lang={lang} />
+
+        {/* Phase 2: Theme Engine & Display Customizer Modal */}
+        <ThemeCustomizerModal
+          isOpen={isThemeCustomizerOpen}
+          onClose={closeThemeCustomizer}
+        />
 
         {/* PWA & ServiceWorker Seamless Auto-Updater */}
         <AutoUpdateToast lang={lang} />
