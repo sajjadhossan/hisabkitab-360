@@ -77,6 +77,12 @@ import { ThermalLabelPrinterModal } from '../pos/ThermalLabelPrinterModal';
 import { DigitalScaleModal } from '../pos/DigitalScaleModal';
 import { SupplierPurchaseOrderModal } from './SupplierPurchaseOrderModal';
 import { SalesReturnModal } from './SalesReturnModal';
+import { MultiCartHoldTabs } from '../pos/MultiCartHoldTabs';
+import { QuickDiscountAndCouponModal } from '../pos/QuickDiscountAndCouponModal';
+import { FastVariantBatchModal } from '../pos/FastVariantBatchModal';
+import { DeliveryCourierModal } from '../pos/DeliveryCourierModal';
+import { KitchenOrderTokenDisplay } from '../pos/KitchenOrderTokenDisplay';
+import { decodeScaleBarcode, isScaleBarcode } from '../../services/barcodeWeightDecoder';
 import { broadcastCartToCustomerDisplay, openCustomerMirrorWindow } from '../../services/customerMirrorService';
 import {
   connectSerialPrinter,
@@ -242,6 +248,7 @@ export const POSTerminal = () => {
   const {
     products,
     cart,
+    setCart,
     salesHistory,
     addToCart,
     updateCartQty,
@@ -336,6 +343,68 @@ export const POSTerminal = () => {
   const [fastCashTendered, setFastCashTendered] = useState(0);
   const [showCattleModal, setShowCattleModal] = useState(false);
   const [cattleModalInitialTab, setCattleModalInitialTab] = useState('overview');
+
+  // --- Phase 3 Next-Gen POS States & Automation ---
+  const [multiCarts, setMultiCarts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_multi_carts');
+      return saved ? JSON.parse(saved) : [{ id: 1, name: 'কার্ট ১', items: [] }];
+    } catch {
+      return [{ id: 1, name: 'কার্ট ১', items: [] }];
+    }
+  });
+  const [activeCartId, setActiveCartId] = useState(1);
+  const [showQuickDiscountModal, setShowQuickDiscountModal] = useState(false);
+  const [showCourierModal, setShowCourierModal] = useState(false);
+  const [courierDispatchData, setCourierDispatchData] = useState(null);
+  const [showTokenDisplay, setShowTokenDisplay] = useState(false);
+  const [activeTokens, setActiveTokens] = useState([]);
+  const [selectedVariantProduct, setSelectedVariantProduct] = useState(null);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+
+  const handleSelectCart = (targetCartId) => {
+    if (targetCartId === activeCartId) return;
+    setMultiCarts((prev) => {
+      const updated = prev.map((c) => (c.id === activeCartId ? { ...c, items: cart } : c));
+      try {
+        localStorage.setItem('hk360_multi_carts', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    const targetCart = multiCarts.find((c) => c.id === targetCartId);
+    if (targetCart && setCart) {
+      setCart(targetCart.items || []);
+    }
+    setActiveCartId(targetCartId);
+  };
+
+  const handleAddCart = () => {
+    if (multiCarts.length >= 5) return;
+    const nextId = (multiCarts[multiCarts.length - 1]?.id || 0) + 1;
+    const updated = multiCarts.map((c) => (c.id === activeCartId ? { ...c, items: cart } : c));
+    const newCart = { id: nextId, name: `কার্ট ${nextId}`, items: [] };
+    const nextList = [...updated, newCart];
+    setMultiCarts(nextList);
+    try {
+      localStorage.setItem('hk360_multi_carts', JSON.stringify(nextList));
+    } catch {}
+    if (setCart) setCart([]);
+    setActiveCartId(nextId);
+  };
+
+  const handleRemoveCart = (cartIdToRemove) => {
+    if (multiCarts.length <= 1) return;
+    const remaining = multiCarts.filter((c) => c.id !== cartIdToRemove);
+    setMultiCarts(remaining);
+    try {
+      localStorage.setItem('hk360_multi_carts', JSON.stringify(remaining));
+    } catch {}
+    if (activeCartId === cartIdToRemove) {
+      const fallback = remaining[0];
+      setActiveCartId(fallback.id);
+      if (setCart) setCart(fallback.items || []);
+    }
+  };
 
   // --- TEMPLATE-ADAPTIVE POS ENGINE ARCHITECTURE ---
   const isCattleIndustry = Boolean(
@@ -1104,6 +1173,34 @@ export const POSTerminal = () => {
           const cleanCode = barcodeBuffer.trim();
           barcodeBuffer = '';
 
+          // Check if barcode is an EAN-13 weight/price embedded scale barcode
+          if (isScaleBarcode(cleanCode)) {
+            const scaleData = decodeScaleBarcode(cleanCode);
+            if (scaleData && scaleData.isValid) {
+              const matchedScaleProduct = products.find(
+                (p) =>
+                  (p.sku && p.sku.toLowerCase() === scaleData.itemCode.toLowerCase()) ||
+                  (p.barcode && p.barcode.includes(scaleData.itemCode)) ||
+                  (p.id && String(p.id).includes(scaleData.itemCode))
+              );
+              if (matchedScaleProduct) {
+                e.preventDefault();
+                playScannerBeep();
+                addToCart(matchedScaleProduct);
+                if (scaleData.isWeightEmbedded && scaleData.weightKg > 0) {
+                  updateCartQty(matchedScaleProduct.id, scaleData.weightKg);
+                }
+                showToast(
+                  lang === 'bn'
+                    ? `⚖️ ডিজিটাল স্কেল বারকোড: ${matchedScaleProduct.name} (${scaleData.weightKg} kg) যুক্ত হয়েছে`
+                    : `⚖️ Digital Scale Barcode: ${matchedScaleProduct.name} (${scaleData.weightKg} kg) added`,
+                  'success'
+                );
+                return;
+              }
+            }
+          }
+
           const matched = products.find(
             p => p.barcode === cleanCode || p.sku.toLowerCase() === cleanCode.toLowerCase()
           );
@@ -1152,9 +1249,10 @@ export const POSTerminal = () => {
   const baseDiscount = Math.min(subtotal, Number(discountAmount) || 0);
   const loyaltyDiscount = (useLoyaltyPoints && availableLoyaltyPoints > 0) ? Math.min(availableLoyaltyPoints, Math.max(0, subtotal - baseDiscount)) : 0;
   const discount = Math.min(subtotal, baseDiscount + loyaltyDiscount);
+  const courierFee = courierDispatchData?.deliveryCharge ? Number(courierDispatchData.deliveryCharge) : 0;
   const taxableAmount = Math.max(0, subtotal - discount);
   const vat = Math.round(taxableAmount * (businessSettings.vatRate / 100));
-  const grandTotal = taxableAmount + vat;
+  const grandTotal = taxableAmount + vat + courierFee;
 
   // Live Gross Profit & Margin (Item 73)
   const liveGrossProfit = Math.max(0, taxableAmount - totalCartCost);
@@ -4161,6 +4259,50 @@ export const POSTerminal = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Courier Dispatch Attachment Button */}
+            <button
+              type="button"
+              onClick={() => setShowCourierModal(true)}
+              className="btn btn-secondary press-scale"
+              style={{
+                padding: '4px 8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                color: courierDispatchData ? '#38bdf8' : 'var(--text-muted)',
+                borderColor: courierDispatchData ? '#0284c7' : 'var(--border-color)',
+                background: courierDispatchData ? 'rgba(2, 132, 199, 0.15)' : 'transparent'
+              }}
+              title={lang === 'bn' ? 'হোম ডেলিভারি ও কুরিয়ার ট্র্যাকিং' : 'Courier Delivery'}
+            >
+              <Truck size={13} />
+              <span>{courierDispatchData ? courierDispatchData.courierInfo?.bnName?.split(' ')[0] : (lang === 'bn' ? 'কুরিয়ার' : 'Courier')}</span>
+            </button>
+
+            {/* Kitchen & Order Token Board Button */}
+            <button
+              type="button"
+              onClick={() => setShowTokenDisplay(true)}
+              className="btn btn-secondary press-scale"
+              style={{
+                padding: '4px 8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                color: '#f59e0b',
+                background: 'rgba(245, 158, 11, 0.1)',
+                borderColor: 'rgba(245, 158, 11, 0.3)'
+              }}
+              title={lang === 'bn' ? 'কিচেন ও অর্ডার টোকেন বোর্ড' : 'Order Token Board'}
+            >
+              <Utensils size={13} />
+              <span>{lang === 'bn' ? 'টোকেন' : 'Token'}</span>
+            </button>
+
             {isMobileScreen && (
               <button
                 type="button"
@@ -4184,6 +4326,18 @@ export const POSTerminal = () => {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Multi-Cart Fast Switch Tabs (Phase 3) */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <MultiCartHoldTabs
+            carts={multiCarts}
+            activeCartId={activeCartId}
+            onSelectCart={handleSelectCart}
+            onAddCart={handleAddCart}
+            onRemoveCart={handleRemoveCart}
+            lang={lang}
+          />
         </div>
 
         {/* Customer Selector */}
@@ -4383,7 +4537,30 @@ export const POSTerminal = () => {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', marginBottom: '4px' }}>
-            <span style={{ color: 'var(--text-muted)' }}>{t.business.discount}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{t.business.discount}</span>
+              <button
+                type="button"
+                onClick={() => setShowQuickDiscountModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.15), rgba(249, 115, 22, 0.15))',
+                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  color: '#f43f5e',
+                  fontSize: '0.68rem',
+                  fontWeight: '800',
+                  cursor: 'pointer'
+                }}
+                title={lang === 'bn' ? 'কুপন ও স্মার্ট ডিসকাউন্ট' : 'Coupons & Discounts'}
+              >
+                <Tag size={11} />
+                <span>{lang === 'bn' ? '🎟️ কুপন' : '🎟️ Coupons'}</span>
+              </button>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '0.75rem' }}>৳</span>
               <input
@@ -4397,6 +4574,16 @@ export const POSTerminal = () => {
               />
             </div>
           </div>
+
+          {courierFee > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', color: '#38bdf8' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Truck size={14} />
+                <span>{courierDispatchData?.courierInfo?.bnName || 'ডেলিভারি চার্জ'}</span>
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>+৳{courierFee.toLocaleString()}</span>
+            </div>
+          )}
 
           {/* Multi-Rate Instant Discount Keys (Item 58) */}
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px', justifyContent: 'flex-end' }}>
@@ -5327,6 +5514,67 @@ export const POSTerminal = () => {
         isOpen={showCattleModal}
         initialTab={cattleModalInitialTab}
         onClose={() => setShowCattleModal(false)}
+      />
+
+      {/* QUICK DISCOUNT & VOUCHER COUPON MODAL (PHASE 3) */}
+      <QuickDiscountAndCouponModal
+        isOpen={showQuickDiscountModal}
+        onClose={() => setShowQuickDiscountModal(false)}
+        subtotal={subtotal}
+        currentDiscount={Number(discountAmount) || 0}
+        onApplyDiscount={(calculatedAmt) => {
+          setDiscountAmount(String(calculatedAmt));
+          showToast(lang === 'bn' ? `৳${calculatedAmt} ডিসকাউন্ট কার্যকর হয়েছে` : `৳${calculatedAmt} discount applied`, 'success');
+        }}
+        lang={lang}
+      />
+
+      {/* DELIVERY COURIER & CONSIGNMENT MODAL (PHASE 3) */}
+      <DeliveryCourierModal
+        isOpen={showCourierModal}
+        onClose={() => setShowCourierModal(false)}
+        initialData={courierDispatchData || {}}
+        onSaveCourierDetails={(data) => {
+          setCourierDispatchData(data);
+          showToast(lang === 'bn' ? `${data.courierInfo?.bnName || 'কুরিয়ার'} চার্জ ৳${data.deliveryCharge} যুক্ত হয়েছে` : 'Courier details attached', 'info');
+        }}
+        lang={lang}
+      />
+
+      {/* KITCHEN & DIGITAL ORDER TOKEN CALL DISPLAY (PHASE 3) */}
+      <KitchenOrderTokenDisplay
+        isOpen={showTokenDisplay}
+        onClose={() => setShowTokenDisplay(false)}
+        activeTokens={activeTokens}
+        onUpdateTokenStatus={(id, status) => {
+          setActiveTokens((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+        }}
+        lang={lang}
+      />
+
+      {/* FAST PRODUCT VARIANT & BATCH SELECTOR (PHASE 3) */}
+      <FastVariantBatchModal
+        isOpen={showVariantModal}
+        onClose={() => {
+          setShowVariantModal(false);
+          setSelectedVariantProduct(null);
+        }}
+        product={selectedVariantProduct}
+        onConfirmVariant={({ selectedVariant, selectedBatch, finalPrice }) => {
+          if (!selectedVariantProduct) return;
+          const cartItem = {
+            ...selectedVariantProduct,
+            id: `${selectedVariantProduct.id}-${selectedVariant?.id || 'std'}-${selectedBatch?.batchNumber || 'def'}`,
+            name: `${selectedVariantProduct.name}${selectedVariant ? ` (${selectedVariant.name})` : ''}`,
+            sellPrice: finalPrice || selectedVariantProduct.sellPrice,
+            batchNumber: selectedBatch?.batchNumber,
+            expiryDate: selectedBatch?.expiryDate
+          };
+          addToCart(cartItem);
+          setShowVariantModal(false);
+          setSelectedVariantProduct(null);
+        }}
+        lang={lang}
       />
 
       {/* FLOATING ACTIVE UNDO BANNER */}

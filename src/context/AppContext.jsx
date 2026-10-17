@@ -5273,6 +5273,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         // Business State & Actions
         products,
         cart,
+        setCart,
         salesHistory,
         customers,
         employees,
