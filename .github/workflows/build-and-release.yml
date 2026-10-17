@@ -136,6 +136,8 @@ jobs:
   build-macos:
     name: 🍎 Build macOS App (Intel & Apple Silicon M-Series)
     runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -152,12 +154,14 @@ jobs:
       - name: Build Web Production Assets
         run: npm run build
 
-      - name: Package macOS Universal & Multi-Architecture Binary (DMG & ZIP)
+      - name: Package macOS Multi-Architecture Binaries (Intel x64 & Apple Silicon arm64)
         run: |
           mkdir -p artifacts
-          npx electron-builder --mac dmg zip --x64 --arm64 --publish never || npx electron-builder --mac dmg --publish never
+          npx electron-builder --mac --x64 --arm64 --publish never
           cp dist-electron/*.dmg artifacts/ 2>/dev/null || true
           cp dist-electron/*.zip artifacts/ 2>/dev/null || true
+          echo "=== Generated macOS Artifacts ==="
+          ls -lh artifacts/
 
       - name: Backup Upload macOS Artifacts (1 Day Retention)
         uses: actions/upload-artifact@v4
@@ -173,15 +177,18 @@ jobs:
         with:
           tag_name: latest
           name: "HisabKitab 360 Latest Release"
+          fail_on_unmatched_files: false
           body: |
             ### হিসাবকিতাব ৩৬০ (HisabKitab 360) সর্বজনীন রিলিজ
             - 📱 **Android Mobile APK:** `HisabKitab-360.apk` (মোবাইল অ্যাপ)
             - 💻 **Windows Desktop Setup:** `HisabKitab-360-Setup.exe` (উইন্ডোজ পিসি সেটআপ)
             - ⚡ **Windows Portable:** `HisabKitab-360-PC.exe` (উইন্ডোজ পোর্টেবল)
-            - 🍏 **macOS Universal / Intel & Apple Silicon (M1/M2/M3/M4):** `HisabKitab-360-macOS.dmg` (ম্যাকবুক অ্যাপ)
+            - 🍏 **macOS Intel (x64):** `HisabKitab 360-*-x64.dmg` (ইনটেল প্রসেসরযুক্ত ম্যাকবুক)
+            - 🍏 **macOS Apple Silicon (arm64):** `HisabKitab 360-*-arm64.dmg` (M1/M2/M3/M4 ম্যাকবুক)
           files: |
             artifacts/*.dmg
             artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
