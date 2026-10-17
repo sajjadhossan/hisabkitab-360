@@ -58,6 +58,7 @@ import {
   AlertTriangle,
   TrendingDown,
   MessageCircle,
+  MessageSquare,
   Truck,
   Wheat,
   GitBranch,
