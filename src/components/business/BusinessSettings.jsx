@@ -340,6 +340,75 @@ export const BusinessSettings = () => {
 
           <button
             type="button"
+            onClick={() => {
+              if (window.__openRbacSecurity) window.__openRbacSecurity();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(99, 102, 241, 0.15)',
+              color: '#4f46e5',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>{lang === 'bn' ? 'স্টাফ রোল ও আরবিএসি' : 'Staff RBAC'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openBlindShiftHandover) window.__openBlindShiftHandover();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#059669',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>{lang === 'bn' ? 'ব্লাইন্ড শিফট ও ক্যাশ ড্রপ' : 'Blind Shift & Drop'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openAntiTheftAudit) window.__openAntiTheftAudit();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(245, 158, 11, 0.15)',
+              color: '#d97706',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <ShieldCheck size={14} />
+            <span>{lang === 'bn' ? 'অ্যান্টি-থেফ্ট অডিট হাব' : 'Anti-Theft Hub'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSubTab('commercial')}
             style={{
               padding: '6px 14px',

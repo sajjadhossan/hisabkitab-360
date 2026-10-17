@@ -18,6 +18,8 @@ import {
   Sparkles,
   Command,
   Palette,
+  ShieldCheck,
+  Banknote,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -172,6 +174,37 @@ export const CommandPaletteModal = () => {
         action: () => {
           soundService.toggleSound();
           soundService.playSuccessChime();
+        }
+      },
+      // Phase 6 Security & Anti-Theft Commands
+      {
+        id: 'cmd_rbac',
+        category: lang === 'bn' ? 'সিকিউরিটি' : 'Security',
+        title: lang === 'bn' ? 'স্টাফ রোল ও পারমিশন ম্যাট্রিক্স (RBAC)' : 'Staff Role & Permission Matrix',
+        subtitle: lang === 'bn' ? 'ক্যাশিয়ার ও স্টাফদের অ্যাক্সেস কন্ট্রোল' : 'Manage granular staff permissions',
+        icon: ShieldCheck,
+        action: () => {
+          if (window.__openRbacSecurity) window.__openRbacSecurity();
+        }
+      },
+      {
+        id: 'cmd_blind_shift',
+        category: lang === 'bn' ? 'সিকিউরিটি' : 'Security',
+        title: lang === 'bn' ? 'অন্ধ শিফট হ্যান্ডওভার ও ক্যাশ ড্রপ' : 'Blind Shift Handover & Cash Drop',
+        subtitle: lang === 'bn' ? 'নোটের সংখ্যা গুনে শিফট ক্লোজিং ও ভ্যারিয়েন্স' : 'Denomination counting & Z-report',
+        icon: Banknote,
+        action: () => {
+          if (window.__openBlindShiftHandover) window.__openBlindShiftHandover();
+        }
+      },
+      {
+        id: 'cmd_anti_theft',
+        category: lang === 'bn' ? 'সিকিউরিটি' : 'Security',
+        title: lang === 'bn' ? 'অ্যান্টি-থেফ্ট অডিট ও ফরেনসিক হাব' : 'Anti-Theft Forensic Audit Hub',
+        subtitle: lang === 'bn' ? 'ক্রিপ্টোগ্রাফিক হ্যাশ চেইন ও মাস্টার পিন' : 'Tamper-proof audit logs & PIN',
+        icon: ShieldAlert,
+        action: () => {
+          if (window.__openAntiTheftAudit) window.__openAntiTheftAudit();
         }
       }
     ];

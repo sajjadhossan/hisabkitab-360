@@ -82,12 +82,20 @@ const FloatingQuickPad = lazyNamed(() => import('./components/common/FloatingQui
 const LiveCashCounterWidget = lazyNamed(() => import('./components/common/LiveCashCounterWidget'), 'LiveCashCounterWidget');
 const AuditTrailModal = lazyNamed(() => import('./components/admin/AuditTrailModal'), 'AuditTrailModal');
 const KeyboardShortcutsModal = lazyNamed(() => import('./components/common/KeyboardShortcutsModal'), 'KeyboardShortcutsModal');
+
+// Phase 6 Security, RBAC & Anti-Theft Audit Modules
+const StaffRbacSecurityModal = lazyNamed(() => import('./components/security/StaffRbacSecurityModal'), 'StaffRbacSecurityModal');
+const BlindShiftHandoverModal = lazyNamed(() => import('./components/security/BlindShiftHandoverModal'), 'BlindShiftHandoverModal');
+const AntiTheftAuditHubModal = lazyNamed(() => import('./components/security/AntiTheftAuditHubModal'), 'AntiTheftAuditHubModal');
+const AntiLeakWatermark = lazyNamed(() => import('./components/security/AntiLeakWatermark'), 'AntiLeakWatermark');
+
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
 import { CommandPaletteModal } from './components/common/CommandPaletteModal';
 import { UndoNotificationToast } from './components/common/UndoNotificationToast';
 import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
+import { initInactivityWatchdog } from './services/inactivityWatchdogService';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -149,17 +157,36 @@ const AppContent = () => {
   const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
+  // Phase 6 Security & Anti-Theft Modal States
+  const [showRbacModal, setShowRbacModal] = useState(false);
+  const [showBlindShiftModal, setShowBlindShiftModal] = useState(false);
+  const [showAntiTheftModal, setShowAntiTheftModal] = useState(false);
 
   React.useEffect(() => {
     telemetryService.init();
     pwaSyncManager.register();
     window.__openAuditTrail = () => setShowAuditTrailModal(true);
     window.__openShortcutsGuide = () => setShowShortcutsModal(true);
+    window.__openRbacSecurity = () => setShowRbacModal(true);
+    window.__openBlindShiftHandover = () => setShowBlindShiftModal(true);
+    window.__openAntiTheftAudit = () => setShowAntiTheftModal(true);
+
+    // Phase 6 Feature 60: Auto-lock on inactivity
+    const cleanupWatchdog = initInactivityWatchdog(() => {
+      if (typeof lockScreen === 'function') {
+        lockScreen();
+      }
+    });
+
     return () => {
       delete window.__openAuditTrail;
       delete window.__openShortcutsGuide;
+      delete window.__openRbacSecurity;
+      delete window.__openBlindShiftHandover;
+      delete window.__openAntiTheftAudit;
+      if (typeof cleanupWatchdog === 'function') cleanupWatchdog();
     };
-  }, []);
+  }, [lockScreen]);
 
   const appStateRef = React.useRef({});
   appStateRef.current = {
@@ -867,6 +894,30 @@ const AppContent = () => {
         <ThemeCustomizerModal
           isOpen={isThemeCustomizerOpen}
           onClose={closeThemeCustomizer}
+        />
+
+        {/* Phase 6 Feature 58: Dynamic Anti-Leak Security Watermark Overlay */}
+        <AntiLeakWatermark />
+
+        {/* Phase 6 Features 51, 57, 59, 60: Staff RBAC, Device Whitelisting & Emergency Lockdown Modal */}
+        <StaffRbacSecurityModal
+          isOpen={showRbacModal}
+          onClose={() => setShowRbacModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 6 Features 54, 56: Blind Shift Handover & Mid-Day Cash Drop Hub Modal */}
+        <BlindShiftHandoverModal
+          isOpen={showBlindShiftModal}
+          onClose={() => setShowBlindShiftModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 6 Features 52, 53, 55: Anti-Theft Audit & Fraud Prevention Hub Modal */}
+        <AntiTheftAuditHubModal
+          isOpen={showAntiTheftModal}
+          onClose={() => setShowAntiTheftModal(false)}
+          lang={lang}
         />
 
         {/* PWA & ServiceWorker Seamless Auto-Updater */}
