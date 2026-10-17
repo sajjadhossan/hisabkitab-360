@@ -43,7 +43,10 @@ export const SpecializedVerticalsHubModal = ({ isOpen, onClose, lang = 'bn' }) =
   const [tables, setTables] = useState(() => {
     try {
       const saved = localStorage.getItem('hk360_restaurant_tables');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {
       console.warn(e);
     }
@@ -277,13 +280,7 @@ export const SpecializedVerticalsHubModal = ({ isOpen, onClose, lang = 'bn' }) =
   // --------------------------------------------------------------------------
   const [selectedProductId, setSelectedProductId] = useState('');
   const [sizeMatrix, setSizeMatrix] = useState(() => {
-    try {
-      const saved = localStorage.getItem('hk360_lot_size_matrix');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.warn(e);
-    }
-    return {
+    const defaultMatrix = {
       '38': { Black: 0, Brown: 0, White: 0 },
       '39': { Black: 0, Brown: 0, White: 0 },
       '40': { Black: 0, Brown: 0, White: 0 },
@@ -291,15 +288,31 @@ export const SpecializedVerticalsHubModal = ({ isOpen, onClose, lang = 'bn' }) =
       '42': { Black: 0, Brown: 0, White: 0 },
       '43': { Black: 0, Brown: 0, White: 0 }
     };
+    try {
+      const saved = localStorage.getItem('hk360_lot_size_matrix');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return { ...defaultMatrix, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+    return defaultMatrix;
   });
 
   const totalMatrixPairs = useMemo(() => {
     let sum = 0;
-    Object.values(sizeMatrix).forEach((row) => {
-      Object.values(row).forEach((v) => {
-        sum += Number(v || 0);
+    if (sizeMatrix && typeof sizeMatrix === 'object') {
+      Object.values(sizeMatrix).forEach((row) => {
+        if (row && typeof row === 'object') {
+          Object.values(row).forEach((v) => {
+            sum += Number(v || 0);
+          });
+        }
       });
-    });
+    }
     return sum;
   }, [sizeMatrix]);
 

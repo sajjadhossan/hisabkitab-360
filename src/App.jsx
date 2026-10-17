@@ -932,60 +932,76 @@ const AppContent = () => {
         <AntiLeakWatermark />
 
         {/* Phase 6 Features 51, 57, 59, 60: Staff RBAC, Device Whitelisting & Emergency Lockdown Modal */}
-        <StaffRbacSecurityModal
-          isOpen={showRbacModal}
-          onClose={() => setShowRbacModal(false)}
-          lang={lang}
-        />
+        {showRbacModal && (
+          <StaffRbacSecurityModal
+            isOpen={showRbacModal}
+            onClose={() => setShowRbacModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 6 Features 54, 56: Blind Shift Handover & Mid-Day Cash Drop Hub Modal */}
-        <BlindShiftHandoverModal
-          isOpen={showBlindShiftModal}
-          onClose={() => setShowBlindShiftModal(false)}
-          lang={lang}
-        />
+        {showBlindShiftModal && (
+          <BlindShiftHandoverModal
+            isOpen={showBlindShiftModal}
+            onClose={() => setShowBlindShiftModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 6 Features 52, 53, 55: Anti-Theft Audit & Fraud Prevention Hub Modal */}
-        <AntiTheftAuditHubModal
-          isOpen={showAntiTheftModal}
-          onClose={() => setShowAntiTheftModal(false)}
-          lang={lang}
-        />
+        {showAntiTheftModal && (
+          <AntiTheftAuditHubModal
+            isOpen={showAntiTheftModal}
+            onClose={() => setShowAntiTheftModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 7 Features 61, 62, 63, 64, 67: Financial Intelligence & AI Predictions Modal */}
-        <FinancialIntelligenceHubModal
-          isOpen={showFinancialIntelligenceModal}
-          onClose={() => setShowFinancialIntelligenceModal(false)}
-          lang={lang}
-        />
+        {showFinancialIntelligenceModal && (
+          <FinancialIntelligenceHubModal
+            isOpen={showFinancialIntelligenceModal}
+            onClose={() => setShowFinancialIntelligenceModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 7 Features 66, 69: Bank & MFS Reconciliation & NBR VAT 6.3 Hub Modal */}
-        <BankMfsReconciliationModal
-          isOpen={showBankMfsModal}
-          onClose={() => setShowBankMfsModal(false)}
-          lang={lang}
-        />
+        {showBankMfsModal && (
+          <BankMfsReconciliationModal
+            isOpen={showBankMfsModal}
+            onClose={() => setShowBankMfsModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 7 Features 65, 68, 70: Customer Lifetime Value (CLV) & Voice Intelligence Modal */}
-        <CustomerLifetimeValueModal
-          isOpen={showClvModal}
-          onClose={() => setShowClvModal(false)}
-          lang={lang}
-        />
+        {showClvModal && (
+          <CustomerLifetimeValueModal
+            isOpen={showClvModal}
+            onClose={() => setShowClvModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 8 Features 77, 78, 79, 80: Specialized Business Verticals Hub Modal */}
-        <SpecializedVerticalsHubModal
-          isOpen={showSpecializedVerticalsModal}
-          onClose={() => setShowSpecializedVerticalsModal(false)}
-          lang={lang}
-        />
+        {showSpecializedVerticalsModal && (
+          <SpecializedVerticalsHubModal
+            isOpen={showSpecializedVerticalsModal}
+            onClose={() => setShowSpecializedVerticalsModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Phase 8 Features 71, 72, 73, 74, 75, 76: Healthcare & Pharmacy Clinical Suite Modal */}
-        <PharmacyClinicalAssistanceModal
-          isOpen={showPharmacyClinicalModal}
-          onClose={() => setShowPharmacyClinicalModal(false)}
-          lang={lang}
-        />
+        {showPharmacyClinicalModal && (
+          <PharmacyClinicalAssistanceModal
+            isOpen={showPharmacyClinicalModal}
+            onClose={() => setShowPharmacyClinicalModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* PWA & ServiceWorker Seamless Auto-Updater */}
         <AutoUpdateToast lang={lang} />
