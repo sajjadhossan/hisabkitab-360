@@ -158,7 +158,11 @@ export const InvoiceVerificationView = ({ verifyId, tokenData, onBackToApp }) =>
               {inv.companyName || 'হিসাব কিতাব ৩৬০'}
             </h2>
             <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>
-              ডিজিটাল ক্যাশমেমো ও বিক্রয় রসিদ
+              {inv.type === 'quotation'
+                ? 'ডিজিটাল কোটেশন ও অনুমোদিত দরপত্র সনদ'
+                : inv.type === 'report'
+                ? 'ডিজিটাল অডিট ও অফিশিয়াল রিপোর্ট সনদ'
+                : 'ডিজিটাল ক্যাশমেমো ও বিক্রয় রসিদ সনদ'}
             </p>
           </div>
 
@@ -166,7 +170,9 @@ export const InvoiceVerificationView = ({ verifyId, tokenData, onBackToApp }) =>
             {/* Meta Information Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', paddingBottom: '1.25rem', borderBottom: '1px dashed #cbd5e1', marginBottom: '1.25rem' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>ইনভয়েস / মেমো নম্বর</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>
+                  {inv.type === 'quotation' ? 'কোটেশন আইডি' : inv.type === 'report' ? 'রিপোর্ট রেফারেন্স' : 'ইনভয়েস / মেমো নম্বর'}
+                </span>
                 <span style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', fontFamily: 'monospace' }}>#{inv.id}</span>
               </div>
 

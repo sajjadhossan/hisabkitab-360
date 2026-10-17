@@ -27,6 +27,9 @@ import {
 } from '../../../services/attendanceSecurityService';
 import { hasRegisteredFace, getEmployeeFace } from '../../../services/faceRecognitionService';
 import { AttendancePunchModal } from './AttendancePunchModal';
+import { StaffQrScannerModal } from './StaffQrScannerModal';
+import { StaffQrIdCardModal } from './StaffQrIdCardModal';
+import { QrCode } from 'lucide-react';
 
 /**
  * StaffAttendanceSheet
@@ -36,6 +39,7 @@ import { AttendancePunchModal } from './AttendancePunchModal';
  * - In-Time, Out-Time, Work Hours & OT Tracking
  * - Section/Department breakdown
  * - Quick Roll Call & Instant Biometric/Geofence Punch
+ * - Fast QR Code Attendance Terminal & Staff Printable ID Cards
  */
 export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) => {
   const { showToast, lang } = useApp();
@@ -45,6 +49,8 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
   const [sectionFilter, setSectionFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPunchModal, setShowPunchModal] = useState(false);
+  const [showQrScannerModal, setShowQrScannerModal] = useState(false);
+  const [selectedEmpForIdCard, setSelectedEmpForIdCard] = useState(null);
 
   // Load logs
   const [attendanceLogs, setAttendanceLogs] = useState(() => getStoredAttendanceLogs());
@@ -235,12 +241,22 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
 
           <button
             type="button"
-            onClick={() => setShowPunchModal(true)}
+            onClick={() => setShowQrScannerModal(true)}
             className="btn btn-primary press-scale"
-            style={{ padding: '6px 14px', fontSize: '0.78rem', fontWeight: '800', background: 'linear-gradient(135deg, #10b981, #059669)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 14px', fontSize: '0.78rem', fontWeight: '800', background: 'linear-gradient(135deg, #059669, #10b981)', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <QrCode size={16} />
+            <span>কিউআর হাজিরা টার্মিনাল</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowPunchModal(true)}
+            className="btn btn-secondary press-scale"
+            style={{ padding: '6px 14px', fontSize: '0.78rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Fingerprint size={16} />
-            <span>স্মার্ট বায়োমেট্রিক পাঞ্চ</span>
+            <span>বায়োমেট্রিক ও ফেস পাঞ্চ</span>
           </button>
 
           {onOpenTelegramModal && (
@@ -402,11 +418,52 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
                     </button>
                   );
                 })}
+
+                {/* ID Card QR Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmpForIdCard(emp)}
+                  title="কর্মীর ডিজিটাল আইডি কার্ড ও QR কোড"
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    color: '#6366f1',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <QrCode size={12} />
+                  <span>আইডি কার্ড QR</span>
+                </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Render QR Scanner Modal */}
+      <StaffQrScannerModal
+        isOpen={showQrScannerModal}
+        onClose={() => setShowQrScannerModal(false)}
+        employees={employees}
+        onPunchSuccess={() => {
+          setAttendanceLogs(getStoredAttendanceLogs());
+        }}
+      />
+
+      {/* Render Staff Digital ID Card Modal */}
+      <StaffQrIdCardModal
+        isOpen={!!selectedEmpForIdCard}
+        onClose={() => setSelectedEmpForIdCard(null)}
+        employee={selectedEmpForIdCard}
+      />
 
       {/* Render Punch Modal */}
       <AttendancePunchModal

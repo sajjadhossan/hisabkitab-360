@@ -20,7 +20,7 @@ export const ReceiptModal = () => {
     showToast = () => {}
   } = appContext;
 
-  const [qrMode, setQrMode] = useState('payload'); // 'payload' | 'url' | 'bkash'
+  const [qrMode, setQrMode] = useState('url'); // 'url' (web verifiable link) | 'payload' | 'bkash'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [isBtPrinting, setIsBtPrinting] = useState(false);
   const [isMushak63, setIsMushak63] = useState(false); // Item 89: NBR Standard Mushak 6.3 format

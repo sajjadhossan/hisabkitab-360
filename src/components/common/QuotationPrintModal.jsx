@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Printer, X, FileCheck, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Printer, X, FileCheck, ArrowRight, ShieldCheck, QrCode } from 'lucide-react';
 import { printElement } from '../../services/printService';
+import { generateQrDataUrl, createInvoiceVerificationUrl } from '../../services/qrService';
 
 export const QuotationPrintModal = () => {
   const {
@@ -13,10 +14,26 @@ export const QuotationPrintModal = () => {
     t
   } = useApp();
 
-  if (!activeQuotationPrint) return null;
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   const quote = activeQuotationPrint;
-  const isConverted = quote.status === 'converted';
+  const isConverted = quote?.status === 'converted';
+
+  useEffect(() => {
+    if (quote) {
+      const quotePayload = {
+        ...quote,
+        type: 'quotation',
+        grandTotal: quote.grandTotal || 0,
+        customerName: quote.customerName || 'সম্মানিত ক্লায়েন্ট',
+        status: quote.status || 'valid'
+      };
+      const verifyUrl = createInvoiceVerificationUrl(quotePayload, businessSettings);
+      generateQrDataUrl(verifyUrl, { width: 160, margin: 1 }).then(url => {
+        if (url) setQrCodeUrl(url);
+      });
+    }
+  }, [quote, businessSettings]);
 
   const handlePrint = () => {
     printElement('printable-a4-quotation', {
@@ -238,8 +255,16 @@ export const QuotationPrintModal = () => {
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>
-              <div>{businessSettings.companyName} | Quotations & Commercial Proposals</div>
+            <div style={{ textAlign: 'center', fontSize: '10px', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {qrCodeUrl && (
+                <div style={{ padding: '4px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', marginBottom: '4px' }}>
+                  <img src={qrCodeUrl} alt="Verify QR" style={{ width: '68px', height: '68px', display: 'block' }} />
+                </div>
+              )}
+              <div style={{ fontSize: '9px', fontWeight: '700', color: '#64748b' }}>
+                {lang === 'bn' ? '✓ ডিজিটাল ভেরিফাইড কোটেশন' : '✓ Digitally Verified Quotation'}
+              </div>
+              <div>{businessSettings.companyName || 'HisabKitab 360'}</div>
             </div>
 
             <div style={{ textAlign: 'center', width: '200px' }}>

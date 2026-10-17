@@ -79,6 +79,8 @@ import { RealtimeSyncBadge } from './common/RealtimeSyncBadge';
 import { DeviceStatusIndicator } from './common/DeviceStatusIndicator';
 import { TelegramBotModal } from './common/TelegramBotModal';
 import { getTelegramBackupConfig } from '../services/telegramBackupService';
+import { InternalCommunicationHubModal } from './common/InternalCommunicationHubModal';
+import { getUnreadCount } from '../services/internalChatService';
 import appBrandLogo from '../assets/logo.png';
 
 export const Navbar = () => {
@@ -138,6 +140,22 @@ export const Navbar = () => {
   const driveAccount = driveUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_drive_account') : '') || businessSettings?.googleDriveEmail || activeUserEmail;
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showInternalChat, setShowInternalChat] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(() => getUnreadCount(user?.id || 'owner'));
+
+  useEffect(() => {
+    const updateUnread = () => {
+      setUnreadChatCount(getUnreadCount(user?.id || 'owner'));
+    };
+    window.addEventListener('hk360_internal_msg_received', updateUnread);
+    window.addEventListener('hk360_internal_msg_read', updateUnread);
+    window.addEventListener('hk360_internal_msg_cleared', updateUnread);
+    return () => {
+      window.removeEventListener('hk360_internal_msg_received', updateUnread);
+      window.removeEventListener('hk360_internal_msg_read', updateUnread);
+      window.removeEventListener('hk360_internal_msg_cleared', updateUnread);
+    };
+  }, [user]);
   const [showAlertCenter, setShowAlertCenter] = useState(false);
   const [showMasterPinModal, setShowMasterPinModal] = useState(false);
   const [activeTool, setActiveTool] = useState(null); // 'calculator' | 'cash' | 'notes' | 'backup_hub' | 'shortcuts'
@@ -912,6 +930,49 @@ export const Navbar = () => {
                 />
                 <span>{lang === 'bn' ? 'টেলিগ্রাম' : 'Telegram'}</span>
               </span>
+            </button>
+
+            {/* 0.2 Internal Communication & Notification Hub Pill */}
+            <button
+              type="button"
+              className="navbar-chat-btn"
+              onClick={() => setShowInternalChat(true)}
+              title={lang === 'bn' ? 'অভ্যন্তরীণ যোগাযোগ, টিম চ্যাট ও নোটিশ' : 'Internal Team Chat & Announcements'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 9px',
+                borderRadius: '8px',
+                border: unreadChatCount > 0 ? '1px solid #ef4444' : '1px solid rgba(99, 102, 241, 0.45)',
+                background: unreadChatCount > 0 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                color: unreadChatCount > 0 ? '#ef4444' : '#818cf8',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+                position: 'relative'
+              }}
+            >
+              <MessageSquare size={13} />
+              <span>{lang === 'bn' ? 'মেসেজিং' : 'Chat'}</span>
+              {unreadChatCount > 0 && (
+                <span
+                  style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    padding: '1px 5px',
+                    fontSize: '0.65rem',
+                    fontWeight: '900',
+                    lineHeight: 1
+                  }}
+                >
+                  {unreadChatCount}
+                </span>
+              )}
             </button>
 
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
@@ -2208,6 +2269,12 @@ export const Navbar = () => {
           </div>
         </div>
       )}
+
+      {/* Internal Multi-Tier Role Communication & Announcements Hub */}
+      <InternalCommunicationHubModal
+        isOpen={showInternalChat}
+        onClose={() => setShowInternalChat(false)}
+      />
     </>
   );
 };

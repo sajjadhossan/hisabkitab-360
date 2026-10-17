@@ -14,7 +14,7 @@ export const InvoicePrintModal = () => {
     t
   } = useApp();
 
-  const [qrMode, setQrMode] = useState('payload'); // 'payload' (100% workable memo text) | 'url' (web link)
+  const [qrMode, setQrMode] = useState('url'); // 'url' (instant verifiable web link) | 'payload' (memo text)
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   useEffect(() => {
