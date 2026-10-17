@@ -1943,21 +1943,63 @@ export const Navbar = () => {
                       {group.items.map((item) => {
                         const Icon = item.icon;
                         const isCurrentActive = activeTab === item.id;
+                        const tileColor = item.color || '#6366f1';
                         return (
                           <div
                             key={item.id}
-                            className={`mobile-drawer-tile ${isCurrentActive ? 'active' : ''}`}
+                            className={`mobile-drawer-tile press-scale ${isCurrentActive ? 'active' : ''}`}
                             onClick={() => handleDrawerItemClick(item)}
+                            style={{
+                              background: isCurrentActive ? `${tileColor}24` : `${tileColor}0c`,
+                              border: isCurrentActive ? `2px solid ${tileColor}` : `1.5px solid ${tileColor}38`,
+                              boxShadow: isCurrentActive ? `0 0 18px ${tileColor}40` : '0 4px 14px rgba(0, 0, 0, 0.05)'
+                            }}
                           >
+                            {/* Glowing Top Accent Border (Same as 7 Days Sales Trend) */}
                             <div
-                              className="mobile-drawer-tile-icon"
                               style={{
-                                background: `${item.color}18`,
-                                color: item.color
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: '3.5px',
+                                background: `linear-gradient(90deg, ${tileColor}, ${tileColor}88)`
                               }}
-                            >
-                              <Icon size={18} />
+                            />
+
+                            {/* Top Row: Icon on left, Badge on right */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                              <div
+                                className="mobile-drawer-tile-icon"
+                                style={{
+                                  background: `${tileColor}20`,
+                                  color: tileColor,
+                                  border: `1px solid ${tileColor}40`,
+                                  boxShadow: `0 2px 8px ${tileColor}25`
+                                }}
+                              >
+                                <Icon size={20} />
+                              </div>
+
+                              {item.badge && (
+                                <span
+                                  style={{
+                                    fontSize: '0.62rem',
+                                    fontWeight: '800',
+                                    padding: '2px 7px',
+                                    borderRadius: '6px',
+                                    background: item.badge === 'HOT' ? 'rgba(239, 68, 68, 0.2)' : `${tileColor}22`,
+                                    color: item.badge === 'HOT' ? '#ef4444' : tileColor,
+                                    border: `1px solid ${item.badge === 'HOT' ? 'rgba(239, 68, 68, 0.4)' : tileColor + '44'}`,
+                                    letterSpacing: '0.04em'
+                                  }}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
                             </div>
+
+                            {/* Bottom Info: Title & Subtitle */}
                             <div className="mobile-drawer-tile-info">
                               <div className="mobile-drawer-tile-title">
                                 {item.label}
@@ -1966,23 +2008,6 @@ export const Navbar = () => {
                                 {item.desc}
                               </div>
                             </div>
-                            {item.badge && (
-                              <span
-                                style={{
-                                  position: 'absolute',
-                                  top: '6px',
-                                  right: '6px',
-                                  fontSize: '0.6rem',
-                                  fontWeight: '800',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  background: item.badge === 'HOT' ? 'rgba(239, 68, 68, 0.15)' : 'var(--mode-badge)',
-                                  color: item.badge === 'HOT' ? '#ef4444' : 'var(--mode-color)'
-                                }}
-                              >
-                                {item.badge}
-                              </span>
-                            )}
                           </div>
                         );
                       })}
