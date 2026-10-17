@@ -34,6 +34,25 @@ import { pwaSyncManager } from './services/pwaSyncManager';
 // Helper for code-splitting named exports
 const lazyNamed = (importFn, name) => lazy(() => importFn().then(m => ({ default: m[name] })));
 
+// Resilient boundary for floating widgets and secondary overlays so that
+// any non-fatal widget issue never crashes the core app POS / Ledger
+class SafeWidget extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err) {
+    console.warn('[SafeWidget] Non-fatal widget error suppressed:', err);
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 // Core Retail & ERP Hubs (Preloaded for 0ms Instant Zero-Lag Tab Switching)
 import { DebtKhataManager } from './components/common/DebtKhataManager';
 import { MasterHub } from './components/common/MasterHub';
@@ -771,15 +790,17 @@ const AppContent = () => {
         </main>
       </PullToRefresh>
       <Suspense fallback={null}>
-        <AuthModal />
-        <ReceiptModal />
-        <InvoicePrintModal />
-        <QuotationPrintModal />
-        <BarcodePrintModal />
-        <BarcodeScannerModal />
-        <ShareInvoiceModal />
-        <HelpSupportModal />
-        <GlobalVoiceWidget />
+        {isAuthModalOpen && <AuthModal />}
+        {activeReceipt && <ReceiptModal />}
+        {activeInvoicePrint && <InvoicePrintModal />}
+        {activeQuotationPrint && <QuotationPrintModal />}
+        {activeBarcodePrint && <BarcodePrintModal />}
+        {isScannerOpen && <BarcodeScannerModal />}
+        {activeShareInvoice && <ShareInvoiceModal />}
+        {isHelpSupportOpen && <HelpSupportModal />}
+        <SafeWidget>
+          <GlobalVoiceWidget />
+        </SafeWidget>
       </Suspense>
       <NotificationToast />
       <SyncStatusIndicator />
@@ -875,61 +896,81 @@ const AppContent = () => {
 
       <Suspense fallback={null}>
         {/* Live Floating Cash Counter & Drawer Balance Pill */}
-        <LiveCashCounterWidget />
+        <SafeWidget>
+          <LiveCashCounterWidget />
+        </SafeWidget>
 
         {/* Global Floating Quick Pad (Pocket Calculator, Scratchpad & Denomination Tool) */}
-        <FloatingQuickPad />
+        <SafeWidget>
+          <FloatingQuickPad />
+        </SafeWidget>
 
-        <ScreenLockModal
-          isOpen={isScreenLocked}
-          onClose={unlockScreen}
-          businessSettings={businessSettings}
-          lang={lang}
-        />
+        {isScreenLocked && (
+          <ScreenLockModal
+            isOpen={isScreenLocked}
+            onClose={unlockScreen}
+            businessSettings={businessSettings}
+            lang={lang}
+          />
+        )}
 
         {/* Enterprise Security Audit Trail Modal */}
-        <AuditTrailModal
-          isOpen={showAuditTrailModal}
-          onClose={() => setShowAuditTrailModal(false)}
-          lang={lang}
-        />
+        {showAuditTrailModal && (
+          <AuditTrailModal
+            isOpen={showAuditTrailModal}
+            onClose={() => setShowAuditTrailModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Desktop & PC Keyboard Shortcuts Guide Modal */}
-        <KeyboardShortcutsModal
-          isOpen={showShortcutsModal}
-          onClose={() => setShowShortcutsModal(false)}
-          onNavigate={(tab) => {
-            if (tab === 'quickpad') {
-              const btn = document.querySelector('button[aria-label="floating-quickpad"], .floating-quickpad-trigger');
-              if (btn) btn.click();
-            } else if (tab === 'voice') {
-              const btn = document.querySelector('button[aria-label="voice-assistant"], .global-voice-trigger');
-              if (btn) btn.click();
-            } else {
-              setActiveTab(tab);
-            }
-          }}
-          onToggleLock={() => lockScreen && lockScreen()}
-          lang={lang}
-        />
+        {showShortcutsModal && (
+          <KeyboardShortcutsModal
+            isOpen={showShortcutsModal}
+            onClose={() => setShowShortcutsModal(false)}
+            onNavigate={(tab) => {
+              if (tab === 'quickpad') {
+                const btn = document.querySelector('button[aria-label="floating-quickpad"], .floating-quickpad-trigger');
+                if (btn) btn.click();
+              } else if (tab === 'voice') {
+                const btn = document.querySelector('button[aria-label="voice-assistant"], .global-voice-trigger');
+                if (btn) btn.click();
+              } else {
+                setActiveTab(tab);
+              }
+            }}
+            onToggleLock={() => lockScreen && lockScreen()}
+            lang={lang}
+          />
+        )}
 
         {/* Modern Glassmorphic Action & Confirm Dialog System */}
-        <ModernConfirmModal />
+        <SafeWidget>
+          <ModernConfirmModal />
+        </SafeWidget>
 
         {/* Global Spotlight Search Command Palette (Ctrl+K) */}
-        <CommandPaletteModal />
+        <SafeWidget>
+          <CommandPaletteModal />
+        </SafeWidget>
 
         {/* Interactive Undo Action Snackbar */}
-        <UndoNotificationToast lang={lang} />
+        <SafeWidget>
+          <UndoNotificationToast lang={lang} />
+        </SafeWidget>
 
         {/* Phase 2: Theme Engine & Display Customizer Modal */}
-        <ThemeCustomizerModal
-          isOpen={isThemeCustomizerOpen}
-          onClose={closeThemeCustomizer}
-        />
+        {isThemeCustomizerOpen && (
+          <ThemeCustomizerModal
+            isOpen={isThemeCustomizerOpen}
+            onClose={closeThemeCustomizer}
+          />
+        )}
 
         {/* Phase 6 Feature 58: Dynamic Anti-Leak Security Watermark Overlay */}
-        <AntiLeakWatermark />
+        <SafeWidget>
+          <AntiLeakWatermark />
+        </SafeWidget>
 
         {/* Phase 6 Features 51, 57, 59, 60: Staff RBAC, Device Whitelisting & Emergency Lockdown Modal */}
         {showRbacModal && (

@@ -13,6 +13,15 @@ export class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an unhandled error:', error, errorInfo);
+    try {
+      const errPayload = {
+        message: error ? (error.message || error.toString()) : 'Unknown error',
+        stack: error?.stack || 'No stack',
+        componentStack: errorInfo?.componentStack || '',
+        time: new Date().toISOString()
+      };
+      localStorage.setItem('hk360_fatal_error_log', JSON.stringify(errPayload));
+    } catch {}
     this.setState({ errorInfo });
   }
 
@@ -27,23 +36,37 @@ export class ErrorBoundary extends React.Component {
 
   handleClearTempCache = () => {
     try {
-      // Clear temporary/corrupted session keys without deleting core database
       sessionStorage.clear();
-      // Remove any temporary vertical or corrupted states if needed
-      localStorage.removeItem('hk360_lot_size_matrix');
-      localStorage.removeItem('hk360_restaurant_tables');
+      const keysToClear = [
+        'hk360_lot_size_matrix',
+        'hk360_restaurant_tables',
+        'hk360_security_inactivity_timeout_ms',
+        'hk360_quick_lock_pin',
+        'hk360_quickpad_pos',
+        'hk360_live_cash_widget_pos',
+        'hisabkitab_hc_active_modules',
+        'hk360_scratchpad_notes',
+        'hk360_biometric_lock_enabled',
+        'hk360_security_anti_leak_watermark',
+        'hisabkitab_hc_institution_info',
+        'hisabkitab_hc_branches',
+        'hisabkitab_hc_active_branch'
+      ];
+      keysToClear.forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
       if (typeof window !== 'undefined' && 'caches' in window) {
         caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
       }
     } catch (e) {
       console.warn(e);
     }
-    window.location.reload();
+    window.location.href = window.location.pathname;
   };
 
   handleCopyError = () => {
     const errorDetails = `HisabKitab 360 Error:
-${this.state.error?.toString()}
+${this.state.error?.message || this.state.error?.toString()}
 Stack:
 ${this.state.error?.stack || 'No stack'}
 Component Stack:
