@@ -549,6 +549,29 @@ export const BusinessSettings = () => {
 
           <button
             type="button"
+            onClick={() => {
+              if (window.__openHardwareScaling) window.__openHardwareScaling();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(99, 102, 241, 0.15)',
+              color: '#4f46e5',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Printer size={14} />
+            <span>{lang === 'bn' ? 'হার্ডওয়্যার ও গ্রোথ হাব (Phase 10)' : 'Hardware & Scaling Hub'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSubTab('commercial')}
             style={{
               padding: '6px 14px',

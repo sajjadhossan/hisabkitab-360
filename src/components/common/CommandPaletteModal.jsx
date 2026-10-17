@@ -25,6 +25,7 @@ import {
   UtensilsCrossed,
   Stethoscope,
   Cloud,
+  Printer,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -272,6 +273,17 @@ export const CommandPaletteModal = () => {
         icon: Cloud,
         action: () => {
           if (window.__openOfflineCloudResilience) window.__openOfflineCloudResilience();
+        }
+      },
+      // Phase 10 Hardware Connectivity, Printing & Business Scale
+      {
+        id: 'cmd_hardware_scaling',
+        category: lang === 'bn' ? 'হার্ডওয়্যার' : 'Hardware',
+        title: lang === 'bn' ? '🖨️ হার্ডওয়্যার কানেক্টিভিটি ও গ্রোথ হাব (Phase 10)' : '🖨️ Hardware Connectivity & Growth Hub',
+        subtitle: lang === 'bn' ? 'থার্মাল প্রিন্টার, নেটওয়ার্ক আইপি প্রিন্ট, ওজন স্কেল, ইনভয়েস কিউআর ও সেন্ট্রাল ব্রাঞ্চ' : 'Thermal ESC/POS, IP print, weighing scale, QR invoice & multi-branch',
+        icon: Printer,
+        action: () => {
+          if (window.__openHardwareScaling) window.__openHardwareScaling();
         }
       }
     ];

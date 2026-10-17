@@ -120,6 +120,9 @@ const PharmacyClinicalAssistanceModal = lazyNamed(() => import('./components/hea
 // Phase 9 Offline-First Synchronization & Backend Resilience
 const OfflineCloudResilienceHubModal = lazyNamed(() => import('./components/offline/OfflineCloudResilienceHubModal'), 'OfflineCloudResilienceHubModal');
 
+// Phase 10 Hardware Connectivity, Printing Engine & Business Scaling Hub
+const HardwareScalingHubModal = lazyNamed(() => import('./components/hardware/HardwareScalingHubModal'), 'HardwareScalingHubModal');
+
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
@@ -205,6 +208,9 @@ const AppContent = () => {
   // Phase 9 Offline & Cloud Resilience Modal State
   const [showOfflineCloudResilienceModal, setShowOfflineCloudResilienceModal] = useState(false);
 
+  // Phase 10 Hardware Connectivity & Scaling Modal State
+  const [showHardwareScalingModal, setShowHardwareScalingModal] = useState(false);
+
   React.useEffect(() => {
     telemetryService.init();
     pwaSyncManager.register();
@@ -226,6 +232,9 @@ const AppContent = () => {
     // Phase 9 Window Triggers
     window.__openOfflineCloudResilience = () => setShowOfflineCloudResilienceModal(true);
 
+    // Phase 10 Window Triggers
+    window.__openHardwareScaling = () => setShowHardwareScalingModal(true);
+
     // Phase 6 Feature 60: Auto-lock on inactivity
     const cleanupWatchdog = initInactivityWatchdog(() => {
       if (typeof lockScreen === 'function') {
@@ -245,6 +254,7 @@ const AppContent = () => {
       delete window.__openSpecializedVerticals;
       delete window.__openPharmacyClinical;
       delete window.__openOfflineCloudResilience;
+      delete window.__openHardwareScaling;
       if (typeof cleanupWatchdog === 'function') cleanupWatchdog();
     };
   }, [lockScreen]);
@@ -1059,6 +1069,15 @@ const AppContent = () => {
           <OfflineCloudResilienceHubModal
             isOpen={showOfflineCloudResilienceModal}
             onClose={() => setShowOfflineCloudResilienceModal(false)}
+            lang={lang}
+          />
+        )}
+
+        {/* Phase 10 Features 91-100: Hardware Connectivity, Printing & Business Scale Modal */}
+        {showHardwareScalingModal && (
+          <HardwareScalingHubModal
+            isOpen={showHardwareScalingModal}
+            onClose={() => setShowHardwareScalingModal(false)}
             lang={lang}
           />
         )}

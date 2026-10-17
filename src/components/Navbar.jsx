@@ -25,6 +25,7 @@ import {
   FileCheck,
   MoreVertical,
   Cloud,
+  Printer,
   Camera,
   Upload,
   Palette,
@@ -1134,6 +1135,18 @@ export const Navbar = () => {
               style={{ transition: 'transform 0.1s ease', flexShrink: 0, color: '#10b981' }}
             >
               <Cloud size={17} />
+            </button>
+
+            {/* Phase 10: Hardware Connectivity & Scaling Hub Modal Trigger */}
+            <button
+              className="btn-icon press-scale"
+              onClick={() => {
+                if (window.__openHardwareScaling) window.__openHardwareScaling();
+              }}
+              title={lang === 'bn' ? 'হার্ডওয়্যার ও গ্রোথ হাব (Phase 10)' : 'Hardware & Scaling Hub (Phase 10)'}
+              style={{ transition: 'transform 0.1s ease', flexShrink: 0, color: '#6366f1' }}
+            >
+              <Printer size={17} />
             </button>
 
             {/* High-Density Compact Mode Switch */}
