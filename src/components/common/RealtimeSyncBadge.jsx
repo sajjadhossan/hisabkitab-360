@@ -15,10 +15,14 @@ import {
   Layers,
   Clock,
   ShieldCheck,
-  Send
+  Send,
+  GitMerge,
+  Share2
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { ConflictResolutionModal } from '../sync/ConflictResolutionModal';
+import { MultiBranchSyncMeshModal } from '../sync/MultiBranchSyncMeshModal';
 import {
   subscribeConnectionStatus,
   subscribePresence,
@@ -44,6 +48,8 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
   const [isPinging, setIsPinging] = useState(false);
   const [pingReplies, setPingReplies] = useState([]);
   const [lastDeltaSyncTime, setLastDeltaSyncTime] = useState(() => getLastDeltaSyncTime() || new Date().toISOString());
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [showMeshModal, setShowMeshModal] = useState(false);
 
   const pingStartTimeRef = useRef(null);
 
@@ -684,6 +690,59 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
               </button>
             </div>
 
+            {/* Phase 4 Enterprise Cloud Sync Hubs */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  setShowConflictModal(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  color: '#818cf8',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <GitMerge size={14} />
+                <span>{lang === 'bn' ? 'কনফ্লিক্ট অডিট' : 'Conflict Audit'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  setShowMeshModal(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  color: '#10b981',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <Share2 size={14} />
+                <span>{lang === 'bn' ? 'ব্রাঞ্চ মেশ টপোলজি' : 'Branch Mesh'}</span>
+              </button>
+            </div>
+
             {/* Core Features Summary */}
             <div
               style={{
@@ -725,6 +784,22 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
           </div>
         </div>
       )}
+
+      {/* Conflict Resolution Audit Modal (Phase 4) */}
+      <ConflictResolutionModal
+        isOpen={showConflictModal}
+        onClose={() => setShowConflictModal(false)}
+        lang={lang}
+      />
+
+      {/* Multi-Branch Sync Mesh Topology Modal (Phase 4) */}
+      <MultiBranchSyncMeshModal
+        isOpen={showMeshModal}
+        onClose={() => setShowMeshModal(false)}
+        branches={deviceRegistry?.branches || []}
+        activeBranch={currentDevice}
+        lang={lang}
+      />
     </>
   );
 };
