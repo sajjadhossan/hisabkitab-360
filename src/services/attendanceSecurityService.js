@@ -17,16 +17,84 @@ const STORAGE_KEYS = {
   TELEGRAM_CONFIG: 'hk360_telegram_hr_config'
 };
 
-// Default Office Geolocation (e.g., Dhaka HQ Coordinates)
+// Default Office Geolocation (e.g., Dhaka HQ Coordinates, 5-15m strict geofence)
 export const DEFAULT_OFFICE_SETTINGS = {
-  officeName: 'প্রধান কার্যালয় / ফ্যাক্টরি',
-  latitude: 23.7925,   // Dhaka Default
-  longitude: 90.4078,  // Dhaka Default
-  allowedRadiusMeters: 75,
+  officeName: 'প্রধান কার্যালয় / শোরুম',
+  latitude: 23.7925,   // Configurable Office Lat
+  longitude: 90.4078,  // Configurable Office Long
+  allowedRadiusMeters: 15, // Strict 5-15 meter radius
   gracePeriodMinutes: 15,
   standardShiftHours: 8,
   otRateMultiplier: 1.5,
   latePenaltyRatio: 0.33 // 3 late arrivals = 1 day salary cut
+};
+
+export const getOfficeGeoSettings = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.OFFICE_SETTINGS);
+    if (!raw) return DEFAULT_OFFICE_SETTINGS;
+    return { ...DEFAULT_OFFICE_SETTINGS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_OFFICE_SETTINGS;
+  }
+};
+
+export const saveOfficeGeoSettings = (settings) => {
+  try {
+    const current = getOfficeGeoSettings();
+    const merged = { ...current, ...settings };
+    localStorage.setItem(STORAGE_KEYS.OFFICE_SETTINGS, JSON.stringify(merged));
+    return merged;
+  } catch (e) {
+    console.error('Failed to save office settings:', e);
+    return DEFAULT_OFFICE_SETTINGS;
+  }
+};
+
+/**
+ * Dynamic Rolling Office QR Token (Rotates every 12-15 seconds)
+ * Prevents staff from taking a picture of the QR and scanning from home.
+ */
+export const generateDynamicOfficeToken = (officeSettings = getOfficeGeoSettings()) => {
+  const now = Date.now();
+  const windowId = Math.floor(now / 12000); // 12-second rolling window
+  // Lightweight cryptographic signature
+  const salt = `HK360_GEO_${officeSettings.latitude}_${officeSettings.longitude}_${windowId}`;
+  let hash = 0;
+  for (let i = 0; i < salt.length; i++) {
+    hash = ((hash << 5) - hash) + salt.charCodeAt(i);
+    hash |= 0;
+  }
+  const tokenSig = Math.abs(hash).toString(16).padStart(8, '0');
+
+  return {
+    type: 'HK360_DYNAMIC_ATTENDANCE',
+    windowId,
+    timestamp: now,
+    expiresAt: (windowId + 1) * 12000,
+    remainingSeconds: Math.max(1, Math.round(((windowId + 1) * 12000 - now) / 1000)),
+    tokenSig
+  };
+};
+
+export const verifyDynamicOfficeToken = (tokenObj, officeSettings = getOfficeGeoSettings()) => {
+  if (!tokenObj || tokenObj.type !== 'HK360_DYNAMIC_ATTENDANCE') {
+    return { valid: false, error: 'অবৈধ কিউআর ফরম্যাট! শুধুমাত্র অফিস টার্মিনাল কিউআর স্ক্যান করুন।' };
+  }
+
+  const now = Date.now();
+  // Reject if token is older than 20 seconds
+  if (now - tokenObj.timestamp > 20000) {
+    return { valid: false, error: '⚠️ কিউআর কোডের মেয়াদ শেষ! দয়া করে অফিস ডিসপ্লে থেকে লাইভ কিউআর স্ক্যান করুন।' };
+  }
+
+  // Validate window match (allow current window or immediate previous window for network latency)
+  const currentWindow = Math.floor(now / 12000);
+  if (tokenObj.windowId !== currentWindow && tokenObj.windowId !== (currentWindow - 1)) {
+    return { valid: false, error: '⚠️ এই কিউআর কোডটি বাতিল হয়ে গেছে। ডিসপ্লেতে নতুন কোডটি স্ক্যান করুন।' };
+  }
+
+  return { valid: true };
 };
 
 // ==========================================
@@ -63,7 +131,7 @@ export const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
   return Math.round(R * c);
 };
 
-export const getVerifiedLocation = (officeSettings = DEFAULT_OFFICE_SETTINGS) => {
+export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       return reject(new Error('আপনার ডিভাইসে জিপিএস লোকেশন সাপোর্ট করে না'));

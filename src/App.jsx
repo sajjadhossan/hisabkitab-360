@@ -502,10 +502,12 @@ const AppContent = () => {
   }, [debtRecords, salesHistory]);
 
   const [verifyParam, setVerifyParam] = useState(() => {
-    return new URLSearchParams(window.location.search).get('verify');
+    const sp = new URLSearchParams(window.location.search);
+    return sp.get('verify') || sp.get('id') || sp.get('doc');
   });
   const [tokenParam, setTokenParam] = useState(() => {
-    return new URLSearchParams(window.location.search).get('data');
+    const sp = new URLSearchParams(window.location.search);
+    return sp.get('data') || sp.get('sig');
   });
 
   const handleBackToApp = () => {

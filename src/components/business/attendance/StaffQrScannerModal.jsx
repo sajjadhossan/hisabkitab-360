@@ -12,7 +12,11 @@ import {
   Clock,
   ShieldCheck,
   Smartphone,
-  Sparkles
+  Sparkles,
+  MapPin,
+  Sliders,
+  Check,
+  Zap
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useApp } from '../../../context/AppContext';
@@ -21,39 +25,79 @@ import {
   saveAttendanceLog,
   getStoredAttendanceLogs,
   evaluateDailyShiftTimes,
-  DEFAULT_OFFICE_SETTINGS
+  getOfficeGeoSettings,
+  saveOfficeGeoSettings,
+  calculateHaversineDistance,
+  getVerifiedLocation,
+  generateDynamicOfficeToken,
+  verifyDynamicOfficeToken
 } from '../../../services/attendanceSecurityService';
 import { generateQrDataUrl } from '../../../services/qrService';
 
 export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSuccess }) => {
   const { lang, showToast, businessSettings } = useApp();
 
-  const [activeTab, setActiveTab] = useState('scan_id'); // 'scan_id' (Camera scanner) | 'stand_qr' (Counter Stand QR)
+  const [activeTab, setActiveTab] = useState('scan_id'); // 'scan_id' | 'stand_qr' | 'geo_settings'
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
   const [lastScannedResult, setLastScannedResult] = useState(null);
   const [punchType, setPunchType] = useState('auto'); // 'auto' | 'check_in' | 'check_out'
-  const [standQrDataUrl, setStandQrDataUrl] = useState('');
+  const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
+
+  // Office Geofence Settings
+  const [officeSettings, setOfficeSettings] = useState(() => getOfficeGeoSettings());
+  const [isCalibratingGps, setIsCalibratingGps] = useState(false);
+
+  // Dynamic Rolling QR States
+  const [dynamicQrUrl, setDynamicQrUrl] = useState('');
+  const [tokenCountdown, setTokenCountdown] = useState(12);
+  const timerRef = useRef(null);
 
   const html5QrCodeRef = useRef(null);
   const isStartingRef = useRef(false);
   const lastScanTimestampRef = useRef(0);
 
-  // Generate Stand QR for Counter mode
+  // Dynamic Rolling QR Generator & Countdown (Module 1 Anti-Photo Fraud)
   useEffect(() => {
-    if (activeTab === 'stand_qr') {
-      const standPayload = JSON.stringify({
-        type: 'HK360_OFFICE_TERMINAL',
-        company: businessSettings?.companyName || 'HisabKitab 360',
-        terminalId: 'COUNTER-TERM-01',
-        createdAt: new Date().toISOString()
-      });
-      generateQrDataUrl(standPayload, { width: 280, margin: 1 }).then(url => {
-        if (url) setStandQrDataUrl(url);
-      });
+    if (!isOpen || activeTab !== 'stand_qr') {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
     }
-  }, [activeTab, businessSettings]);
+
+    const refreshDynamicQr = async () => {
+      const token = generateDynamicOfficeToken(officeSettings);
+      setTokenCountdown(token.remainingSeconds);
+      const payloadStr = JSON.stringify({
+        ...token,
+        company: businessSettings?.companyName || 'HisabKitab 360',
+        officeLat: officeSettings.latitude,
+        officeLng: officeSettings.longitude,
+        allowedRadius: officeSettings.allowedRadiusMeters
+      });
+
+      const url = await generateQrDataUrl(payloadStr, { width: 280, margin: 1 });
+      if (url) setDynamicQrUrl(url);
+    };
+
+    // Initial generation
+    refreshDynamicQr();
+
+    // 1-second countdown ticker
+    timerRef.current = setInterval(() => {
+      setTokenCountdown(prev => {
+        if (prev <= 1) {
+          refreshDynamicQr();
+          return 12;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isOpen, activeTab, officeSettings, businessSettings]);
 
   // Clean stop camera
   const stopCamera = async () => {
@@ -121,8 +165,33 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
     };
   }, [isOpen, activeTab, facingMode]);
 
-  // Process Scanned Code
-  const handleQrCodeScanned = (decodedText) => {
+  // Calibrate current GPS coordinates as Office location
+  const handleCalibrateOfficeLocation = async () => {
+    setIsCalibratingGps(true);
+    try {
+      const loc = await getVerifiedLocation({ ...officeSettings, allowedRadiusMeters: 99999 });
+      const updated = saveOfficeGeoSettings({
+        latitude: loc.latitude,
+        longitude: loc.longitude
+      });
+      setOfficeSettings(updated);
+      if (showToast) {
+        showToast(
+          lang === 'bn'
+            ? `📍 বর্তমান লোকেশন (${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}) অফিস কেন্দ্র হিসেবে সংরক্ষিত হয়েছে!`
+            : 'Office coordinates calibrated successfully!',
+          'success'
+        );
+      }
+    } catch (err) {
+      if (showToast) showToast(err.message || 'লোকেশন পাওয়া যায়নি', 'error');
+    } finally {
+      setIsCalibratingGps(false);
+    }
+  };
+
+  // Process Scanned Code with Strict 5-15m Haversine Geofence & Anti-Cheat Validation
+  const handleQrCodeScanned = async (decodedText) => {
     const now = Date.now();
     // Throttle duplicate scans within 2.5 seconds
     if (now - lastScanTimestampRef.current < 2500) {
@@ -130,35 +199,72 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
     }
     lastScanTimestampRef.current = now;
 
+    let parsed = null;
+    try {
+      parsed = JSON.parse(decodedText);
+    } catch {
+      parsed = { empId: decodedText.trim() };
+    }
+
+    // 1. If scanning Dynamic Rolling Office QR (Self-Service check-in)
+    if (parsed.type === 'HK360_DYNAMIC_ATTENDANCE') {
+      const tokenVerification = verifyDynamicOfficeToken(parsed, officeSettings);
+      if (!tokenVerification.valid) {
+        if (showToast) {
+          showToast(tokenVerification.error || 'কিউআর কোড অকার্যকর', 'error');
+        }
+        return;
+      }
+    }
+
+    // 2. Validate HTML5 Geolocation API with Haversine Formula (5 to 15m radius)
+    setIsVerifyingLocation(true);
+    let locationResult = null;
+    try {
+      locationResult = await getVerifiedLocation(officeSettings);
+    } catch (geoErr) {
+      setIsVerifyingLocation(false);
+      if (showToast) {
+        showToast(`📍 জিপিএস যাচাই ব্যর্থ: ${geoErr.message}`, 'error');
+      }
+      return;
+    }
+    setIsVerifyingLocation(false);
+
+    // Strict Radius Check (5-15m)
+    if (!locationResult.isInside) {
+      if (showToast) {
+        showToast(
+          `❌ আপনি অফিস থেকে ${locationResult.distanceMeters} মিটার দূরে আছেন! শুধুমাত্র ${officeSettings.allowedRadiusMeters} মিটারের ভেতরে থাকলে হাজিরা গৃহীত হবে।`,
+          'error'
+        );
+      }
+      return;
+    }
+
+    // Sound Beep
     try {
       playScanBeep();
     } catch {}
 
-    let empId = '';
-    let parsed = null;
+    const empId = parsed.empId || parsed.id;
+    const matchedEmp = employees.find(
+      e => String(e.id).toLowerCase() === String(empId).toLowerCase() || (parsed.name && e.name === parsed.name)
+    ) || employees[0];
 
-    try {
-      parsed = JSON.parse(decodedText);
-      empId = parsed.empId || parsed.id;
-    } catch {
-      // Plain text code
-      empId = decodedText.trim();
-    }
-
-    // Match employee
-    const matchedEmp = employees.find(e => String(e.id).toLowerCase() === String(empId).toLowerCase() || (parsed && e.name === parsed.name));
-
-    if (!matchedEmp) {
+    if (!matchedEmp && !parsed.type) {
       if (showToast) {
         showToast(lang === 'bn' ? '❌ অচেনা কিউআর কোড! কোনো কর্মীর সাথে মেলেনি।' : 'Unrecognized QR Code', 'error');
       }
       return;
     }
 
+    const empToPunch = matchedEmp || { id: 'EMP-SELF', name: 'অফিস কর্মী', role: 'স্টাফ' };
+
     // Determine check-in or check-out
     const todayStr = new Date().toISOString().split('T')[0];
     const existingLogs = getStoredAttendanceLogs();
-    const todayLog = existingLogs.find(l => l.employeeId === matchedEmp.id && l.date === todayStr);
+    const todayLog = existingLogs.find(l => l.employeeId === empToPunch.id && l.date === todayStr);
 
     let resolvedType = punchType;
     if (resolvedType === 'auto') {
@@ -166,17 +272,19 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
     }
 
     const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    const shiftEval = evaluateDailyShiftTimes(new Date(), DEFAULT_OFFICE_SETTINGS);
+    const shiftEval = evaluateDailyShiftTimes(new Date(), officeSettings);
 
     const logPayload = {
-      id: todayLog?.id || `att_${Date.now()}_${matchedEmp.id}`,
-      employeeId: matchedEmp.id,
-      employeeName: matchedEmp.name,
-      role: matchedEmp.role || 'স্টাফ',
-      section: matchedEmp.section || 'সেলস ও কাউন্টার',
+      id: todayLog?.id || `att_${Date.now()}_${empToPunch.id}`,
+      employeeId: empToPunch.id,
+      employeeName: empToPunch.name,
+      role: empToPunch.role || 'স্টাফ',
+      section: empToPunch.section || 'সেলস ও কাউন্টার',
       date: todayStr,
       status: shiftEval.isLate ? 'Late' : 'Present',
-      verifiedBy: 'QR_ID_SCANNER',
+      verifiedBy: 'GEOFENCED_QR_SCANNER',
+      geofenceDistanceMeters: locationResult.distanceMeters,
+      gpsAccuracyMeters: locationResult.accuracy,
       checkInTime: resolvedType === 'check_in' ? timeFormatted : (todayLog?.checkInTime || timeFormatted),
       checkOutTime: resolvedType === 'check_out' ? timeFormatted : (todayLog?.checkOutTime || null),
       isLate: shiftEval.isLate,
@@ -186,18 +294,19 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
     saveAttendanceLog(logPayload);
 
     setLastScannedResult({
-      employee: matchedEmp,
+      employee: empToPunch,
       type: resolvedType,
       time: timeFormatted,
       status: shiftEval.isLate ? 'Late' : 'Present',
-      lateMinutes: shiftEval.lateMinutes
+      lateMinutes: shiftEval.lateMinutes,
+      distance: locationResult.distanceMeters
     });
 
     if (showToast) {
       showToast(
         lang === 'bn'
-          ? `✅ ${matchedEmp.name} - ${resolvedType === 'check_in' ? 'ইন-টাইম' : 'আউট-টাইম'} রেকর্ড সম্পন্ন (${timeFormatted})`
-          : `✅ Attendance logged for ${matchedEmp.name}`,
+          ? `✅ ${empToPunch.name} - ${resolvedType === 'check_in' ? 'ইন-টাইম' : 'আউট-টাইম'} সফল! (দূরত্ব: ${locationResult.distanceMeters}m)`
+          : `✅ Attendance logged for ${empToPunch.name}`,
         'success'
       );
     }
@@ -214,7 +323,7 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
       <div
         className="modal-content animate-fade-in"
         style={{
-          maxWidth: '540px',
+          maxWidth: '560px',
           width: '100%',
           maxHeight: '94vh',
           display: 'flex',
@@ -255,13 +364,13 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
             </div>
             <div>
               <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>{lang === 'bn' ? 'কিউআর হাজিরা টার্মিনাল' : 'QR Attendance Terminal'}</span>
-                <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '700' }}>
-                  INSTANT BEEP
+                <span>{lang === 'bn' ? 'স্মার্ট কিউআর হাজিরা টার্মিনাল' : 'Smart QR Attendance Terminal'}</span>
+                <span style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '800' }}>
+                  {officeSettings.allowedRadiusMeters}m GEOFENCE
                 </span>
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                {lang === 'bn' ? 'কর্মীর আইডি কার্ড স্ক্যান করে ১ সেকেন্ডে হাজিরা রেকর্ড' : 'Instant roll call via employee QR ID card'}
+                {lang === 'bn' ? '৫-১৫ মিটার জিপিএস সীমানা ও অ্যান্টি-ফটো ডায়নামিক কিউআর' : 'Haversine GPS geofence & anti-photo dynamic QR'}
               </div>
             </div>
           </div>
@@ -281,20 +390,20 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
           </button>
         </div>
 
-        {/* Mode Selector Switcher */}
+        {/* Mode Selector Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
           <button
             type="button"
             onClick={() => setActiveTab('scan_id')}
             style={{
               flex: 1,
-              padding: '10px 14px',
+              padding: '10px 12px',
               border: 'none',
               borderBottom: activeTab === 'scan_id' ? '3px solid #10b981' : '3px solid transparent',
               background: activeTab === 'scan_id' ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
               color: activeTab === 'scan_id' ? '#10b981' : 'var(--text-muted)',
               fontWeight: '700',
-              fontSize: '0.85rem',
+              fontSize: '0.84rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -302,8 +411,8 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
               gap: '6px'
             }}
           >
-            <Camera size={16} />
-            <span>{lang === 'bn' ? 'কাউন্টার ক্যামেরা স্ক্যানার' : 'Camera Scanner'}</span>
+            <Camera size={15} />
+            <span>{lang === 'bn' ? 'স্ক্যানার ও ক্যামেরা' : 'Scanner'}</span>
           </button>
 
           <button
@@ -311,13 +420,13 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
             onClick={() => setActiveTab('stand_qr')}
             style={{
               flex: 1,
-              padding: '10px 14px',
+              padding: '10px 12px',
               border: 'none',
               borderBottom: activeTab === 'stand_qr' ? '3px solid #6366f1' : '3px solid transparent',
               background: activeTab === 'stand_qr' ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
               color: activeTab === 'stand_qr' ? '#6366f1' : 'var(--text-muted)',
               fontWeight: '700',
-              fontSize: '0.85rem',
+              fontSize: '0.84rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -325,8 +434,30 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
               gap: '6px'
             }}
           >
-            <Smartphone size={16} />
-            <span>{lang === 'bn' ? 'কাউন্টার স্ট্যান্ড কিউআর' : 'Counter Stand QR'}</span>
+            <Smartphone size={15} />
+            <span>{lang === 'bn' ? 'ডায়নামিক কাউন্টার কিউআর' : 'Dynamic Stand QR'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('geo_settings')}
+            style={{
+              padding: '10px 14px',
+              border: 'none',
+              borderBottom: activeTab === 'geo_settings' ? '3px solid #f59e0b' : '3px solid transparent',
+              background: activeTab === 'geo_settings' ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+              color: activeTab === 'geo_settings' ? '#f59e0b' : 'var(--text-muted)',
+              fontWeight: '700',
+              fontSize: '0.84rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <MapPin size={15} />
+            <span>{lang === 'bn' ? 'জিপিএস সীমানা' : 'Geofence'}</span>
           </button>
         </div>
 
@@ -364,7 +495,7 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
             <div
               style={{
                 width: '100%',
-                maxWidth: '360px',
+                maxWidth: '340px',
                 aspectRatio: '1',
                 borderRadius: '16px',
                 overflow: 'hidden',
@@ -389,8 +520,8 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
               >
                 <div
                   style={{
-                    width: '210px',
-                    height: '210px',
+                    width: '200px',
+                    height: '200px',
                     border: '2px solid rgba(16, 185, 129, 0.8)',
                     borderRadius: '16px',
                     boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.45)',
@@ -435,6 +566,13 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
                 <RefreshCw size={16} />
               </button>
             </div>
+
+            {isVerifyingLocation && (
+              <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="animate-spin" style={{ width: '14px', height: '14px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                <span>জিপিএস দূরত্ব (Haversine 5-15m) যাচাই করা হচ্ছে...</span>
+              </div>
+            )}
 
             {cameraError && (
               <div style={{ marginTop: '10px', color: '#ef4444', fontSize: '0.8rem', textAlign: 'center', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -481,59 +619,172 @@ export const StaffQrScannerModal = ({ isOpen, onClose, employees = [], onPunchSu
                   <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '700' }}>
                     {lastScannedResult.type === 'check_in' ? 'ইন-টাইম সফল' : 'আউট-টাইম সফল'} • {lastScannedResult.time}
                   </div>
-                  {lastScannedResult.status === 'Late' && (
-                    <div style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: '700' }}>
-                      ⚠️ {lastScannedResult.lateMinutes} মিনিট লেট
-                    </div>
-                  )}
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    📍 অফিস দূরত্ব: <strong>{lastScannedResult.distance} মিটার</strong> (অনুমোদিত: {officeSettings.allowedRadiusMeters}m)
+                  </div>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Tab 2: Stand QR Code for Self-Service */}
+        {/* Tab 2: Dynamic Rolling Stand QR (Module 1 Anti-Photo Fraud) */}
         {activeTab === 'stand_qr' && (
-          <div style={{ padding: '24px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
+          <div style={{ padding: '20px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '2px' }}>
               {businessSettings?.companyName || 'হিসাব কিতাব ৩৬০'}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              {lang === 'bn' ? 'কাউন্টার টার্মিনাল কিউআর কোড (কর্মীরা স্ক্যান করে সেলফ চেক-ইন করবে)' : 'Official Terminal QR for employee self check-in'}
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              ডায়নামিক টার্মিনাল কিউআর • প্রতি ১২-১৫ সেকেন্ড পর পর নতুন কোড জেনারেট হয়
             </div>
 
+            {/* QR Display with Circular Countdown Indicator */}
             <div
               style={{
+                position: 'relative',
                 padding: '16px',
                 background: '#ffffff',
                 borderRadius: '16px',
                 border: '3px solid #6366f1',
                 boxShadow: '0 10px 30px rgba(99, 102, 241, 0.15)',
-                marginBottom: '16px'
+                marginBottom: '14px'
               }}
             >
-              {standQrDataUrl ? (
-                <img src={standQrDataUrl} alt="Counter Stand QR" style={{ width: '220px', height: '220px', display: 'block' }} />
+              {dynamicQrUrl ? (
+                <img src={dynamicQrUrl} alt="Dynamic Rolling QR" style={{ width: '210px', height: '210px', display: 'block' }} />
               ) : (
-                <div style={{ width: '220px', height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <QrCode size={56} color="#cbd5e1" />
                 </div>
               )}
+
+              {/* Rolling Timer Badge */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  right: '-10px',
+                  background: '#6366f1',
+                  color: '#ffffff',
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Clock size={12} />
+                <span>রিফ্রেশ: {tokenCountdown}s</span>
+              </div>
             </div>
 
             <div
               style={{
-                maxWidth: '360px',
+                maxWidth: '420px',
                 padding: '10px 14px',
                 borderRadius: '10px',
                 background: 'rgba(99, 102, 241, 0.08)',
                 border: '1px solid rgba(99, 102, 241, 0.25)',
                 fontSize: '0.78rem',
                 color: 'var(--text-main)',
-                lineHeight: 1.5
+                lineHeight: 1.5,
+                textAlign: 'left'
               }}
             >
-              💡 <strong>টিপস:</strong> এই কিউআর কোডটি দোকানের দেয়ালে বা ক্যাশ কাউন্টারে ডিসপ্লে হিসেবে লাগিয়ে রাখুন। কর্মীরা তাদের স্মার্টফোন দিয়ে স্ক্যান করলেই স্বয়ংক্রিয়ভাবে হাজিরা রেকর্ড হয়ে যাবে।
+              🛡️ <strong>জালিয়াতি প্রতিরোধ ব্যবস্থা (Anti-Photo Fraud):</strong> এই কিউআর কোডের ছবি তুলে বাড়ি থেকে স্ক্যান করলে গ্রহণযোগ্য হবে না। কোডটি লাইভ অফিস ডিসপ্লে থেকে স্ক্যান করতে হবে এবং কর্মীকে অফিসের <strong>{officeSettings.allowedRadiusMeters} মিটারের সীমানায়</strong> উপস্থিত থাকতে হবে।
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Geofence Calibration & Settings */}
+        {activeTab === 'geo_settings' && (
+          <div style={{ padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)' }}>
+              অফিস জিপিএস সীমানা ও রেডিয়াস কনফিগারেশন
+            </div>
+
+            <div style={{ background: 'var(--bg-main)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                বর্তমান নির্ধারিত অফিস কেন্দ্র (Office GPS Coordinates):
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontFamily: 'monospace', fontWeight: '800', fontSize: '0.88rem' }}>
+                <div style={{ background: 'var(--surface-color)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  Lat: {officeSettings.latitude.toFixed(5)}
+                </div>
+                <div style={{ background: 'var(--surface-color)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  Long: {officeSettings.longitude.toFixed(5)}
+                </div>
+              </div>
+
+              {/* 1-Tap Calibrate Current Location */}
+              <button
+                type="button"
+                onClick={handleCalibrateOfficeLocation}
+                disabled={isCalibratingGps}
+                style={{
+                  marginTop: '12px',
+                  width: '100%',
+                  padding: '9px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  cursor: isCalibratingGps ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <MapPin size={16} />
+                <span>{isCalibratingGps ? 'জিপিএস নির্ণয় হচ্ছে...' : '📍 বর্তমান অবস্থানকে অফিস হিসেবে সেভ করুন'}</span>
+              </button>
+            </div>
+
+            {/* Allowed Radius Selector (5m - 15m) */}
+            <div style={{ background: 'var(--bg-main)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                  সর্বোচ্চ অনুমোদিত উপস্থিতি সীমানা (Geofence Radius):
+                </span>
+                <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#10b981' }}>
+                  {officeSettings.allowedRadiusMeters} মিটার
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '10px' }}>
+                {[
+                  { r: 5, label: '৫ মিটার (কঠোর কাউন্টার)' },
+                  { r: 10, label: '১০ মিটার (রুম/দোকান)' },
+                  { r: 15, label: '১৫ মিটার (ফ্লোর/অফিস)' }
+                ].map(opt => (
+                  <button
+                    key={opt.r}
+                    type="button"
+                    onClick={() => {
+                      const updated = saveOfficeGeoSettings({ allowedRadiusMeters: opt.r });
+                      setOfficeSettings(updated);
+                    }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      border: officeSettings.allowedRadiusMeters === opt.r ? '2px solid #10b981' : '1px solid var(--border-color)',
+                      background: officeSettings.allowedRadiusMeters === opt.r ? 'rgba(16, 185, 129, 0.15)' : 'var(--surface-color)',
+                      color: officeSettings.allowedRadiusMeters === opt.r ? '#10b981' : 'var(--text-muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
