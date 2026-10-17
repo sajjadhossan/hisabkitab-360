@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   Sparkles,
   Plus,
@@ -800,8 +801,16 @@ export const PersonalEventsManager = () => {
                       </button>
 
                       <button
-                        onClick={() => {
-                          if (window.confirm(lang === 'bn' ? `"${evt.title}" ইভেন্টটি মুছে ফেলতে চান?` : `Delete event "${evt.title}"?`)) {
+                        onClick={async () => {
+                          const ok = await showConfirmDialog({
+                            title: lang === 'bn' ? `"${evt.title}" ইভেন্টটি মুছবেন?` : `Delete event "${evt.title}"?`,
+                            message: lang === 'bn'
+                              ? 'এই ইভেন্ট ও এর সাথে যুক্ত সকল খরচের হিসাব মুছে ফেলা হবে।'
+                              : 'This event and all its associated expense logs will be deleted.',
+                            confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                            type: 'danger'
+                          });
+                          if (ok) {
                             deletePersonalEvent(evt.id);
                           }
                         }}
@@ -1128,8 +1137,16 @@ export const PersonalEventsManager = () => {
                                   </button>
                                   <button
                                     className="btn-icon"
-                                    onClick={() => {
-                                      if (window.confirm(lang === 'bn' ? 'এই খরচের রেকর্ডটি মুছে ফেলতে চান?' : 'Delete this expense?')) {
+                                    onClick={async () => {
+                                      const ok = await showConfirmDialog({
+                                        title: lang === 'bn' ? 'খরচের রেকর্ড মুছবেন?' : 'Delete expense?',
+                                        message: lang === 'bn'
+                                          ? 'এই খরচের রেকর্ডটি মুছে ফেলা হবে।'
+                                          : 'This expense entry will be deleted.',
+                                        confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                                        type: 'danger'
+                                      });
+                                      if (ok) {
                                         deletePersonalExpense(item.id);
                                       }
                                     }}

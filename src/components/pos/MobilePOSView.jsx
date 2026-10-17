@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import { registerBackAction, hapticFeedback } from '../../services/nativeAppService';
 import {
   ScanLine,
@@ -303,11 +304,17 @@ export const MobilePOSView = ({
     showToast(lang === 'bn' ? '🛒 কার্ট সফলভাবে হোল্ড করা হয়েছে!' : 'Cart put on hold!', 'success');
   };
 
-  const handleRecallCart = (heldItem) => {
+  const handleRecallCart = async (heldItem) => {
     if (cart.length > 0) {
-      if (!window.confirm(lang === 'bn' ? 'বর্তমান কার্টে পণ্য আছে। এটি প্রতিস্থাপন করতে চান?' : 'Current cart has items. Replace?')) {
-        return;
-      }
+      const ok = await showConfirmDialog({
+        title: lang === 'bn' ? 'বর্তমান কার্ট প্রতিস্থাপন করবেন?' : 'Replace current cart?',
+        message: lang === 'bn'
+          ? 'বর্তমান কার্টে পণ্য রয়েছে। হোল্ড করা কার্ট লোড করলে বর্তমান কার্টটি প্রতিস্থাপিত হবে।'
+          : 'Current cart contains items. Loading held cart will replace current cart.',
+        confirmText: lang === 'bn' ? 'হ্যাঁ, প্রতিস্থাপন করুন' : 'Replace Cart',
+        type: 'warning'
+      });
+      if (!ok) return;
     }
     clearCart();
     setTimeout(() => {

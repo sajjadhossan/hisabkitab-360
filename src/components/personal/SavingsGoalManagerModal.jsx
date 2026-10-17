@@ -14,6 +14,7 @@ import {
   TrendingUp,
   DollarSign
 } from 'lucide-react';
+import { showConfirmDialog } from '../../services/dialogService';
 import { useApp } from '../../context/AppContext';
 
 export const SavingsGoalManagerModal = ({ isOpen, onClose }) => {
@@ -110,8 +111,14 @@ export const SavingsGoalManagerModal = ({ isOpen, onClose }) => {
     setEditingId(null);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('আপনি কি এই সঞ্চয় লক্ষ্য ডিলিট করতে চান?')) {
+  const handleDelete = async (id) => {
+    const ok = await showConfirmDialog({
+      title: 'সঞ্চয় লক্ষ্য মুছবেন?',
+      message: 'আপনি কি এই সঞ্চয় লক্ষ্যটি মুছে ফেলতে চান?',
+      confirmText: 'হ্যাঁ, মুছুন',
+      type: 'danger'
+    });
+    if (ok) {
       const updated = personalSavings.filter(s => s.id !== id);
       setPersonalSavings(updated);
       try { localStorage.setItem('hk360_personal_savings', JSON.stringify(updated)); } catch (e) { }

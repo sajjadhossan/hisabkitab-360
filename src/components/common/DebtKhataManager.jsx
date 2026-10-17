@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   HandCoins,
   Plus,
@@ -413,14 +414,18 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
   };
 
   // Delete person confirmation
-  const handleDeletePerson = (person) => {
+  const handleDeletePerson = async (person) => {
     const count = (person.transactions || []).length;
-    const msg =
-      lang === 'bn'
-        ? `আপনি কি নিশ্চিত যে "${person.name}"-এর সম্পূর্ণ খাতা মুছে ফেলতে চান? (${count} টি লেনদেন রয়েছে)`
-        : `Are you sure you want to delete ledger for "${person.name}"? (${count} transactions)`;
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? `"${person.name}"-এর খাতা মুছবেন?` : `Delete ledger for "${person.name}"?`,
+      message: lang === 'bn'
+        ? `এই ব্যক্তির সম্পূর্ণ হিসাব ও মোট ${count} টি লেনদেন রেকর্ড স্থায়ীভাবে মুছে ফেলা হবে।`
+        : `All account records and ${count} transaction entries will be permanently deleted.`,
+      confirmText: lang === 'bn' ? 'হ্যাঁ, খাতা মুছুন' : 'Delete Ledger',
+      type: 'danger'
+    });
 
-    if (window.confirm(msg)) {
+    if (ok) {
       deleteDebtPerson(targetProfileKey, person.id);
       if (activePersonForLedger?.id === person.id) {
         setActivePersonForLedger(null);
@@ -2684,8 +2689,16 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
                                 <Edit size={14} />
                               </button>
                               <button
-                                onClick={() => {
-                                  if (window.confirm(lang === 'bn' ? 'এই লেনদেনটি মুছে ফেলতে চান?' : 'Delete this transaction?')) {
+                                onClick={async () => {
+                                  const ok = await showConfirmDialog({
+                                    title: lang === 'bn' ? 'এই লেনদেনটি মুছে ফেলতে চান?' : 'Delete this transaction?',
+                                    message: lang === 'bn'
+                                      ? `৳${(tx.amount || 0).toLocaleString()} টাকার লেনদেনটি খাতা থেকে অপসারণ করা হবে।`
+                                      : `Transaction of ৳${(tx.amount || 0).toLocaleString()} will be removed from this ledger.`,
+                                    confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                                    type: 'danger'
+                                  });
+                                  if (ok) {
                                     deleteDebtTransaction(targetProfileKey, activePersonForLedger.id, tx.id);
                                     // Local update
                                     setActivePersonForLedger({

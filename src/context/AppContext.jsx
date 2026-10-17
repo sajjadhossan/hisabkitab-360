@@ -59,6 +59,7 @@ import {
 import { exportUniversalBackupAsync, validateUniversalBackup } from '../services/fastExportService';
 import { auditService, AUDIT_ACTIONS } from '../services/auditService';
 import { hapticFeedback } from '../services/nativeAppService';
+import { showConfirmDialog, showPromptDialog } from '../services/dialogService';
 import { enqueueOfflineAction } from '../utils/syncQueue';
 import { notifyLowStockAlert, notifySaleCompleted } from '../services/localNotificationService';
 import { submitPosSaleToCloud } from '../services/supabaseBackendService';
@@ -5319,6 +5320,12 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         getTelegramBackupConfig,
         saveTelegramBackupConfig,
         testTelegramBackupBot,
+
+        // Unified Modern Confirm & Prompt Dialogs
+        showConfirmDialog,
+        showPromptDialog,
+        confirmAction: showConfirmDialog,
+        promptAction: showPromptDialog,
 
         // Partial Payments on Invoices
         recordInvoicePayment,

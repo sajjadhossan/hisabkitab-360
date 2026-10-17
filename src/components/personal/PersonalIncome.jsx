@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import { Wallet, Plus, Target, Trash2, Calendar, TrendingUp, Edit2 } from 'lucide-react';
 
 export const PersonalIncome = () => {
@@ -162,8 +163,16 @@ export const PersonalIncome = () => {
                         </button>
                         <button
                           className="btn-icon"
-                          onClick={() => {
-                            if (window.confirm(lang === 'bn' ? 'এই আয়ের হিসাবটি মুছে ফেলতে চান?' : 'Delete this income entry?')) {
+                          onClick={async () => {
+                            const ok = await showConfirmDialog({
+                              title: lang === 'bn' ? 'আয়ের হিসাবটি মুছবেন?' : 'Delete income entry?',
+                              message: lang === 'bn'
+                                ? `"${item.source || 'উৎস'}" থেকে ৳${(item.amount || 0).toLocaleString()} টাকার আয়ের রেকর্ড মুছে ফেলা হবে।`
+                                : `Income record of ৳${(item.amount || 0).toLocaleString()} from "${item.source || 'Source'}" will be deleted.`,
+                              confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                              type: 'danger'
+                            });
+                            if (ok) {
                               deletePersonalIncome(item.id);
                             }
                           }}

@@ -20,6 +20,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 
 const STORAGE_KEY = 'hk360_recurring_bills';
 
@@ -209,18 +210,30 @@ export const RecurringBillsManagerModal = ({ isOpen, onClose }) => {
     setEditingId(null);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('আপনি কি এই রিকারিং বিল মুছে ফেলতে চান?')) {
+  const handleDelete = async (id) => {
+    const ok = await showConfirmDialog({
+      title: 'রিকারিং বিল মুছবেন?',
+      message: 'আপনি কি এই রিকারিং বিলের হিসাবটি তালিকা থেকে মুছে ফেলতে চান?',
+      confirmText: 'হ্যাঁ, মুছুন',
+      type: 'danger'
+    });
+    if (ok) {
       setBills(prev => prev.filter(b => b.id !== id));
     }
   };
 
   // One-click pay and add to Daily Expenses
-  const handlePayBill = (bill) => {
+  const handlePayBill = async (bill) => {
     const isAlreadyPaid = bill.lastPaidMonth === currentMonthKey;
     if (isAlreadyPaid) {
       // Toggle back to pending
-      if (window.confirm('আপনি কি এই বিলের স্ট্যাটাস পুনরায় বাকি (Pending) করতে চান?')) {
+      const ok = await showConfirmDialog({
+        title: 'বিলের স্ট্যাটাস পরিবর্তন',
+        message: 'আপনি কি এই বিলের স্ট্যাটাস পুনরায় বাকি (Pending) করতে চান?',
+        confirmText: 'হ্যাঁ, বাকি করুন',
+        type: 'warning'
+      });
+      if (ok) {
         setBills(prev => prev.map(b => b.id === bill.id ? { ...b, lastPaidMonth: '' } : b));
       }
       return;

@@ -12,6 +12,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 
 export const SalesReturnModal = ({ isOpen, onClose }) => {
   const {
@@ -84,7 +85,7 @@ export const SalesReturnModal = ({ isOpen, onClose }) => {
       .reduce((sum, it) => sum + ((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0)), 0);
   }, [returnItems]);
 
-  const handleProcessReturn = (e) => {
+  const handleProcessReturn = async (e) => {
     e.preventDefault();
     const itemsToReturn = Object.entries(returnItems).filter(([_, it]) => it.selected);
     if (itemsToReturn.length === 0) {
@@ -92,7 +93,13 @@ export const SalesReturnModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    if (!window.confirm(`মোট ৳${totalRefundAmount.toLocaleString()} রিফান্ড দিয়ে বিক্রিত মাল ফেরত নিবেন?`)) return;
+    const ok = await showConfirmDialog({
+      title: 'বিক্রিত মাল ফেরত নিবেন?',
+      message: `মোট ৳${totalRefundAmount.toLocaleString()} রিফান্ড দিয়ে বিক্রিত মাল ফেরত নিতে চান?`,
+      confirmText: 'হ্যাঁ, ফেরত গ্রহণ করুন',
+      type: 'warning'
+    });
+    if (!ok) return;
 
     itemsToReturn.forEach(([prodId, it]) => {
       const qty = Number(it.quantity) || 1;

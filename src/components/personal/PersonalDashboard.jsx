@@ -33,6 +33,7 @@ import { BazaarShoppingListModal } from './BazaarShoppingListModal';
 import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
+import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
 
 export const PersonalDashboard = () => {
   const {
@@ -266,9 +267,14 @@ export const PersonalDashboard = () => {
   }, [filteredTableExpenses]);
 
   // Quick Rename Handler
-  const handleQuickRename = (expense) => {
+  const handleQuickRename = async (expense) => {
     const cur = expense.item || expense.title || '';
-    const next = window.prompt(lang === 'bn' ? 'খরচের আইটেম বা বিবরণ রিনেম করুন:' : 'Rename expense item:', cur);
+    const next = await showPromptDialog({
+      title: lang === 'bn' ? 'খরচের বিবরণ পরিবর্তন' : 'Rename Expense',
+      message: lang === 'bn' ? 'আইটেম বা খরচের নতুন নাম লিখুন:' : 'Enter new item name:',
+      defaultValue: cur,
+      placeholder: lang === 'bn' ? 'যেমন: চাল, ডাল, মাছ...' : 'Item name...'
+    });
     if (next && next.trim() && next.trim() !== cur) {
       updatePersonalExpense(expense.id, {
         item: next.trim(),
@@ -1134,8 +1140,16 @@ export const PersonalDashboard = () => {
                       </button>
                       <button
                         className="btn-icon"
-                        onClick={() => {
-                          if (window.confirm(lang === 'bn' ? 'এই খরচের রেকর্ডটি মুছে ফেলতে চান?' : 'Delete this expense?')) {
+                        onClick={async () => {
+                          const ok = await showConfirmDialog({
+                            title: lang === 'bn' ? 'খরচ মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete',
+                            message: lang === 'bn' ? `আপনি কি "${exp.item || exp.title || 'এই খরচ'}" মুছে ফেলতে চান?` : 'Delete this expense?',
+                            subMessage: lang === 'bn' ? `পরিমাণ: ৳${Number(exp.amount || 0).toLocaleString()} • এটি মুছে ফেললে ড্যাশবোর্ড মোট হিসাব থেকে বাদ পড়বে।` : `Amount: ৳${exp.amount || 0}`,
+                            confirmText: lang === 'bn' ? 'মুছে ফেলুন' : 'Delete',
+                            cancelText: lang === 'bn' ? 'বাতিল' : 'Cancel',
+                            type: 'danger'
+                          });
+                          if (ok) {
                             deletePersonalExpense(exp.id);
                           }
                         }}

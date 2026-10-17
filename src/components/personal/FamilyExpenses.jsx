@@ -33,6 +33,7 @@ import { VoiceInputButton } from '../common/VoiceInputButton';
 import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
+import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
 
 export const FamilyExpenses = () => {
   const {
@@ -1354,9 +1355,14 @@ export const FamilyExpenses = () => {
                           <button
                             className="btn-icon"
                             title={lang === 'bn' ? 'রিনেম / নাম সংশোধন' : 'Rename'}
-                            onClick={() => {
+                            onClick={async () => {
                               const cur = item.item || item.title || '';
-                              const next = window.prompt(lang === 'bn' ? 'আইটেম বা খরচের বিবরণ রিনেম করুন:' : 'Rename expense item:', cur);
+                              const next = await showPromptDialog({
+                                title: lang === 'bn' ? 'পারিবারিক খরচের বিবরণ পরিবর্তন' : 'Rename Family Expense',
+                                message: lang === 'bn' ? 'আইটেম বা খরচের নতুন নাম লিখুন:' : 'Enter new item name:',
+                                defaultValue: cur,
+                                placeholder: lang === 'bn' ? 'যেমন: বাসা ভাড়া, বিদ্যুৎ বিল, বাজার...' : 'Item name...'
+                              });
                               if (next && next.trim() && next.trim() !== cur) {
                                 updatePersonalExpense(item.id, { item: next.trim(), title: next.trim() });
                               }
@@ -1376,8 +1382,16 @@ export const FamilyExpenses = () => {
                           <button
                             className="btn-icon"
                             title={lang === 'bn' ? 'মুছে ফেলুন' : 'Delete'}
-                            onClick={() => {
-                              if (window.confirm(lang === 'bn' ? 'এই খরচের এন্ট্রিটি মুছে ফেলতে চান?' : 'Delete this expense?')) {
+                            onClick={async () => {
+                              const ok = await showConfirmDialog({
+                                title: lang === 'bn' ? 'পারিবারিক খরচ মুছে ফেলার নিশ্চিতকরণ' : 'Confirm Delete',
+                                message: lang === 'bn' ? `আপনি কি "${item.item || item.title || 'এই খরচ'}" মুছে ফেলতে চান?` : 'Delete this family expense?',
+                                subMessage: lang === 'bn' ? `পরিমাণ: ৳${Number(item.amount || 0).toLocaleString()} • এটি মুছে ফেললে পারিবারিক হিসাব থেকে বাদ পড়বে।` : `Amount: ৳${item.amount || 0}`,
+                                confirmText: lang === 'bn' ? 'মুছে ফেলুন' : 'Delete',
+                                cancelText: lang === 'bn' ? 'বাতিল' : 'Cancel',
+                                type: 'danger'
+                              });
+                              if (ok) {
                                 deletePersonalExpense(item.id);
                               }
                             }}

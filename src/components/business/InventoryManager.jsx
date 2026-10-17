@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { useApp } from '../../context/AppContext';
 import { printElement } from '../../services/printService';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   Boxes,
   Plus,
@@ -1619,8 +1620,16 @@ export const InventoryManager = () => {
                           <button
                             type="button"
                             className="btn-icon"
-                            onClick={() => {
-                              if (window.confirm(lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?')) {
+                            onClick={async () => {
+                              const ok = await showConfirmDialog({
+                                title: lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?',
+                                message: lang === 'bn'
+                                  ? `"${p.name || 'পণ্য'}" স্থায়ীভাবে ইনভেন্টরি তালিকা থেকে মুছে ফেলা হবে।`
+                                  : `"${p.name || 'Product'}" will be permanently removed from inventory.`,
+                                confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                                type: 'danger'
+                              });
+                              if (ok) {
                                 deleteProduct(p.id);
                               }
                             }}
@@ -1819,8 +1828,16 @@ export const InventoryManager = () => {
                               <button
                                 className="btn-icon"
                                 title={t.delete}
-                                onClick={() => {
-                                  if (window.confirm(lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?')) {
+                                onClick={async () => {
+                                  const ok = await showConfirmDialog({
+                                    title: lang === 'bn' ? 'পণ্যটি মুছে ফেলতে চান?' : 'Delete product?',
+                                    message: lang === 'bn'
+                                      ? `"${p.name || 'পণ্য'}" স্থায়ীভাবে ইনভেন্টরি তালিকা থেকে মুছে ফেলা হবে।`
+                                      : `"${p.name || 'Product'}" will be permanently removed from inventory.`,
+                                    confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                                    type: 'danger'
+                                  });
+                                  if (ok) {
                                     deleteProduct(p.id);
                                   }
                                 }}
@@ -2033,8 +2050,16 @@ export const InventoryManager = () => {
                         type="button"
                         className="btn-icon"
                         title={lang === 'bn' ? 'ড্যামেজ রেকর্ড বাতিল করুন এবং স্টক ফেরত দিন' : 'Delete and restore stock'}
-                        onClick={() => {
-                          if (window.confirm(lang === 'bn' ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলতে চান? পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।' : 'Delete damage record and restore stock?')) {
+                        onClick={async () => {
+                          const ok = await showConfirmDialog({
+                            title: lang === 'bn' ? 'ড্যামেজ এন্ট্রি মুছে ফেলতে চান?' : 'Delete damage record?',
+                            message: lang === 'bn'
+                              ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলা হবে এবং পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।'
+                              : 'This damage record will be removed and product stock will be restored.',
+                            confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন ও স্টক ফেরত দিন' : 'Delete & Restore',
+                            type: 'warning'
+                          });
+                          if (ok) {
                             deleteDamagedRecord(dmg.id, true);
                           }
                         }}
@@ -2135,8 +2160,16 @@ export const InventoryManager = () => {
                             <button
                               className="btn-icon"
                               title={lang === 'bn' ? 'ড্যামেজ রেকর্ড বাতিল করুন এবং স্টক ফেরত দিন' : 'Delete and restore stock'}
-                              onClick={() => {
-                                if (window.confirm(lang === 'bn' ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলতে চান? পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।' : 'Delete damage record and restore stock?')) {
+                              onClick={async () => {
+                                const ok = await showConfirmDialog({
+                                  title: lang === 'bn' ? 'ড্যামেজ এন্ট্রি মুছে ফেলতে চান?' : 'Delete damage record?',
+                                  message: lang === 'bn'
+                                    ? 'এই ড্যামেজ এন্ট্রি মুছে ফেলা হবে এবং পণ্যটি পুনরায় ইনভেন্টরি স্টকে ফেরত যোগ হবে।'
+                                    : 'This damage record will be removed and product stock will be restored.',
+                                  confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন ও স্টক ফেরত দিন' : 'Delete & Restore',
+                                  type: 'warning'
+                                });
+                                if (ok) {
                                   deleteDamagedRecord(dmg.id, true);
                                 }
                               }}

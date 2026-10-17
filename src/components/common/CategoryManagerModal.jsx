@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   Tag,
   Plus,
@@ -181,30 +182,33 @@ export const CategoryManagerModal = ({
     }
   };
 
-  const handleDelete = (catName) => {
+  const handleDelete = async (catName) => {
     const usage = getUsageCount(catName);
-    const warning =
-      usage > 0
-        ? lang === 'bn'
-          ? `এই ক্যাটাগরিতে বর্তমানে ${usage}টি রেকর্ড যুক্ত রয়েছে। আপনি কি নিশ্চিত যে এটি তালিকা থেকে মুছে ফেলতে চান?`
-          : `This category is used by ${usage} items. Are you sure you want to delete it?`
-        : lang === 'bn'
-        ? `আপনি কি নিশ্চিত যে "${catName}" ক্যাটাগরি মুছে ফেলতে চান?`
-        : `Are you sure you want to delete "${catName}"?`;
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? `"${catName}" ক্যাটাগরি মুছবেন?` : `Delete category "${catName}"?`,
+      message: usage > 0
+        ? (lang === 'bn' ? `এই ক্যাটাগরিতে বর্তমানে ${usage}টি রেকর্ড যুক্ত রয়েছে।` : `This category is currently used by ${usage} items.`)
+        : (lang === 'bn' ? 'এটি ক্যাটাগরি তালিকা থেকে মুছে ফেলা হবে।' : 'This will be removed from your category list.'),
+      confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+      type: usage > 0 ? 'warning' : 'danger'
+    });
 
-    if (window.confirm(warning)) {
+    if (ok) {
       deleteCategory(activeGroup, catName);
     }
   };
 
-  const handleResetGroup = () => {
-    if (
-      window.confirm(
-        lang === 'bn'
-          ? 'আপনি কি এই গ্রুপের ক্যাটাগরিগুলো ডিফল্ট অবস্থায় ফিরিয়ে আনতে চান?'
-          : 'Reset this category group to original default list?'
-      )
-    ) {
+  const handleResetGroup = async () => {
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? 'ডিফল্ট ক্যাটাগরি রিস্টোর করবেন?' : 'Reset to default categories?',
+      message: lang === 'bn'
+        ? 'আপনি কি এই গ্রুপের ক্যাটাগরিগুলো মূল ডিফল্ট তালিকায় ফিরিয়ে নিতে চান?'
+        : 'Reset this category group to the original default list?',
+      confirmText: lang === 'bn' ? 'হ্যাঁ, রিস্টোর করুন' : 'Reset Defaults',
+      type: 'warning'
+    });
+
+    if (ok) {
       resetCategories(activeGroup);
     }
   };

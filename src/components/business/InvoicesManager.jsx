@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   FileText,
   Plus,
@@ -424,11 +425,16 @@ export const InvoicesManager = () => {
   // ----------------------------------------------------
   // DELETE INVOICE WITH RESTOCK CONFIRMATION
   // ----------------------------------------------------
-  const handleDeleteInvoiceClick = (inv) => {
-    const confirmMsg = lang === 'bn'
-      ? `আপনি কি নিশ্চিত যে ইনভয়েস #${inv.id} মুছে ফেলতে চান?\n\n[OK] চাপলে ইনভয়েসটি মুছে যাবে এবং বিক্রিত পণ্যগুলো স্বয়ংক্রিয়ভাবে ইনভেন্টরি স্টকে ফেরত (Restock) যোগ হবে।`
-      : `Delete invoice #${inv.id}? Sold products will be restocked to inventory.`;
-    if (window.confirm(confirmMsg)) {
+  const handleDeleteInvoiceClick = async (inv) => {
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? `ইনভয়েস #${inv.id} মুছে ফেলবেন?` : `Delete invoice #${inv.id}?`,
+      message: lang === 'bn'
+        ? `ইনভয়েসটি মুছে যাবে এবং বিক্রিত পণ্যগুলো স্বয়ংক্রিয়ভাবে ইনভেন্টরি স্টকে ফেরত (Restock) যোগ হবে।`
+        : `This invoice will be deleted and sold products will be restocked to inventory.`,
+      confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন ও স্টক ফেরত দিন' : 'Delete & Restock',
+      type: 'danger'
+    });
+    if (ok) {
       deleteInvoice(inv.id, true);
     }
   };

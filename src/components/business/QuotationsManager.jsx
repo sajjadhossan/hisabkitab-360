@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   FileCheck,
   Plus,
@@ -355,8 +356,16 @@ export const QuotationsManager = () => {
 
                         <button
                           className="btn-icon"
-                          onClick={() => {
-                            if (window.confirm(lang === 'bn' ? 'কোটেশনটি মুছে ফেলতে চান?' : 'Delete quotation?')) {
+                          onClick={async () => {
+                            const ok = await showConfirmDialog({
+                              title: lang === 'bn' ? 'কোটেশনটি মুছে ফেলতে চান?' : 'Delete quotation?',
+                              message: lang === 'bn'
+                                ? `কোটেশন #${quote.id} তালিকা থেকে মুছে ফেলা হবে।`
+                                : `Quotation #${quote.id} will be removed.`,
+                              confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                              type: 'danger'
+                            });
+                            if (ok) {
                               deleteQuotation(quote.id);
                             }
                           }}

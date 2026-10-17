@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useDeferredValue } from 'react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   Users,
   Plus,
@@ -585,8 +586,16 @@ export const CRMCustomers = () => {
                         {/* Delete Button */}
                         <button
                           className="btn-icon"
-                          onClick={() => {
-                            if (window.confirm(lang === 'bn' ? `আপনি কি নিশ্চিত যে "${cust.name}" কে মুছে ফেলতে চান?` : 'Delete customer?')) {
+                          onClick={async () => {
+                            const ok = await showConfirmDialog({
+                              title: lang === 'bn' ? 'গ্রাহক মুছে ফেলতে চান?' : 'Delete customer?',
+                              message: lang === 'bn'
+                                ? `আপনি কি নিশ্চিত যে "${cust.name}" কে গ্রাহক তালিকা থেকে মুছে ফেলতে চান?`
+                                : `Are you sure you want to delete customer "${cust.name}"?`,
+                              confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+                              type: 'danger'
+                            });
+                            if (ok) {
                               deleteCustomer(cust.id);
                             }
                           }}

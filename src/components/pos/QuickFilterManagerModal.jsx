@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { showConfirmDialog } from '../../services/dialogService';
 
 export const QuickFilterManagerModal = ({
   isOpen,
@@ -30,9 +31,17 @@ export const QuickFilterManagerModal = ({
 
   if (!isOpen) return null;
 
-  const handleDeleteFilter = (filterId) => {
+  const handleDeleteFilter = async (filterId) => {
     if (filterId === 'all') return;
-    if (window.confirm(lang === 'bn' ? 'আপনি কি এই ফিল্টার শর্টকাটটি মুছে ফেলতে চান?' : 'Delete this filter shortcut?')) {
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? 'ফিল্টার শর্টকাট মুছবেন?' : 'Delete filter shortcut?',
+      message: lang === 'bn'
+        ? 'আপনি কি এই ফিল্টার শর্টকাটটি তালিকা থেকে মুছে ফেলতে চান?'
+        : 'Are you sure you want to delete this filter shortcut?',
+      confirmText: lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Delete',
+      type: 'danger'
+    });
+    if (ok) {
       const updated = filtersList.filter(f => f.id !== filterId);
       setFiltersList(updated);
       onSaveFilters(updated);
@@ -80,8 +89,16 @@ export const QuickFilterManagerModal = ({
     setActiveTab('list');
   };
 
-  const handleResetToDefault = () => {
-    if (window.confirm(lang === 'bn' ? 'আপনি কি সকল কাস্টম ফিল্টার মুছে মূল ডিফল্ট তালিকায় ফিরে যেতে চান?' : 'Reset all shortcuts to defaults?')) {
+  const handleResetToDefault = async () => {
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? 'ডিফল্ট শর্টকাট ফিরিয়ে আনবেন?' : 'Reset filter shortcuts?',
+      message: lang === 'bn'
+        ? 'আপনি কি সকল কাস্টম ফিল্টার মুছে মূল ডিফল্ট তালিকায় ফিরে যেতে চান?'
+        : 'Reset all custom shortcuts to original system defaults?',
+      confirmText: lang === 'bn' ? 'হ্যাঁ, ডিফল্ট করুন' : 'Reset Defaults',
+      type: 'warning'
+    });
+    if (ok) {
       onResetDefaults();
       onClose();
     }

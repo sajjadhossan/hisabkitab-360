@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { NotificationToast } from './components/common/NotificationToast';
+import { ModernConfirmModal } from './components/common/ModernConfirmModal';
 import { HealthcareProvider } from './context/HealthcareContext';
 import { useAuth } from './context/AuthContext';
 import { PullToRefresh } from './components/common/PullToRefresh';
@@ -845,6 +846,9 @@ const AppContent = () => {
           onToggleLock={() => lockScreen && lockScreen()}
           lang={lang}
         />
+
+        {/* Modern Glassmorphic Action & Confirm Dialog System */}
+        <ModernConfirmModal />
 
         {/* PWA & ServiceWorker Seamless Auto-Updater */}
         <AutoUpdateToast lang={lang} />
