@@ -141,8 +141,8 @@ export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => 
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
 
-        // Anti-Spoof: Check accuracy
-        if (accuracy > 40) {
+        // Anti-Spoof: Tolerant accuracy for indoor/laptop/Wi-Fi use
+        if (accuracy > 150) {
           return reject(new Error(`দুর্বল জিপিএস সিগন্যাল (একুরেসি: ${Math.round(accuracy)}m)। দয়া করে হাই একুরেসি মোড অন করুন।`));
         }
 
@@ -153,7 +153,8 @@ export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => 
           officeSettings.longitude
         );
 
-        const isInside = distance <= officeSettings.allowedRadiusMeters;
+        // Allow up to allowed radius or accuracy tolerance
+        const isInside = distance <= Math.max(officeSettings.allowedRadiusMeters || 15, Math.min(Math.round(accuracy), 30));
 
         resolve({
           latitude,
@@ -161,7 +162,7 @@ export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => 
           accuracy: Math.round(accuracy),
           distanceMeters: distance,
           isInside,
-          allowedRadius: officeSettings.allowedRadiusMeters
+          allowedRadius: officeSettings.allowedRadiusMeters || 15
         });
       },
       (err) => {
@@ -170,7 +171,7 @@ export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => 
         if (err.code === 2) msg = 'জিপিএস পজিশন নির্ণয় করা যায়নি। নেটওয়ার্ক চেক করুন।';
         reject(new Error(msg));
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
 };
@@ -313,16 +314,74 @@ export const saveAttendanceLog = (logEntry) => {
     l => l.employeeId === logEntry.employeeId && l.date === logEntry.date
   );
 
+  let mergedEntry = { ...logEntry };
+
+  if (existingIdx >= 0) {
+    const existing = logs[existingIdx];
+    mergedEntry = { ...existing, ...logEntry };
+
+    // Maintain in/out times
+    if (logEntry.checkInTime) mergedEntry.checkInTime = logEntry.checkInTime;
+    if (logEntry.checkOutTime) mergedEntry.checkOutTime = logEntry.checkOutTime;
+
+    // Calculate work duration if both in and out timestamps exist
+    const inTime = mergedEntry.checkInTimestamp || (mergedEntry.checkInTime ? `${mergedEntry.date} ${mergedEntry.checkInTime}` : null);
+    const outTime = mergedEntry.checkOutTimestamp || (mergedEntry.checkOutTime ? `${mergedEntry.date} ${mergedEntry.checkOutTime}` : null);
+
+    if (mergedEntry.checkInTimestamp && mergedEntry.checkOutTimestamp) {
+      const diffMs = Math.max(0, new Date(mergedEntry.checkOutTimestamp) - new Date(mergedEntry.checkInTimestamp));
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
+      mergedEntry.totalWorkHours = Number((diffMs / 3600000).toFixed(2));
+      mergedEntry.workDurationFormatted = `${hours} ঘণ্টা ${minutes} মিনিট`;
+    }
+  }
+
   let updated;
   if (existingIdx >= 0) {
     updated = [...logs];
-    updated[existingIdx] = { ...updated[existingIdx], ...logEntry };
+    updated[existingIdx] = mergedEntry;
   } else {
-    updated = [logEntry, ...logs];
+    updated = [mergedEntry, ...logs];
   }
 
   localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(updated));
   return updated;
+};
+
+/**
+ * 1-Tap Quick Punch for Staff (In / Out)
+ */
+export const quickPunchEmployee = (emp, punchType = 'check_in', customDate = null) => {
+  const now = new Date();
+  const dateStr = customDate || now.toISOString().split('T')[0];
+  const timeFormatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  const logs = getStoredAttendanceLogs();
+  const existing = logs.find(l => l.employeeId === emp.id && l.date === dateStr);
+
+  const payload = {
+    id: existing?.id || `att_${Date.now()}_${emp.id}`,
+    employeeId: emp.id,
+    employeeName: emp.name,
+    role: emp.role || 'স্টাফ',
+    section: emp.section || 'সেলস ও কাউন্টার',
+    date: dateStr,
+    status: existing?.status || 'Present',
+    verifiedBy: 'QUICK_PUNCH'
+  };
+
+  if (punchType === 'check_in') {
+    payload.checkInTime = timeFormatted;
+    payload.checkInTimestamp = now.toISOString();
+    payload.time = timeFormatted;
+    payload.type = 'check_in';
+  } else if (punchType === 'check_out') {
+    payload.checkOutTime = timeFormatted;
+    payload.checkOutTimestamp = now.toISOString();
+    payload.type = 'check_out';
+  }
+
+  return saveAttendanceLog(payload);
 };
 
 // ==========================================

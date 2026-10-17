@@ -75,46 +75,58 @@ export const generateInvoiceQrPayload = (invoice, businessSettings) => {
  * even without requiring a cloud backend database.
  */
 export const createInvoiceVerificationUrl = (invoice, businessSettings) => {
-  if (!invoice) return typeof window !== 'undefined' ? window.location.href : '';
+  if (!invoice) return 'https://hisabkitab360.vercel.app';
 
-  const grandTotal = Number(invoice.grandTotal) || 0;
+  const grandTotal = Number(invoice.grandTotal || invoice.total_bill) || 0;
   const paid = invoice.paidAmount !== undefined
     ? Number(invoice.paidAmount)
-    : (invoice.status === 'paid' ? grandTotal : 0);
+    : (invoice.paid_amount !== undefined ? Number(invoice.paid_amount) : (invoice.status === 'paid' ? grandTotal : 0));
   const due = invoice.dueAmount !== undefined
     ? Number(invoice.dueAmount)
-    : Math.max(0, grandTotal - paid);
+    : (invoice.due_amount !== undefined ? Number(invoice.due_amount) : Math.max(0, grandTotal - paid));
 
   const payload = {
-    id: invoice.id,
-    date: invoice.date,
-    customerName: invoice.customerName,
-    customerPhone: invoice.customerPhone || '',
+    id: invoice.id || invoice.bill_no,
+    date: invoice.date || invoice.created_at || new Date().toISOString().split('T')[0],
+    customerName: invoice.customerName || invoice.patient || 'সম্মানিত গ্রাহক',
+    customerPhone: invoice.customerPhone || invoice.phone || '',
     grandTotal,
     paidAmount: paid,
     dueAmount: due,
-    status: invoice.status,
-    paymentMethod: invoice.paymentMethod,
-    companyName: businessSettings?.companyName || 'HisabKitab 360',
+    status: invoice.status || (due === 0 ? 'paid' : 'due'),
+    paymentMethod: invoice.paymentMethod || invoice.payment_method || 'নগদ',
+    companyName: businessSettings?.companyName || 'হিসাব কিতাব ৩৬০',
     companyPhone: businessSettings?.phone || '',
     companyAddress: businessSettings?.address || '',
     items: (invoice.items || []).map(item => ({
       name: item.name,
-      qty: item.qty,
-      price: item.price,
-      subtotal: item.subtotal || (item.price * item.qty)
+      qty: item.qty || 1,
+      price: item.price || item.rate || 0,
+      subtotal: item.subtotal || ((item.qty || 1) * (item.price || item.rate || 0))
     }))
   };
+
+  // Determine globally reachable base URL
+  let baseUrl = 'https://hisabkitab360.vercel.app';
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || window.location.protocol.includes('capacitor');
+    if (!isLocal) {
+      baseUrl = window.location.origin + window.location.pathname;
+    } else if (businessSettings?.liveDomain) {
+      baseUrl = businessSettings.liveDomain.startsWith('http') ? businessSettings.liveDomain : `https://${businessSettings.liveDomain}`;
+    }
+  }
 
   try {
     const jsonStr = JSON.stringify(payload);
     // Safe utf8 base64 encoding
     const token = encodeURIComponent(btoa(unescape(encodeURIComponent(jsonStr))));
-    const baseUrl = window.location.origin + window.location.pathname;
-    return `${baseUrl}?verify=${encodeURIComponent(invoice.id)}&data=${token}`;
+    const docId = encodeURIComponent(invoice.id || invoice.bill_no);
+    return `${baseUrl}?verify=${docId}&data=${token}`;
   } catch {
-    const baseUrl = window.location.origin + window.location.pathname;
-    return `${baseUrl}?verify=${encodeURIComponent(invoice.id)}`;
+    const docId = encodeURIComponent(invoice.id || invoice.bill_no);
+    return `${baseUrl}?verify=${docId}`;
   }
 };
 

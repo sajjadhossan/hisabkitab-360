@@ -23,7 +23,11 @@ import {
   getStoredAttendanceLogs,
   saveAttendanceLog,
   evaluateDailyShiftTimes,
-  DEFAULT_OFFICE_SETTINGS
+  DEFAULT_OFFICE_SETTINGS,
+  quickPunchEmployee,
+  getOfficeGeoSettings,
+  saveOfficeGeoSettings,
+  getVerifiedLocation
 } from '../../../services/attendanceSecurityService';
 import { hasRegisteredFace, getEmployeeFace } from '../../../services/faceRecognitionService';
 import { AttendancePunchModal } from './AttendancePunchModal';
@@ -119,6 +123,56 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
     if (showToast) {
       showToast(`${emp.name}-এর স্ট্যাটাস "${newStatus}" করা হয়েছে`, 'success');
     }
+  };
+
+  // 1-Tap Quick In & Out Punch Handlers
+  const handleQuickIn = (emp) => {
+    const updated = quickPunchEmployee(emp, 'check_in', selectedDate);
+    setAttendanceLogs(updated);
+    if (showToast) {
+      showToast(`🟢 ${emp.name}-এর প্রবেশ সময় (Check-In) রেকর্ড হয়েছে!`, 'success');
+    }
+  };
+
+  const handleQuickOut = (emp) => {
+    const updated = quickPunchEmployee(emp, 'check_out', selectedDate);
+    setAttendanceLogs(updated);
+    if (showToast) {
+      showToast(`🔴 ${emp.name}-এর প্রস্থান সময় (Check-Out) রেকর্ড হয়েছে!`, 'success');
+    }
+  };
+
+  // Office GPS Geofence Calibrator
+  const [officeSettings, setOfficeSettings] = useState(() => getOfficeGeoSettings());
+  const [isCalibratingGps, setIsCalibratingGps] = useState(false);
+
+  const handleCalibrateOffice = async () => {
+    setIsCalibratingGps(true);
+    try {
+      const loc = await getVerifiedLocation({ ...officeSettings, allowedRadiusMeters: 99999 });
+      const updated = saveOfficeGeoSettings({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        isCalibrated: true
+      });
+      setOfficeSettings(updated);
+      if (showToast) {
+        showToast(
+          `📍 বর্তমান অবস্থান (${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}) অফিস হিসেবে সফলভাবে সংরক্ষিত হয়েছে!`,
+          'success'
+        );
+      }
+    } catch (err) {
+      if (showToast) showToast(err.message || 'লোকেশন পাওয়া যায়নি', 'error');
+    } finally {
+      setIsCalibratingGps(false);
+    }
+  };
+
+  const handleChangeRadius = (r) => {
+    const updated = saveOfficeGeoSettings({ allowedRadiusMeters: Number(r) });
+    setOfficeSettings(updated);
+    if (showToast) showToast(`জিওফেন্স পরিধি ${r} মিটার সেট করা হয়েছে`, 'info');
   };
 
   // Quick 1-Click: Mark All Unmarked as Present
@@ -273,6 +327,64 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
         </div>
       </div>
 
+      {/* 2.1 OFFICE GEOFENCE & CALIBRATION BAR */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '10px 14px',
+          borderRadius: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px',
+          background: 'rgba(99, 102, 241, 0.05)',
+          border: '1px solid rgba(99, 102, 241, 0.2)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
+          <MapPin size={16} color="#6366f1" />
+          <div>
+            <span style={{ fontWeight: '800', color: 'var(--text-main)' }}>
+              অফিস জিপিএস কেন্দ্র:
+            </span>{' '}
+            <span style={{ color: 'var(--text-muted)' }}>
+              {officeSettings.latitude.toFixed(4)}, {officeSettings.longitude.toFixed(4)}
+            </span>
+            <span style={{ margin: '0 6px', color: 'var(--border-color)' }}>|</span>
+            <span style={{ fontWeight: '700', color: '#10b981' }}>
+              পরিধি: {officeSettings.allowedRadiusMeters || 15} মিটার
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <select
+            value={officeSettings.allowedRadiusMeters || 15}
+            onChange={(e) => handleChangeRadius(e.target.value)}
+            className="input-field"
+            style={{ padding: '3px 8px', fontSize: '0.74rem', fontWeight: '800' }}
+            title="অনুমোদিত পরিধি পরিবর্তন করুন"
+          >
+            <option value="5">৫ মিটার (কঠোর)</option>
+            <option value="10">১০ মিটার</option>
+            <option value="15">১৫ মিটার (স্ট্যান্ডার্ড)</option>
+            <option value="30">৩০ মিটার</option>
+            <option value="50">৫০ মিটার</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={handleCalibrateOffice}
+            disabled={isCalibratingGps}
+            className="btn btn-secondary press-scale"
+            style={{ padding: '4px 10px', fontSize: '0.74rem', fontWeight: '800', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.4)' }}
+          >
+            {isCalibratingGps ? '📍 জিপিএস নির্ণয় হচ্ছে...' : '📍 বর্তমান অবস্থান অফিস হিসেবে সেট করুন'}
+          </button>
+        </div>
+      </div>
+
       {/* 3. SEARCH BAR */}
       <div>
         <input
@@ -310,7 +422,7 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
               }}
             >
               {/* Employee Info */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '240px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
                 {log?.photoSnapshot ? (
                   <div
                     style={{
@@ -359,14 +471,36 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
                 </div>
               </div>
 
-              {/* Punch Timings & Metrics */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.78rem' }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem' }}>প্রবেশ সময়:</span>
-                  <strong style={{ color: log?.time ? '#10b981' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {log?.time || '—'}
+              {/* Punch Timings & Metrics: Check-In, Check-Out & Duration */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.78rem', flexWrap: 'wrap' }}>
+                <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '4px 8px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                  <span style={{ color: '#10b981', display: 'block', fontSize: '0.68rem', fontWeight: '800' }}>🟢 আসার সময় (In):</span>
+                  <strong style={{ color: (log?.checkInTime || log?.time) ? '#10b981' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    {log?.checkInTime || log?.time || '—'}
                   </strong>
                 </div>
+
+                <div style={{ background: 'rgba(99, 102, 241, 0.08)', padding: '4px 8px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                  <span style={{ color: '#818cf8', display: 'block', fontSize: '0.68rem', fontWeight: '800' }}>🔴 যাওয়ার সময় (Out):</span>
+                  <strong style={{ color: log?.checkOutTime ? '#818cf8' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    {log?.checkOutTime || '—'}
+                  </strong>
+                </div>
+
+                {log?.workDurationFormatted ? (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: '4px 8px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                    <span style={{ color: '#f59e0b', display: 'block', fontSize: '0.68rem', fontWeight: '800' }}>⏱️ মোট কর্মকাল:</span>
+                    <strong style={{ color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                      {log.workDurationFormatted}
+                    </strong>
+                  </div>
+                ) : (log?.checkInTime && !log?.checkOutTime && (
+                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '4px 8px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <span style={{ color: '#10b981', fontSize: '0.7rem', fontWeight: '800' }}>
+                      🟢 কর্মস্থলে উপস্থিত
+                    </span>
+                  </div>
+                ))}
 
                 {log?.lateMinutes > 0 && (
                   <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', fontSize: '0.7rem', fontWeight: '800' }}>
@@ -379,16 +513,52 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
                     +{log.overtimeHours}ঘণ্টা OT
                   </span>
                 )}
-
-                {log?.faceMatchPercentage && (
-                  <span style={{ padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.7rem', fontWeight: '800' }}>
-                    🛡️ {log.faceMatchPercentage}% ফেস ম্যাচ
-                  </span>
-                )}
               </div>
 
-              {/* Status Selector Pills */}
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {/* Status Selector Pills & Quick Action Buttons */}
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* 1-Tap Quick In & Out Punch Buttons */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickIn(emp)}
+                  title="কর্মীর আসার সময় (Check-In) রেকর্ড করুন"
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    border: '1.5px solid #10b981',
+                    background: log?.checkInTime ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.08)',
+                    color: '#10b981',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span>🟢 ইন</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickOut(emp)}
+                  title="কর্মীর যাওয়ার সময় (Check-Out) রেকর্ড করুন"
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    border: '1.5px solid #ef4444',
+                    background: log?.checkOutTime ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.08)',
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span>🔴 আউট</span>
+                </button>
                 {[
                   { key: 'Present', label: 'উপস্থিত', color: '#10b981' },
                   { key: 'Late', label: 'দেরি (Late)', color: '#f59e0b' },

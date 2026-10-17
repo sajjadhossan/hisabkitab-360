@@ -2,7 +2,7 @@
 // Supports: Direct Instant A4 Invoice Printing, Thermal Receipts (58mm/80mm),
 // Quotations, Barcodes, Labels & Salary Slips with Zero-Failure Architecture.
 
-import { generateQrDataUrl, generateInvoiceQrPayload } from './qrService';
+import { generateQrDataUrl, generateInvoiceQrPayload, createInvoiceVerificationUrl } from './qrService';
 import { triggerCashDrawerHardware, printEscPosReceiptDirect } from './hardwareService';
 
 /**
@@ -548,8 +548,8 @@ export const printInvoiceDirectly = async (invoice, businessSettings, lang = 'bn
 
   let qrCodeUrl = '';
   try {
-    const payload = generateInvoiceQrPayload(invoice, businessSettings);
-    qrCodeUrl = await generateQrDataUrl(payload, { width: 220, margin: 1 });
+    const verifyUrl = createInvoiceVerificationUrl(invoice, businessSettings);
+    qrCodeUrl = await generateQrDataUrl(verifyUrl, { width: 220, margin: 1 });
   } catch (err) {
     console.warn('QR code generation warning during direct print:', err);
   }
@@ -569,8 +569,8 @@ export const printReceiptDirectly = async (receipt, businessSettings, lang = 'bn
 
   let qrCodeUrl = '';
   try {
-    const payload = generateInvoiceQrPayload(receipt, businessSettings);
-    qrCodeUrl = await generateQrDataUrl(payload, {
+    const verifyUrl = createInvoiceVerificationUrl(receipt, businessSettings);
+    qrCodeUrl = await generateQrDataUrl(verifyUrl, {
       width: businessSettings?.receiptPaperWidth === '58mm' ? 180 : 220,
       margin: 1
     });

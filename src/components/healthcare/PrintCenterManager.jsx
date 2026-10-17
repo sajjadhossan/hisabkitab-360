@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Printer,
   FileText,
@@ -8,11 +8,43 @@ import {
   CheckCircle2,
   Download,
   Settings,
-  Eye
+  Eye,
+  ShieldCheck
 } from 'lucide-react';
+import { generateQrDataUrl, createInvoiceVerificationUrl } from '../../services/qrService';
+import { printElement } from '../../services/printService';
 
 export const PrintCenterManager = () => {
   const [selectedTemplate, setSelectedTemplate] = useState('rx_pad');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+
+  useEffect(() => {
+    const docData = {
+      id: `HC-DOC-${selectedTemplate.toUpperCase()}-2026`,
+      date: new Date().toISOString().split('T')[0],
+      customerName: selectedTemplate === 'lab_report' ? 'মোসা: সুমি আক্তার' : 'মো: রফিকুল ইসলাম',
+      customerPhone: '01711-223344',
+      grandTotal: selectedTemplate === 'invoice_receipt' ? 1450 : 0,
+      paidAmount: selectedTemplate === 'invoice_receipt' ? 1450 : 0,
+      dueAmount: 0,
+      status: 'verified',
+      paymentMethod: 'হাসপাতাল কেন্দ্রীয় ক্যাশ',
+      items: [
+        { name: `ক্লিনিক্যাল ডকুমেন্ট: ${selectedTemplate}`, qty: 1, price: 0 }
+      ]
+    };
+    const verifyUrl = createInvoiceVerificationUrl(docData);
+    generateQrDataUrl(verifyUrl, { width: 140, margin: 1 }).then(url => {
+      if (url) setQrCodeUrl(url);
+    });
+  }, [selectedTemplate]);
+
+  const handlePrint = () => {
+    printElement('clinical-print-preview-pad', {
+      title: `Healthcare-Document-${selectedTemplate}`,
+      paperType: 'a4'
+    });
+  };
 
   const printDocs = [
     { id: 'rx_pad', title: 'ডাক্তারি প্রেসক্রিপশন প্যাড (Rx Pad)', desc: 'চিফ কমপ্লেইন্টস, ড্রাগস, ভাইটালস ও ডাক্তারের সিল সহ প্রিন্ট' },
@@ -39,7 +71,7 @@ export const PrintCenterManager = () => {
           </div>
 
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 text-slate-950 font-black text-sm shadow-lg flex items-center gap-2 transition-all transform active:scale-95"
           >
             <Printer size={16} />
@@ -77,7 +109,7 @@ export const PrintCenterManager = () => {
 
         {/* Right: Live Preview Pad (7 cols) */}
         <div className="lg:col-span-7">
-          <div className="p-8 rounded-3xl bg-white border border-slate-200 shadow-lg text-slate-900 space-y-6">
+          <div id="clinical-print-preview-pad" className="p-8 rounded-3xl bg-white border border-slate-200 shadow-lg text-slate-900 space-y-6">
             {/* Header */}
             <div className="flex justify-between items-start pb-4 border-b-2 border-slate-800">
               <div>
@@ -85,9 +117,13 @@ export const PrintCenterManager = () => {
                 <p className="text-[11px] text-slate-600">বাড়ি #১২, রোড #০৫, ধানমন্ডি, ঢাকা • ফোন: ০৯৬১১-২২৩৩৪৪</p>
                 <p className="text-[10px] text-slate-400">DGHS Reg: 2026/HC-360-DHAKA • 24/7 ইমার্জেন্সি ও ল্যাব</p>
               </div>
-              <div className="p-2 border border-slate-300 rounded-lg text-center">
-                <QrCode size={36} className="text-slate-800" />
-                <span className="text-[8px] font-bold text-slate-500 block">QR ভেরিফাইড</span>
+              <div className="p-2 border border-slate-300 rounded-lg text-center bg-white shadow-sm">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="Verify QR" className="w-16 h-16 mx-auto block" />
+                ) : (
+                  <QrCode size={36} className="text-slate-800 mx-auto" />
+                )}
+                <span className="text-[8px] font-bold text-emerald-700 block mt-1">✓ অফিসিয়াল QR ভেরিফাইড</span>
               </div>
             </div>
 

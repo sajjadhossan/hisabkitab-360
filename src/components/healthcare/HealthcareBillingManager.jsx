@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useHealthcare } from '../../context/HealthcareContext';
 import {
   CreditCard,
@@ -38,8 +38,11 @@ import {
   CheckCheck,
   History,
   FileSpreadsheet,
-  Download
+  Download,
+  X
 } from 'lucide-react';
+import { generateQrDataUrl, createInvoiceVerificationUrl } from '../../services/qrService';
+import { printElement } from '../../services/printService';
 
 export const HealthcareBillingManager = () => {
   const {
@@ -77,6 +80,18 @@ export const HealthcareBillingManager = () => {
 
   // Modal states
   const [viewingReceipt, setViewingReceipt] = useState(null);
+  const [receiptQrUrl, setReceiptQrUrl] = useState('');
+
+  useEffect(() => {
+    if (viewingReceipt) {
+      const verifyUrl = createInvoiceVerificationUrl(viewingReceipt);
+      generateQrDataUrl(verifyUrl, { width: 140, margin: 1 }).then(url => {
+        if (url) setReceiptQrUrl(url);
+      });
+    } else {
+      setReceiptQrUrl('');
+    }
+  }, [viewingReceipt]);
   const [showPartialPayModal, setShowPartialPayModal] = useState(false);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
   const [partialPayInput, setPartialPayInput] = useState('');
@@ -1555,6 +1570,148 @@ export const HealthcareBillingManager = () => {
                 <button type="submit" className="btn btn-primary press-scale" style={{ background: '#ef4444', borderColor: '#ef4444' }}>বিল বাতিল ও বিপরীত সমন্বয়</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 5: HEALTHCARE INVOICE & RECEIPT PRINT MODAL */}
+      {/* ============================================================== */}
+      {viewingReceipt && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '650px', width: '95%', padding: '1.5rem', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Receipt size={20} className="text-teal-600" />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  মানি রিসিট ও বিল প্রিন্ট (#{viewingReceipt.bill_no})
+                </h3>
+              </div>
+              <button onClick={() => setViewingReceipt(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </div>
+
+            {/* Printable Slip */}
+            <div
+              id="printable-healthcare-receipt"
+              style={{
+                background: '#ffffff',
+                color: '#0f172a',
+                padding: '24px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                fontFamily: 'system-ui, -apple-system, sans-serif'
+              }}
+            >
+              {/* Slip Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '14px' }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#0f766e' }}>
+                    হেলথকেয়ার 360° হাসপাতাল ও মেডিকেল সেন্টার
+                  </h2>
+                  <p style={{ margin: '2px 0', fontSize: '11px', color: '#64748b' }}>
+                    {viewingReceipt.branch || 'ধানমন্ডি মেইন ব্রাঞ্চ'} • ফোন: ০৯৬১১-২২৩৩৪৪
+                  </p>
+                  <p style={{ margin: '2px 0', fontSize: '10px', color: '#94a3b8' }}>
+                    DGHS Reg: 2026/HC-360 • সেন্ট্রাল বিলিং ক্যাশ রসিদ
+                  </p>
+                </div>
+
+                {receiptQrUrl ? (
+                  <div style={{ textAlign: 'center', background: '#ffffff', padding: '4px', border: '1.5px solid #0f172a', borderRadius: '8px' }}>
+                    <img src={receiptQrUrl} alt="Verify QR" style={{ width: '76px', height: '76px', display: 'block', margin: '0 auto' }} />
+                    <span style={{ fontSize: '7.5px', fontWeight: '800', color: '#059669', display: 'block', marginTop: '2px' }}>
+                      ✓ আসল ভেরিফাইড QR
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Patient & Bill Meta */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#f8fafc', padding: '10px', borderRadius: '8px', fontSize: '12px', marginBottom: '14px' }}>
+                <div>
+                  <div><strong>বিল নম্বর:</strong> #{viewingReceipt.bill_no}</div>
+                  <div><strong>তারিখ:</strong> {viewingReceipt.date_time || new Date().toLocaleString()}</div>
+                  <div><strong>সেবা ধরন:</strong> {viewingReceipt.service_type}</div>
+                </div>
+                <div>
+                  <div><strong>রোগীর নাম:</strong> {viewingReceipt.patient}</div>
+                  <div><strong>ক্যাশিয়ার:</strong> {viewingReceipt.cashier}</div>
+                  <div><strong>পদ্ধতি:</strong> {viewingReceipt.payment_mode}</div>
+                </div>
+              </div>
+
+              {/* Items / Description */}
+              <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '12px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#475569' }}>
+                  <span>সেবা / বিবরণ</span>
+                  <span>পরিমাণ</span>
+                  <span>মোট টাকা</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', paddingTop: '6px' }}>
+                  <span>{viewingReceipt.description || viewingReceipt.service_type}</span>
+                  <span>{viewingReceipt.quantity || 1}টি</span>
+                  <span style={{ fontWeight: '700' }}>৳{viewingReceipt.total_bill}</span>
+                </div>
+              </div>
+
+              {/* Financial Totals */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', alignItems: 'flex-end', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '200px' }}>
+                  <span>মোট বিল:</span>
+                  <span style={{ fontWeight: '700' }}>৳{viewingReceipt.total_bill}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '200px', color: '#059669', fontWeight: '700' }}>
+                  <span>পরিশোধিত অর্থ:</span>
+                  <span>৳{viewingReceipt.paid_amount}</span>
+                </div>
+                {viewingReceipt.due_amount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '200px', color: '#dc2626', fontWeight: '800' }}>
+                    <span>অবশিষ্ট বকেয়া:</span>
+                    <span>৳{viewingReceipt.due_amount}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Signatures */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '20px', borderTop: '1px dashed #cbd5e1', fontSize: '10px', color: '#64748b' }}>
+                <div>
+                  <div style={{ borderTop: '1px solid #94a3b8', width: '100px', marginBottom: '2px' }}></div>
+                  <span>গ্রাহক / রোগী স্বাক্ষর</span>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <span>🛡️ যেকোনো ক্যামেরা দিয়ে QR স্ক্যান করে বিলটি যাচাই করা যাবে।</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ borderTop: '1px solid #94a3b8', width: '100px', marginBottom: '2px', marginLeft: 'auto' }}></div>
+                  <span>অনুমোদিত ক্যাশিয়ার সিল</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setViewingReceipt(null)}
+                className="btn btn-secondary press-scale"
+              >
+                বন্ধ করুন
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  printElement('printable-healthcare-receipt', {
+                    title: `Healthcare-Receipt-${viewingReceipt.bill_no}`,
+                    paperType: 'receipt'
+                  });
+                }}
+                className="btn btn-primary press-scale"
+                style={{ background: 'linear-gradient(135deg, #059669, #10b981)', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Printer size={16} />
+                <span>প্রিন্ট করুন (Print Now)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
