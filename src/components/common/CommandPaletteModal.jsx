@@ -22,6 +22,8 @@ import {
   Banknote,
   Building2,
   TrendingUp,
+  UtensilsCrossed,
+  Stethoscope,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -238,6 +240,26 @@ export const CommandPaletteModal = () => {
         icon: Users,
         action: () => {
           if (window.__openClvIntelligence) window.__openClvIntelligence();
+        }
+      },
+      {
+        id: 'cmd_specialized_verticals',
+        category: lang === 'bn' ? 'ভার্টিক্যাল' : 'Verticals',
+        title: lang === 'bn' ? '🍽️ বিশেষায়িত ভার্টিক্যাল হাব (রেস্তোরাঁ, টেইলারিং, ওয়ার্কশপ)' : '🍽️ Specialized Verticals Hub',
+        subtitle: lang === 'bn' ? 'কিউআর টেবিল অর্ডার, গজ-মিটার কনভার্টার, ডিজিটাল জব-কার্ড ও সাইজ লট ম্যাট্রিক্স' : 'QR ordering, Fabric CRM, Auto Job-Card & Size Matrix',
+        icon: UtensilsCrossed,
+        action: () => {
+          if (window.__openSpecializedVerticals) window.__openSpecializedVerticals();
+        }
+      },
+      {
+        id: 'cmd_pharmacy_clinical',
+        category: lang === 'bn' ? 'ক্লিনিক্যাল' : 'Clinical',
+        title: lang === 'bn' ? '💊 ফার্মাসি ও ক্লিনিক্যাল হাব (জেনেরিক ড্রাগ, প্রেসক্রিপশন)' : '💊 Pharmacy & Clinical Hub',
+        subtitle: lang === 'bn' ? 'বিকল্প ওষুধ ফাইন্ডার, প্রেসক্রিপশন স্ক্যানার, ল্যাব টেস্ট স্টিকার ও কেবিন বিলিং' : 'Generic drug finder, Rx scanner, Lab specimen & Cabin billing',
+        icon: Stethoscope,
+        action: () => {
+          if (window.__openPharmacyClinical) window.__openPharmacyClinical();
         }
       }
     ];

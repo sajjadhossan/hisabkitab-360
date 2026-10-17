@@ -54,7 +54,9 @@ import {
   Building2,
   AlertTriangle,
   Volume2,
-  VolumeX
+  VolumeX,
+  UtensilsCrossed,
+  Stethoscope
 } from 'lucide-react';
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
 import { POSPermissionsSettings } from './POSPermissionsSettings';
@@ -474,6 +476,52 @@ export const BusinessSettings = () => {
           >
             <Users size={14} />
             <span>{lang === 'bn' ? 'কাস্টমার লাইফটাইম ভ্যালু (CLV)' : 'Customer CLV Matrix'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openSpecializedVerticals) window.__openSpecializedVerticals();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(249, 115, 22, 0.15)',
+              color: '#ea580c',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <UtensilsCrossed size={14} />
+            <span>{lang === 'bn' ? 'ভার্টিক্যাল হাব (রেস্তোরাঁ/টেইলারিং/ওয়ার্কশপ)' : 'Verticals Hub (Dine/Tailor/Auto)'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openPharmacyClinical) window.__openPharmacyClinical();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#059669',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Stethoscope size={14} />
+            <span>{lang === 'bn' ? 'ফার্মাসি ও ক্লিনিক্যাল হাব' : 'Pharmacy & Clinical Hub'}</span>
           </button>
 
           <button

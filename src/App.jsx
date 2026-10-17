@@ -94,6 +94,10 @@ const FinancialIntelligenceHubModal = lazyNamed(() => import('./components/intel
 const BankMfsReconciliationModal = lazyNamed(() => import('./components/intelligence/BankMfsReconciliationModal'), 'BankMfsReconciliationModal');
 const CustomerLifetimeValueModal = lazyNamed(() => import('./components/intelligence/CustomerLifetimeValueModal'), 'CustomerLifetimeValueModal');
 
+// Phase 8 Specialized Verticals & Healthcare Pharmacy Suite
+const SpecializedVerticalsHubModal = lazyNamed(() => import('./components/verticals/SpecializedVerticalsHubModal'), 'SpecializedVerticalsHubModal');
+const PharmacyClinicalAssistanceModal = lazyNamed(() => import('./components/healthcare/PharmacyClinicalAssistanceModal'), 'PharmacyClinicalAssistanceModal');
+
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
@@ -172,6 +176,10 @@ const AppContent = () => {
   const [showBankMfsModal, setShowBankMfsModal] = useState(false);
   const [showClvModal, setShowClvModal] = useState(false);
 
+  // Phase 8 Specialized Verticals & Healthcare Pharmacy Modal States
+  const [showSpecializedVerticalsModal, setShowSpecializedVerticalsModal] = useState(false);
+  const [showPharmacyClinicalModal, setShowPharmacyClinicalModal] = useState(false);
+
   React.useEffect(() => {
     telemetryService.init();
     pwaSyncManager.register();
@@ -185,6 +193,10 @@ const AppContent = () => {
     window.__openFinancialIntelligence = () => setShowFinancialIntelligenceModal(true);
     window.__openBankMfsReconciliation = () => setShowBankMfsModal(true);
     window.__openClvIntelligence = () => setShowClvModal(true);
+
+    // Phase 8 Window Triggers
+    window.__openSpecializedVerticals = () => setShowSpecializedVerticalsModal(true);
+    window.__openPharmacyClinical = () => setShowPharmacyClinicalModal(true);
 
     // Phase 6 Feature 60: Auto-lock on inactivity
     const cleanupWatchdog = initInactivityWatchdog(() => {
@@ -202,6 +214,8 @@ const AppContent = () => {
       delete window.__openFinancialIntelligence;
       delete window.__openBankMfsReconciliation;
       delete window.__openClvIntelligence;
+      delete window.__openSpecializedVerticals;
+      delete window.__openPharmacyClinical;
       if (typeof cleanupWatchdog === 'function') cleanupWatchdog();
     };
   }, [lockScreen]);
@@ -956,6 +970,20 @@ const AppContent = () => {
         <CustomerLifetimeValueModal
           isOpen={showClvModal}
           onClose={() => setShowClvModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 8 Features 77, 78, 79, 80: Specialized Business Verticals Hub Modal */}
+        <SpecializedVerticalsHubModal
+          isOpen={showSpecializedVerticalsModal}
+          onClose={() => setShowSpecializedVerticalsModal(false)}
+          lang={lang}
+        />
+
+        {/* Phase 8 Features 71, 72, 73, 74, 75, 76: Healthcare & Pharmacy Clinical Suite Modal */}
+        <PharmacyClinicalAssistanceModal
+          isOpen={showPharmacyClinicalModal}
+          onClose={() => setShowPharmacyClinicalModal(false)}
           lang={lang}
         />
 
