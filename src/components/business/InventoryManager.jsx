@@ -34,7 +34,9 @@ import {
   Camera,
   Scan,
   ChevronDown,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Truck,
+  Clock
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -43,6 +45,10 @@ import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { useAuth } from '../../context/AuthContext';
 import { BarcodeStickerModal } from '../common/BarcodeStickerModal';
+import { StockTransferModal } from '../inventory/StockTransferModal';
+import { ExpiryLifecycleTrackerModal } from '../inventory/ExpiryLifecycleTrackerModal';
+import { BarcodeShelfDesignerModal } from '../inventory/BarcodeShelfDesignerModal';
+import { soundService } from '../../services/soundService';
 import { compressImageToWebP, optimizeProductImageAI, hapticFeedback } from '../../services/nativeAppService';
 import { OptimizedImage } from '../common/OptimizedImage';
 
@@ -89,6 +95,11 @@ export const InventoryManager = () => {
   const [showBarcodeStickerModal, setShowBarcodeStickerModal] = useState(false);
   const [selectedStickerProduct, setSelectedStickerProduct] = useState(null);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
+
+  // Phase 5 Advanced Inventory States
+  const [showStockTransferModal, setShowStockTransferModal] = useState(false);
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
+  const [showShelfLabelModal, setShowShelfLabelModal] = useState(false);
 
   // Responsive Mobile Screen Detection (< 768px)
   const [isMobileScreen, setIsMobileScreen] = useState(() => {
@@ -934,6 +945,84 @@ export const InventoryManager = () => {
                       >
                         <Barcode size={16} style={{ color: '#f59e0b' }} />
                         <span>{lang === 'bn' ? '🏷️ বারকোড স্টিকার স্টুডিও' : '🏷️ Sticker Studio'}</span>
+                      </button>
+
+                      {/* Inter-Branch Stock Transfer (Phase 5) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowStockTransferModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Truck size={16} style={{ color: '#0284c7' }} />
+                        <span>{lang === 'bn' ? '🚚 আন্তঃশাখা স্টক চালান' : '🚚 Stock Transfer'}</span>
+                      </button>
+
+                      {/* FEFO Expiry & Batch Lifecycle (Phase 5) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowExpiryModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Clock size={16} style={{ color: '#ef4444' }} />
+                        <span>{lang === 'bn' ? '⏰ মেয়াদোত্তীর্ণ ট্র্যাকার (FEFO)' : '⏰ Expiry Tracker'}</span>
+                      </button>
+
+                      {/* Shelf Price Talker & Label Studio (Phase 5) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowShelfLabelModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <Tag size={16} style={{ color: '#f59e0b' }} />
+                        <span>{lang === 'bn' ? '🏷️ তাকের প্রাইস ট্যাগ স্টুডিও' : '🏷️ Shelf Price Studio'}</span>
                       </button>
 
                       {/* Categories */}
@@ -3461,6 +3550,63 @@ export const InventoryManager = () => {
         businessSettings={businessSettings}
         lang={lang}
         showToast={showToast}
+      />
+
+      {/* INTER-BRANCH STOCK TRANSFER MODAL (PHASE 5) */}
+      <StockTransferModal
+        isOpen={showStockTransferModal}
+        onClose={() => setShowStockTransferModal(false)}
+        products={products}
+        branches={businessSettings?.branches || []}
+        onConfirmTransfer={(transferData) => {
+          (transferData.items || []).forEach(item => {
+            adjustStock(item.productId, -item.qty, `চালান #${transferData.challanNo} স্থানান্তর`);
+          });
+          showToast(
+            lang === 'bn'
+              ? `চালান #${transferData.challanNo} সফলভাবে ইস্যু হয়েছে (${transferData.totalItemsCount}টি পণ্য)`
+              : `Challan #${transferData.challanNo} issued`,
+            'success'
+          );
+        }}
+        lang={lang}
+      />
+
+      {/* FEFO BATCH & EXPIRY LIFECYCLE TRACKER MODAL (PHASE 5) */}
+      <ExpiryLifecycleTrackerModal
+        isOpen={showExpiryModal}
+        onClose={() => setShowExpiryModal(false)}
+        products={products}
+        onApplyDiscount={(item) => {
+          const discounted = Math.round(item.sellPrice * 0.8);
+          updateProduct(item.productId, { sellPrice: discounted });
+          showToast(lang === 'bn' ? `${item.name} এ ২০% ক্লিয়ারেন্স ছাড় দেওয়া হয়েছে (৳${discounted})` : `Clearance discount applied`, 'success');
+        }}
+        onWriteOffDamage={(item) => {
+          recordDamagedGoods({
+            productId: item.productId,
+            quantity: item.stock,
+            reason: 'মেয়াদোত্তীর্ণ পণ্য বাতিল (Expired)',
+            unitCost: item.costPrice || 0,
+            reportedBy: 'সিস্টেম অটো ট্র্যাকার',
+            date: new Date().toISOString().split('T')[0],
+            actionTaken: 'নষ্ট হিসেবে বাতিল',
+            note: `ব্যাচ #${item.batchNumber} মেয়াদোত্তীর্ণ`
+          });
+          adjustStock(item.productId, -item.stock, 'মেয়াদোত্তীর্ণ বাতিল');
+          showToast(lang === 'bn' ? `${item.name} নষ্ট পণ্য তালিকায় স্থানান্তর করা হয়েছে` : 'Moved to damaged goods', 'warning');
+        }}
+        lang={lang}
+      />
+
+      {/* BARCODE SHELF DESIGNER & PRICE TALKER STUDIO (PHASE 5) */}
+      <BarcodeShelfDesignerModal
+        isOpen={showShelfLabelModal}
+        onClose={() => setShowShelfLabelModal(false)}
+        products={products}
+        initialProduct={selectedStickerProduct || products[0]}
+        businessSettings={businessSettings}
+        lang={lang}
       />
     </div>
   );
