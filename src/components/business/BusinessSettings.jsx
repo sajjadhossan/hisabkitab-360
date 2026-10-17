@@ -526,6 +526,29 @@ export const BusinessSettings = () => {
 
           <button
             type="button"
+            onClick={() => {
+              if (window.__openOfflineCloudResilience) window.__openOfflineCloudResilience();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(56, 189, 248, 0.15)',
+              color: '#0284c7',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Cloud size={14} />
+            <span>{lang === 'bn' ? 'অফলাইন ও ক্লাউড রেজিলিয়েন্স (Phase 9)' : 'Offline & Cloud Resilience'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveSubTab('commercial')}
             style={{
               padding: '6px 14px',

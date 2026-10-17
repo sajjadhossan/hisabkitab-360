@@ -117,6 +117,9 @@ const CustomerLifetimeValueModal = lazyNamed(() => import('./components/intellig
 const SpecializedVerticalsHubModal = lazyNamed(() => import('./components/verticals/SpecializedVerticalsHubModal'), 'SpecializedVerticalsHubModal');
 const PharmacyClinicalAssistanceModal = lazyNamed(() => import('./components/healthcare/PharmacyClinicalAssistanceModal'), 'PharmacyClinicalAssistanceModal');
 
+// Phase 9 Offline-First Synchronization & Backend Resilience
+const OfflineCloudResilienceHubModal = lazyNamed(() => import('./components/offline/OfflineCloudResilienceHubModal'), 'OfflineCloudResilienceHubModal');
+
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
@@ -199,6 +202,9 @@ const AppContent = () => {
   const [showSpecializedVerticalsModal, setShowSpecializedVerticalsModal] = useState(false);
   const [showPharmacyClinicalModal, setShowPharmacyClinicalModal] = useState(false);
 
+  // Phase 9 Offline & Cloud Resilience Modal State
+  const [showOfflineCloudResilienceModal, setShowOfflineCloudResilienceModal] = useState(false);
+
   React.useEffect(() => {
     telemetryService.init();
     pwaSyncManager.register();
@@ -216,6 +222,9 @@ const AppContent = () => {
     // Phase 8 Window Triggers
     window.__openSpecializedVerticals = () => setShowSpecializedVerticalsModal(true);
     window.__openPharmacyClinical = () => setShowPharmacyClinicalModal(true);
+
+    // Phase 9 Window Triggers
+    window.__openOfflineCloudResilience = () => setShowOfflineCloudResilienceModal(true);
 
     // Phase 6 Feature 60: Auto-lock on inactivity
     const cleanupWatchdog = initInactivityWatchdog(() => {
@@ -235,6 +244,7 @@ const AppContent = () => {
       delete window.__openClvIntelligence;
       delete window.__openSpecializedVerticals;
       delete window.__openPharmacyClinical;
+      delete window.__openOfflineCloudResilience;
       if (typeof cleanupWatchdog === 'function') cleanupWatchdog();
     };
   }, [lockScreen]);
@@ -1040,6 +1050,15 @@ const AppContent = () => {
           <PharmacyClinicalAssistanceModal
             isOpen={showPharmacyClinicalModal}
             onClose={() => setShowPharmacyClinicalModal(false)}
+            lang={lang}
+          />
+        )}
+
+        {/* Phase 9 Features 81-90: Offline Engine & Cloud Resilience Hub Modal */}
+        {showOfflineCloudResilienceModal && (
+          <OfflineCloudResilienceHubModal
+            isOpen={showOfflineCloudResilienceModal}
+            onClose={() => setShowOfflineCloudResilienceModal(false)}
             lang={lang}
           />
         )}

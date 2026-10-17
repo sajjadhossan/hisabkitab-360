@@ -24,6 +24,7 @@ import {
   TrendingUp,
   UtensilsCrossed,
   Stethoscope,
+  Cloud,
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -260,6 +261,17 @@ export const CommandPaletteModal = () => {
         icon: Stethoscope,
         action: () => {
           if (window.__openPharmacyClinical) window.__openPharmacyClinical();
+        }
+      },
+      // Phase 9 Offline-First Synchronization & Backend Resilience
+      {
+        id: 'cmd_offline_resilience',
+        category: lang === 'bn' ? 'রেজিলিয়েন্স' : 'Resilience',
+        title: lang === 'bn' ? '☁️ অফলাইন ও ক্লাউড রেজিলিয়েন্স হাব (Phase 9)' : '☁️ Offline & Cloud Resilience Hub',
+        subtitle: lang === 'bn' ? 'নেটবিহীন ফুল অফলাইন মোড, ডেল্টা সিঙ্ক, ল্যান পিয়ার ও এনক্রিপ্টেড ক্লাউড ব্যাকআপ' : '100% offline engine, smart delta sync, P2P LAN & encrypted backup',
+        icon: Cloud,
+        action: () => {
+          if (window.__openOfflineCloudResilience) window.__openOfflineCloudResilience();
         }
       }
     ];

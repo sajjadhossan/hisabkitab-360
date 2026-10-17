@@ -1124,6 +1124,18 @@ export const Navbar = () => {
               <Palette size={17} />
             </button>
 
+            {/* Phase 9: Offline & Cloud Resilience Hub Modal Trigger */}
+            <button
+              className="btn-icon press-scale"
+              onClick={() => {
+                if (window.__openOfflineCloudResilience) window.__openOfflineCloudResilience();
+              }}
+              title={lang === 'bn' ? 'অফলাইন ও ক্লাউড রেজিলিয়েন্স হাব (Phase 9)' : 'Offline & Cloud Resilience Hub (Phase 9)'}
+              style={{ transition: 'transform 0.1s ease', flexShrink: 0, color: '#10b981' }}
+            >
+              <Cloud size={17} />
+            </button>
+
             {/* High-Density Compact Mode Switch */}
             <button
               className="btn-icon press-scale"
