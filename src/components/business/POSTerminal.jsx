@@ -58,8 +58,10 @@ import {
   ChevronRight,
   Truck,
   Gift,
-  Zap
+  Zap,
+  QrCode
 } from 'lucide-react';
+import { StaffQrScannerModal } from './attendance/StaffQrScannerModal';
 import { QuickFilterManagerModal } from '../pos/QuickFilterManagerModal';
 import { POSProductCard } from '../pos/POSProductCard';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -275,7 +277,8 @@ export const POSTerminal = () => {
     lang,
     posDisplayMode = 'image_grid',
     updatePosDisplayMode,
-    activeIndustryId
+    activeIndustryId,
+    employees = []
   } = useApp();
 
   const [selectedTable, setSelectedTable] = useState('T-1');
@@ -286,6 +289,7 @@ export const POSTerminal = () => {
   const [showClosingModal, setShowClosingModal] = useState(false);
   const [showRecentSalesModal, setShowRecentSalesModal] = useState(false);
   const [lastCompletedSale, setLastCompletedSale] = useState(null);
+  const [showAttendanceQrModal, setShowAttendanceQrModal] = useState(false);
 
   // Live Real-Time Clock
   const [currentTime, setCurrentTime] = useState(() => {
@@ -2031,8 +2035,29 @@ export const POSTerminal = () => {
         {/* Top Action Clusters: Shift, Operations, Hardware & Utilities */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           
-          {/* Cluster 1: Shift & Cash Management */}
+          {/* Cluster 1: Shift, Attendance & Cash Management */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '8px', borderRight: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              onClick={() => setShowAttendanceQrModal(true)}
+              className="btn btn-secondary press-scale"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                border: '1px solid rgba(16, 185, 129, 0.35)'
+              }}
+              title="স্টাফ/ক্যাশিয়ার কিউআর হাজিরা দিন"
+            >
+              <QrCode size={14} />
+              <span>{lang === 'bn' ? '📷 কিউআর হাজিরা' : 'Attendance'}</span>
+            </button>
             {isSalesman ? (
               <div style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Sparkles size={14} />
@@ -5618,6 +5643,16 @@ export const POSTerminal = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* STAFF QR ATTENDANCE MODAL FOR CASHIERS & COUNTER OPERATORS */}
+      {showAttendanceQrModal && (
+        <StaffQrScannerModal
+          isOpen={showAttendanceQrModal}
+          onClose={() => setShowAttendanceQrModal(false)}
+          employees={employees}
+          defaultTab="scan_id"
+        />
       )}
     </div>
   );

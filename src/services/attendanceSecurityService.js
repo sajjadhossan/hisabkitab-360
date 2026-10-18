@@ -17,12 +17,12 @@ const STORAGE_KEYS = {
   TELEGRAM_CONFIG: 'hk360_telegram_hr_config'
 };
 
-// Default Office Geolocation (e.g., Dhaka HQ Coordinates, 5-15m strict geofence)
+// Default Office Geolocation (Strict 5-10m geofence)
 export const DEFAULT_OFFICE_SETTINGS = {
   officeName: 'প্রধান কার্যালয় / শোরুম',
   latitude: 23.7925,   // Configurable Office Lat
   longitude: 90.4078,  // Configurable Office Long
-  allowedRadiusMeters: 15, // Strict 5-15 meter radius
+  allowedRadiusMeters: 10, // Strict 5-10 meter radius
   gracePeriodMinutes: 15,
   standardShiftHours: 8,
   otRateMultiplier: 1.5,
@@ -52,12 +52,12 @@ export const saveOfficeGeoSettings = (settings) => {
 };
 
 /**
- * Dynamic Rolling Office QR Token (Rotates every 12-15 seconds)
- * Prevents staff from taking a picture of the QR and scanning from home.
+ * Dynamic Rolling Office QR Token (Rotates every 6 seconds, 5-7 seconds window)
+ * Strict Anti-Photo Fraud: prevents staff from taking a picture of the QR code.
  */
 export const generateDynamicOfficeToken = (officeSettings = getOfficeGeoSettings()) => {
   const now = Date.now();
-  const windowId = Math.floor(now / 12000); // 12-second rolling window
+  const windowId = Math.floor(now / 6000); // 6-second rolling window (5-7 seconds)
   // Lightweight cryptographic signature
   const salt = `HK360_GEO_${officeSettings.latitude}_${officeSettings.longitude}_${windowId}`;
   let hash = 0;
@@ -71,8 +71,8 @@ export const generateDynamicOfficeToken = (officeSettings = getOfficeGeoSettings
     type: 'HK360_DYNAMIC_ATTENDANCE',
     windowId,
     timestamp: now,
-    expiresAt: (windowId + 1) * 12000,
-    remainingSeconds: Math.max(1, Math.round(((windowId + 1) * 12000 - now) / 1000)),
+    expiresAt: (windowId + 1) * 6000,
+    remainingSeconds: Math.max(1, Math.round(((windowId + 1) * 6000 - now) / 1000)),
     tokenSig
   };
 };
@@ -83,15 +83,15 @@ export const verifyDynamicOfficeToken = (tokenObj, officeSettings = getOfficeGeo
   }
 
   const now = Date.now();
-  // Reject if token is older than 20 seconds
-  if (now - tokenObj.timestamp > 20000) {
-    return { valid: false, error: '⚠️ কিউআর কোডের মেয়াদ শেষ! দয়া করে অফিস ডিসপ্লে থেকে লাইভ কিউআর স্ক্যান করুন।' };
+  // Reject if token is older than 12 seconds
+  if (now - tokenObj.timestamp > 12000) {
+    return { valid: false, error: '⚠️ কিউআর কোডের মেয়াদ (৫-৭ সেকেন্ড) শেষ! দয়া করে অফিস ডিসপ্লে থেকে লাইভ কিউআর স্ক্যান করুন।' };
   }
 
-  // Validate window match (allow current window or immediate previous window for network latency)
-  const currentWindow = Math.floor(now / 12000);
+  // Validate window match (allow current 6s window or immediate previous 6s window)
+  const currentWindow = Math.floor(now / 6000);
   if (tokenObj.windowId !== currentWindow && tokenObj.windowId !== (currentWindow - 1)) {
-    return { valid: false, error: '⚠️ এই কিউআর কোডটি বাতিল হয়ে গেছে। ডিসপ্লেতে নতুন কোডটি স্ক্যান করুন।' };
+    return { valid: false, error: '⚠️ এই কিউআর কোডটি বাতিল হয়ে গেছে। ডিসপ্লেতে চলমান নতুন কোডটি স্ক্যান করুন।' };
   }
 
   return { valid: true };

@@ -27,7 +27,8 @@ import {
   ClipboardList,
   Sparkles,
   Fingerprint,
-  Send
+  Send,
+  QrCode
 } from 'lucide-react';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
@@ -35,6 +36,7 @@ import { triggerSoundboxPayment } from '../../services/soundboxService';
 import { StaffAttendanceSheet } from './attendance/StaffAttendanceSheet';
 import { MonthlyAttendanceReport } from './attendance/MonthlyAttendanceReport';
 import { TelegramConfigModal } from './attendance/TelegramConfigModal';
+import { StaffQrScannerModal } from './attendance/StaffQrScannerModal';
 
 export const HRPayroll = () => {
   const {
@@ -57,6 +59,8 @@ export const HRPayroll = () => {
   // Primary sub-tab: 'attendance' | 'attendance_report' | 'payroll' | 'delivery'
   const [activeSubTab, setActiveSubTab] = useState('attendance');
   const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [showQrScannerModal, setShowQrScannerModal] = useState(false);
+  const [selectedEmpForQr, setSelectedEmpForQr] = useState(null);
 
   // ----------------------------------------------------
   // PAYROLL STATE
@@ -265,6 +269,24 @@ export const HRPayroll = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary press-scale"
+            style={{
+              borderColor: 'rgba(16, 185, 129, 0.4)',
+              color: '#10b981',
+              fontWeight: '800',
+              background: 'rgba(16, 185, 129, 0.08)'
+            }}
+            onClick={() => {
+              setSelectedEmpForQr(null);
+              setShowQrScannerModal(true);
+            }}
+          >
+            <QrCode size={16} />
+            <span>{lang === 'bn' ? '📷 কিউআর হাজিরা টার্মিনাল' : 'QR Attendance Terminal'}</span>
+          </button>
+
           {activeSubTab === 'delivery' ? (
             <button
               className="btn btn-primary"
@@ -864,6 +886,26 @@ export const HRPayroll = () => {
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <div style={{ display: 'inline-flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              color: '#10b981',
+                              borderColor: 'rgba(16, 185, 129, 0.4)',
+                              fontWeight: '700'
+                            }}
+                            onClick={() => {
+                              setSelectedEmpForQr(emp);
+                              setShowQrScannerModal(true);
+                            }}
+                            title={lang === 'bn' ? `${emp.name}-এর কিউআর হাজিরা দিন` : `QR Attendance for ${emp.name}`}
+                          >
+                            <QrCode size={13} />
+                            <span>{lang === 'bn' ? 'হাজিরা' : 'Punch'}</span>
+                          </button>
+
                           {emp.status !== 'Paid' ? (
                             <button
                               className="btn btn-primary"
@@ -1544,6 +1586,19 @@ export const HRPayroll = () => {
           isOpen={showTelegramModal}
           onClose={() => setShowTelegramModal(false)}
           totalStaff={employees.length}
+        />
+      )}
+
+      {/* STAFF QR ATTENDANCE MODAL */}
+      {showQrScannerModal && (
+        <StaffQrScannerModal
+          isOpen={showQrScannerModal}
+          onClose={() => {
+            setShowQrScannerModal(false);
+            setSelectedEmpForQr(null);
+          }}
+          employees={employees}
+          defaultEmployee={selectedEmpForQr}
         />
       )}
     </div>
