@@ -224,6 +224,17 @@ export const StaffQrScannerModal = ({
   const handleCalibrateOfficeLocation = async () => {
     setIsCalibratingGps(true);
     try {
+      // Proactively prompt native permission dialog on Android APK
+      if (typeof window !== 'undefined' && window.AndroidPermissionBridge) {
+        if (!window.AndroidPermissionBridge.hasPermission('location')) {
+          if (typeof window.AndroidPermissionBridge.requestLocationPermissions === 'function') {
+            window.AndroidPermissionBridge.requestLocationPermissions();
+          } else {
+            window.AndroidPermissionBridge.requestPermission('location');
+          }
+        }
+      }
+
       const loc = await getVerifiedLocation({ ...officeSettings, allowedRadiusMeters: 99999 });
       const updated = saveOfficeGeoSettings({
         latitude: loc.latitude,
@@ -962,6 +973,30 @@ export const StaffQrScannerModal = ({
                 <MapPin size={16} />
                 <span>{isCalibratingGps ? 'জিপিএস নির্ণয় হচ্ছে...' : '📍 বর্তমান অবস্থানকে অফিস হিসেবে সেভ করুন'}</span>
               </button>
+
+              {/* Native App Permission Shortcut */}
+              {typeof window !== 'undefined' && window.AndroidLocationBridge && (
+                <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        window.AndroidLocationBridge.openAppSettings();
+                      } catch {}
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.72rem',
+                      textDecoration: 'underline',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚙️ ফোনের অ্যাপ পারমিশন সেটিংস খুলুন
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Allowed Radius Selector (5m - 10m) */}

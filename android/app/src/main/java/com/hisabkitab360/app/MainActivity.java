@@ -86,6 +86,21 @@ public class MainActivity extends BridgeActivity {
                 webView.getSettings().setAllowFileAccess(true);
                 webView.getSettings().setAllowContentAccess(true);
                 webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+                webView.getSettings().setGeolocationEnabled(true);
+                webView.getSettings().setGeolocationDatabasePath(getFilesDir().getPath());
+
+                // Auto-grant Web Geolocation and Permission requests inside APK
+                webView.setWebChromeClient(new WebChromeClient() {
+                    @Override
+                    public void onGeolocationPermissionsShowPrompt(String origin, android.webkit.GeolocationPermissions.Callback callback) {
+                        callback.invoke(origin, true, false);
+                    }
+
+                    @Override
+                    public void onPermissionRequest(final PermissionRequest request) {
+                        request.grant(request.getResources());
+                    }
+                });
 
                 // 1. Android Native Print Bridge for Invoices, Prescriptions & Reports
                 webView.addJavascriptInterface(new AndroidNativePrintBridge(), "AndroidPrintBridge");
@@ -106,7 +121,10 @@ public class MainActivity extends BridgeActivity {
                 // 6. Android Native On-Demand Permission Bridge
                 webView.addJavascriptInterface(new AndroidNativePermissionBridge(), "AndroidPermissionBridge");
 
-                // 7. Android WebView Download Listener Fallback
+                // 7. Android Native GPS Geofencing Location Bridge (5-10m Strict)
+                webView.addJavascriptInterface(new AndroidNativeLocationBridge(), "AndroidLocationBridge");
+
+                // 8. Android WebView Download Listener Fallback
                 webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
                     try {
                         android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW);
@@ -488,12 +506,24 @@ public class MainActivity extends BridgeActivity {
             }
         }
 
+        @android.webkit.JavascriptInterface
+        public void requestLocationPermissions() {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+            runOnUiThread(() -> {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                }, PERMISSION_REQ_CODE);
+            });
+        }
+
         private String resolvePermission(String permName) {
             if (permName == null) return null;
             switch (permName.toLowerCase()) {
                 case "camera": return Manifest.permission.CAMERA;
                 case "microphone":
                 case "audio": return Manifest.permission.RECORD_AUDIO;
+                case "location": return Manifest.permission.ACCESS_FINE_LOCATION;
                 case "notification":
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         return Manifest.permission.POST_NOTIFICATIONS;
@@ -505,6 +535,78 @@ public class MainActivity extends BridgeActivity {
                     }
                     return null;
                 default: return null;
+            }
+        }
+    }
+
+    // =========================================================================
+    // 7. NATIVE ANDROID GPS LOCATION BRIDGE (5-10m Strict Geofencing)
+    // =========================================================================
+    public class AndroidNativeLocationBridge {
+        @android.webkit.JavascriptInterface
+        public String getLocation() {
+            try {
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    runOnUiThread(() -> {
+                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        }, PERMISSION_REQ_CODE);
+                    });
+                    return "{\"error\":\"PERMISSION_REQUIRED\"}";
+                }
+                android.location.LocationManager lm = (android.location.LocationManager) getSystemService(android.content.Context.LOCATION_SERVICE);
+                if (lm == null) return "{\"error\":\"NO_LOCATION_SERVICE\"}";
+
+                android.location.Location loc = null;
+                if (lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
+                    loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER);
+                }
+                if (loc == null && lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)) {
+                    loc = lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER);
+                }
+                if (loc != null) {
+                    org.json.JSONObject obj = new org.json.JSONObject();
+                    obj.put("latitude", loc.getLatitude());
+                    obj.put("longitude", loc.getLongitude());
+                    obj.put("accuracy", loc.getAccuracy());
+                    obj.put("timestamp", loc.getTime());
+                    return obj.toString();
+                }
+                return "{\"error\":\"WAITING_FOR_GPS_FIX\"}";
+            } catch (Exception e) {
+                return "{\"error\":\"" + e.getMessage() + "\"}";
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean isGpsEnabled() {
+            try {
+                android.location.LocationManager lm = (android.location.LocationManager) getSystemService(android.content.Context.LOCATION_SERVICE);
+                return lm != null && (lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER));
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void openLocationSettings() {
+            try {
+                android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                startActivity(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void openAppSettings() {
+            try {
+                android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(android.net.Uri.fromParts("package", getPackageName(), null));
+                startActivity(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }

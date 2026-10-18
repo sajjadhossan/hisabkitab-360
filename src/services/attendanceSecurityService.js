@@ -133,7 +133,48 @@ export const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
 
 export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
+    // 1. If running inside Android APK with Native Location Bridge
+    if (typeof window !== 'undefined' && window.AndroidLocationBridge) {
+      try {
+        // Request runtime permission if not granted
+        if (window.AndroidPermissionBridge && !window.AndroidPermissionBridge.hasPermission('location')) {
+          if (typeof window.AndroidPermissionBridge.requestLocationPermissions === 'function') {
+            window.AndroidPermissionBridge.requestLocationPermissions();
+          } else {
+            window.AndroidPermissionBridge.requestPermission('location');
+          }
+        }
+
+        const rawLoc = window.AndroidLocationBridge.getLocation();
+        if (rawLoc) {
+          const parsed = JSON.parse(rawLoc);
+          if (parsed.latitude && parsed.longitude) {
+            const accuracy = Math.round(parsed.accuracy || 10);
+            const distance = calculateHaversineDistance(
+              parsed.latitude,
+              parsed.longitude,
+              officeSettings.latitude,
+              officeSettings.longitude
+            );
+            const isInside = distance <= Math.max(officeSettings.allowedRadiusMeters || 10, Math.min(accuracy, 25));
+
+            return resolve({
+              latitude: parsed.latitude,
+              longitude: parsed.longitude,
+              accuracy,
+              distanceMeters: distance,
+              isInside,
+              allowedRadius: officeSettings.allowedRadiusMeters || 10
+            });
+          }
+        }
+      } catch (nativeErr) {
+        console.warn('Native location bridge fallback to webview:', nativeErr);
+      }
+    }
+
+    // 2. Standard Web / HTML5 Geolocation API
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
       return reject(new Error('আপনার ডিভাইসে জিপিএস লোকেশন সাপোর্ট করে না'));
     }
 
@@ -154,7 +195,7 @@ export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => 
         );
 
         // Allow up to allowed radius or accuracy tolerance
-        const isInside = distance <= Math.max(officeSettings.allowedRadiusMeters || 15, Math.min(Math.round(accuracy), 30));
+        const isInside = distance <= Math.max(officeSettings.allowedRadiusMeters || 10, Math.min(Math.round(accuracy), 25));
 
         resolve({
           latitude,
@@ -162,16 +203,34 @@ export const getVerifiedLocation = (officeSettings = getOfficeGeoSettings()) => 
           accuracy: Math.round(accuracy),
           distanceMeters: distance,
           isInside,
-          allowedRadius: officeSettings.allowedRadiusMeters || 15
+          allowedRadius: officeSettings.allowedRadiusMeters || 10
         });
       },
       (err) => {
+        const isNative = typeof window !== 'undefined' && (!!window.AndroidLocationBridge || !!window.AndroidPermissionBridge || !!window.Capacitor);
+        
+        // Trigger native permission request dialog if available
+        if (isNative && window.AndroidPermissionBridge) {
+          if (typeof window.AndroidPermissionBridge.requestLocationPermissions === 'function') {
+            window.AndroidPermissionBridge.requestLocationPermissions();
+          } else {
+            window.AndroidPermissionBridge.requestPermission('location');
+          }
+        }
+
         let msg = 'লোকেশন এক্সেস পাওয়া যায়নি';
-        if (err.code === 1) msg = 'লোকেশন পারমিশন ডিনাই করা হয়েছে। ব্রাউজার সেটিংসে লোকেশন অন করুন।';
-        if (err.code === 2) msg = 'জিপিএস পজিশন নির্ণয় করা যায়নি। নেটওয়ার্ক চেক করুন।';
+        if (err.code === 1) {
+          msg = isNative
+            ? 'লোকেশন পারমিশন বন্ধ আছে। ফোনের স্ক্রিনে পারমিশন এলে Allow দিন অথবা ফোনের Settings > Apps > HisabKitab 360 > Permissions থেকে Location চালু করুন।'
+            : 'লোকেশন পারমিশন ডিনাই করা হয়েছে। ব্রাউজার সেটিংসে লোকেশন অন করুন।';
+        } else if (err.code === 2) {
+          msg = 'জিপিএস পজিশন নির্ণয় করা যায়নি। ফোনের নোটিফিকেশন বার থেকে Location (GPS) চালু আছে কিনা চেক করুন।';
+        } else if (err.code === 3) {
+          msg = 'জিপিএস রেসপন্স টাইমআউট হয়েছে। খোলা জায়গায় এসে আবার চেষ্টা করুন।';
+        }
         reject(new Error(msg));
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   });
 };
