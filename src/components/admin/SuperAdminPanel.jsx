@@ -77,6 +77,7 @@ export const SuperAdminPanel = () => {
     clientLicensesRegistry = [],
     registerNewClientLicense,
     updateClientLicense,
+    approveClientLicense,
     deleteClientLicense,
     toggleLicenseModule,
     applyPackagePreset,
@@ -2893,6 +2894,108 @@ export const SuperAdminPanel = () => {
               </div>
             </div>
 
+            {/* Pending Requests Alert Banner */}
+            {clientLicensesRegistry.filter(l => l.status === 'pending_approval').length > 0 && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1.5px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: '14px',
+                padding: '1.25rem',
+                marginBottom: '1.5rem',
+                boxShadow: '0 4px 20px rgba(245, 158, 11, 0.15)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontWeight: '800', fontSize: '1rem' }}>
+                    <span style={{ fontSize: '1.3rem' }}>⏳</span>
+                    <span>অনুমোদনের অপেক্ষমাণ ক্লায়েন্ট রিকোয়েস্ট ({clientLicensesRegistry.filter(l => l.status === 'pending_approval').length}টি)</span>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>গ্রাহকের পেমেন্ট পাওয়ার পর যেকোনো একটি বাটনে ক্লিক করে অনুমোদন দিন</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {clientLicensesRegistry.filter(l => l.status === 'pending_approval').map(pending => (
+                    <div key={pending.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--card-bg)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '0.95rem' }}>{pending.clientShopName}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          <span>📧 {pending.clientEmail}</span>
+                          {pending.clientPhone && <span>📞 {pending.clientPhone}</span>}
+                          <span>📅 {pending.issuedDate || pending.requestedDate || 'অপেক্ষমাণ'}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => approveClientLicense(pending.id, { planName: 'Standard Commercial Suite', durationMonths: 12 })}
+                          className="btn"
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            fontWeight: '800',
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)'
+                          }}
+                        >
+                          <Check size={14} /> ✓ ১ বছর অনুমোদন
+                        </button>
+                        <button
+                          onClick={() => approveClientLicense(pending.id, { planName: 'Enterprise Lifetime License', durationMonths: 0 })}
+                          className="btn"
+                          style={{
+                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            fontWeight: '800',
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          👑 লাইফটাইম অনুমোদন
+                        </button>
+                        <button
+                          onClick={() => handleCopyClientDeliveryMessage(pending)}
+                          className="btn"
+                          title="হোয়াটসঅ্যাপে ডেলিভারি মেসেজ কপি করুন"
+                          style={{
+                            background: 'rgba(37, 211, 102, 0.15)',
+                            color: '#25d366',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <MessageCircle size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Registry Table */}
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
@@ -2941,56 +3044,97 @@ export const SuperAdminPanel = () => {
                               fontFamily: 'var(--font-mono)',
                               fontSize: '0.82rem',
                               fontWeight: '800',
-                              color: '#10b981',
+                              color: lic.licenseKey === 'PENDING_APPROVAL' ? '#f59e0b' : '#10b981',
                               background: 'rgba(0, 0, 0, 0.25)',
                               padding: '3px 8px',
                               borderRadius: '4px'
                             }}>
                               {lic.licenseKey}
                             </code>
-                            <button
-                              onClick={() => handleCopyKey(lic.licenseKey)}
-                              className="btn"
-                              title="কি কপি করুন"
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                padding: '3px',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <Copy size={14} />
-                            </button>
+                            {lic.licenseKey !== 'PENDING_APPROVAL' && (
+                              <button
+                                onClick={() => handleCopyKey(lic.licenseKey)}
+                                className="btn"
+                                title="কি কপি করুন"
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--text-muted)',
+                                  padding: '3px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <Copy size={14} />
+                              </button>
+                            )}
                           </div>
                         </td>
                         <td style={{ padding: '12px 14px' }}>
-                          <button
-                            onClick={() => {
-                              const newStatus = lic.status === 'active' ? 'suspended' : 'active';
-                              updateClientLicense(lic.id, { status: newStatus });
-                            }}
-                            className="btn"
-                            title="স্ট্যাটাস পরিবর্তন করুন"
-                            style={{
-                              background: lic.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: lic.status === 'active' ? '#10b981' : '#ef4444',
-                              border: `1px solid ${lic.status === 'active' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                          {lic.status === 'pending_approval' ? (
+                            <span style={{
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              color: '#f59e0b',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
                               padding: '4px 10px',
                               borderRadius: '12px',
                               fontSize: '0.75rem',
                               fontWeight: '800',
-                              cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px'
-                            }}
-                          >
-                            {lic.status === 'active' ? '🟢 Active' : '⛔ Suspended'}
-                          </button>
+                            }}>
+                              ⏳ অপেক্ষমাণ
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const newStatus = lic.status === 'active' ? 'suspended' : 'active';
+                                updateClientLicense(lic.id, { status: newStatus });
+                              }}
+                              className="btn"
+                              title="স্ট্যাটাস পরিবর্তন করুন"
+                              style={{
+                                background: lic.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                color: lic.status === 'active' ? '#10b981' : '#ef4444',
+                                border: `1px solid ${lic.status === 'active' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {lic.status === 'active' ? '🟢 Active' : '⛔ Suspended'}
+                            </button>
+                          )}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            {lic.status === 'pending_approval' && (
+                              <button
+                                onClick={() => approveClientLicense(lic.id, { planName: 'Standard Commercial Suite', durationMonths: 12 })}
+                                className="btn"
+                                title="অনুমোদন করুন"
+                                style={{
+                                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Check size={13} /> অনুমোদন
+                              </button>
+                            )}
                             <button
                               onClick={() => handleCopyClientDeliveryMessage(lic)}
                               className="btn"

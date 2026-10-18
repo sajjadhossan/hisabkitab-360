@@ -757,15 +757,17 @@ export const AuthProvider = ({ children }) => {
       setAuthLoading(false);
       if (data?.session?.user) {
         const meta = data.session.user.user_metadata || {};
+        const isMaster = cleanEmail === 'hossansajjad1994@gmail.com';
         const newUser = {
           id: data.session.user.id,
           email: data.session.user.email,
           name: meta.name || name,
-          role: meta.role || role,
+          role: isMaster ? 'superadmin' : (meta.role || role),
           shopName: meta.shopName || shopName,
           phone: meta.phone || phone,
           pin: meta.pin || pin,
-          isSupabaseUser: true
+          isSupabaseUser: true,
+          isApproved: isMaster
         };
         const passwordHash = await hashCredentialAsync(password);
         const vault = getOfflineVault();
@@ -777,9 +779,56 @@ export const AuthProvider = ({ children }) => {
         saveOfflineVault(vault);
         setUser(newUser);
         setIsAuthModalOpen(false);
+
+        // Register in client licenses registry as pending_approval if not master
+        try {
+          const rawReg = localStorage.getItem('hk360_client_licenses_registry');
+          const regList = rawReg ? JSON.parse(rawReg) : [];
+          if (!regList.some(r => (r.clientEmail || '').toLowerCase() === cleanEmail)) {
+            const pendingLic = {
+              id: `lic-${Date.now()}`,
+              clientShopName: (shopName || 'আমার প্রতিষ্ঠান').trim(),
+              clientEmail: cleanEmail,
+              clientPhone: (phone || '').trim(),
+              planName: isMaster ? 'Master Super Admin Lifetime' : 'Pending Master Approval',
+              expiryDate: isMaster ? '2099-12-31' : 'অপেক্ষমাণ',
+              licenseKey: isMaster ? 'HK360-MASTER-ENTERPRISE-LIFETIME-2099' : 'PENDING_APPROVAL',
+              status: isMaster ? 'active' : 'pending_approval',
+              issuedDate: new Date().toISOString().split('T')[0]
+            };
+            regList.unshift(pendingLic);
+            localStorage.setItem('hk360_client_licenses_registry', JSON.stringify(regList));
+            broadcastLiveEvent('CLIENT_LICENSE_REQUEST', { license: pendingLic });
+          }
+        } catch (e) {
+          console.warn('Failed to record pending license request:', e);
+        }
+
         return { success: true, user: newUser };
 
       } else {
+        // Also record pending registration intent if email confirmation is required
+        try {
+          const rawReg = localStorage.getItem('hk360_client_licenses_registry');
+          const regList = rawReg ? JSON.parse(rawReg) : [];
+          if (!regList.some(r => (r.clientEmail || '').toLowerCase() === cleanEmail)) {
+            const pendingLic = {
+              id: `lic-${Date.now()}`,
+              clientShopName: (shopName || 'আমার প্রতিষ্ঠান').trim(),
+              clientEmail: cleanEmail,
+              clientPhone: (phone || '').trim(),
+              planName: 'Pending Master Approval',
+              expiryDate: 'অপেক্ষমাণ',
+              licenseKey: 'PENDING_APPROVAL',
+              status: 'pending_approval',
+              issuedDate: new Date().toISOString().split('T')[0]
+            };
+            regList.unshift(pendingLic);
+            localStorage.setItem('hk360_client_licenses_registry', JSON.stringify(regList));
+            broadcastLiveEvent('CLIENT_LICENSE_REQUEST', { license: pendingLic });
+          }
+        } catch {}
+
         setAuthSuccess('রেজিস্ট্রেশন সফল হয়েছে! সুপাবেস থেকে আপনার ইমেইলে কনফার্মেশন লিংক পাঠানো হয়েছে। ইমেইল ভেরিফাই করার পর সাইন ইন করুন।');
         return { success: true, requireConfirmation: true };
       }

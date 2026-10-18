@@ -183,10 +183,13 @@ const AppContent = () => {
     salesHistory = [],
     debtRecords = [],
     isThemeCustomizerOpen = false,
-    closeThemeCustomizer = () => {}
+    closeThemeCustomizer = () => {},
+    activateSoftwareWithKey = () => {}
   } = appContext;
-  const { user = null, openAuthModal = () => {}, isAuthModalOpen = false, closeAuthModal = () => {}, isSuperAdmin = false } = useAuth() || {};
+  const { user = null, openAuthModal = () => {}, isAuthModalOpen = false, closeAuthModal = () => {}, isSuperAdmin = false, logout = () => {} } = useAuth() || {};
 
+  const [unlockKeyInput, setUnlockKeyInput] = useState('');
+  const [unlockError, setUnlockError] = useState('');
   const [showNightlyPrompt, setShowNightlyPrompt] = useState(false);
   const [showAuditTrailModal, setShowAuditTrailModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -644,74 +647,283 @@ const AppContent = () => {
       );
     }
 
-    // Check if software is expired or suspended and current user is not super admin
-    const isLockedOut = (licenseInfo?.status === 'expired' || licenseInfo?.status === 'suspended') && !isSuperAdmin && activeTab !== 'super_admin';
+    // Commercial License Gate: Check if user is pending approval, expired, suspended, or unlicensed
+    const isLicenseActive = licenseInfo?.status === 'active' || isSuperAdmin;
+    const isLockedOut = !isLicenseActive && activeTab !== 'super_admin';
+
     if (isLockedOut) {
+      const isPending = licenseInfo?.status === 'pending_approval' || licenseInfo?.status === 'unlicensed' || !licenseInfo?.status;
+      const isSuspended = licenseInfo?.status === 'suspended';
+
+      const clientName = user?.name || 'ব্যবহারকারী';
+      const clientShop = user?.shopName || licenseInfo?.clientShopName || 'আমার প্রতিষ্ঠান';
+      const clientEmail = user?.email || licenseInfo?.clientEmail || '';
+      const clientPhone = user?.phone || '';
+
+      const resellerPhone = licenseInfo?.resellerPhone || '+880 1700-000000';
+      const rawWaPhone = resellerPhone.replace(/[^0-9]/g, '');
+      const waNumber = rawWaPhone.startsWith('880') ? rawWaPhone : `880${rawWaPhone.replace(/^0+/, '')}`;
+
+      const waMessage = encodeURIComponent(
+        `হ্যালো সাজ্জাদ ভাই, আমি হিসাবকিতাব ৩৬০-এ নতুন অ্যাকাউন্ট খুলেছি।\n` +
+        `প্রতিষ্ঠান: ${clientShop}\n` +
+        `নাম: ${clientName}\n` +
+        `ইমেইল: ${clientEmail}\n` +
+        `${clientPhone ? `মোবাইল: ${clientPhone}\n` : ''}` +
+        `অনুগ্রহ করে আমার সফটওয়্যার লাইসেন্সটি সক্রিয় করে দিন।`
+      );
+
+      const handleQuickUnlock = (e) => {
+        e.preventDefault();
+        setUnlockError('');
+        if (!unlockKeyInput.trim()) {
+          setUnlockError('অনুগ্রহ করে লাইসেন্স কি প্রবেশ করান');
+          return;
+        }
+        const res = activateSoftwareWithKey(unlockKeyInput.trim(), clientEmail);
+        if (!res?.success) {
+          setUnlockError(res?.message || 'অবৈধ লাইসেন্স কি!');
+        } else {
+          setUnlockKeyInput('');
+        }
+      };
+
       return (
         <div style={{
-          minHeight: '70vh',
+          minHeight: '75vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '2rem',
+          padding: '2rem 1.5rem',
           textAlign: 'center'
         }}>
+          {/* Status Badge & Icon */}
           <div style={{
-            width: '85px',
-            height: '85px',
+            width: '84px',
+            height: '84px',
             borderRadius: '24px',
-            background: 'rgba(239, 68, 68, 0.12)',
-            border: '2px solid #ef4444',
+            background: isPending 
+              ? 'rgba(245, 158, 11, 0.12)' 
+              : 'rgba(239, 68, 68, 0.12)',
+            border: `2px solid ${isPending ? '#f59e0b' : '#ef4444'}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '2.5rem',
             marginBottom: '1.25rem',
-            boxShadow: '0 0 30px rgba(239, 68, 68, 0.3)'
+            boxShadow: `0 0 35px ${isPending ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
           }}>
-            ⛔
+            {isPending ? '⏳' : isSuspended ? '⛔' : '⚠️'}
           </div>
-          <h2 style={{ fontSize: '1.7rem', fontWeight: '900', margin: '0 0 8px', color: '#ef4444' }}>
-            {lang === 'bn' ? 'সফটওয়্যার লাইসেন্সের মেয়াদ শেষ হয়েছে' : 'Software License Expired'}
-          </h2>
-          <p style={{ maxWidth: '520px', fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
-            {lang === 'bn'
-              ? `আপনার প্রতিষ্ঠান "${licenseInfo?.clientShopName || 'দোকান'}" এর সাবস্ক্রিপশন মেয়াদ শেষ। সফটওয়্যারটি পুনরায় সচল করতে অবিলম্বে সফটওয়্যার প্রোভাইডারের সাথে যোগাযোগ করুন।`
-              : 'Your software subscription has expired. Please contact the vendor to renew your license.'}
-          </p>
+
           <div style={{
-            background: 'var(--bg-secondary)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 14px',
+            borderRadius: '20px',
+            background: isPending ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            color: isPending ? '#f59e0b' : '#ef4444',
+            fontWeight: '800',
+            fontSize: '0.82rem',
+            marginBottom: '12px'
+          }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPending ? '#f59e0b' : '#ef4444', display: 'inline-block' }} />
+            <span>
+              {isPending 
+                ? 'অ্যাকাউন্ট অনুমোদনের অপেক্ষায় (Pending Master Approval)' 
+                : isSuspended 
+                  ? 'লাইসেন্স সাময়িক স্থগিত (Suspended)' 
+                  : 'লাইসেন্সের মেয়াদ শেষ (License Expired)'}
+            </span>
+          </div>
+
+          <h2 style={{ fontSize: '1.65rem', fontWeight: '900', margin: '0 0 10px', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+            {isPending 
+              ? 'লাইসেন্স অনুমোদন প্রয়োজন' 
+              : isSuspended 
+                ? 'সফটওয়্যার এক্সেস স্থগিত রয়েছে' 
+                : 'সফটওয়্যার লাইসেন্সের মেয়াদ শেষ হয়েছে'}
+          </h2>
+
+          <p style={{ maxWidth: '520px', fontSize: '0.94rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
+            {isPending
+              ? 'আপনার অ্যাকাউন্টটি সফলভাবে তৈরি হয়েছে। হিসাবকিতাব ৩৬০ একটি বাণিজ্যিক ব্যবসায়িক সফটওয়্যার। আপনার প্রতিষ্ঠানের জন্য সফটওয়্যার লাইসেন্স সক্রিয় করতে অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন অথবা লাইসেন্স কি প্রবেশ করান।'
+              : `আপনার প্রতিষ্ঠান "${clientShop}" এর লাইসেন্স পুনরায় সচল করতে অবিলম্বে সফটওয়্যার প্রোভাইডারের সাথে যোগাযোগ করুন।`}
+          </p>
+
+          {/* Account Summary Card */}
+          <div style={{
+            background: 'var(--card-bg)',
             border: '1px solid var(--border-color)',
-            padding: '1rem 1.5rem',
-            borderRadius: '12px',
+            padding: '1.25rem 1.5rem',
+            borderRadius: '14px',
             marginBottom: '1.5rem',
             textAlign: 'left',
-            minWidth: '320px'
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
           }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সফটওয়্যার প্রোভাইডার:</div>
-            <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)', marginBottom: '8px' }}>
-              {licenseInfo?.resellerName || 'হিসাব কিতাব ৩৬০ টেকনোলজিস'}
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              নিবন্ধিত ক্লায়েন্ট তথ্য:
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
-              📞 হটলাইন: <strong>{licenseInfo?.resellerPhone || '+880 1700-000000'}</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.88rem', color: 'var(--text-main)' }}>
+              <div>🏢 প্রতিষ্ঠান: <strong>{clientShop}</strong></div>
+              <div>👤 স্বত্বাধিকারী: <strong>{clientName}</strong></div>
+              <div>📧 ইমেইল: <code>{clientEmail}</code></div>
+              {clientPhone && <div>📞 ফোন: <strong>{clientPhone}</strong></div>}
             </div>
           </div>
-          <button
-            onClick={() => setActiveTab('super_admin')}
-            className="btn"
-            style={{
-              padding: '10px 20px',
-              borderRadius: '10px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              color: '#ef4444',
-              border: '1px solid #ef4444',
-              fontWeight: '800',
-              cursor: 'pointer'
-            }}
-          >
-            🛡️ ভেন্ডর মাস্টার পিন দিয়ে আনলক করুন
-          </button>
+
+          {/* Direct Support & Approval Buttons */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1.75rem', maxWidth: '460px', width: '100%' }}>
+            <a
+              href={`https://wa.me/${waNumber}?text=${waMessage}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn"
+              style={{
+                flex: '1 1 200px',
+                padding: '12px 20px',
+                fontSize: '0.92rem',
+                fontWeight: '800',
+                borderRadius: '10px',
+                background: '#25d366',
+                color: '#fff',
+                border: 'none',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 15px rgba(37, 211, 102, 0.35)'
+              }}
+            >
+              <span>💬 হোয়াটসঅ্যাপে অনুমোদন চান</span>
+            </a>
+
+            <a
+              href={`tel:${resellerPhone.replace(/[\s\-]/g, '')}`}
+              className="btn"
+              style={{
+                flex: '1 1 180px',
+                padding: '12px 18px',
+                fontSize: '0.92rem',
+                fontWeight: '800',
+                borderRadius: '10px',
+                background: 'var(--card-bg)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--border-color)',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>📞 সরাসরি কল করুন</span>
+            </a>
+          </div>
+
+          {/* Instant License Key Activation Form */}
+          <form onSubmit={handleQuickUnlock} style={{ maxWidth: '460px', width: '100%', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px', textAlign: 'left' }}>
+              আপনার কাছে লাইসেন্স কি থাকলে লিখুন:
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={unlockKeyInput}
+                onChange={(e) => setUnlockKeyInput(e.target.value)}
+                placeholder="HK360-XXXX-2026-..."
+                className="input-field"
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.88rem',
+                  fontWeight: '700'
+                }}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.88rem',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                সক্রিয় করুন
+              </button>
+            </div>
+            {unlockError && (
+              <div style={{ color: '#ef4444', fontSize: '0.82rem', fontWeight: '700', marginTop: '6px', textAlign: 'left' }}>
+                {unlockError}
+              </div>
+            )}
+          </form>
+
+          {/* Secondary Utility Controls */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                if (showToast) showToast('অনুমোদন স্ট্যাটাস রিফ্রেশ করা হচ্ছে...', 'info');
+                window.location.reload();
+              }}
+              className="btn btn-secondary"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.82rem',
+                borderRadius: '8px',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border-color)',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 স্ট্যাটাস রিফ্রেশ
+            </button>
+
+            <button
+              onClick={() => setActiveTab('super_admin')}
+              className="btn"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.82rem',
+                borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              🛡️ মাস্টার অ্যাডমিন লগইন
+            </button>
+
+            <button
+              onClick={logout}
+              className="btn"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.82rem',
+                borderRadius: '8px',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border-color)',
+                cursor: 'pointer'
+              }}
+            >
+              🚪 সাইন আউট (Sign Out)
+            </button>
+          </div>
         </div>
       );
     }
