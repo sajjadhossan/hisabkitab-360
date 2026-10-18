@@ -54,6 +54,31 @@ export const saveOfficeGeoSettings = (settings) => {
   }
 };
 
+export const getBranchGeoSettings = (branchId = 'br-main') => {
+  try {
+    const raw = localStorage.getItem(`hk360_geo_branch_${branchId}`);
+    if (raw) return JSON.parse(raw);
+    return getOfficeGeoSettings();
+  } catch {
+    return getOfficeGeoSettings();
+  }
+};
+
+export const saveBranchGeoSettings = (branchId = 'br-main', settings = {}) => {
+  try {
+    const current = getBranchGeoSettings(branchId);
+    const merged = { ...current, ...settings, branchId };
+    localStorage.setItem(`hk360_geo_branch_${branchId}`, JSON.stringify(merged));
+    if (branchId === 'br-main' || settings.isMain) {
+      saveOfficeGeoSettings(merged);
+    }
+    return merged;
+  } catch (e) {
+    console.error('Failed to save branch geo settings:', e);
+    return getOfficeGeoSettings();
+  }
+};
+
 /**
  * Dynamic Rolling Office QR Token (Rotates every 6 seconds, 5-7 seconds window)
  * Strict Anti-Photo Fraud: prevents staff from taking a picture of the QR code.

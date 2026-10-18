@@ -30,6 +30,8 @@ import {
   evaluateDailyShiftTimes,
   getOfficeGeoSettings,
   saveOfficeGeoSettings,
+  getBranchGeoSettings,
+  saveBranchGeoSettings,
   calculateHaversineDistance,
   getVerifiedLocation,
   generateDynamicOfficeToken,
@@ -45,9 +47,10 @@ export const StaffQrScannerModal = ({
   defaultEmployee = null,
   defaultTab = 'scan_id'
 }) => {
-  const { lang, showToast, businessSettings } = useApp();
+  const { lang, showToast, businessSettings, branches = [], activeBranchId, updateBranch } = useApp();
 
   const [activeTab, setActiveTab] = useState(defaultTab || 'scan_id'); // 'scan_id' | 'stand_qr' | 'geo_settings'
+  const [calibratingBranchId, setCalibratingBranchId] = useState(activeBranchId || (branches[0]?.id || 'br-main'));
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
@@ -63,7 +66,7 @@ export const StaffQrScannerModal = ({
   );
 
   // Office Geofence Settings
-  const [officeSettings, setOfficeSettings] = useState(() => getOfficeGeoSettings());
+  const [officeSettings, setOfficeSettings] = useState(() => getBranchGeoSettings(activeBranchId || 'br-main'));
   const [isCalibratingGps, setIsCalibratingGps] = useState(false);
   const [customRadius, setCustomRadius] = useState(officeSettings.allowedRadiusMeters || 10);
 
@@ -249,16 +252,18 @@ export const StaffQrScannerModal = ({
       }
 
       const loc = await getVerifiedLocation({ ...officeSettings, allowedRadiusMeters: 99999 });
-      const updated = saveOfficeGeoSettings({
+      const updated = saveBranchGeoSettings(calibratingBranchId, {
         latitude: loc.latitude,
-        longitude: loc.longitude
+        longitude: loc.longitude,
+        isCalibrated: true
       });
       setOfficeSettings(updated);
+      const bName = branches.find(b => b.id === calibratingBranchId)?.name || 'শাখা';
       if (showToast) {
         showToast(
           lang === 'bn'
-            ? `📍 বর্তমান লোকেশন (${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}) কেন্দ্র হিসেবে সংরক্ষিত হয়েছে!`
-            : 'Office coordinates calibrated successfully!',
+            ? `📍 ${bName}-এর লোকেশন (${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}) কেন্দ্র হিসেবে সংরক্ষিত হয়েছে!`
+            : `${bName} coordinates calibrated successfully!`,
           'success'
         );
       }
@@ -273,7 +278,7 @@ export const StaffQrScannerModal = ({
   const handleUpdateRadius = (radius) => {
     const val = Number(radius);
     if (isNaN(val) || val <= 0) return;
-    const updated = saveOfficeGeoSettings({ allowedRadiusMeters: val });
+    const updated = saveBranchGeoSettings(calibratingBranchId, { allowedRadiusMeters: val });
     setOfficeSettings(updated);
     setCustomRadius(val);
     if (showToast) {
@@ -836,6 +841,9 @@ export const StaffQrScannerModal = ({
             <div style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '2px' }}>
               {businessSettings?.companyName || 'হিসাব কিতাব ৩৬০'}
             </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.1)', padding: '3px 10px', borderRadius: '12px', color: '#818cf8', fontSize: '0.74rem', fontWeight: '800', marginBottom: '6px' }}>
+              <span>🏢 শাখা: {branches.find(b => b.id === calibratingBranchId)?.name || 'প্রধান শাখা'}</span>
+            </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
               ডায়নামিক কাউন্টার কিউআর • প্রতি ৫-৭ সেকেন্ড পর পর নতুন কোড জেনারেট হয়
             </div>
@@ -948,9 +956,45 @@ export const StaffQrScannerModal = ({
               দোকানের জিপিএস সীমানা ও রেডিয়াস নিয়ন্ত্রণ (৫-১০ মিটার)
             </div>
 
+            {branches.length > 0 && (
+              <div style={{ background: 'var(--bg-main)', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                  🏢 কোন শাখার লোকেশন সেট/ক্যালিব্রেট করবেন:
+                </label>
+                <select
+                  value={calibratingBranchId}
+                  onChange={(e) => {
+                    const bId = e.target.value;
+                    setCalibratingBranchId(bId);
+                    const bSettings = getBranchGeoSettings(bId);
+                    setOfficeSettings(bSettings);
+                    setCustomRadius(bSettings.allowedRadiusMeters || 10);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'var(--surface-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
+                    fontWeight: '700',
+                    fontSize: '0.86rem',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>
+                      🏢 {b.name} ({b.address || 'ঠিকানা দেওয়া নেই'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div style={{ background: 'var(--bg-main)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                বর্তমান নির্ধারিত অফিস কেন্দ্র (Office GPS Coordinates):
+                বর্তমান নির্ধারিত শাখা কেন্দ্র (Branch GPS Coordinates):
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontFamily: 'monospace', fontWeight: '800', fontSize: '0.88rem' }}>
                 <div style={{ background: 'var(--surface-color)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>

@@ -48,10 +48,11 @@ import { QrCode } from 'lucide-react';
  * - Fast QR Code Attendance Terminal & Staff Printable ID Cards
  */
 export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) => {
-  const { showToast, lang } = useApp();
+  const { showToast, lang, branches = [], activeBranchId } = useApp();
 
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [branchFilter, setBranchFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPunchModal, setShowPunchModal] = useState(false);
@@ -101,15 +102,16 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
   // Filtered list
   const filteredEmployees = useMemo(() => {
     return cleanEmployees.filter(emp => {
+      const matchBranch = branchFilter === 'all' || !emp.branchId || emp.branchId === branchFilter;
       const matchSection = sectionFilter === 'all' || (emp.section || 'সেলস ও কাউন্টার') === sectionFilter;
       const q = searchQuery.toLowerCase().trim();
       const matchSearch = !q ||
         emp.name.toLowerCase().includes(q) ||
         (emp.role && emp.role.toLowerCase().includes(q)) ||
         (emp.phone && emp.phone.includes(q));
-      return matchSection && matchSearch;
+      return matchBranch && matchSection && matchSearch;
     });
-  }, [cleanEmployees, sectionFilter, searchQuery]);
+  }, [cleanEmployees, branchFilter, sectionFilter, searchQuery]);
 
   // Manual Status Change
   const handleStatusChange = (emp, newStatus) => {
@@ -271,6 +273,32 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
               style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '0.82rem', fontWeight: '800', outline: 'none' }}
             />
           </div>
+
+          {/* Branch Filter Selector */}
+          {branches.length > 0 && (
+            <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              style={{
+                background: 'rgba(0,0,0,0.2)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                color: 'var(--text-main)',
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              <option value="all">🏢 সকল শাখা (All Branches)</option>
+              {branches.map(b => (
+                <option key={b.id} value={b.id} style={{ background: 'var(--surface-color)', color: 'var(--text-main)' }}>
+                  🏢 {b.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Section Filter Pills */}
           <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
