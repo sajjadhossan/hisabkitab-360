@@ -912,7 +912,37 @@ export const AppProvider = ({ children }) => {
   const [clientLicensesRegistry, setClientLicensesRegistry] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CLIENT_LICENSES_REGISTRY);
-      return saved ? JSON.parse(saved) : DEFAULT_CLIENT_LICENSES;
+      let list = saved ? JSON.parse(saved) : DEFAULT_CLIENT_LICENSES;
+      if (!Array.isArray(list)) list = [];
+
+      // Auto-ingest any previously verified accounts from offline auth vault
+      try {
+        const rawVault = localStorage.getItem('hk360_offline_auth_vault');
+        if (rawVault) {
+          const vault = JSON.parse(rawVault);
+          Object.keys(vault).forEach(emailKey => {
+            const acc = vault[emailKey];
+            if (acc && acc.email && !list.some(l => (l.clientEmail || '').toLowerCase() === acc.email.toLowerCase())) {
+              const isMaster = acc.email.toLowerCase() === 'hossansajjad1994@gmail.com';
+              list.push({
+                id: `lic-vault-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                clientShopName: acc.shopName || acc.name || 'নিবন্ধিত প্রতিষ্ঠান',
+                clientEmail: acc.email.toLowerCase(),
+                clientPhone: acc.phone || '',
+                planName: isMaster ? 'Master Super Admin Lifetime Enterprise' : 'Standard Commercial Store',
+                expiryDate: isMaster ? '2099-12-31' : '2027-12-31',
+                licenseKey: isMaster ? 'HK360-MASTER-ENTERPRISE-LIFETIME-2099' : createCryptographicLicenseKey({ shopName: acc.shopName || 'STORE', clientEmail: acc.email, year: 2027 }),
+                status: 'active',
+                issuedDate: acc.lastVerifiedAt ? acc.lastVerifiedAt.split('T')[0] : 'পূর্বে নিবন্ধিত'
+              });
+            }
+          });
+        }
+      } catch (vaultErr) {
+        console.warn('Vault auto-ingest warning:', vaultErr);
+      }
+
+      return list;
     } catch {
       return DEFAULT_CLIENT_LICENSES;
     }
@@ -973,6 +1003,7 @@ export const AppProvider = ({ children }) => {
           issuedDate: new Date().toISOString().split('T')[0]
         };
         setClientLicensesRegistry(prev => [pendingLic, ...prev]);
+        broadcastLiveEvent('CLIENT_LICENSE_REQUEST', { license: pendingLic });
         setLicenseInfo(prev => ({
           ...prev,
           status: 'pending_approval',
@@ -1411,7 +1442,7 @@ export const AppProvider = ({ children }) => {
     }, 3500);
   };
 
-  // Live Sync listener for cross-device license approval
+  // Live Sync listener for cross-device license approval, updates & suspension
   useEffect(() => {
     const unsub = subscribeLiveSync((evt) => {
       if (evt?.type === 'CLIENT_LICENSE_APPROVED' && evt?.payload?.license) {
@@ -1426,6 +1457,30 @@ export const AppProvider = ({ children }) => {
         if (user?.email && approvedLic.clientEmail?.toLowerCase() === user.email.toLowerCase()) {
           setLicenseInfo(prev => ({ ...prev, ...approvedLic, status: 'active' }));
           showToast(lang === 'bn' ? '🎉 আপনার লাইসেন্স অ্যাডমিন কর্তৃক সফলভাবে অনুমোদিত হয়েছে!' : 'License approved by admin!');
+        }
+      } else if (evt?.type === 'CLIENT_LICENSE_UPDATED' && evt?.payload?.license) {
+        const updatedLic = evt.payload.license;
+        setClientLicensesRegistry(prev => {
+          const exists = prev.some(l => l.id === updatedLic.id);
+          if (exists) {
+            return prev.map(l => l.id === updatedLic.id ? { ...l, ...updatedLic } : l);
+          }
+          return [updatedLic, ...prev];
+        });
+        if (user?.email && updatedLic.clientEmail?.toLowerCase() === user.email.toLowerCase()) {
+          setLicenseInfo(prev => ({ ...prev, ...updatedLic }));
+          if (updatedLic.status === 'suspended') {
+            showToast(lang === 'bn' ? '⚠️ আপনার সফটওয়্যার এক্সেস অ্যাডমিন কর্তৃক সাময়িক স্থগিত করা হয়েছে!' : 'Software access suspended by admin!');
+          } else if (updatedLic.status === 'active') {
+            showToast(lang === 'bn' ? '🎉 আপনার লাইসেন্স পুনরায় সক্রিয় করা হয়েছে!' : 'License restored!');
+          }
+        }
+      } else if (evt?.type === 'CLIENT_LICENSE_REVOKED' && evt?.payload) {
+        const { clientEmail, id } = evt.payload;
+        setClientLicensesRegistry(prev => prev.filter(l => l.id !== id && (l.clientEmail || '').toLowerCase() !== (clientEmail || '').toLowerCase()));
+        if (user?.email && (clientEmail || '').toLowerCase() === user.email.toLowerCase()) {
+          setLicenseInfo(prev => ({ ...prev, status: 'unlicensed' }));
+          showToast(lang === 'bn' ? '⚠️ আপনার লাইসেন্স রেজিস্ট্রি থেকে মুছে দেওয়া হয়েছে!' : 'License revoked by admin!');
         }
       } else if (evt?.type === 'CLIENT_LICENSE_REQUEST' && evt?.payload?.license) {
         const reqLic = evt.payload.license;
@@ -4893,8 +4948,57 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
   };
 
   const updateClientLicense = (id, updates) => {
-    setClientLicensesRegistry(prev => prev.map(lic => lic.id === id ? { ...lic, ...updates } : lic));
-    showToast(lang === 'bn' ? 'লাইসেন্স রেজিস্ট্রি আপডেট হয়েছে' : 'License registry updated');
+    let updatedTarget = null;
+    setClientLicensesRegistry(prev => prev.map(lic => {
+      if (lic.id === id) {
+        updatedTarget = { ...lic, ...updates };
+        return updatedTarget;
+      }
+      return lic;
+    }));
+    if (updatedTarget) {
+      if (user?.email && updatedTarget.clientEmail?.toLowerCase() === user.email.toLowerCase()) {
+        setLicenseInfo(prev => ({ ...prev, ...updatedTarget }));
+      }
+      broadcastLiveEvent('CLIENT_LICENSE_UPDATED', { license: updatedTarget });
+    }
+    showToast(lang === 'bn' ? 'লাইসেন্স রেজিস্ট্রি আপডেট ও সিঙ্ক হয়েছে' : 'License registry updated and synced');
+  };
+
+  const syncPreviousAccountsToRegistry = () => {
+    let addedCount = 0;
+    try {
+      const rawVault = localStorage.getItem('hk360_offline_auth_vault');
+      if (rawVault) {
+        const vault = JSON.parse(rawVault);
+        setClientLicensesRegistry(prev => {
+          const updated = [...prev];
+          Object.keys(vault).forEach(emailKey => {
+            const acc = vault[emailKey];
+            if (acc && acc.email && !updated.some(l => (l.clientEmail || '').toLowerCase() === acc.email.toLowerCase())) {
+              const isMaster = acc.email.toLowerCase() === 'hossansajjad1994@gmail.com';
+              updated.push({
+                id: `lic-vault-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                clientShopName: acc.shopName || acc.name || 'নিবন্ধিত প্রতিষ্ঠান',
+                clientEmail: acc.email.toLowerCase(),
+                clientPhone: acc.phone || '',
+                planName: isMaster ? 'Master Super Admin Lifetime Enterprise' : 'Standard Commercial Store',
+                expiryDate: isMaster ? '2099-12-31' : '2027-12-31',
+                licenseKey: isMaster ? 'HK360-MASTER-ENTERPRISE-LIFETIME-2099' : createCryptographicLicenseKey({ shopName: acc.shopName || 'STORE', clientEmail: acc.email, year: 2027 }),
+                status: 'active',
+                issuedDate: acc.lastVerifiedAt ? acc.lastVerifiedAt.split('T')[0] : 'পূর্বে নিবন্ধিত'
+              });
+              addedCount++;
+            }
+          });
+          return updated;
+        });
+      }
+    } catch (e) {
+      console.warn('Sync vault error:', e);
+    }
+    showToast(lang === 'bn' ? `পূর্ববর্তী অ্যাকাউন্টসমূহ সফলভাবে সিঙ্ক হয়েছে (${addedCount}টি নতুন যুক্ত)` : `Previous accounts synced (${addedCount} added)`);
+    return addedCount;
   };
 
   const approveClientLicense = (id, { planName = 'Standard Annual Store', durationMonths = 12, modules } = {}) => {
@@ -4935,7 +5039,14 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
   };
 
   const deleteClientLicense = (id) => {
+    const target = clientLicensesRegistry.find(lic => lic.id === id);
     setClientLicensesRegistry(prev => prev.filter(lic => lic.id !== id));
+    if (target) {
+      broadcastLiveEvent('CLIENT_LICENSE_REVOKED', { clientEmail: target.clientEmail, id });
+      if (user?.email && (target.clientEmail || '').toLowerCase() === user.email.toLowerCase()) {
+        setLicenseInfo(prev => ({ ...prev, status: 'unlicensed' }));
+      }
+    }
     showToast(lang === 'bn' ? 'লাইসেন্স মুছে ফেলা হয়েছে' : 'License deleted');
   };
 
@@ -5671,6 +5782,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         updateClientLicense,
         approveClientLicense,
         deleteClientLicense,
+        syncPreviousAccountsToRegistry,
         bulkAddProducts,
         startFreshStore,
         activateSoftwareWithKey,

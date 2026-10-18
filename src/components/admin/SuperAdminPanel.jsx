@@ -79,6 +79,9 @@ export const SuperAdminPanel = () => {
     updateClientLicense,
     approveClientLicense,
     deleteClientLicense,
+    syncPreviousAccountsToRegistry,
+    deviceRegistry,
+    currentDevice,
     toggleLicenseModule,
     applyPackagePreset,
     startFreshStore,
@@ -2881,16 +2884,132 @@ export const SuperAdminPanel = () => {
                 </p>
               </div>
 
-              {/* Search Bar */}
-              <div style={{ minWidth: '260px' }}>
-                <input
-                  type="text"
-                  value={licenseSearchQuery}
-                  onChange={(e) => setLicenseSearchQuery(e.target.value)}
-                  placeholder="দোকানের নাম বা ইমেইল দিয়ে খুঁজুন..."
-                  className="input-field"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
-                />
+              {/* Search Bar & Fast Sync Action */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => syncPreviousAccountsToRegistry && syncPreviousAccountsToRegistry()}
+                  className="btn"
+                  title="পূর্বে নিবন্ধিত সকল অ্যাকাউন্ট এই রেজিস্ট্রিতে লোড করুন"
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  <span>🔄 পূর্ববর্তী অ্যাকাউন্ট সিঙ্ক</span>
+                </button>
+                <div style={{ minWidth: '240px' }}>
+                  <input
+                    type="text"
+                    value={licenseSearchQuery}
+                    onChange={(e) => setLicenseSearchQuery(e.target.value)}
+                    placeholder="দোকানের নাম বা ইমেইল দিয়ে খুঁজুন..."
+                    className="input-field"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live Devices & Connected Sessions Monitor */}
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.2)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '14px',
+              padding: '1.25rem',
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                  <Activity size={18} color="#10b981" />
+                  <span>সক্রিয় ৩টি প্ল্যাটফর্ম ও সংযুক্ত লাইভ সেশন (Live Devices Monitor)</span>
+                </div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  বর্তমানে কোন কোন ডিভাইস থেকে সফটওয়্যারে যোগাযোগ রয়েছে
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+                {Object.keys(deviceRegistry || {}).map(typeKey => {
+                  const dev = (deviceRegistry || {})[typeKey];
+                  const isCurrent = currentDevice?.type === typeKey;
+                  return (
+                    <div
+                      key={typeKey}
+                      style={{
+                        background: 'var(--card-bg)',
+                        border: `1.5px solid ${isCurrent ? '#10b981' : 'var(--border-color)'}`,
+                        borderRadius: '12px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '10px',
+                          background: `${dev?.color || '#3b82f6'}18`,
+                          border: `1px solid ${dev?.color || '#3b82f6'}35`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.3rem'
+                        }}>
+                          {dev?.icon || '💻'}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{dev?.name || typeKey}</span>
+                            {isCurrent && (
+                              <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                                এই ডিভাইস
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {dev?.userEmail ? `👤 ${dev.userEmail}` : 'অজ্ঞাত সেশন'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '0.74rem',
+                          fontWeight: '800',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          background: dev?.isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                          color: dev?.isOnline ? '#10b981' : '#94a3b8'
+                        }}>
+                          <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: dev?.isOnline ? '#10b981' : '#94a3b8'
+                          }} />
+                          {dev?.isOnline ? 'অনলাইন 🟢' : 'অফলাইন'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -3089,22 +3208,28 @@ export const SuperAdminPanel = () => {
                             <button
                               onClick={() => {
                                 const newStatus = lic.status === 'active' ? 'suspended' : 'active';
+                                if (newStatus === 'suspended') {
+                                  if (!window.confirm(`⚠️ আপনি কি সত্যিই "${lic.clientShopName}"-এর সফটওয়্যার এক্সেস স্থগিত (Suspend) করতে চান?\n\nএটি সাথে সাথে ক্লায়েন্টের মোবাইল বা পিসির স্ক্রিন লক করে দিবে এবং সে আর কোনো হিসাব দেখতে পারবে না।`)) {
+                                    return;
+                                  }
+                                }
                                 updateClientLicense(lic.id, { status: newStatus });
                               }}
                               className="btn"
-                              title="স্ট্যাটাস পরিবর্তন করুন"
+                              title={lic.status === 'active' ? 'ক্লিক করে তাৎক্ষণিক স্থগিত (রিমোট লকআউট) করুন' : 'ক্লিক করে পুনরায় সক্রিয় (আনলক) করুন'}
                               style={{
-                                background: lic.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                background: lic.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.18)',
                                 color: lic.status === 'active' ? '#10b981' : '#ef4444',
-                                border: `1px solid ${lic.status === 'active' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                padding: '4px 10px',
+                                border: `1.5px solid ${lic.status === 'active' ? 'rgba(16, 185, 129, 0.4)' : '#ef4444'}`,
+                                padding: '5px 12px',
                                 borderRadius: '12px',
-                                fontSize: '0.75rem',
+                                fontSize: '0.76rem',
                                 fontWeight: '800',
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px'
+                                gap: '5px',
+                                boxShadow: lic.status === 'active' ? 'none' : '0 0 12px rgba(239, 68, 68, 0.35)'
                               }}
                             >
                               {lic.status === 'active' ? '🟢 Active' : '⛔ Suspended'}
