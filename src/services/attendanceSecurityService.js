@@ -9,6 +9,7 @@
  * 5. Automated Shift, Grace Period, Overtime (OT) & Net Salary Calculator
  * 6. Zero-Cost Telegram Bot Notification API
  */
+import { broadcastLiveEvent } from './liveSyncService';
 
 const STORAGE_KEYS = {
   DEVICE_UUID: 'hk360_device_uuid',
@@ -405,6 +406,9 @@ export const saveAttendanceLog = (logEntry) => {
   }
 
   localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(updated));
+  try {
+    broadcastLiveEvent('ATTENDANCE_LOG_SYNC', { logs: updated, entry: mergedEntry });
+  } catch (_) {}
   return updated;
 };
 

@@ -22,6 +22,7 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import { useApp } from '../../../context/AppContext';
 import { playScanBeep, playSuccessChime } from '../../../services/soundFeedback';
+import { subscribeLiveSync } from '../../../services/liveSyncService';
 import {
   saveAttendanceLog,
   getStoredAttendanceLogs,
@@ -100,6 +101,15 @@ export const StaffQrScannerModal = ({
       refreshAttendanceLogs();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const unsub = subscribeLiveSync((evt) => {
+      if (evt?.type === 'ATTENDANCE_LOG_SYNC') {
+        refreshAttendanceLogs();
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Dynamic Rolling QR Generator & 6-Second Countdown (5-7 Seconds Anti-Fraud)
   useEffect(() => {

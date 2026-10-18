@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { subscribeLiveSync } from '../../../services/liveSyncService';
 import {
   Calendar,
   Clock,
@@ -58,6 +59,16 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
 
   // Load logs
   const [attendanceLogs, setAttendanceLogs] = useState(() => getStoredAttendanceLogs());
+
+  // Real-time live attendance sync across all devices
+  useEffect(() => {
+    const unsub = subscribeLiveSync((evt) => {
+      if (evt?.type === 'ATTENDANCE_LOG_SYNC' && Array.isArray(evt?.payload?.logs)) {
+        setAttendanceLogs(evt.payload.logs);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Available Sections
   const SECTIONS = ['all', 'সেলস ও কাউন্টার', 'ইনভেন্টরি ও ডেলিভারি', 'কাটিং ও প্রোডাকশন', 'ম্যানেজমেন্ট'];

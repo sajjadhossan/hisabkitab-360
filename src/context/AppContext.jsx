@@ -2379,15 +2379,44 @@ export const AppProvider = ({ children }) => {
       status: 'Pending',
       joinDate: emp.joinDate || new Date().toISOString().split('T')[0]
     };
-    setEmployees([...employees, newEmp]);
+    const next = [...employees, newEmp];
+    setEmployees(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
+    triggerImmediateCloudPush({
+      ...latestStateRef.current,
+      employees: next
+    }, 'add_employee');
     showToast(lang === 'bn' ? 'নতুন কর্মচারী যুক্ত করা হয়েছে' : 'Employee added');
+    return newEmp;
+  };
+
+  const updateEmployee = (id, updatedFields) => {
+    const next = employees.map(e => e.id === id ? { ...e, ...updatedFields } : e);
+    setEmployees(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
+    triggerImmediateCloudPush({
+      ...latestStateRef.current,
+      employees: next
+    }, 'update_employee');
+    showToast(lang === 'bn' ? 'কর্মচারীর তথ্য আপডেট করা হয়েছে' : 'Employee updated');
+  };
+
+  const deleteEmployee = (id) => {
+    const next = employees.filter(e => e.id !== id);
+    setEmployees(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
+    triggerImmediateCloudPush({
+      ...latestStateRef.current,
+      employees: next
+    }, 'delete_employee');
+    showToast(lang === 'bn' ? 'কর্মচারী মুছে ফেলা হয়েছে' : 'Employee deleted');
   };
 
   const disburseSalary = (employeeId) => {
     const emp = employees.find(e => e.id === employeeId);
     if (!emp) return;
 
-    setEmployees(employees.map(e => {
+    const next = employees.map(e => {
       if (e.id === employeeId) {
         return {
           ...e,
@@ -2396,7 +2425,9 @@ export const AppProvider = ({ children }) => {
         };
       }
       return e;
-    }));
+    });
+    setEmployees(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
 
     // Also record as a business expense automatically!
     const salaryExpense = {
@@ -2407,7 +2438,15 @@ export const AppProvider = ({ children }) => {
       date: new Date().toISOString().split('T')[0],
       note: `কর্মচারী আইডি: ${emp.id}`
     };
-    setBusinessExpenses([salaryExpense, ...businessExpenses]);
+    const nextExpenses = [salaryExpense, ...businessExpenses];
+    setBusinessExpenses(nextExpenses);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, nextExpenses);
+
+    triggerImmediateCloudPush({
+      ...latestStateRef.current,
+      employees: next,
+      businessExpenses: nextExpenses
+    }, 'disburse_salary');
 
     showToast(lang === 'bn' ? `${emp.name}-এর বেতন প্রদান সম্পন্ন হয়েছে` : `Salary disbursed for ${emp.name}`);
   };
@@ -5081,6 +5120,18 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       setBusinessDebts(cloudState.businessDebts);
       localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(cloudState.businessDebts));
     }
+    if (Array.isArray(cloudState.employees)) {
+      setEmployees(cloudState.employees);
+      localStorage.setItem(STORAGE_KEYS.BIZ_EMPLOYEES, JSON.stringify(cloudState.employees));
+    }
+    if (Array.isArray(cloudState.businessFieldOrders)) {
+      setFieldOrders(cloudState.businessFieldOrders);
+      localStorage.setItem(STORAGE_KEYS.BIZ_FIELD_ORDERS, JSON.stringify(cloudState.businessFieldOrders));
+    }
+    if (cloudState.businessSettings && typeof cloudState.businessSettings === 'object') {
+      setBusinessSettings(prev => ({ ...prev, ...cloudState.businessSettings }));
+      localStorage.setItem(STORAGE_KEYS.BIZ_SETTINGS, JSON.stringify(cloudState.businessSettings));
+    }
     if (Array.isArray(cloudState.trashBin)) {
       setTrashBin(cloudState.trashBin);
       localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(cloudState.trashBin));
@@ -5294,6 +5345,8 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         deleteCustomer,
         collectDue,
         addEmployee,
+        updateEmployee,
+        deleteEmployee,
         disburseSalary,
         fieldOrders,
         createFieldOrder,

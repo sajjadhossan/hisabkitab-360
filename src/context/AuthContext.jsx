@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getSupabase, isSupabaseReady, getSupabaseConfig, saveSupabaseConfig } from '../services/supabaseClient';
 import { broadcastDeviceHeartbeat } from '../services/deviceManagerService';
+import { broadcastLiveEvent, subscribeLiveSync } from '../services/liveSyncService';
 
 const AuthContext = createContext();
 
@@ -155,6 +156,17 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(staffAccounts));
   }, [staffAccounts]);
 
+  // Real-time cross-device sync for staff accounts
+  useEffect(() => {
+    const unsub = subscribeLiveSync((evt) => {
+      if (evt?.type === 'STAFF_ACCOUNTS_SYNC' && Array.isArray(evt?.payload?.staffAccounts)) {
+        setStaffAccounts(evt.payload.staffAccounts);
+        localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(evt.payload.staffAccounts));
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const addStaffAccount = (staffData) => {
     const newStaff = {
       id: `stf-${Date.now()}`,
@@ -168,16 +180,31 @@ export const AuthProvider = ({ children }) => {
       password: (staffData.password || staffData.pin || '1234').trim(),
       createdAt: new Date().toISOString()
     };
-    setStaffAccounts(prev => [...prev, newStaff]);
+    setStaffAccounts(prev => {
+      const next = [...prev, newStaff];
+      localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(next));
+      broadcastLiveEvent('STAFF_ACCOUNTS_SYNC', { staffAccounts: next });
+      return next;
+    });
     return newStaff;
   };
 
   const updateStaffAccount = (id, updatedFields) => {
-    setStaffAccounts(prev => prev.map(s => s.id === id ? { ...s, ...updatedFields } : s));
+    setStaffAccounts(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, ...updatedFields } : s);
+      localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(next));
+      broadcastLiveEvent('STAFF_ACCOUNTS_SYNC', { staffAccounts: next });
+      return next;
+    });
   };
 
   const deleteStaffAccount = (id) => {
-    setStaffAccounts(prev => prev.filter(s => s.id !== id));
+    setStaffAccounts(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(next));
+      broadcastLiveEvent('STAFF_ACCOUNTS_SYNC', { staffAccounts: next });
+      return next;
+    });
   };
 
   // Save active user
