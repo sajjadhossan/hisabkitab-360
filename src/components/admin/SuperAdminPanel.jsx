@@ -2435,7 +2435,7 @@ export const SuperAdminPanel = () => {
           </div>
 
           {/* Top 2 Columns: Client Form & Live Key Delivery Card */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '1.5rem' }}>
             
             {/* Left Column: Client Profile & License Setup Form */}
             <div style={{
@@ -3115,9 +3115,9 @@ export const SuperAdminPanel = () => {
               </div>
             )}
 
-            {/* Registry Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+            {/* Registry Table with Smooth Touch Scrolling */}
+            <div className="touch-scroll-x responsive-table-wrapper" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y', width: '100%', maxWidth: '100%' }}>
+              <table style={{ minWidth: '760px', width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255, 255, 255, 0.04)', borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ padding: '12px 14px', fontWeight: '800', color: 'var(--text-main)' }}># ক্লায়েন্ট প্রতিষ্ঠান</th>

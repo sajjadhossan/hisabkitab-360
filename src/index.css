@@ -2059,22 +2059,23 @@ input:checked+.slider:before {
   }
 
   .navbar-brand-group {
-    gap: 6px !important;
+    gap: 8px !important;
     min-width: 0 !important;
     flex-shrink: 1 !important;
-    max-width: calc(100% - 175px) !important;
+    max-width: calc(100% - 150px) !important;
     display: flex !important;
     align-items: center !important;
     overflow: hidden !important;
   }
 
   .navbar-brand-group h1 {
-    font-size: 0.98rem !important;
+    font-size: clamp(0.85rem, 3.6vw, 1rem) !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    max-width: 130px !important;
+    max-width: 175px !important;
     margin: 0 !important;
+    line-height: 1.2 !important;
   }
 
   .navbar-brand-group p,
@@ -3392,4 +3393,81 @@ body {
 @keyframes pulse-optimistic {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.65; }
+}
+
+/* ====================================================
+   Mobile UI Responsiveness & Smooth Touch-Scroll System
+   ==================================================== */
+.touch-scroll-x {
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  display: block;
+  scrollbar-width: thin;
+}
+
+.touch-scroll-x::-webkit-scrollbar {
+  height: 4px;
+}
+
+.touch-scroll-x::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Perfect Bengali Typography & Icon Vertical Centering */
+.icon-text-sync,
+.btn-icon-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  line-height: 1.25 !important;
+  gap: 6px !important;
+}
+
+.icon-text-sync svg,
+.btn-icon-label svg {
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+/* Safe Break-Word & Prevent Container Blowout */
+.break-word-safe {
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto;
+}
+
+/* Safe Area Inset Guard for Android Bottom Bar */
+.safe-area-bottom-guard {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+}
+
+/* Responsive Table Min-Width & No-Break Cell Rules on Mobile */
+@media (max-width: 768px) {
+  .responsive-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 10px;
+  }
+
+  .responsive-table-wrapper table {
+    min-width: 620px !important;
+    width: 100% !important;
+  }
+
+  /* Fluid Auto-Fit Grids on Mobile */
+  .fluid-grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) !important;
+    gap: 12px !important;
+  }
 }

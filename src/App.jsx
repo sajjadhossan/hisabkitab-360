@@ -782,10 +782,11 @@ const AppContent = () => {
               href={`https://wa.me/${waNumber}?text=${waMessage}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn"
+              className="btn btn-icon-label"
               style={{
-                flex: '1 1 200px',
-                padding: '12px 20px',
+                flex: '1 1 min(100%, 200px)',
+                minHeight: '46px',
+                padding: '12px 18px',
                 fontSize: '0.92rem',
                 fontWeight: '800',
                 borderRadius: '10px',
@@ -797,7 +798,9 @@ const AppContent = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 15px rgba(37, 211, 102, 0.35)'
+                lineHeight: 1.25,
+                boxShadow: '0 4px 15px rgba(37, 211, 102, 0.35)',
+                boxSizing: 'border-box'
               }}
             >
               <span>💬 হোয়াটসঅ্যাপে অনুমোদন চান</span>
@@ -805,9 +808,10 @@ const AppContent = () => {
 
             <a
               href={`tel:${resellerPhone.replace(/[\s\-]/g, '')}`}
-              className="btn"
+              className="btn btn-icon-label"
               style={{
-                flex: '1 1 180px',
+                flex: '1 1 min(100%, 200px)',
+                minHeight: '46px',
                 padding: '12px 18px',
                 fontSize: '0.92rem',
                 fontWeight: '800',
@@ -819,7 +823,9 @@ const AppContent = () => {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px'
+                gap: '8px',
+                lineHeight: 1.25,
+                boxSizing: 'border-box'
               }}
             >
               <span>📞 সরাসরি কল করুন</span>

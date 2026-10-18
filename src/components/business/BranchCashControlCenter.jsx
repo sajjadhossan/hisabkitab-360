@@ -581,7 +581,7 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '1.25rem' }}>
           {branches.map(branch => {
             const isCurrentBranch = activeBranchId === branch.id;
             let branchTotalCash = 0;
