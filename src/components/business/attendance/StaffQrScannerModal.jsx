@@ -23,6 +23,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useApp } from '../../../context/AppContext';
 import { playScanBeep, playSuccessChime } from '../../../services/soundFeedback';
 import { subscribeLiveSync } from '../../../services/liveSyncService';
+import { filterOutDemoItems } from '../../../utils/demoDataSanitizer';
 import {
   saveAttendanceLog,
   getStoredAttendanceLogs,
@@ -54,9 +55,11 @@ export const StaffQrScannerModal = ({
   const [punchType, setPunchType] = useState('auto'); // 'auto' | 'check_in' | 'check_out'
   const [isVerifyingLocation, setIsVerifyingLocation] = useState(false);
 
+  const cleanEmployees = filterOutDemoItems(employees);
+
   // Active Staff Selected for Self-Attendance (When scanning Counter QR)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(
-    defaultEmployee?.id || (employees.length > 0 ? employees[0].id : '')
+    defaultEmployee?.id || (cleanEmployees.length > 0 ? cleanEmployees[0].id : '')
   );
 
   // Office Geofence Settings
@@ -78,10 +81,10 @@ export const StaffQrScannerModal = ({
   useEffect(() => {
     if (defaultEmployee?.id) {
       setSelectedEmployeeId(defaultEmployee.id);
-    } else if (!selectedEmployeeId && employees.length > 0) {
-      setSelectedEmployeeId(employees[0].id);
+    } else if (!selectedEmployeeId && cleanEmployees.length > 0) {
+      setSelectedEmployeeId(cleanEmployees[0].id);
     }
-  }, [defaultEmployee, employees]);
+  }, [defaultEmployee, cleanEmployees]);
 
   useEffect(() => {
     if (defaultTab) {
@@ -348,13 +351,13 @@ export const StaffQrScannerModal = ({
     let matchedEmp = null;
     if (isDynamicOfficeQr) {
       // The staff is scanning the store QR: use selected / logged in employee!
-      matchedEmp = employees.find(e => String(e.id) === String(selectedEmployeeId)) ||
+      matchedEmp = cleanEmployees.find(e => String(e.id) === String(selectedEmployeeId)) ||
         defaultEmployee ||
-        (employees.length > 0 ? employees[0] : null);
+        (cleanEmployees.length > 0 ? cleanEmployees[0] : null);
     } else {
       // The scanner scanned an ID card QR: match ID
       const empId = parsed.empId || parsed.id;
-      matchedEmp = employees.find(
+      matchedEmp = cleanEmployees.find(
         e => String(e.id).toLowerCase() === String(empId).toLowerCase() || (parsed.name && e.name === parsed.name)
       );
     }
@@ -446,7 +449,7 @@ export const StaffQrScannerModal = ({
 
   if (!isOpen) return null;
 
-  const currentSelectedEmp = employees.find(e => String(e.id) === String(selectedEmployeeId)) || employees[0];
+  const currentSelectedEmp = cleanEmployees.find(e => String(e.id) === String(selectedEmployeeId)) || cleanEmployees[0];
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1250, padding: '10px' }}>
@@ -644,7 +647,7 @@ export const StaffQrScannerModal = ({
                       outline: 'none'
                     }}
                   >
-                    {employees.map(emp => (
+                    {cleanEmployees.map(emp => (
                       <option key={emp.id} value={emp.id} style={{ background: 'var(--surface-color)', color: 'var(--text-main)' }}>
                         {emp.name} ({emp.role || 'স্টাফ'})
                       </option>

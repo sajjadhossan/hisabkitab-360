@@ -19,6 +19,7 @@ import {
   getStoredAttendanceLogs,
   calculateEmployeePayroll
 } from '../../../services/attendanceSecurityService';
+import { filterOutDemoItems } from '../../../utils/demoDataSanitizer';
 import { AttendancePaySlipModal } from './AttendancePaySlipModal';
 
 /**
@@ -39,10 +40,11 @@ export const MonthlyAttendanceReport = ({ employees = [] }) => {
   const [selectedPaySlipData, setSelectedPaySlipData] = useState(null);
 
   const logs = useMemo(() => getStoredAttendanceLogs(), []);
+  const cleanEmployees = useMemo(() => filterOutDemoItems(employees), [employees]);
 
   // Compute monthly report per employee
   const monthlyData = useMemo(() => {
-    return employees.map(emp => {
+    return cleanEmployees.map(emp => {
       const payroll = calculateEmployeePayroll({
         employee: emp,
         attendanceLogs: logs,
@@ -53,7 +55,7 @@ export const MonthlyAttendanceReport = ({ employees = [] }) => {
       });
       return payroll;
     });
-  }, [employees, logs, selectedMonth]);
+  }, [cleanEmployees, logs, selectedMonth]);
 
   // Filtered
   const filteredData = useMemo(() => {

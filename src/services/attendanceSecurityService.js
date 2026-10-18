@@ -10,6 +10,8 @@
  * 6. Zero-Cost Telegram Bot Notification API
  */
 import { broadcastLiveEvent } from './liveSyncService';
+import { filterOutDemoItems } from '../utils/demoDataSanitizer';
+import { triggerImmediateCloudPush } from './cloudStateSyncService';
 
 const STORAGE_KEYS = {
   DEVICE_UUID: 'hk360_device_uuid',
@@ -362,7 +364,8 @@ export const calculateEmployeePayroll = ({
 export const getStoredAttendanceLogs = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.ATTENDANCE_LOGS);
-    return saved ? JSON.parse(saved) : [];
+    const list = saved ? JSON.parse(saved) : [];
+    return filterOutDemoItems(list);
   } catch {
     return [];
   }
@@ -405,11 +408,16 @@ export const saveAttendanceLog = (logEntry) => {
     updated = [mergedEntry, ...logs];
   }
 
-  localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(updated));
+  const cleanUpdated = filterOutDemoItems(updated);
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(cleanUpdated));
   try {
-    broadcastLiveEvent('ATTENDANCE_LOG_SYNC', { logs: updated, entry: mergedEntry });
+    broadcastLiveEvent('ATTENDANCE_LOG_SYNC', { logs: cleanUpdated, entry: mergedEntry });
+    // Realtime persistence to Supabase Cloud State
+    triggerImmediateCloudPush({
+      attendanceLogs: cleanUpdated
+    }, 'attendance_punch_recorded');
   } catch (_) {}
-  return updated;
+  return cleanUpdated;
 };
 
 /**

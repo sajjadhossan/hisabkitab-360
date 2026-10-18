@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { subscribeLiveSync } from '../../../services/liveSyncService';
+import { filterOutDemoItems } from '../../../utils/demoDataSanitizer';
 import {
   Calendar,
   Clock,
@@ -84,19 +85,22 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
     return map;
   }, [attendanceLogs, selectedDate]);
 
+  // Clean employees (Zero-Demo enforced)
+  const cleanEmployees = useMemo(() => filterOutDemoItems(employees), [employees]);
+
   // Statistics
-  const totalEmployees = employees.length;
-  const presentCount = employees.filter(e => {
+  const totalEmployees = cleanEmployees.length;
+  const presentCount = cleanEmployees.filter(e => {
     const log = todayMap[e.id];
     return log && (log.status === 'Present' || log.status === 'Late' || log.status === 'Half-Day');
   }).length;
-  const lateCount = employees.filter(e => todayMap[e.id]?.status === 'Late').length;
+  const lateCount = cleanEmployees.filter(e => todayMap[e.id]?.status === 'Late').length;
   const absentCount = totalEmployees - presentCount;
   const presenceRate = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 
   // Filtered list
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
+    return cleanEmployees.filter(emp => {
       const matchSection = sectionFilter === 'all' || (emp.section || 'সেলস ও কাউন্টার') === sectionFilter;
       const q = searchQuery.toLowerCase().trim();
       const matchSearch = !q ||
@@ -105,7 +109,7 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
         (emp.phone && emp.phone.includes(q));
       return matchSection && matchSearch;
     });
-  }, [employees, sectionFilter, searchQuery]);
+  }, [cleanEmployees, sectionFilter, searchQuery]);
 
   // Manual Status Change
   const handleStatusChange = (emp, newStatus) => {
@@ -191,7 +195,7 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    employees.forEach(emp => {
+    cleanEmployees.forEach(emp => {
       if (!todayMap[emp.id]) {
         saveAttendanceLog({
           id: `att_${Date.now()}_${emp.id}`,
@@ -633,7 +637,7 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
       <StaffQrScannerModal
         isOpen={showQrScannerModal}
         onClose={() => setShowQrScannerModal(false)}
-        employees={employees}
+        employees={cleanEmployees}
         onPunchSuccess={() => {
           setAttendanceLogs(getStoredAttendanceLogs());
         }}
@@ -650,7 +654,7 @@ export const StaffAttendanceSheet = ({ employees = [], onOpenTelegramModal }) =>
       <AttendancePunchModal
         isOpen={showPunchModal}
         onClose={() => setShowPunchModal(false)}
-        employees={employees}
+        employees={cleanEmployees}
         onPunchSuccess={() => {
           setAttendanceLogs(getStoredAttendanceLogs());
         }}

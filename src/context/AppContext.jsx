@@ -102,6 +102,17 @@ import {
   getLastCloudSyncTimestamp,
   getLastSyncDeviceName
 } from '../services/cloudStateSyncService';
+import {
+  purgeAllLegacyDemoStorage,
+  filterOutDemoItems,
+  isLegacyDemoItem,
+  mergeEntitiesWithoutDuplicates
+} from '../utils/demoDataSanitizer';
+import {
+  getStoredAttendanceLogs,
+  getOfficeGeoSettings,
+  saveOfficeGeoSettings
+} from '../services/attendanceSecurityService';
 
 const AppContext = createContext();
 
@@ -140,6 +151,9 @@ const STORAGE_KEYS = {
   BIZ_PURCHASE_ORDERS: 'hk360_purchase_orders',
   OPERATING_MODE: 'hk360_operating_mode',
   CLIENT_LICENSES_REGISTRY: 'hk360_client_licenses_registry',
+  ATTENDANCE_LOGS: 'hk360_attendance_logs',
+  OFFICE_SETTINGS: 'hk360_office_geo_settings',
+  STAFF_ACCOUNTS: 'hk360_staff_accounts',
 };
 
 export const DEFAULT_BRANCHES = [
@@ -704,7 +718,7 @@ export const AppProvider = ({ children }) => {
     if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed) ? filterOutDemoItems(parsed) : [];
     } catch {
       return [];
     }
@@ -739,17 +753,17 @@ export const AppProvider = ({ children }) => {
 
   const [customers, setCustomers] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_CUSTOMERS);
-    return saved ? JSON.parse(saved) : [];
+    return saved ? filterOutDemoItems(JSON.parse(saved)) : [];
   });
 
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_EMPLOYEES);
-    return saved ? JSON.parse(saved) : [];
+    return saved ? filterOutDemoItems(JSON.parse(saved)) : [];
   });
 
   const [suppliers, setSuppliers] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_SUPPLIERS);
-    return saved ? JSON.parse(saved) : [];
+    return saved ? filterOutDemoItems(JSON.parse(saved)) : [];
   });
 
   const [businessExpenses, setBusinessExpenses] = useState(() => {
@@ -1250,6 +1264,15 @@ export const AppProvider = ({ children }) => {
             return p;
           })
         );
+      } else if ((eventType === 'EMPLOYEES_LIVE_SYNC' || msg.type === 'EMPLOYEES_LIVE_SYNC') && (data?.employees || msg.payload?.employees)) {
+        const incoming = filterOutDemoItems(data?.employees || msg.payload?.employees);
+        setEmployees(incoming);
+        scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, incoming);
+      } else if (eventType === 'ATTENDANCE_LOG_SYNC' || msg.type === 'ATTENDANCE_LOG_SYNC') {
+        const incomingLogs = filterOutDemoItems(data?.logs || msg.payload?.logs || []);
+        if (incomingLogs.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(incomingLogs));
+        }
       }
     });
 
@@ -1267,14 +1290,16 @@ export const AppProvider = ({ children }) => {
     personalDebts,
     personalEvents,
     bazaarShoppingList,
-    products,
+    products: filterOutDemoItems(products),
     salesHistory,
-    customers,
+    customers: filterOutDemoItems(customers),
     businessExpenses,
     businessDebts,
     trashBin,
-    suppliers,
-    employees,
+    suppliers: filterOutDemoItems(suppliers),
+    employees: filterOutDemoItems(employees),
+    attendanceLogs: getStoredAttendanceLogs(),
+    officeGeoSettings: getOfficeGeoSettings(),
     businessSettings,
     operatingMode,
     profile
@@ -2379,9 +2404,12 @@ export const AppProvider = ({ children }) => {
       status: 'Pending',
       joinDate: emp.joinDate || new Date().toISOString().split('T')[0]
     };
-    const next = [...employees, newEmp];
+    const next = filterOutDemoItems([...employees, newEmp]);
     setEmployees(next);
     scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
+    try {
+      broadcastLiveEvent('EMPLOYEES_LIVE_SYNC', { employees: next });
+    } catch (_) {}
     triggerImmediateCloudPush({
       ...latestStateRef.current,
       employees: next
@@ -2391,9 +2419,12 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateEmployee = (id, updatedFields) => {
-    const next = employees.map(e => e.id === id ? { ...e, ...updatedFields } : e);
+    const next = filterOutDemoItems(employees.map(e => e.id === id ? { ...e, ...updatedFields } : e));
     setEmployees(next);
     scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
+    try {
+      broadcastLiveEvent('EMPLOYEES_LIVE_SYNC', { employees: next });
+    } catch (_) {}
     triggerImmediateCloudPush({
       ...latestStateRef.current,
       employees: next
@@ -2402,9 +2433,12 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteEmployee = (id) => {
-    const next = employees.filter(e => e.id !== id);
+    const next = filterOutDemoItems(employees.filter(e => e.id !== id));
     setEmployees(next);
     scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, next);
+    try {
+      broadcastLiveEvent('EMPLOYEES_LIVE_SYNC', { employees: next });
+    } catch (_) {}
     triggerImmediateCloudPush({
       ...latestStateRef.current,
       employees: next
@@ -5043,13 +5077,15 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       personalDebts,
       personalEvents,
       bazaarShoppingList,
-      products,
+      products: filterOutDemoItems(products),
       salesHistory,
-      customers,
+      customers: filterOutDemoItems(customers),
       businessExpenses,
       businessDebts,
-      suppliers,
-      employees,
+      suppliers: filterOutDemoItems(suppliers),
+      employees: filterOutDemoItems(employees),
+      attendanceLogs: getStoredAttendanceLogs(),
+      officeGeoSettings: getOfficeGeoSettings(),
       businessSettings,
       operatingMode,
       profile
@@ -5101,16 +5137,18 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       localStorage.setItem(STORAGE_KEYS.BAZAAR_SHOPPING_LIST, JSON.stringify(cloudState.bazaarShoppingList));
     }
     if (Array.isArray(cloudState.products)) {
-      setProducts(cloudState.products);
-      localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(cloudState.products));
+      const cleanProducts = filterOutDemoItems(cloudState.products);
+      setProducts(cleanProducts);
+      localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(cleanProducts));
     }
     if (Array.isArray(cloudState.salesHistory)) {
       setSalesHistory(cloudState.salesHistory);
       localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(cloudState.salesHistory));
     }
     if (Array.isArray(cloudState.customers)) {
-      setCustomers(cloudState.customers);
-      localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(cloudState.customers));
+      const cleanCustomers = filterOutDemoItems(cloudState.customers);
+      setCustomers(cleanCustomers);
+      localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(cleanCustomers));
     }
     if (Array.isArray(cloudState.businessExpenses)) {
       setBusinessExpenses(cloudState.businessExpenses);
@@ -5121,8 +5159,31 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(cloudState.businessDebts));
     }
     if (Array.isArray(cloudState.employees)) {
-      setEmployees(cloudState.employees);
-      localStorage.setItem(STORAGE_KEYS.BIZ_EMPLOYEES, JSON.stringify(cloudState.employees));
+      setEmployees(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.employees);
+        localStorage.setItem(STORAGE_KEYS.BIZ_EMPLOYEES, JSON.stringify(merged));
+        try {
+          broadcastLiveEvent('EMPLOYEES_LIVE_SYNC', { employees: merged });
+        } catch (_) {}
+        return merged;
+      });
+    }
+    if (Array.isArray(cloudState.attendanceLogs)) {
+      const cleanLogs = filterOutDemoItems(cloudState.attendanceLogs);
+      localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(cleanLogs));
+      try {
+        broadcastLiveEvent('ATTENDANCE_LOG_SYNC', { logs: cleanLogs });
+      } catch (_) {}
+    }
+    if (cloudState.officeGeoSettings && typeof cloudState.officeGeoSettings === 'object') {
+      saveOfficeGeoSettings(cloudState.officeGeoSettings);
+    }
+    if (Array.isArray(cloudState.staffAccounts)) {
+      const cleanStaff = filterOutDemoItems(cloudState.staffAccounts);
+      localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(cleanStaff));
+      try {
+        broadcastLiveEvent('STAFF_ACCOUNTS_SYNC', { staffAccounts: cleanStaff });
+      } catch (_) {}
     }
     if (Array.isArray(cloudState.businessFieldOrders)) {
       setFieldOrders(cloudState.businessFieldOrders);
@@ -5176,17 +5237,26 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     return { success: false };
   }, [applyCloudState, getActiveStateSnapshot, lang, showToast]);
 
-  // Automatic boot check: pulls newer state from cloud if available
+  // Automatic boot check: pulls newer state from cloud if available & purges legacy mock data
   useEffect(() => {
+    // 1. Mandatory zero-demo purge on boot
+    purgeAllLegacyDemoStorage();
+
     const timer = setTimeout(() => {
-      pullLatestStateFromCloud().then(res => {
+      pullLatestStateFromCloud({ force: false }).then(res => {
         if (res.success && res.state) {
           applyCloudState(res.state);
+        } else {
+          // If local has real employees (e.g. Added on this phone) and cloud didn't have newer, push to cloud
+          const cleanLocalEmployees = filterOutDemoItems(employees);
+          if (cleanLocalEmployees.length > 0) {
+            pushStateToCloud(getActiveStateSnapshot(), 'boot_reconcile_push').catch(() => {});
+          }
         }
       }).catch(() => {});
     }, 1200);
     return () => clearTimeout(timer);
-  }, [applyCloudState]);
+  }, [applyCloudState, getActiveStateSnapshot, employees]);
 
   return (
     <AppContext.Provider

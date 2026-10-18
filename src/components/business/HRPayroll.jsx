@@ -37,10 +37,11 @@ import { StaffAttendanceSheet } from './attendance/StaffAttendanceSheet';
 import { MonthlyAttendanceReport } from './attendance/MonthlyAttendanceReport';
 import { TelegramConfigModal } from './attendance/TelegramConfigModal';
 import { StaffQrScannerModal } from './attendance/StaffQrScannerModal';
+import { filterOutDemoItems } from '../../utils/demoDataSanitizer';
 
 export const HRPayroll = () => {
   const {
-    employees,
+    employees: rawEmployees = [],
     addEmployee,
     disburseSalary,
     businessSettings,
@@ -55,6 +56,8 @@ export const HRPayroll = () => {
     products = [],
     activeBranch
   } = useApp();
+
+  const employees = filterOutDemoItems(rawEmployees);
 
   // Primary sub-tab: 'attendance' | 'attendance_report' | 'payroll' | 'delivery'
   const [activeSubTab, setActiveSubTab] = useState('attendance');

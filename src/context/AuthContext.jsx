@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getSupabase, isSupabaseReady, getSupabaseConfig, saveSupabaseConfig } from '../services/supabaseClient';
 import { broadcastDeviceHeartbeat } from '../services/deviceManagerService';
 import { broadcastLiveEvent, subscribeLiveSync } from '../services/liveSyncService';
+import { filterOutDemoItems } from '../utils/demoDataSanitizer';
 
 const AuthContext = createContext();
 
@@ -140,28 +141,24 @@ export const AuthProvider = ({ children }) => {
       if (!Array.isArray(list) || list.length === 0) {
         return DEFAULT_STAFF_ACCOUNTS;
       }
-      // Guarantee default accounts exist in list
-      const ids = new Set(list.map(s => s.id));
-      const combined = [...list];
-      DEFAULT_STAFF_ACCOUNTS.forEach(def => {
-        if (!ids.has(def.id)) combined.push(def);
-      });
-      return combined;
+      return filterOutDemoItems(list);
     } catch {
       return DEFAULT_STAFF_ACCOUNTS;
     }
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(staffAccounts));
+    const clean = filterOutDemoItems(staffAccounts);
+    localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(clean));
   }, [staffAccounts]);
 
   // Real-time cross-device sync for staff accounts
   useEffect(() => {
     const unsub = subscribeLiveSync((evt) => {
       if (evt?.type === 'STAFF_ACCOUNTS_SYNC' && Array.isArray(evt?.payload?.staffAccounts)) {
-        setStaffAccounts(evt.payload.staffAccounts);
-        localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(evt.payload.staffAccounts));
+        const clean = filterOutDemoItems(evt.payload.staffAccounts);
+        setStaffAccounts(clean);
+        localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(clean));
       }
     });
     return () => unsub();
