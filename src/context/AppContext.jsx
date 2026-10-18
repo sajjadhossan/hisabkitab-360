@@ -986,35 +986,6 @@ export const AppProvider = ({ children }) => {
     }
   }, [user, isSuperAdmin, clientLicensesRegistry]);
 
-  // Live Sync listener for cross-device license approval
-  useEffect(() => {
-    const unsub = subscribeLiveSync((evt) => {
-      if (evt?.type === 'CLIENT_LICENSE_APPROVED' && evt?.payload?.license) {
-        const approvedLic = evt.payload.license;
-        setClientLicensesRegistry(prev => {
-          const exists = prev.some(l => l.id === approvedLic.id);
-          if (exists) {
-            return prev.map(l => l.id === approvedLic.id ? { ...l, ...approvedLic } : l);
-          }
-          return [approvedLic, ...prev];
-        });
-        if (user?.email && approvedLic.clientEmail?.toLowerCase() === user.email.toLowerCase()) {
-          setLicenseInfo(prev => ({ ...prev, ...approvedLic, status: 'active' }));
-          showToast(lang === 'bn' ? '🎉 আপনার লাইসেন্স অ্যাডমিন কর্তৃক সফলভাবে অনুমোদিত হয়েছে!' : 'License approved by admin!');
-        }
-      } else if (evt?.type === 'CLIENT_LICENSE_REQUEST' && evt?.payload?.license) {
-        const reqLic = evt.payload.license;
-        setClientLicensesRegistry(prev => {
-          if (prev.some(l => l.id === reqLic.id || l.clientEmail?.toLowerCase() === reqLic.clientEmail?.toLowerCase())) {
-            return prev;
-          }
-          return [reqLic, ...prev];
-        });
-      }
-    });
-    return () => unsub();
-  }, [user, lang, showToast]);
-
   // Multi-Branch & Multi-Counter States
   const [branches, setBranches] = useState(() => {
     try {
@@ -1439,6 +1410,35 @@ export const AppProvider = ({ children }) => {
       setToastMessage(null);
     }, 3500);
   };
+
+  // Live Sync listener for cross-device license approval
+  useEffect(() => {
+    const unsub = subscribeLiveSync((evt) => {
+      if (evt?.type === 'CLIENT_LICENSE_APPROVED' && evt?.payload?.license) {
+        const approvedLic = evt.payload.license;
+        setClientLicensesRegistry(prev => {
+          const exists = prev.some(l => l.id === approvedLic.id);
+          if (exists) {
+            return prev.map(l => l.id === approvedLic.id ? { ...l, ...approvedLic } : l);
+          }
+          return [approvedLic, ...prev];
+        });
+        if (user?.email && approvedLic.clientEmail?.toLowerCase() === user.email.toLowerCase()) {
+          setLicenseInfo(prev => ({ ...prev, ...approvedLic, status: 'active' }));
+          showToast(lang === 'bn' ? '🎉 আপনার লাইসেন্স অ্যাডমিন কর্তৃক সফলভাবে অনুমোদিত হয়েছে!' : 'License approved by admin!');
+        }
+      } else if (evt?.type === 'CLIENT_LICENSE_REQUEST' && evt?.payload?.license) {
+        const reqLic = evt.payload.license;
+        setClientLicensesRegistry(prev => {
+          if (prev.some(l => l.id === reqLic.id || l.clientEmail?.toLowerCase() === reqLic.clientEmail?.toLowerCase())) {
+            return prev;
+          }
+          return [reqLic, ...prev];
+        });
+      }
+    });
+    return () => unsub();
+  }, [user, lang]);
 
   // Operating Mode handler
   const setOperatingMode = (mode) => {
