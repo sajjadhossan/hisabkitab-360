@@ -1,17 +1,6 @@
 import * as XLSX from 'xlsx';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { printHtmlContent } from './printService';
 import { downloadNativeFile } from './nativeAppService';
-
-// Set up pdfjs worker using local bundled worker asset (works offline in APK and Web)
-if (pdfjsLib.GlobalWorkerOptions) {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-  } catch (err) {
-    console.warn('Could not set pdf workerSrc, will fallback to inline worker:', err);
-  }
-}
 
 export const BANGLA_MONTH_NAMES = {
   '01': 'জানুয়ারি',
@@ -1225,7 +1214,13 @@ export const parsePdfFile = async (file, onProgress) => {
   reportProgress(10, 'ফাইল পড়া শুরু হচ্ছে...');
   const buffer = await file.arrayBuffer();
 
-  reportProgress(25, 'PDF ইঞ্জিন প্রস্তুত হচ্ছে ও পেজ ডিটেক্ট করা হচ্ছে...');
+  reportProgress(20, 'PDF ইঞ্জিন প্রস্তুত হচ্ছে ও পেজ ডিটেক্ট করা হচ্ছে...');
+  const pdfjsLib = await import('pdfjs-dist');
+  if (pdfjsLib.GlobalWorkerOptions) {
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    } catch (_) {}
+  }
   let pdf;
   try {
     const loadingTask = pdfjsLib.getDocument({
