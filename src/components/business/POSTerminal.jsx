@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CounterShiftClosingModal } from '../pos/CounterShiftClosingModal';
 import { CounterShiftOpeningModal } from '../pos/CounterShiftOpeningModal';
 import { MobilePOSView } from '../pos/MobilePOSView';
+import { MasterPinModal } from '../admin/MasterPinModal';
 import confetti from 'canvas-confetti';
 import {
   ScanLine,
@@ -257,6 +258,7 @@ export const POSTerminal = () => {
     removeFromCart,
     clearCart,
     completeSale,
+    voidSale,
     customers,
     businessSettings,
     openScanner,
@@ -290,6 +292,11 @@ export const POSTerminal = () => {
   const [showRecentSalesModal, setShowRecentSalesModal] = useState(false);
   const [lastCompletedSale, setLastCompletedSale] = useState(null);
   const [showAttendanceQrModal, setShowAttendanceQrModal] = useState(false);
+
+  // Protected Return & Void Sale Authorization State
+  const [showMasterPinForAction, setShowMasterPinForAction] = useState(false);
+  const [pendingAuthorizedAction, setPendingAuthorizedAction] = useState(null);
+  const [selectedSaleForReturn, setSelectedSaleForReturn] = useState(null);
 
   // Live Real-Time Clock
   const [currentTime, setCurrentTime] = useState(() => {
@@ -5325,8 +5332,8 @@ export const POSTerminal = () => {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'right', marginRight: '6px' }}>
                           <div style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                             ৳{Number(sale.grandTotal).toLocaleString()}
                           </div>
@@ -5337,13 +5344,14 @@ export const POSTerminal = () => {
                           )}
                         </div>
 
+                        {/* Print Receipt Button */}
                         <button
                           type="button"
                           onClick={() => openInvoicePrint(sale)}
                           className="btn btn-secondary"
                           style={{
-                            padding: '6px 10px',
-                            fontSize: '0.75rem',
+                            padding: '6px 9px',
+                            fontSize: '0.74rem',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
@@ -5353,6 +5361,79 @@ export const POSTerminal = () => {
                         >
                           <FileText size={13} />
                           <span>প্রিন্ট</span>
+                        </button>
+
+                        {/* Sales Return / Refund Button (Protected by Owner Master PIN) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const executeReturn = () => {
+                              setSelectedSaleForReturn(sale);
+                              setShowSalesReturnModal(true);
+                            };
+                            if (isOwner || role === 'owner' || role === 'admin') {
+                              executeReturn();
+                            } else {
+                              // Cashier needs Master PIN verification
+                              setPendingAuthorizedAction(() => executeReturn);
+                              setShowMasterPinForAction(true);
+                            }
+                          }}
+                          className="btn"
+                          style={{
+                            padding: '6px 9px',
+                            fontSize: '0.74rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: '700',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            color: '#f59e0b',
+                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                          title="বিক্রিত পণ্য ফেরত / রিফান্ড (মালিকের অনুমোদন প্রয়োজন)"
+                        >
+                          <RotateCcw size={13} />
+                          <span>ফেরত</span>
+                        </button>
+
+                        {/* Void Sale / Cancel Invoice Button (Protected by Owner Master PIN) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const executeVoid = () => {
+                              if (window.confirm(`⚠️ আপনি কি নিশ্চিত যে ইনভয়েস #${sale.id} সম্পূর্ণ বাতিল করবেন?\n\nপণ্যগুলো স্বয়ংক্রিয়ভাবে ইনভেন্টরি স্টকে ফেরত চলে যাবে এবং বাকি থাকলে বকেয়া হিসাব থেকে বাদ যাবে।`)) {
+                                voidSale(sale.id, { restock: true, reason: 'কাউন্টার থেকে বাতিল' });
+                              }
+                            };
+                            if (isOwner || role === 'owner' || role === 'admin') {
+                              executeVoid();
+                            } else {
+                              // Cashier needs Master PIN verification
+                              setPendingAuthorizedAction(() => executeVoid);
+                              setShowMasterPinForAction(true);
+                            }
+                          }}
+                          className="btn"
+                          style={{
+                            padding: '6px 9px',
+                            fontSize: '0.74rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: '700',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                          title="ইনভয়েস বাতিল করুন (মালিকের পিন আবশ্যক)"
+                        >
+                          <Trash2 size={13} />
+                          <span>বাতিল</span>
                         </button>
                       </div>
                     </div>
@@ -5520,9 +5601,31 @@ export const POSTerminal = () => {
       {showSalesReturnModal && (
         <SalesReturnModal
           isOpen={showSalesReturnModal}
-          onClose={() => setShowSalesReturnModal(false)}
+          initialSale={selectedSaleForReturn}
+          onClose={() => {
+            setShowSalesReturnModal(false);
+            setSelectedSaleForReturn(null);
+          }}
           lang={lang}
           showToast={showToast}
+        />
+      )}
+
+      {/* OWNER MASTER PIN AUTHORIZATION FOR RETURN & VOID */}
+      {showMasterPinForAction && (
+        <MasterPinModal
+          isOpen={showMasterPinForAction}
+          onClose={() => {
+            setShowMasterPinForAction(false);
+            setPendingAuthorizedAction(null);
+          }}
+          onSuccess={() => {
+            if (typeof pendingAuthorizedAction === 'function') {
+              pendingAuthorizedAction();
+            }
+            setShowMasterPinForAction(false);
+            setPendingAuthorizedAction(null);
+          }}
         />
       )}
 

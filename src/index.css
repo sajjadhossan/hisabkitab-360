@@ -3542,14 +3542,16 @@ body {
     margin: 0 !important;
   }
 
-  /* 4. When Direct Print Root has content, isolate it */
+  /* 4. Robust Direct Print Isolation (No fragile :has dependency) */
+  body.hk360-is-printing > *:not(#hk360-direct-print-root),
   body:has(#hk360-direct-print-root:not(:empty)) > *:not(#hk360-direct-print-root) {
     display: none !important;
   }
 
+  body.hk360-is-printing #hk360-direct-print-root,
   #hk360-direct-print-root:not(:empty) {
     display: block !important;
-    position: absolute !important;
+    position: static !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
@@ -3558,8 +3560,10 @@ body {
     background: #ffffff !important;
     color: #000000 !important;
     visibility: visible !important;
+    z-index: 999999 !important;
   }
 
+  body.hk360-is-printing #hk360-direct-print-root *,
   #hk360-direct-print-root:not(:empty) * {
     visibility: visible !important;
   }
@@ -3595,5 +3599,26 @@ body {
     max-width: 100% !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+}
+
+/* ----------------------------------------------------
+ * SuperAdmin & High-Density Tables Responsive Breakpoints
+ * ---------------------------------------------------- */
+@media screen and (max-width: 768px) {
+  .desktop-only-table {
+    display: none !important;
+  }
+  .mobile-only-cards {
+    display: flex !important;
+  }
+}
+
+@media screen and (min-width: 769px) {
+  .desktop-only-table {
+    display: block !important;
+  }
+  .mobile-only-cards {
+    display: none !important;
   }
 }

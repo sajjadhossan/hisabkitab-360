@@ -1018,6 +1018,57 @@ export const AppProvider = ({ children }) => {
     }
   }, [user, isSuperAdmin, clientLicensesRegistry]);
 
+  // Tenant / Account Isolation: When active user switches (e.g. Sajjad to Mariam), scope data to the current account
+  const activeTenantRef = useRef(user?.email || 'guest');
+  useEffect(() => {
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === activeTenantRef.current) {
+      return;
+    }
+    const previousEmail = activeTenantRef.current;
+    activeTenantRef.current = currentEmail;
+
+    // Flush any pending unsaved writes under the previous user
+    try {
+      flushPendingStorageWrites();
+    } catch {}
+
+    const tenantPrefix = `hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_`;
+    const hasTenantData = Object.keys(localStorage).some(k => k.startsWith(tenantPrefix));
+
+    if (hasTenantData) {
+      // Load saved data for this specific tenant
+      try {
+        const tSales = localStorage.getItem(`${tenantPrefix}biz_sales`);
+        if (tSales) setSalesHistory(JSON.parse(tSales));
+        const tProds = localStorage.getItem(`${tenantPrefix}biz_products`);
+        if (tProds) setProducts(JSON.parse(tProds));
+        const tInvs = localStorage.getItem(`${tenantPrefix}biz_invoices`);
+        if (tInvs) setInvoices(JSON.parse(tInvs));
+        const tCusts = localStorage.getItem(`${tenantPrefix}biz_customers`);
+        if (tCusts) setCustomers(JSON.parse(tCusts));
+        const tDebts = localStorage.getItem(`${tenantPrefix}biz_debts`);
+        if (tDebts) setBusinessDebts(JSON.parse(tDebts));
+        const tExps = localStorage.getItem(`${tenantPrefix}biz_expenses`);
+        if (tExps) setBusinessExpenses(JSON.parse(tExps));
+      } catch (err) {
+        console.warn('[TenantIsolation] Failed to load tenant data:', err);
+      }
+    } else {
+      // If switching from master Sajjad to a client account (e.g. Mariam), give Mariam a clean fresh slate
+      if (previousEmail === 'hossansajjad1994@gmail.com' && currentEmail !== 'hossansajjad1994@gmail.com') {
+        console.log(`[TenantIsolation] Initializing fresh clean workspace for client account: ${currentEmail}`);
+        setProducts([]);
+        setCart([]);
+        setSalesHistory([]);
+        setInvoices([]);
+        setCustomers([]);
+        setBusinessDebts([]);
+        setBusinessExpenses([]);
+      }
+    }
+  }, [user]);
+
   // Multi-Branch & Multi-Counter States
   const [branches, setBranches] = useState(() => {
     try {
@@ -1143,15 +1194,24 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, products);
-  }, [products]);
+    if (user?.email) {
+      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_products`, products);
+    }
+  }, [products, user?.email]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, salesHistory);
-  }, [salesHistory]);
+    if (user?.email) {
+      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_sales`, salesHistory);
+    }
+  }, [salesHistory, user?.email]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, customers);
-  }, [customers]);
+    if (user?.email) {
+      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, customers);
+    }
+  }, [customers, user?.email]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_EMPLOYEES, employees);
@@ -1163,7 +1223,10 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, businessExpenses);
-  }, [businessExpenses]);
+    if (user?.email) {
+      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_expenses`, businessExpenses);
+    }
+  }, [businessExpenses, user?.email]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_SETTINGS, businessSettings);
@@ -1171,7 +1234,10 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, invoices);
-  }, [invoices]);
+    if (user?.email) {
+      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_invoices`, invoices);
+    }
+  }, [invoices, user?.email]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_QUOTATIONS, quotations);
@@ -1187,7 +1253,10 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, businessDebts);
-  }, [businessDebts]);
+    if (user?.email) {
+      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_debts`, businessDebts);
+    }
+  }, [businessDebts, user?.email]);
 
   useEffect(() => {
     scheduleStorageWrite(STORAGE_KEYS.BIZ_FIELD_ORDERS, fieldOrders);
@@ -3340,15 +3409,17 @@ export const AppProvider = ({ children }) => {
 
   // Delete Invoice with optional Restock of unsold goods
   const deleteInvoice = (id, restockItems = true) => {
-    const inv = invoices.find(i => i.id === id);
+    const inv = invoices.find(i => i.id === id) || salesHistory.find(s => s.id === id);
     if (inv) {
       // Restock items if desired
       if (restockItems && inv.items && inv.items.length > 0) {
         setProducts(prev => prev.map(p => {
-          const it = inv.items.find(item => item.productId === p.id);
+          const it = inv.items.find(item => item.productId === p.id || item.id === p.id);
           if (it) {
-            const unreturned = Math.max(0, Number(it.qty) - (Number(it.returnedQty) || 0));
-            return { ...p, stock: p.stock + unreturned };
+            const qtyToReturn = Number(it.quantity || it.qty || 1);
+            const returnedSoFar = Number(it.returnedQty || 0);
+            const unreturned = Math.max(0, qtyToReturn - returnedSoFar);
+            return { ...p, stock: (Number(p.stock) || 0) + unreturned };
           }
           return p;
         }));
@@ -3356,9 +3427,9 @@ export const AppProvider = ({ children }) => {
 
       // Reverse customer due if any
       const due = Number(inv.dueAmount !== undefined ? inv.dueAmount : inv.grandTotal) || 0;
-      if (due > 0 && inv.customerId) {
+      if (due > 0 && (inv.customerId || inv.customerName)) {
         setCustomers(prev => prev.map(c => {
-          if (c.id === inv.customerId) {
+          if ((inv.customerId && c.id === inv.customerId) || (!inv.customerId && c.name === inv.customerName)) {
             return {
               ...c,
               outstandingDue: Math.max(0, (Number(c.outstandingDue) || 0) - due)
@@ -3369,12 +3440,77 @@ export const AppProvider = ({ children }) => {
       }
     }
 
-    setInvoices(invoices.filter(inv => inv.id !== id));
+    setInvoices(prev => prev.filter(item => item.id !== id));
+    setSalesHistory(prev => prev.filter(item => item.id !== id));
     showToast(
       lang === 'bn'
         ? `ইনভয়েস মুছে ফেলা হয়েছে${restockItems ? ' এবং মালামাল স্টকে ফেরত দেওয়া হয়েছে' : ''}!`
         : `Invoice deleted${restockItems ? ' and stock restored' : ''}!`
     );
+  };
+
+  // Void Sale / Cancel Invoice (ইনভয়েস বাতিল ও পণ্য স্টক রিভার্স)
+  const voidSale = (saleId, options = { restock: true, reason: 'ভুল এন্ট্রি / অর্ডার বাতিল' }) => {
+    const target = salesHistory.find(s => s.id === saleId) || invoices.find(i => i.id === saleId);
+    if (!target) {
+      showToast(lang === 'bn' ? 'ইনভয়েসটি পাওয়া যায়নি!' : 'Sale not found!', 'danger');
+      return false;
+    }
+
+    // 1. Restock items back into product inventory
+    if (options.restock !== false && Array.isArray(target.items) && target.items.length > 0) {
+      setProducts(prev => prev.map(prod => {
+        const item = target.items.find(it => (it.id === prod.id) || (it.productId === prod.id) || (it.name === prod.name));
+        if (item) {
+          const qty = Number(item.quantity || item.qty || 1);
+          return {
+            ...prod,
+            stock: (Number(prod.stock) || 0) + qty
+          };
+        }
+        return prod;
+      }));
+    }
+
+    // 2. Reverse customer due & totalPurchased in CRM
+    const due = Number(target.dueAmount) || 0;
+    const grand = Number(target.grandTotal) || 0;
+    if (target.customerId || target.customerName) {
+      setCustomers(prev => prev.map(c => {
+        if ((target.customerId && c.id === target.customerId) || (!target.customerId && c.name === target.customerName)) {
+          return {
+            ...c,
+            outstandingDue: Math.max(0, (Number(c.outstandingDue) || 0) - due),
+            totalPurchased: Math.max(0, (Number(c.totalPurchased) || 0) - grand)
+          };
+        }
+        return c;
+      }));
+    }
+
+    // 3. Remove or Mark Void in Sales History & Invoices
+    setSalesHistory(prev => prev.filter(s => s.id !== saleId));
+    setInvoices(prev => prev.filter(i => i.id !== saleId));
+
+    // 4. Record Void Event in Cloud & Local Audit
+    try {
+      broadcastLiveEvent('SALE_VOIDED', { saleId, voidedAt: new Date().toISOString(), reason: options.reason });
+    } catch {}
+
+    try {
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        salesHistory: salesHistory.filter(s => s.id !== saleId),
+        invoices: invoices.filter(i => i.id !== saleId)
+      }, 'sale_voided');
+    } catch {}
+
+    showToast(
+      lang === 'bn'
+        ? `ইনভয়েস #${saleId} সফলভাবে বাতিল করা হয়েছে এবং মালামাল স্টকে ফেরত দেওয়া হয়েছে!`
+        : `Invoice #${saleId} voided and inventory restored!`
+    );
+    return true;
   };
 
   // ----------------------------------------------------
@@ -5810,6 +5946,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         editInvoice,
         updateInvoiceStatus,
         deleteInvoice,
+        voidSale,
         processSalesReturn,
         quotations,
         addQuotation,

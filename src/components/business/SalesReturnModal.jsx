@@ -14,7 +14,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { showConfirmDialog } from '../../services/dialogService';
 
-export const SalesReturnModal = ({ isOpen, onClose }) => {
+export const SalesReturnModal = ({ isOpen, onClose, initialSale = null }) => {
   const {
     salesHistory = [],
     products = [],
@@ -29,6 +29,17 @@ export const SalesReturnModal = ({ isOpen, onClose }) => {
   const [returnItems, setReturnItems] = useState({}); // { [productId]: { quantity: 1, condition: 'restock' | 'damaged', reason: '' } }
   const [refundMethod, setRefundMethod] = useState('cash'); // 'cash' | 'credit'
   const [returnNotes, setReturnNotes] = useState('');
+
+  // Auto-select initial sale if provided from POS invoice list
+  React.useEffect(() => {
+    if (isOpen && initialSale) {
+      handleSelectSale(initialSale);
+    } else if (!isOpen) {
+      setSelectedSale(null);
+      setReturnItems({});
+      setSearchInvoice('');
+    }
+  }, [isOpen, initialSale]);
 
   // Find sales match
   const filteredSales = useMemo(() => {

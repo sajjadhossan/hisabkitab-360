@@ -3599,8 +3599,8 @@ export const SuperAdminPanel = () => {
               </div>
             )}
 
-            {/* Registry Table with Smooth Touch Scrolling */}
-            <div className="touch-scroll-x responsive-table-wrapper" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y', width: '100%', maxWidth: '100%' }}>
+            {/* Desktop Table View (>= 769px) */}
+            <div className="touch-scroll-x responsive-table-wrapper desktop-only-table" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y', width: '100%', maxWidth: '100%' }}>
               <table style={{ minWidth: '760px', width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255, 255, 255, 0.04)', borderBottom: '1px solid var(--border-color)' }}>
@@ -3782,7 +3782,6 @@ export const SuperAdminPanel = () => {
                         </td>
                       </tr>
                     ))}
-
                   {clientLicensesRegistry.length === 0 && (
                     <tr>
                       <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
@@ -3792,6 +3791,203 @@ export const SuperAdminPanel = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile / Small Screen Card View (<= 768px) - 100% Screen Bound Safe */}
+            <div className="mobile-only-cards" style={{ display: 'none', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '100%' }}>
+              {clientLicensesRegistry
+                .filter(lic => {
+                  if (!licenseSearchQuery) return true;
+                  const q = licenseSearchQuery.toLowerCase();
+                  return (lic.clientShopName || '').toLowerCase().includes(q) ||
+                    (lic.clientEmail || '').toLowerCase().includes(q) ||
+                    (lic.licenseKey || '').toLowerCase().includes(q);
+                })
+                .map((lic, idx) => (
+                  <div
+                    key={lic.id || idx}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      width: '100%',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    {/* Top Row: Shop Name & Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-main)' }}>{lic.clientShopName}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ইস্যু: {lic.issuedDate || 'পূর্বনির্ধারিত'}</div>
+                      </div>
+                      <div>
+                        {lic.status === 'pending_approval' ? (
+                          <span style={{
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            color: '#f59e0b',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            padding: '3px 8px',
+                            borderRadius: '10px',
+                            fontSize: '0.72rem',
+                            fontWeight: '800'
+                          }}>
+                            ⏳ অপেক্ষমাণ
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const newStatus = lic.status === 'active' ? 'suspended' : 'active';
+                              if (newStatus === 'suspended') {
+                                if (!window.confirm(`⚠️ আপনি কি সত্যিই "${lic.clientShopName}"-এর সফটওয়্যার এক্সেস স্থগিত (Suspend) করতে চান?\n\nএটি সাথে সাথে ক্লায়েন্টের মোবাইল বা পিসির স্ক্রিন লক করে দিবে এবং সে আর কোনো হিসাব দেখতে পারবে না।`)) {
+                                  return;
+                                }
+                              }
+                              updateClientLicense(lic.id, { status: newStatus });
+                            }}
+                            className="btn"
+                            style={{
+                              background: lic.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.18)',
+                              color: lic.status === 'active' ? '#10b981' : '#ef4444',
+                              border: `1.5px solid ${lic.status === 'active' ? 'rgba(16, 185, 129, 0.4)' : '#ef4444'}`,
+                              padding: '4px 10px',
+                              borderRadius: '10px',
+                              fontSize: '0.74rem',
+                              fontWeight: '800',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {lic.status === 'active' ? '🟢 Active' : '⛔ Suspended'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Locked Email & Phone */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '3px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.76rem', maxWidth: '100%', wordBreak: 'break-all' }}>
+                        <Lock size={11} />
+                        <code>{lic.clientEmail}</code>
+                      </div>
+                      {lic.clientPhone && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          📞 {lic.clientPhone}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Plan & Expiry */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', background: 'rgba(255, 255, 255, 0.03)', padding: '6px 10px', borderRadius: '8px' }}>
+                      <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>📦 {lic.planName}</span>
+                      <span style={{ color: '#f59e0b', fontWeight: '700' }}>মেয়াদ: {lic.expiryDate}</span>
+                    </div>
+
+                    {/* License Key & Copy */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0, 0, 0, 0.3)', padding: '6px 10px', borderRadius: '6px' }}>
+                      <code style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.78rem',
+                        fontWeight: '800',
+                        color: lic.licenseKey === 'PENDING_APPROVAL' ? '#f59e0b' : '#10b981',
+                        wordBreak: 'break-all'
+                      }}>
+                        {lic.licenseKey}
+                      </code>
+                      {lic.licenseKey !== 'PENDING_APPROVAL' && (
+                        <button
+                          onClick={() => handleCopyKey(lic.licenseKey)}
+                          className="btn"
+                          title="কি কপি করুন"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            padding: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Copy size={15} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Mobile Action Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px' }}>
+                      {lic.status === 'pending_approval' && (
+                        <button
+                          onClick={() => approveClientLicense(lic.id, { planName: 'Standard Commercial Suite', durationMonths: 12 })}
+                          className="btn"
+                          style={{
+                            flex: 1,
+                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Check size={14} /> অনুমোদন করুন
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleCopyClientDeliveryMessage(lic)}
+                        className="btn"
+                        style={{
+                          flex: 1,
+                          background: 'rgba(37, 211, 102, 0.15)',
+                          color: '#25d366',
+                          border: '1px solid rgba(37, 211, 102, 0.3)',
+                          padding: '8px',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <MessageCircle size={15} /> হোয়াটসঅ্যাপ মেসেজ
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`আপনি কি সত্যিই "${lic.clientShopName}"-এর লাইসেন্স রেজিস্ট্রি থেকে মুছে ফেলতে চান?`)) {
+                            deleteClientLicense(lic.id);
+                          }
+                        }}
+                        className="btn"
+                        title="রেজিস্ট্রি থেকে মুছুন"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {clientLicensesRegistry.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  এখনো কোনো ক্লায়েন্ট লাইসেন্স তৈরি করা হয়নি।
+                </div>
+              )}
             </div>
           </div>
         </div>

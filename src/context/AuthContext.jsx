@@ -918,6 +918,12 @@ export const AuthProvider = ({ children }) => {
     }
     setUser(null);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    setIsSuperAdminUnlocked(false);
+    try {
+      sessionStorage.removeItem('hk360_superadmin_unlocked');
+      localStorage.removeItem('hk360_superadmin_unlocked');
+      sessionStorage.removeItem('hk360_superadmin_otp');
+    } catch {}
     // Lock the screen and open login modal
     setIsAuthModalOpen(true);
     setAuthView('login');
@@ -1162,19 +1168,17 @@ export const AuthProvider = ({ children }) => {
   }, [verifySuperAdminOtpAndResetPin]);
 
   const userEmail = (user?.email || '').trim().toLowerCase();
-  const savedUserEmail = (savedEmail || '').trim().toLowerCase();
-  const isMasterAccount = 
-    userEmail === 'hossansajjad1994@gmail.com' || 
-    savedUserEmail === 'hossansajjad1994@gmail.com' ||
-    user?.role === 'superadmin' ||
-    user?.isSuperAdmin === true;
+  
+  // STRICT AUDIT: Super Admin is ONLY EVER hossansajjad1994@gmail.com
+  // No other account (including Mariam or clients) can ever be Super Admin
+  const isMasterAccount = Boolean(user && userEmail === 'hossansajjad1994@gmail.com');
+  const isSuperAdmin = Boolean(user && userEmail === 'hossansajjad1994@gmail.com' && (user?.isSuperAdmin || isSuperAdminUnlocked || user?.role === 'superadmin'));
 
   const currentRole = isMasterAccount ? 'superadmin' : (user?.role || 'owner');
   const isOwner = currentRole === 'owner' || currentRole === 'admin' || isMasterAccount;
   const isCashier = currentRole === 'cashier';
   const isSalesman = currentRole === 'salesman';
   const isSR = currentRole === 'sr';
-  const isSuperAdmin = isMasterAccount || isSuperAdminUnlocked;
 
   return (
     <AuthContext.Provider

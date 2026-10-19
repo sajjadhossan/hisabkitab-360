@@ -225,9 +225,8 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     }
 
     const isMe =
-      last.senderDeviceId === myLocalDeviceId ||
       last.senderId === activeUserId ||
-      (isSuperAdmin && last.senderId === 'super_admin');
+      (activeUserEmail && last.senderEmail?.toLowerCase() === activeUserEmail);
 
     const timeStr = last.timestamp
       ? new Date(last.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -1176,15 +1175,22 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 currentMessages.map((m) => {
+                  const isSentByTarget =
+                    m.senderId === activeTarget.id ||
+                    (activeTarget.email && m.senderEmail?.toLowerCase() === activeTarget.email?.toLowerCase()) ||
+                    (activeTarget.phone && m.senderPhone === activeTarget.phone);
+
                   let isMe = false;
-                  if (m.senderDeviceId && m.senderDeviceId === myLocalDeviceId) {
+                  if (isSentByTarget) {
+                    isMe = false;
+                  } else if (m.senderId === activeUserId || (activeUserEmail && m.senderEmail?.toLowerCase() === activeUserEmail)) {
                     isMe = true;
-                  } else if (isSuperAdmin) {
-                    isMe = (m.senderId === 'super_admin' || m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন' || m.senderEmail === activeUserEmail);
-                  } else if (isOwner) {
-                    isMe = (m.senderId === 'owner' || m.senderId === user?.id || m.senderRole === 'Owner' || m.senderRole === 'মালিক');
-                  } else {
-                    isMe = (m.senderId === user?.id || (user?.phone && m.senderPhone === user.phone));
+                  } else if (isSuperAdmin && (m.senderId === 'super_admin' || m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন')) {
+                    isMe = true;
+                  } else if (isOwner && (m.senderId === 'owner' || m.senderId === user?.id || m.senderRole === 'Owner' || m.senderRole === 'admin' || m.senderRole === 'মালিক')) {
+                    isMe = true;
+                  } else if (m.recipientId === activeTarget.id) {
+                    isMe = true;
                   }
 
                   const isFromSuperAdmin = m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন' || m.senderId === 'super_admin';

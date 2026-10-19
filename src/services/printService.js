@@ -187,7 +187,9 @@ export const printHtmlContent = (htmlContent, options = {}) => {
     }
   }
 
-  // 1. DIRECT DOM ENGINE: Populate #hk360-direct-print-root for primary/fallback window.print()
+  // 1. BULLETPROOF DIRECT DOM PRINT ENGINE (Works on all Browsers, Android WebViews, and Vercel)
+  document.body.classList.add('hk360-is-printing');
+
   let directRoot = document.getElementById('hk360-direct-print-root');
   if (!directRoot) {
     directRoot = document.createElement('div');
@@ -208,67 +210,51 @@ export const printHtmlContent = (htmlContent, options = {}) => {
         size: ${paperType === 'receipt' ? `${widthMm} auto` : paperType === 'label' ? 'auto' : 'A4 portrait'};
         margin: ${paperType === 'receipt' ? '0mm' : paperType === 'label' ? '4mm' : '8mm 10mm'};
       }
+      body.hk360-is-printing > *:not(#hk360-direct-print-root) {
+        display: none !important;
+      }
+      #hk360-direct-print-root {
+        display: block !important;
+        visibility: visible !important;
+        position: static !important;
+        width: 100% !important;
+        margin: 0 auto !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      #hk360-direct-print-root * {
+        visibility: visible !important;
+      }
     }
   `;
   document.head.appendChild(dynamicStyle);
 
-  const cleanupDirectRoot = () => {
+  const cleanup = () => {
     try {
+      document.body.classList.remove('hk360-is-printing');
       if (directRoot) directRoot.innerHTML = '';
       if (dynamicStyle) dynamicStyle.remove();
     } catch (_) {}
   };
 
-  // 2. COMPOSITOR IFRAME ENGINE: Out-of-screen (-9999px) with full opacity so Chromium never discards it
-  const frameId = 'hk360-print-worker-frame';
-  let iframe = document.getElementById(frameId);
-  if (iframe) iframe.remove();
-
-  iframe = document.createElement('iframe');
-  iframe.id = frameId;
-  iframe.setAttribute('title', 'Print Worker Frame');
-  iframe.style.position = 'fixed';
-  iframe.style.left = '-9999px';
-  iframe.style.top = '-9999px';
-  iframe.style.width = paperWidth === '58mm' ? '280px' : '380px';
-  iframe.style.height = '800px';
-  iframe.style.border = 'none';
-  iframe.style.background = '#ffffff';
-  iframe.style.zIndex = '1';
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentWindow?.document;
-  if (!doc) {
-    ensureImagesLoaded(directRoot, () => {
-      window.print();
-      setTimeout(cleanupDirectRoot, 2000);
-    });
-    return;
-  }
-
-  doc.open();
-  doc.write(fullDoc);
-  doc.close();
-
-  const executePrintJob = () => {
-    try {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    } catch (err) {
-      console.warn('Iframe print failed, falling back to window.print():', err);
-      window.print();
-    } finally {
-      // Auto clean up after user finishes or cancels print dialog
-      setTimeout(() => {
-        cleanupDirectRoot();
-        try { iframe?.remove(); } catch (_) {}
-      }, 3000);
-    }
+  const afterPrintHandler = () => {
+    window.removeEventListener('afterprint', afterPrintHandler);
+    cleanup();
   };
+  window.addEventListener('afterprint', afterPrintHandler);
 
-  // Wait for images inside iframe doc or fallback timeout
-  ensureImagesLoaded(doc.body, () => {
-    setTimeout(executePrintJob, 80);
+  // Ensure images load before print dialog opens
+  ensureImagesLoaded(directRoot, () => {
+    setTimeout(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch (err) {
+        console.warn('Direct print execution failed:', err);
+      } finally {
+        setTimeout(cleanup, 2500);
+      }
+    }, 80);
   });
 };
 
