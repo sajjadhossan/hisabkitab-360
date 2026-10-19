@@ -19,6 +19,7 @@ import { hapticFeedback } from './nativeAppService';
 const STORAGE_KEY = 'hk360_internal_messages';
 const UNREAD_KEY = 'hk360_unread_msg_count';
 const CLOUD_CHAT_ACTION = 'INTERNAL_CHAT_MESSAGE';
+const CLOUD_DELETE_ACTION = 'INTERNAL_CHAT_MESSAGE_DELETED';
 
 export const CHANNELS = [
   {
@@ -142,6 +143,103 @@ export const persistMessageToCloud = async (msg) => {
 };
 
 /**
+ * Compresses an image file client-side into WebP/JPEG dataURL (reduces 5MB to ~80-120KB)
+ */
+export const compressImageFile = (file, maxWidth = 1024, quality = 0.75) => {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) {
+      return reject(new Error('File is not an image'));
+    }
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/webp', quality);
+        resolve({
+          name: file.name,
+          type: 'image/webp',
+          size: Math.round((dataUrl.length * 3) / 4),
+          dataUrl
+        });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+/**
+ * Deletes a message locally and broadcasts/persists deletion to Cloud
+ */
+export const deleteMessage = async (messageId, deleteForEveryone = true) => {
+  try {
+    const current = getStoredMessages();
+    const target = current.find((m) => m.id === messageId);
+    if (!target) return false;
+
+    const updated = current.map((m) => {
+      if (m.id === messageId) {
+        return {
+          ...m,
+          isDeleted: true,
+          text: '🚫 এই বার্তাটি মুছে ফেলা হয়েছে',
+          attachment: null,
+          meta: null
+        };
+      }
+      return m;
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    // Local dispatch
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, isDeleted: true } }));
+    }
+
+    if (deleteForEveryone) {
+      // 1. Realtime Broadcast
+      try {
+        broadcastLiveEvent('INTERNAL_CHAT_MESSAGE_DELETED', { messageId });
+      } catch {}
+
+      // 2. Cloud persistence of deletion
+      const supabase = getSupabase();
+      if (supabase && isSupabaseReady()) {
+        try {
+          await supabase.from('audit_logs').insert([{
+            action: CLOUD_DELETE_ACTION,
+            entity_type: 'chat_message',
+            entity_id: messageId,
+            actor_name: 'ব্যবহারকারী',
+            details: { messageId, deletedAt: new Date().toISOString() }
+          }]);
+        } catch (e) {
+          console.warn('[InternalChat] Supabase delete log failed:', e);
+        }
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to delete message:', err);
+    return false;
+  }
+};
+
+/**
  * Pulls missed messages from Supabase Cloud and merges into local storage
  */
 export const syncCloudMessages = async () => {
@@ -154,40 +252,57 @@ export const syncCloudMessages = async () => {
   try {
     const { data, error } = await supabase
       .from('audit_logs')
-      .select('id, details, created_at')
-      .eq('action', CLOUD_CHAT_ACTION)
+      .select('id, action, details, created_at')
+      .in('action', [CLOUD_CHAT_ACTION, CLOUD_DELETE_ACTION])
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(150);
 
     if (error || !data || !Array.isArray(data)) {
       return getStoredMessages();
     }
 
     const localMsgs = getStoredMessages();
-    const localIds = new Set(localMsgs.map((m) => m.id));
-    let hasNew = false;
-    const merged = [...localMsgs];
+    const localMap = new Map(localMsgs.map((m) => [m.id, m]));
+    let hasChanges = false;
 
-    // Data is descending, reverse to append chronologically
+    // Filter out deletions and add new messages
     data.reverse().forEach((row) => {
-      const msg = row.details;
-      if (msg && msg.id && !localIds.has(msg.id)) {
-        localIds.add(msg.id);
-        merged.push(msg);
-        hasNew = true;
+      if (row.action === CLOUD_DELETE_ACTION) {
+        const deletedId = row.details?.messageId;
+        if (deletedId && localMap.has(deletedId)) {
+          const existing = localMap.get(deletedId);
+          if (!existing.isDeleted) {
+            localMap.set(deletedId, {
+              ...existing,
+              isDeleted: true,
+              text: '🚫 এই বার্তাটি মুছে ফেলা হয়েছে',
+              attachment: null,
+              meta: null
+            });
+            hasChanges = true;
+          }
+        }
+      } else if (row.action === CLOUD_CHAT_ACTION) {
+        const msg = row.details;
+        if (msg && msg.id && !localMap.has(msg.id)) {
+          localMap.set(msg.id, msg);
+          hasChanges = true;
+        }
       }
     });
 
-    if (hasNew) {
+    if (hasChanges) {
+      const merged = Array.from(localMap.values());
       // Sort by timestamp
       merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('hk360_internal_msg_received'));
       }
+      return merged;
     }
 
-    return merged;
+    return localMsgs;
   } catch (err) {
     console.warn('[InternalChat] syncCloudMessages error:', err);
     return getStoredMessages();
@@ -239,6 +354,32 @@ export const initChatRealtimeListener = (onIncomingMessage) => {
         try {
           onIncomingMessage(incoming);
         } catch {}
+      }
+    } else if (eventObj?.eventType === 'INTERNAL_CHAT_MESSAGE_DELETED') {
+      const { messageId } = eventObj.data || {};
+      if (!messageId) return;
+
+      const current = getStoredMessages();
+      let changed = false;
+      const updated = current.map((m) => {
+        if (m.id === messageId && !m.isDeleted) {
+          changed = true;
+          return {
+            ...m,
+            isDeleted: true,
+            text: '🚫 এই বার্তাটি মুছে ফেলা হয়েছে',
+            attachment: null,
+            meta: null
+          };
+        }
+        return m;
+      });
+
+      if (changed) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, isDeleted: true } }));
+        }
       }
     }
   });
