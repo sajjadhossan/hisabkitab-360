@@ -27,10 +27,13 @@ import {
   FileText,
   Download,
   Eye,
-  Check
+  Check,
+  ArrowRight,
+  UserCheck
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { getLocalDeviceId } from '../../services/liveSyncService';
 import {
   CHANNELS,
   getStoredMessages,
@@ -65,11 +68,13 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     isSR
   } = useAuth();
 
-  // Active target state
+  // Active target state: default to 1-on-1 or appropriate channel
   const [activeTarget, setActiveTarget] = useState(() => ({
     type: 'channel',
     id: 'super_admin_desk',
-    title: 'সুপার এডমিন হেল্পডেস্ক ও নোটিশ'
+    title: 'সুপার এডমিন হেল্পডেস্ক ও নোটিশ',
+    role: 'Platform',
+    phone: null
   }));
 
   const [messages, setMessages] = useState(() => getStoredMessages());
@@ -77,6 +82,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
   const [msgCategory, setMsgCategory] = useState('normal'); // 'normal' | 'notice' | 'handover' | 'invoice'
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState('direct'); // 'direct' | 'channels'
 
   // Advanced Attachments & Reply States
   const [replyingTo, setReplyingTo] = useState(null);
@@ -90,14 +96,16 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const myLocalDeviceId = getLocalDeviceId();
+
   const activeUserId = isSuperAdmin ? 'super_admin' : (user?.id || (isOwner ? 'owner' : 'staff'));
   const activeUserName = isSuperAdmin
     ? 'সুপার এডমিন (Super Admin)'
     : (user?.name || businessSettings?.companyName || 'ব্যবসা পরিচালক');
   const activeUserEmail = user?.email || (isSuperAdmin ? 'superadmin@hisabkitab360.com' : '');
   const activeUserRole = isSuperAdmin
-    ? 'Super Admin'
-    : (isOwner ? 'Owner' : (isCashier ? 'Cashier' : (isSalesman || isSR ? 'Salesman' : 'Staff')));
+    ? 'সুপার এডমিন'
+    : (isOwner ? 'মালিক' : (isCashier ? 'ক্যাশিয়ার' : (isSalesman || isSR ? 'এসআর/সেলসম্যান' : 'স্টাফ')));
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -157,15 +165,16 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
 
     // Check if message was sent by me
     const isSenderMe =
+      m.senderDeviceId === myLocalDeviceId ||
       m.senderId === myId ||
-      (isSuperAdmin && (m.senderId === 'super_admin' || m.senderRole === 'Super Admin')) ||
-      (isOwner && (m.senderId === 'owner' || m.senderRole === 'Owner' || m.senderRole === 'admin')) ||
+      (isSuperAdmin && (m.senderId === 'super_admin' || m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন')) ||
+      (isOwner && (m.senderId === 'owner' || m.senderRole === 'Owner' || m.senderRole === 'admin' || m.senderRole === 'মালিক')) ||
       (myEmail && m.senderEmail?.toLowerCase() === myEmail);
 
     // Check if message was meant for me
     const isRecipientMe =
       m.recipientId === myId ||
-      (isSuperAdmin && m.recipientId === 'super_admin') ||
+      (isSuperAdmin && (m.recipientId === 'super_admin' || m.recipientRole === 'Super Admin' || m.recipientRole === 'সুপার এডমিন')) ||
       (isOwner && (m.recipientId === 'owner' || m.recipientId === 'merchant' || m.recipientId === 'merchant_owner')) ||
       (myEmail && m.recipientEmail?.toLowerCase() === myEmail) ||
       (user?.phone && m.recipientPhone === user.phone);
@@ -173,15 +182,15 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     // Check if message was sent by target
     const isSenderTarget =
       m.senderId === targetId ||
-      (targetId === 'super_admin' && (m.senderId === 'super_admin' || m.senderRole === 'Super Admin')) ||
-      (targetId === 'merchant_owner' && (m.senderId === 'owner' || m.senderRole === 'Owner' || m.senderRole === 'admin')) ||
+      (targetId === 'super_admin' && (m.senderId === 'super_admin' || m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন')) ||
+      (targetId === 'merchant_owner' && (m.senderId === 'owner' || m.senderRole === 'Owner' || m.senderRole === 'admin' || m.senderRole === 'মালিক')) ||
       (targetEmail && m.senderEmail?.toLowerCase() === targetEmail) ||
       (targetPhone && m.senderPhone === targetPhone);
 
     // Check if message was meant for target
     const isRecipientTarget =
       m.recipientId === targetId ||
-      (targetId === 'super_admin' && m.recipientId === 'super_admin') ||
+      (targetId === 'super_admin' && (m.recipientId === 'super_admin' || m.recipientRole === 'Super Admin')) ||
       (targetId === 'merchant_owner' && (m.recipientId === 'owner' || m.recipientId === 'merchant' || m.recipientId === 'merchant_owner')) ||
       (targetEmail && m.recipientEmail?.toLowerCase() === targetEmail) ||
       (targetPhone && m.recipientPhone === targetPhone);
@@ -245,8 +254,11 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
       senderEmail: activeUserEmail,
       senderPhone: user?.phone || null,
       senderRole: activeUserRole,
+      senderDeviceId: myLocalDeviceId,
       channelId: activeTarget.type === 'channel' ? activeTarget.id : null,
       recipientId: activeTarget.type === 'dm' ? activeTarget.id : null,
+      recipientName: activeTarget.title,
+      recipientRole: activeTarget.role || (activeTarget.type === 'dm' ? 'Staff' : 'Channel'),
       recipientEmail: activeTarget.type === 'dm' ? (activeTarget.email || null) : null,
       recipientPhone: activeTarget.type === 'dm' ? (activeTarget.phone || null) : null,
       recipientShopName: activeTarget.type === 'dm' ? activeTarget.title : null,
@@ -288,8 +300,11 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
       senderName: activeUserName,
       senderEmail: activeUserEmail,
       senderRole: activeUserRole,
+      senderDeviceId: myLocalDeviceId,
       channelId: activeTarget.type === 'channel' ? activeTarget.id : null,
       recipientId: activeTarget.type === 'dm' ? activeTarget.id : null,
+      recipientName: targetMsg.senderName,
+      recipientRole: targetMsg.senderRole,
       recipientEmail: activeTarget.type === 'dm' ? (activeTarget.email || null) : null,
       text: `✅ ${activeUserName} নোটিশটি দেখেছেন এবং বুঝে পেয়েছেন।`,
       category: 'normal',
@@ -349,7 +364,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
       <div
         className="modal-content animate-fade-in"
         style={{
-          maxWidth: '1100px',
+          maxWidth: '1150px',
           width: '100%',
           height: '90vh',
           display: 'flex',
@@ -395,8 +410,8 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
               <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>
                   {isSuperAdmin
-                    ? (lang === 'bn' ? 'সুপার এডমিন সেন্ট্রাল সাপোর্ট ও মার্চেন্ট হাব' : 'Super Admin Central Support & Merchant Hub')
-                    : (lang === 'bn' ? 'সেন্ট্রাল চ্যাট, ইনভয়েস ও ডকুমেন্ট হাব' : 'Internal Chat, Invoice & Document Hub')}
+                    ? (lang === 'bn' ? 'সুপার এডমিন সেন্ট্রাল সাপোর্ট ও ১-অন-১ মার্চেন্ট হাব' : 'Super Admin Central Support & 1-on-1 Merchant Hub')
+                    : (lang === 'bn' ? 'সেন্ট্রাল ১-অন-১ চ্যাট, ইনভয়েস ও টিম হাব' : 'Internal 1-on-1 Chat, Invoice & Team Hub')}
                 </span>
                 <span
                   style={{
@@ -417,9 +432,9 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                 </span>
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                {isSuperAdmin
-                  ? (lang === 'bn' ? 'যেকোনো ব্যবসায়ীর সাথে সরাসরি ১-অন-১ চ্যাট, চালান ও নোটিশ পাঠান' : 'Direct 1-on-1 chat with merchants with invoice & document sharing')
-                  : (lang === 'bn' ? 'এডমিন, ক্যাশিয়ার ও সেলসম্যানদের সাথে সার্বক্ষণিক ইনভয়েস ও ফাইল আদান-প্রদান' : 'Direct communication across Admin, Cashier, and Salesman with invoice & doc exchange')}
+                {lang === 'bn'
+                  ? 'সাইডবার থেকে ব্যক্তি নির্বাচন করুন: আপনার পাঠানো মেসেজ ডানে (Right), অপরের মেসেজ বামে (Left) আলাদা থাকবে।'
+                  : 'Select contact from sidebar: Sent messages appear on the Right, Received on the Left.'}
               </div>
             </div>
           </div>
@@ -465,10 +480,10 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
 
         {/* Main Content: Left Sidebar + Right Chat Window */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Left Sidebar */}
+          {/* Left Sidebar: Distinct Contacts Directory */}
           <div
             style={{
-              width: '300px',
+              width: '310px',
               borderRight: '1px solid var(--border-color)',
               background: 'var(--bg-card)',
               display: 'flex',
@@ -476,364 +491,365 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
               overflowY: 'auto'
             }}
           >
-            {/* Platform Super Admin Channel */}
-            <div style={{ padding: '12px 14px 6px', fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {lang === 'bn' ? 'সিস্টেম ও সেন্ট্রাল ডেস্ক' : 'Platform & Central Desk'}
+            {/* Sidebar View Tabs: 1-on-1 vs Channels */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '8px', gap: '6px', borderBottom: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                onClick={() => setSidebarTab('direct')}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: sidebarTab === 'direct' ? 'var(--business-primary)' : 'transparent',
+                  color: sidebarTab === 'direct' ? '#fff' : 'var(--text-muted)',
+                  fontWeight: '800',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <User size={13} />
+                <span>১-অন-১ ব্যক্তি</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSidebarTab('channels')}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: sidebarTab === 'channels' ? 'var(--business-primary)' : 'transparent',
+                  color: sidebarTab === 'channels' ? '#fff' : 'var(--text-muted)',
+                  fontWeight: '800',
+                  fontSize: '0.76rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Users size={13} />
+                <span>টিম চ্যানেল</span>
+              </button>
             </div>
-            {CHANNELS.filter((c) => c.category === 'platform').map((c) => {
-              const isActive = activeTarget.type === 'channel' && activeTarget.id === c.id;
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => setActiveTarget({ type: 'channel', id: c.id, title: c.name })}
-                  style={{
-                    padding: '10px 14px',
-                    margin: '2px 8px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: isActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-                    border: isActive ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid transparent',
-                    color: isActive ? '#3b82f6' : 'var(--text-main)',
-                    fontWeight: isActive ? '800' : '500',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {getChannelIcon(c.id)}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.name}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.desc}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
 
-            {/* Merchant / Owner View: 1-on-1 Direct Support with Super Admin */}
-            {!isSuperAdmin && (
-              <>
-                <div style={{ padding: '12px 14px 6px', fontSize: '0.72rem', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {lang === 'bn' ? 'সুপার এডমিন ১-অন-১ সাপোর্ট' : 'Super Admin 1-on-1 Support'}
-                </div>
-                <div
-                  onClick={() =>
-                    setActiveTarget({
-                      type: 'dm',
-                      id: 'super_admin',
-                      title: lang === 'bn' ? '🛡️ সুপার এডমিন সরাসরি সাপোর্ট (Super Admin Helpdesk)' : '🛡️ Super Admin Direct Support'
-                    })
-                  }
-                  style={{
-                    padding: '10px 14px',
-                    margin: '2px 8px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
-                    border: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid transparent',
-                    color: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? '#ef4444' : 'var(--text-main)',
-                    fontWeight: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? '800' : '500',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <ShieldCheck size={18} color="#ef4444" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.84rem', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {lang === 'bn' ? 'সরাসরি সাপোর্ট ডেস্ক' : 'Direct Support Desk'}
+            {/* TAB 1: 1-ON-1 DIRECT CONTACTS */}
+            {sidebarTab === 'direct' && (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* 1. Super Admin Support Desk (Visible to Merchant & Staff) */}
+                {!isSuperAdmin && (
+                  <>
+                    <div style={{ padding: '10px 14px 4px', fontSize: '0.7rem', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      🛡️ সুপার এডমিন সরাসরি সাপোর্ট
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {lang === 'bn' ? 'সুপার এডমিনের সাথে ব্যক্তিগত চ্যাট' : 'Private chat with Super Admin'}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Super Admin View: List of all registered merchants/clients */}
-            {isSuperAdmin && (
-              <>
-                <div style={{ padding: '14px 14px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {lang === 'bn' ? '🛡️ নিবন্ধিত ব্যবসায়ী ও ক্লায়েন্ট' : '🛡️ Merchants & Clients'} ({clientLicensesRegistry.length})
-                  </span>
-                </div>
-
-                <div style={{ padding: '0 8px 8px' }}>
-                  <div style={{ position: 'relative' }}>
-                    <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input
-                      type="text"
-                      placeholder={lang === 'bn' ? 'ব্যবসায়ী খুঁজুন...' : 'Search merchant...'}
-                      value={clientSearchQuery}
-                      onChange={(e) => setClientSearchQuery(e.target.value)}
+                    <div
+                      onClick={() =>
+                        setActiveTarget({
+                          type: 'dm',
+                          id: 'super_admin',
+                          title: 'সুপার এডমিন (Super Admin Helpdesk)',
+                          role: 'সুপার এডমিন',
+                          phone: null
+                        })
+                      }
                       style={{
-                        width: '100%',
-                        padding: '5px 8px 5px 26px',
-                        fontSize: '0.75rem',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-main)',
-                        color: 'var(--text-main)',
-                        outline: 'none'
+                        padding: '10px 12px',
+                        margin: '2px 8px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                        border: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid transparent',
+                        color: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? '#ef4444' : 'var(--text-main)',
+                        fontWeight: activeTarget.type === 'dm' && activeTarget.id === 'super_admin' ? '800' : '500',
+                        transition: 'all 0.15s ease'
                       }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '6px' }}>
-                  {filteredClients.length === 0 ? (
-                    <div style={{ padding: '8px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      {lang === 'bn' ? 'কোনো ব্যবসায়ী পাওয়া যায়নি' : 'No clients found'}
+                    >
+                      <ShieldCheck size={18} color="#ef4444" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>সুপার এডমিন হেল্পডেস্ক</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>সফটওয়্যার মালিকের সাথে সরাসরি চ্যাট</div>
+                      </div>
                     </div>
-                  ) : (
-                    filteredClients.map((client) => {
-                      const isActive = activeTarget.type === 'dm' && (activeTarget.id === client.id || activeTarget.email === client.clientEmail);
-                      return (
-                        <div
-                          key={client.id || client.clientEmail}
-                          onClick={() =>
-                            setActiveTarget({
-                              type: 'dm',
-                              id: client.id || client.clientEmail,
-                              email: client.clientEmail,
-                              phone: client.clientPhone,
-                              title: `${client.clientShopName || 'ব্যবসায়ী'} (${client.clientEmail || 'ক্লায়েন্ট'})`
-                            })
-                          }
+                  </>
+                )}
+
+                {/* 2. Super Admin View: List of all registered merchants/clients */}
+                {isSuperAdmin && (
+                  <>
+                    <div style={{ padding: '10px 14px 4px', fontSize: '0.7rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      🛡️ নিবন্ধিত ব্যবসায়ী ও মার্চেন্ট ({clientLicensesRegistry.length})
+                    </div>
+
+                    <div style={{ padding: '0 8px 6px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                          type="text"
+                          placeholder="ব্যবসায়ী বা দোকান খুঁজুন..."
+                          value={clientSearchQuery}
+                          onChange={(e) => setClientSearchQuery(e.target.value)}
                           style={{
-                            padding: '8px 12px',
-                            margin: '2px 8px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                            border: isActive ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
-                            color: isActive ? '#10b981' : 'var(--text-main)',
-                            fontWeight: isActive ? '800' : '500',
-                            transition: 'all 0.15s ease'
+                            width: '100%',
+                            padding: '5px 8px 5px 26px',
+                            fontSize: '0.74rem',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--bg-main)',
+                            color: 'var(--text-main)',
+                            outline: 'none'
                           }}
-                        >
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ maxHeight: '240px', overflowY: 'auto', marginBottom: '6px' }}>
+                      {filteredClients.length === 0 ? (
+                        <div style={{ padding: '8px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          কোনো ব্যবসায়ী পাওয়া যায়নি
+                        </div>
+                      ) : (
+                        filteredClients.map((client) => {
+                          const isActive = activeTarget.type === 'dm' && (activeTarget.id === client.id || activeTarget.email === client.clientEmail);
+                          return (
+                            <div
+                              key={client.id || client.clientEmail}
+                              onClick={() =>
+                                setActiveTarget({
+                                  type: 'dm',
+                                  id: client.id || client.clientEmail,
+                                  email: client.clientEmail,
+                                  phone: client.clientPhone,
+                                  title: client.clientShopName || 'ব্যবসায়ী',
+                                  role: 'মার্চেন্ট মালিক'
+                                })
+                              }
+                              style={{
+                                padding: '8px 12px',
+                                margin: '2px 8px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                                border: isActive ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
+                                color: isActive ? '#10b981' : 'var(--text-main)',
+                                fontWeight: isActive ? '800' : '500'
+                              }}
+                            >
+                              <Store size={15} color="#10b981" />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {client.clientShopName || 'নিবন্ধিত ব্যবসায়ী'}
+                                </div>
+                                <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
+                                  {client.clientEmail || client.clientPhone}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* 3. Staff View: 1-on-1 Direct Chat with Merchant Owner */}
+                {(isCashier || isSalesman || isSR || user?.isStaffUser) && (
+                  <>
+                    <div style={{ padding: '10px 14px 4px', fontSize: '0.7rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      👑 প্রতিষ্ঠান মালিক / ব্যবসা পরিচালক
+                    </div>
+                    <div
+                      onClick={() =>
+                        setActiveTarget({
+                          type: 'dm',
+                          id: 'merchant_owner',
+                          title: businessSettings?.companyName || 'দোকান মালিক',
+                          role: 'প্রতিষ্ঠান মালিক',
+                          phone: businessSettings?.phone || null
+                        })
+                      }
+                      style={{
+                        padding: '10px 12px',
+                        margin: '2px 8px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                        border: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
+                        color: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? '#10b981' : 'var(--text-main)',
+                        fontWeight: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? '800' : '500'
+                      }}
+                    >
+                      <Store size={18} color="#10b981" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                          {businessSettings?.companyName || 'দোকান মালিক'}
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          মালিকের সাথে সরাসরি ব্যক্তিগত বার্তা ও রিপোর্ট
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 4. Merchant View: 1-on-1 with Cashiers & POS Counters */}
+                {isOwner && (
+                  <>
+                    <div style={{ padding: '12px 14px 4px', fontSize: '0.7rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      🖥️ কাউন্টার ক্যাশিয়ারবৃন্দ
+                    </div>
+                    {staffAccounts.filter((s) => s.role === 'cashier').length === 0 ? (
+                      <div style={{ padding: '4px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        কোনো ক্যাশিয়ার একাউন্ট তৈরি নেই
+                      </div>
+                    ) : (
+                      staffAccounts.filter((s) => s.role === 'cashier').map((stf) => {
+                        const isActive = activeTarget.type === 'dm' && activeTarget.id === stf.id;
+                        return (
                           <div
+                            key={stf.id}
+                            onClick={() =>
+                              setActiveTarget({
+                                type: 'dm',
+                                id: stf.id,
+                                phone: stf.phone,
+                                title: stf.name,
+                                role: 'কাউন্টার ক্যাশিয়ার'
+                              })
+                            }
                             style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '7px',
-                              background: 'rgba(16, 185, 129, 0.12)',
-                              color: '#10b981',
+                              padding: '8px 12px',
+                              margin: '2px 8px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.75rem',
-                              fontWeight: '800',
-                              flexShrink: 0
+                              gap: '8px',
+                              background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                              border: isActive ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
+                              color: isActive ? '#10b981' : 'var(--text-main)',
+                              fontWeight: isActive ? '800' : '500'
                             }}
                           >
-                            <Store size={14} />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {client.clientShopName || 'নিবন্ধিত ব্যবসায়ী'}
-                            </div>
-                            <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {client.clientEmail || client.clientPhone || 'সক্রিয় লাইসেন্স'}
+                            <Wallet size={15} color="#10b981" />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: '700' }}>{stf.name}</div>
+                              <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>ক্যাশিয়ার • {stf.phone}</div>
                             </div>
                           </div>
+                        );
+                      })
+                    )}
+
+                    {/* 5. Merchant View: 1-on-1 with Salesmen & SR Officers */}
+                    <div style={{ padding: '12px 14px 4px', fontSize: '0.7rem', fontWeight: '800', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      🛵 সেলসম্যান ও ফিল্ড অফিসার (SR)
+                    </div>
+                    {staffAccounts.filter((s) => s.role === 'salesman' || s.role === 'sr').length === 0 ? (
+                      <div style={{ padding: '4px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        কোনো এসআর বা সেলসম্যান একাউন্ট তৈরি নেই
+                      </div>
+                    ) : (
+                      staffAccounts.filter((s) => s.role === 'salesman' || s.role === 'sr').map((stf) => {
+                        const isActive = activeTarget.type === 'dm' && activeTarget.id === stf.id;
+                        return (
+                          <div
+                            key={stf.id}
+                            onClick={() =>
+                              setActiveTarget({
+                                type: 'dm',
+                                id: stf.id,
+                                phone: stf.phone,
+                                title: stf.name,
+                                role: stf.role === 'sr' ? 'এসআর ফিল্ড অফিসার' : 'সেলসম্যান'
+                              })
+                            }
+                            style={{
+                              padding: '8px 12px',
+                              margin: '2px 8px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              background: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                              border: isActive ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid transparent',
+                              color: isActive ? '#6366f1' : 'var(--text-main)',
+                              fontWeight: isActive ? '800' : '500'
+                            }}
+                          >
+                            <ShoppingBag size={15} color="#6366f1" />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: '700' }}>{stf.name}</div>
+                              <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>{stf.role === 'sr' ? 'ফিল্ড এসআর' : 'সেলসম্যান'} • {stf.phone}</div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: STORE & TEAM GROUP CHANNELS */}
+            {sidebarTab === 'channels' && (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '10px 14px 4px', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  গ্রুপ চ্যানেল
+                </div>
+                {CHANNELS.map((c) => {
+                  const isActive = activeTarget.type === 'channel' && activeTarget.id === c.id;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => setActiveTarget({ type: 'channel', id: c.id, title: c.name, role: 'Group Channel' })}
+                      style={{
+                        padding: '10px 14px',
+                        margin: '2px 8px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                        border: isActive ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent',
+                        color: isActive ? '#6366f1' : 'var(--text-main)',
+                        fontWeight: isActive ? '800' : '500'
+                      }}
+                    >
+                      {getChannelIcon(c.id)}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.name}
                         </div>
-                      );
-                    })
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Staff User View: 1-on-1 Direct Chat with Merchant Owner */}
-            {(isCashier || isSalesman || isSR || user?.isStaffUser) && (
-              <>
-                <div style={{ padding: '12px 14px 6px', fontSize: '0.72rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {lang === 'bn' ? 'মালিকের সাথে যোগাযোগ' : 'Shop Owner 1-on-1'}
-                </div>
-                <div
-                  onClick={() =>
-                    setActiveTarget({
-                      type: 'dm',
-                      id: 'merchant_owner',
-                      title: lang === 'bn' ? '👑 প্রতিষ্ঠান পরিচালক / মালিক (Shop Owner)' : '👑 Shop Owner / Merchant'
-                    })
-                  }
-                  style={{
-                    padding: '10px 14px',
-                    margin: '2px 8px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                    border: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
-                    color: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? '#10b981' : 'var(--text-main)',
-                    fontWeight: activeTarget.type === 'dm' && activeTarget.id === 'merchant_owner' ? '800' : '500',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <Store size={18} color="#10b981" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.84rem', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {businessSettings?.companyName || (lang === 'bn' ? 'দোকান মালিক' : 'Shop Owner')}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {lang === 'bn' ? 'মালিকের সাথে সরাসরি মেসেজিং' : 'Direct private chat with owner'}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Merchant / Owner View: 1-on-1 with Staff Accounts (Cashiers & Salesmen / SRs) */}
-            {isOwner && (
-              <>
-                <div style={{ padding: '14px 14px 6px', fontSize: '0.72rem', fontWeight: '800', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {lang === 'bn' ? 'ক্যাশিয়ার ও কাউন্টার ডেস্ক' : 'Cashiers & Counters'}
-                </div>
-                {staffAccounts.filter((s) => s.role === 'cashier').length === 0 ? (
-                  <div style={{ padding: '4px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {lang === 'bn' ? 'কোনো ক্যাশিয়ার একাউন্ট তৈরি নেই' : 'No cashiers registered'}
-                  </div>
-                ) : (
-                  staffAccounts.filter((s) => s.role === 'cashier').map((stf) => {
-                    const isActive = activeTarget.type === 'dm' && activeTarget.id === stf.id;
-                    return (
-                      <div
-                        key={stf.id}
-                        onClick={() =>
-                          setActiveTarget({
-                            type: 'dm',
-                            id: stf.id,
-                            phone: stf.phone,
-                            title: `🟢 ${stf.name} (কাউন্টার ক্যাশিয়ার)`
-                          })
-                        }
-                        style={{
-                          padding: '8px 12px',
-                          margin: '2px 8px',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          background: isActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                          border: isActive ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
-                          color: isActive ? '#10b981' : 'var(--text-main)',
-                          fontWeight: isActive ? '800' : '500'
-                        }}
-                      >
-                        <Wallet size={15} color="#10b981" />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.82rem', fontWeight: '700' }}>{stf.name}</div>
-                          <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>ক্যাশিয়ার • {stf.phone}</div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          {c.desc}
                         </div>
                       </div>
-                    );
-                  })
-                )}
-
-                <div style={{ padding: '14px 14px 6px', fontSize: '0.72rem', fontWeight: '800', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {lang === 'bn' ? 'সেলসম্যান ও ফিল্ড অফিসার (SR)' : 'Salesmen & SR Officers'}
-                </div>
-                {staffAccounts.filter((s) => s.role === 'salesman' || s.role === 'sr').length === 0 ? (
-                  <div style={{ padding: '4px 14px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {lang === 'bn' ? 'কোনো এসআর বা সেলসম্যান একাউন্ট তৈরি নেই' : 'No salesmen registered'}
-                  </div>
-                ) : (
-                  staffAccounts.filter((s) => s.role === 'salesman' || s.role === 'sr').map((stf) => {
-                    const isActive = activeTarget.type === 'dm' && activeTarget.id === stf.id;
-                    return (
-                      <div
-                        key={stf.id}
-                        onClick={() =>
-                          setActiveTarget({
-                            type: 'dm',
-                            id: stf.id,
-                            phone: stf.phone,
-                            title: `🔵 ${stf.name} (${stf.role === 'sr' ? 'এসআর ফিল্ড অফিসার' : 'সেলসম্যান'})`
-                          })
-                        }
-                        style={{
-                          padding: '8px 12px',
-                          margin: '2px 8px',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          background: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                          border: isActive ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid transparent',
-                          color: isActive ? '#6366f1' : 'var(--text-main)',
-                          fontWeight: isActive ? '800' : '500'
-                        }}
-                      >
-                        <ShoppingBag size={15} color="#6366f1" />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.82rem', fontWeight: '700' }}>{stf.name}</div>
-                          <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>{stf.role === 'sr' ? 'ফিল্ড এসআর' : 'সেলসম্যান'} • {stf.phone}</div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-
-            {/* Store Channels */}
-            <div style={{ padding: '14px 14px 6px', fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {lang === 'bn' ? 'দোকান টিম চ্যানেল' : 'Store Channels'}
-            </div>
-            {CHANNELS.filter((c) => c.category === 'store').map((c) => {
-              const isActive = activeTarget.type === 'channel' && activeTarget.id === c.id;
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => setActiveTarget({ type: 'channel', id: c.id, title: c.name })}
-                  style={{
-                    padding: '10px 14px',
-                    margin: '2px 8px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: isActive ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
-                    border: isActive ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid transparent',
-                    color: isActive ? '#8b5cf6' : 'var(--text-main)',
-                    fontWeight: isActive ? '800' : '500',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {getChannelIcon(c.id)}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.name}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.desc}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
 
           {/* Right Main Chat Window */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
-            {/* Chat Target Header */}
+            {/* Chat Target Header: Shows exactly who you are chatting with */}
             <div
               style={{
                 padding: '12px 18px',
@@ -845,18 +861,27 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
               }}
             >
               <div>
-                <div style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>{activeTarget.title}</span>
-                  {activeTarget.type === 'dm' && (
-                    <span style={{ fontSize: '0.66rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '800' }}>
-                      1-ON-1 DIRECT
-                    </span>
-                  )}
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: activeTarget.type === 'dm' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                      color: activeTarget.type === 'dm' ? '#10b981' : '#6366f1',
+                      border: `1px solid ${activeTarget.type === 'dm' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
+                      fontWeight: '800'
+                    }}
+                  >
+                    {activeTarget.type === 'dm' ? `🎯 ১-অন-১ সরাসরি (${activeTarget.role || 'ব্যক্তি'})` : '👥 গ্রুপ চ্যানেল'}
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  {activeTarget.type === 'channel'
-                    ? (lang === 'bn' ? 'সকল অনুমোদিত ব্যবহারকারীর কাছে দৃশ্যমান (ক্লাউড ও রিয়েলটাইম সিঙ্ক)' : 'Visible to role channel participants')
-                    : (lang === 'bn' ? 'সুরক্ষিত ১-অন-১ গোপনীয় চ্যাট (ক্লাউডে স্থায়ীভাবে সংরক্ষিত)' : 'Private Direct Conversation (Persisted in Cloud)')}
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {activeTarget.phone ? `মোবাইল: ${activeTarget.phone} • ` : ''}
+                  {activeTarget.type === 'dm'
+                    ? 'আপনার পাঠানো বার্তাগুলো ডানে (Right) এবং ওনার বার্তাগুলো বামে (Left) সাজানো থাকবে।'
+                    : 'এই চ্যানেলের সকল বার্তা সংশ্লিষ্ট সকল অনুমোদিত সদস্য দেখতে পাবেন।'}
                 </div>
               </div>
 
@@ -883,7 +908,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
               )}
             </div>
 
-            {/* Messages Feed */}
+            {/* Messages Feed: Strict Right (Sent by Me) vs Left (From Others) */}
             <div
               style={{
                 flex: 1,
@@ -891,11 +916,11 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                 overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px'
+                gap: '14px'
               }}
             >
               {currentMessages.length === 0 ? (
-                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)', maxWidth: '360px' }}>
+                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)', maxWidth: '380px' }}>
                   <div
                     style={{
                       width: '52px',
@@ -910,24 +935,30 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                   >
                     <MessageSquare size={26} style={{ opacity: 0.5 }} />
                   </div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
-                    {lang === 'bn' ? 'কোনো মেসেজ নেই' : 'No messages yet'}
+                  <div style={{ fontSize: '0.94rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
+                    {lang === 'bn' ? 'কোনো পূর্ববর্তী বার্তা নেই' : 'No messages yet'}
                   </div>
                   <div style={{ fontSize: '0.78rem', lineHeight: 1.5 }}>
                     {lang === 'bn'
-                      ? 'টেক্সট, সেলস চালান বা ডকুমেন্ট পাঠাতে নিচের ইনপুট ও পেপারক্লিপ অপশন ব্যবহার করুন।'
+                      ? `"${activeTarget.title}"-এর সাথে সরাসরি কথা বলতে, চালান বা ডকুমেন্ট পাঠাতে নিচে মেসেজ লিখুন।`
                       : 'Send text, sales invoice cards, or documents below to start communicating.'}
                   </div>
                 </div>
               ) : (
                 currentMessages.map((m) => {
-                  const isMe =
-                    m.senderId === activeUserId ||
-                    (isSuperAdmin && (m.senderId === 'super_admin' || m.senderRole === 'Super Admin')) ||
-                    (isOwner && (m.senderId === 'owner' || m.senderRole === 'Owner' || m.senderRole === 'admin')) ||
-                    (activeUserEmail && m.senderEmail?.toLowerCase() === activeUserEmail.toLowerCase());
+                  // Strict check: Was this message sent by me on this client/device?
+                  let isMe = false;
+                  if (m.senderDeviceId && m.senderDeviceId === myLocalDeviceId) {
+                    isMe = true;
+                  } else if (isSuperAdmin) {
+                    isMe = (m.senderId === 'super_admin' || m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন' || m.senderEmail === activeUserEmail);
+                  } else if (isOwner) {
+                    isMe = (m.senderId === 'owner' || m.senderId === user?.id || m.senderRole === 'Owner' || m.senderRole === 'মালিক');
+                  } else {
+                    isMe = (m.senderId === user?.id || (user?.phone && m.senderPhone === user.phone));
+                  }
 
-                  const isFromSuperAdmin = m.senderRole === 'Super Admin' || m.senderId === 'super_admin';
+                  const isFromSuperAdmin = m.senderRole === 'Super Admin' || m.senderRole === 'সুপার এডমিন' || m.senderId === 'super_admin';
                   const timeFormatted = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
                   if (m.isDeleted) {
@@ -936,6 +967,8 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                         key={m.id}
                         style={{
                           alignSelf: isMe ? 'flex-end' : 'flex-start',
+                          marginLeft: isMe ? 'auto' : '0',
+                          marginRight: isMe ? '0' : 'auto',
                           padding: '6px 12px',
                           borderRadius: '8px',
                           background: 'rgba(255,255,255,0.03)',
@@ -961,68 +994,67 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: isMe ? 'flex-end' : 'flex-start',
-                        maxWidth: '85%',
-                        alignSelf: isMe ? 'flex-end' : 'flex-start'
+                        maxWidth: '82%',
+                        alignSelf: isMe ? 'flex-end' : 'flex-start',
+                        marginLeft: isMe ? 'auto' : '0',
+                        marginRight: isMe ? '0' : 'auto'
                       }}
                     >
-                      {/* Sender Name & Role */}
+                      {/* Explicit Sender ➔ Recipient Header Badge */}
                       <div
                         style={{
-                          fontSize: '0.7rem',
+                          fontSize: '0.72rem',
                           fontWeight: '700',
-                          color: 'var(--text-muted)',
-                          marginBottom: '3px',
+                          marginBottom: '4px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px'
                         }}
                       >
-                        <span>{m.senderName}</span>
-                        {isFromSuperAdmin ? (
-                          <span
-                            style={{
-                              fontSize: '0.62rem',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
-                              color: '#ffffff',
-                              fontWeight: '900',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px'
-                            }}
-                          >
-                            <ShieldCheck size={11} />
-                            SUPER ADMIN
-                          </span>
+                        {isMe ? (
+                          <>
+                            <span style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', padding: '1px 7px', borderRadius: '4px', fontWeight: '800' }}>
+                              📤 প্রেরক: আপনি
+                            </span>
+                            <span style={{ color: 'var(--text-muted)' }}>➔</span>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>
+                              🎯 প্রাপক: {m.recipientName || m.recipientShopName || activeTarget.title}
+                            </span>
+                          </>
                         ) : (
-                          <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }}>
-                            {m.senderRole}
-                          </span>
+                          <>
+                            <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '1px 7px', borderRadius: '4px', fontWeight: '800' }}>
+                              📥 প্রেরক: {m.senderName} ({m.senderRole || 'স্টাফ'})
+                            </span>
+                            <span style={{ color: 'var(--text-muted)' }}>➔</span>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>
+                              🎯 প্রাপক: আপনি
+                            </span>
+                          </>
                         )}
                       </div>
 
-                      {/* Main Message Bubble */}
+                      {/* Main Message Bubble: Right = Blue/Indigo Gradient, Left = Slate Glass Card */}
                       <div
                         style={{
                           padding: '10px 14px',
-                          borderRadius: isMe ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                          borderRadius: isMe ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
                           background: isMe
-                            ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                            ? 'linear-gradient(135deg, #4f46e5, #3730a3)'
                             : isFromSuperAdmin
                             ? 'rgba(239, 68, 68, 0.12)'
                             : m.category === 'notice'
                             ? 'rgba(239, 68, 68, 0.12)'
                             : 'var(--surface-color)',
                           border: isMe
-                            ? 'none'
+                            ? '1px solid rgba(255, 255, 255, 0.15)'
                             : isFromSuperAdmin
                             ? '1px solid rgba(239, 68, 68, 0.35)'
                             : m.category === 'notice'
                             ? '1px solid rgba(239, 68, 68, 0.3)'
                             : '1px solid var(--border-color)',
                           color: isMe ? '#ffffff' : 'var(--text-main)',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                          boxShadow: isMe ? '0 4px 12px rgba(79, 70, 229, 0.25)' : '0 2px 6px rgba(0,0,0,0.06)',
                           position: 'relative'
                         }}
                       >
@@ -1084,7 +1116,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                           </div>
                         )}
 
-                        {/* Text */}
+                        {/* Text Content */}
                         {m.text && (
                           <div style={{ fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                             {m.text}
@@ -1098,7 +1130,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                               marginTop: '8px',
                               padding: '10px 12px',
                               borderRadius: '10px',
-                              background: isMe ? 'rgba(0,0,0,0.18)' : 'rgba(59, 130, 246, 0.08)',
+                              background: isMe ? 'rgba(0,0,0,0.2)' : 'rgba(59, 130, 246, 0.08)',
                               border: isMe ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(59, 130, 246, 0.3)',
                               minWidth: '220px'
                             }}
@@ -1152,7 +1184,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                               marginTop: '8px',
                               padding: '8px 12px',
                               borderRadius: '8px',
-                              background: isMe ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.06)',
+                              background: isMe ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.06)',
                               border: isMe ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color)',
                               display: 'flex',
                               alignItems: 'center',
@@ -1376,7 +1408,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
             <form
               onSubmit={handleSendMessage}
               style={{
-                padding: '12px 16px',
+                padding: '10px 16px',
                 borderTop: '1px solid var(--border-color)',
                 background: 'var(--surface-color)',
                 display: 'flex',
@@ -1384,6 +1416,33 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                 gap: '8px'
               }}
             >
+              {/* Mandatory Recipient Lock Badge Bar: Explicitly shows who will receive the message */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '5px 10px',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  fontSize: '0.76rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: '800', color: '#6366f1' }}>🎯 বার্তাটি পৌঁছাবে:</span>
+                  <strong style={{ color: 'var(--text-main)' }}>{activeTarget.title}</strong>
+                  <span className="badge" style={{ fontSize: '0.66rem', background: '#10b981', color: '#fff', padding: '1px 6px' }}>
+                    {activeTarget.role || 'নির্ধারিত প্রাপক'}
+                  </span>
+                </div>
+                {activeTarget.phone && (
+                  <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                    📱 {activeTarget.phone}
+                  </span>
+                )}
+              </div>
+
               {/* Quick tags & Attachment Triggers */}
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {/* Notice Mode Toggle */}
@@ -1490,9 +1549,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                   placeholder={
                     msgCategory === 'notice'
                       ? 'জরুরি অফিশিয়াল নোটিশ লিখুন...'
-                      : isSuperAdmin
-                      ? (lang === 'bn' ? 'ব্যবসায়ীর জন্য বার্তা বা সাপোর্ট লিখুন...' : 'Type message to merchant...')
-                      : (lang === 'bn' ? 'মেসেজ বা নির্দেশনা লিখুন...' : 'Type message...')
+                      : `${activeTarget.title}-এর জন্য বার্তা বা নির্দেশনা লিখুন...`
                   }
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
@@ -1512,7 +1569,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                   type="submit"
                   disabled={!inputText.trim() && !attachedInvoice && !attachedMedia && !handoverAmount}
                   style={{
-                    padding: '10px 20px',
+                    padding: '10px 22px',
                     borderRadius: '10px',
                     border: 'none',
                     background:
@@ -1520,16 +1577,16 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                         ? 'rgba(255,255,255,0.1)'
                         : isSuperAdmin
                         ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                        : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                        : 'linear-gradient(135deg, #4f46e5, #3730a3)',
                     color: '#ffffff',
-                    fontWeight: '700',
+                    fontWeight: '800',
                     fontSize: '0.88rem',
                     cursor: !inputText.trim() && !attachedInvoice && !attachedMedia && !handoverAmount ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
                     transition: 'all 0.15s ease',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
                   }}
                 >
                   <span>{lang === 'bn' ? 'পাঠান' : 'Send'}</span>
