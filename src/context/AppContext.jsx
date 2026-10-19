@@ -107,7 +107,8 @@ import {
   purgeAllLegacyDemoStorage,
   filterOutDemoItems,
   isLegacyDemoItem,
-  mergeEntitiesWithoutDuplicates
+  mergeEntitiesWithoutDuplicates,
+  mergeDebtPersonsWithTransactions
 } from '../utils/demoDataSanitizer';
 import {
   getStoredAttendanceLogs,
@@ -1351,6 +1352,47 @@ export const AppProvider = ({ children }) => {
             return p;
           })
         );
+      } else if (eventType === 'PRODUCT_SYNC' && (data?.products || msg.payload?.products)) {
+        const incomingProducts = filterOutDemoItems(data?.products || msg.payload?.products);
+        if (Array.isArray(incomingProducts) && incomingProducts.length > 0) {
+          setProducts(prev => {
+            const merged = mergeEntitiesWithoutDuplicates(prev, incomingProducts);
+            scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, merged);
+            return merged;
+          });
+        }
+      } else if (eventType === 'CUSTOMER_SYNC' && (data?.customers || msg.payload?.customers)) {
+        const incomingCust = filterOutDemoItems(data?.customers || msg.payload?.customers);
+        if (Array.isArray(incomingCust) && incomingCust.length > 0) {
+          setCustomers(prev => {
+            const merged = mergeEntitiesWithoutDuplicates(prev, incomingCust);
+            scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, merged);
+            return merged;
+          });
+        }
+      } else if (eventType === 'DEBT_SYNC' && (data?.debts || msg.payload?.debts)) {
+        const incomingDebts = data?.debts || msg.payload?.debts || [];
+        const isPersonal = (data?.profile || msg.payload?.profile) === 'personal';
+        if (isPersonal) {
+          setPersonalDebts(prev => {
+            const merged = mergeDebtPersonsWithTransactions(prev, incomingDebts);
+            scheduleStorageWrite(STORAGE_KEYS.PERSONAL_DEBTS, merged);
+            return merged;
+          });
+        } else {
+          setBusinessDebts(prev => {
+            const merged = mergeDebtPersonsWithTransactions(prev, incomingDebts);
+            scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, merged);
+            return merged;
+          });
+        }
+      } else if (eventType === 'EXPENSE_SYNC' && (data?.businessExpenses || msg.payload?.businessExpenses)) {
+        const incomingExp = data?.businessExpenses || msg.payload?.businessExpenses || [];
+        setBusinessExpenses(prev => {
+          const merged = mergeEntitiesWithoutDuplicates(prev, incomingExp);
+          scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, merged);
+          return merged;
+        });
       } else if ((eventType === 'EMPLOYEES_LIVE_SYNC' || msg.type === 'EMPLOYEES_LIVE_SYNC') && (data?.employees || msg.payload?.employees)) {
         const incoming = filterOutDemoItems(data?.employees || msg.payload?.employees);
         setEmployees(incoming);
@@ -1981,9 +2023,25 @@ export const AppProvider = ({ children }) => {
     }
 
     if (isPersonal) {
-      setPersonalDebts(prev => [newPerson, ...prev]);
+      setPersonalDebts(prev => {
+        const next = [newPerson, ...prev];
+        scheduleStorageWrite(STORAGE_KEYS.PERSONAL_DEBTS, next);
+        try {
+          broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: 'personal' });
+        } catch (_) {}
+        triggerImmediateCloudPush({ ...latestStateRef.current, personalDebts: next }, 'add_personal_debt');
+        return next;
+      });
     } else {
-      setBusinessDebts(prev => [newPerson, ...prev]);
+      setBusinessDebts(prev => {
+        const next = [newPerson, ...prev];
+        scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, next);
+        try {
+          broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: 'business' });
+        } catch (_) {}
+        triggerImmediateCloudPush({ ...latestStateRef.current, businessDebts: next }, 'add_business_debt');
+        return next;
+      });
     }
     showToast(lang === 'bn' ? `${newPerson.name}-এর খাতা খোলা হয়েছে` : `Ledger created for ${newPerson.name}`);
     return newPerson;
@@ -1991,12 +2049,20 @@ export const AppProvider = ({ children }) => {
 
   const updateDebtPerson = (targetProfile, personId, updatedFields) => {
     const isPersonal = (targetProfile || profile) === 'personal';
-    const updater = prev => prev.map(p => {
-      if (p.id === personId) {
-        return { ...p, ...updatedFields };
-      }
-      return p;
-    });
+    const updater = prev => {
+      const next = prev.map(p => {
+        if (p.id === personId) {
+          return { ...p, ...updatedFields };
+        }
+        return p;
+      });
+      scheduleStorageWrite(isPersonal ? STORAGE_KEYS.PERSONAL_DEBTS : STORAGE_KEYS.BIZ_DEBTS, next);
+      try {
+        broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: isPersonal ? 'personal' : 'business' });
+      } catch (_) {}
+      triggerImmediateCloudPush({ ...latestStateRef.current, [isPersonal ? 'personalDebts' : 'businessDebts']: next }, 'update_debt_person');
+      return next;
+    };
 
     if (isPersonal) {
       setPersonalDebts(updater);
@@ -2008,7 +2074,15 @@ export const AppProvider = ({ children }) => {
 
   const deleteDebtPerson = (targetProfile, personId) => {
     const isPersonal = (targetProfile || profile) === 'personal';
-    const filterer = prev => prev.filter(p => p.id !== personId);
+    const filterer = prev => {
+      const next = prev.filter(p => p.id !== personId);
+      scheduleStorageWrite(isPersonal ? STORAGE_KEYS.PERSONAL_DEBTS : STORAGE_KEYS.BIZ_DEBTS, next);
+      try {
+        broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: isPersonal ? 'personal' : 'business' });
+      } catch (_) {}
+      triggerImmediateCloudPush({ ...latestStateRef.current, [isPersonal ? 'personalDebts' : 'businessDebts']: next }, 'delete_debt_person');
+      return next;
+    };
 
     if (isPersonal) {
       setPersonalDebts(filterer);
@@ -2031,15 +2105,23 @@ export const AppProvider = ({ children }) => {
       note: (txData.note || '').trim()
     };
 
-    const updater = prev => prev.map(p => {
-      if (p.id === personId) {
-        return {
-          ...p,
-          transactions: [newTx, ...(p.transactions || [])]
-        };
-      }
-      return p;
-    });
+    const updater = prev => {
+      const next = prev.map(p => {
+        if (p.id === personId) {
+          return {
+            ...p,
+            transactions: [newTx, ...(p.transactions || [])]
+          };
+        }
+        return p;
+      });
+      scheduleStorageWrite(isPersonal ? STORAGE_KEYS.PERSONAL_DEBTS : STORAGE_KEYS.BIZ_DEBTS, next);
+      try {
+        broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: isPersonal ? 'personal' : 'business' });
+      } catch (_) {}
+      triggerImmediateCloudPush({ ...latestStateRef.current, [isPersonal ? 'personalDebts' : 'businessDebts']: next }, 'add_debt_transaction');
+      return next;
+    };
 
     if (isPersonal) {
       setPersonalDebts(updater);
@@ -2053,24 +2135,32 @@ export const AppProvider = ({ children }) => {
 
   const editDebtTransaction = (targetProfile, personId, txId, updatedData) => {
     const isPersonal = (targetProfile || profile) === 'personal';
-    const updater = prev => prev.map(p => {
-      if (p.id === personId) {
-        return {
-          ...p,
-          transactions: (p.transactions || []).map(tx => {
-            if (tx.id === txId) {
-              return {
-                ...tx,
-                ...updatedData,
-                amount: updatedData.amount !== undefined ? Number(updatedData.amount) : tx.amount
-              };
-            }
-            return tx;
-          })
-        };
-      }
-      return p;
-    });
+    const updater = prev => {
+      const next = prev.map(p => {
+        if (p.id === personId) {
+          return {
+            ...p,
+            transactions: (p.transactions || []).map(tx => {
+              if (tx.id === txId) {
+                return {
+                  ...tx,
+                  ...updatedData,
+                  amount: updatedData.amount !== undefined ? Number(updatedData.amount) : tx.amount
+                };
+              }
+              return tx;
+            })
+          };
+        }
+        return p;
+      });
+      scheduleStorageWrite(isPersonal ? STORAGE_KEYS.PERSONAL_DEBTS : STORAGE_KEYS.BIZ_DEBTS, next);
+      try {
+        broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: isPersonal ? 'personal' : 'business' });
+      } catch (_) {}
+      triggerImmediateCloudPush({ ...latestStateRef.current, [isPersonal ? 'personalDebts' : 'businessDebts']: next }, 'edit_debt_transaction');
+      return next;
+    };
 
     if (isPersonal) {
       setPersonalDebts(updater);
@@ -2082,15 +2172,23 @@ export const AppProvider = ({ children }) => {
 
   const deleteDebtTransaction = (targetProfile, personId, txId) => {
     const isPersonal = (targetProfile || profile) === 'personal';
-    const updater = prev => prev.map(p => {
-      if (p.id === personId) {
-        return {
-          ...p,
-          transactions: (p.transactions || []).filter(tx => tx.id !== txId)
-        };
-      }
-      return p;
-    });
+    const updater = prev => {
+      const next = prev.map(p => {
+        if (p.id === personId) {
+          return {
+            ...p,
+            transactions: (p.transactions || []).filter(tx => tx.id !== txId)
+          };
+        }
+        return p;
+      });
+      scheduleStorageWrite(isPersonal ? STORAGE_KEYS.PERSONAL_DEBTS : STORAGE_KEYS.BIZ_DEBTS, next);
+      try {
+        broadcastLiveEvent('DEBT_SYNC', { debts: next, profile: isPersonal ? 'personal' : 'business' });
+      } catch (_) {}
+      triggerImmediateCloudPush({ ...latestStateRef.current, [isPersonal ? 'personalDebts' : 'businessDebts']: next }, 'delete_debt_transaction');
+      return next;
+    };
 
     if (isPersonal) {
       setPersonalDebts(updater);
@@ -2435,6 +2533,24 @@ export const AppProvider = ({ children }) => {
       });
     } catch {}
 
+    // Broadcast instant Realtime WebSocket event to all other open apps (Mobile APK, Web, PC)
+    try {
+      broadcastLiveEvent('SALE_COMPLETED', { sale: saleRecord, items: cart });
+    } catch (e) {
+      console.debug('[POS] Live broadcast error:', e);
+    }
+
+    // Instant Zero-Lag Cloud Push to Supabase audit_logs
+    try {
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        salesHistory: [saleRecord, ...salesHistory],
+        invoices: [saleRecord, ...invoices]
+      }, 'sale_completed');
+    } catch (e) {
+      console.debug('[POS] Cloud push error:', e);
+    }
+
     // Auto-open cash drawer for cash transaction if enabled
     if (businessSettings.autoOpenCashDrawer !== false && (paymentMethod === 'cash' || actualPaid > 0)) {
       openCashDrawer('sale');
@@ -2459,22 +2575,42 @@ export const AppProvider = ({ children }) => {
       stock: Number(newProduct.stock) || 0,
       minAlert: Number(newProduct.minAlert) || 5
     };
-    setProducts([product, ...products]);
+    const next = filterOutDemoItems([product, ...products]);
+    setProducts(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, next);
+    try {
+      broadcastLiveEvent('PRODUCT_SYNC', { products: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, products: next }, 'add_product');
     showToast(lang === 'bn' ? 'নতুন পণ্য সফলভাবে যুক্ত হয়েছে' : 'Product added successfully');
+    return product;
   };
 
   const updateProduct = (id, updatedFields) => {
-    setProducts(products.map(p => p.id === id ? { ...p, ...updatedFields } : p));
+    const next = filterOutDemoItems(products.map(p => p.id === id ? { ...p, ...updatedFields } : p));
+    setProducts(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, next);
+    try {
+      broadcastLiveEvent('PRODUCT_SYNC', { products: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, products: next }, 'update_product');
     showToast(lang === 'bn' ? 'পণ্য তথ্য আপডেট হয়েছে' : 'Product updated');
   };
 
   const deleteProduct = (id) => {
-    setProducts(products.filter(p => p.id !== id));
+    const next = filterOutDemoItems(products.filter(p => p.id !== id));
+    setProducts(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, next);
+    try {
+      broadcastLiveEvent('PRODUCT_SYNC', { products: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, products: next }, 'delete_product');
     showToast(lang === 'bn' ? 'পণ্য মুছে ফেলা হয়েছে' : 'Product deleted');
   };
 
   const adjustStock = (productId, qtyDelta, type = 'in', note = '') => {
-    setProducts(products.map(p => {
+    let affectedProduct = null;
+    const next = products.map(p => {
       if (p.id === productId) {
         const delta = Number(qtyDelta) || 0;
         const newStock = type === 'in' ? p.stock + delta : Math.max(0, p.stock - delta);
@@ -2482,10 +2618,18 @@ export const AppProvider = ({ children }) => {
         if (newStock <= minAlert && p.stock > minAlert) {
           notifyLowStockAlert(p.name, newStock);
         }
-        return { ...p, stock: newStock };
+        affectedProduct = { ...p, stock: newStock };
+        return affectedProduct;
       }
       return p;
-    }));
+    });
+    setProducts(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, next);
+    try {
+      broadcastLiveEvent('STOCK_ADJUSTED', { productId, qtyDelta, type, note });
+      broadcastLiveEvent('PRODUCT_SYNC', { products: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, products: next }, 'adjust_stock');
     try {
       enqueueOfflineAction('STOCK_ADJUSTED', { productId, qtyDelta, type, note });
     } catch {}
@@ -2506,29 +2650,53 @@ export const AppProvider = ({ children }) => {
       creditLimit: Number(customer.creditLimit) || 0,
       createdDate: customer.createdDate || new Date().toISOString().split('T')[0]
     };
-    setCustomers([newCust, ...customers]);
+    const next = filterOutDemoItems([newCust, ...customers]);
+    setCustomers(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, next);
+    try {
+      broadcastLiveEvent('CUSTOMER_SYNC', { customers: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, customers: next }, 'add_customer');
     showToast(lang === 'bn' ? `নতুন কাস্টমার "${newCust.name}" যোগ করা হয়েছে` : `Customer "${newCust.name}" created`);
     return newCust;
   };
 
   const updateCustomer = (id, updatedFields) => {
-    setCustomers(customers.map(c => c.id === id ? { ...c, ...updatedFields } : c));
+    const next = filterOutDemoItems(customers.map(c => c.id === id ? { ...c, ...updatedFields } : c));
+    setCustomers(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, next);
+    try {
+      broadcastLiveEvent('CUSTOMER_SYNC', { customers: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, customers: next }, 'update_customer');
     showToast(lang === 'bn' ? 'কাস্টমার প্রোফাইল ও তথ্য আপডেট হয়েছে' : 'Customer profile updated');
   };
 
   const deleteCustomer = (id) => {
-    setCustomers(customers.filter(c => c.id !== id));
+    const next = filterOutDemoItems(customers.filter(c => c.id !== id));
+    setCustomers(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, next);
+    try {
+      broadcastLiveEvent('CUSTOMER_SYNC', { customers: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, customers: next }, 'delete_customer');
     showToast(lang === 'bn' ? 'কাস্টমার মুছে ফেলা হয়েছে' : 'Customer deleted');
   };
 
   const collectDue = (customerId, amount, method = 'cash', note = '') => {
     const amt = Number(amount);
-    setCustomers(customers.map(c => {
+    const next = customers.map(c => {
       if (c.id === customerId) {
         return { ...c, outstandingDue: Math.max(0, c.outstandingDue - amt) };
       }
       return c;
-    }));
+    });
+    setCustomers(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, next);
+    try {
+      broadcastLiveEvent('CUSTOMER_SYNC', { customers: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, customers: next }, 'collect_due');
     try {
       enqueueOfflineAction('DUE_COLLECTED', { customerId, amount: amt, method, note });
     } catch {}
@@ -2771,7 +2939,13 @@ export const AppProvider = ({ children }) => {
       subCategory: expense.subCategory || expense.subFolder || '',
       person: expense.person || expense.member || ''
     };
-    setBusinessExpenses(prev => [newExpense, ...prev]);
+    const next = [newExpense, ...businessExpenses];
+    setBusinessExpenses(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, next);
+    try {
+      broadcastLiveEvent('EXPENSE_SYNC', { businessExpenses: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, businessExpenses: next }, 'add_business_expense');
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ যুক্ত করা হয়েছে' : 'Business expense recorded');
     return newExpense;
   };
@@ -2788,33 +2962,54 @@ export const AppProvider = ({ children }) => {
       person: expense.person || expense.member || ''
     }));
 
-    setBusinessExpenses(prev => [...formatted, ...prev]);
+    const next = [...formatted, ...businessExpenses];
+    setBusinessExpenses(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, next);
+    try {
+      broadcastLiveEvent('EXPENSE_SYNC', { businessExpenses: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, businessExpenses: next }, 'add_multiple_business_expenses');
     showToast(lang === 'bn' ? `মোট ${formatted.length}টি ব্যবসায়িক খরচ যুক্ত হয়েছে` : `${formatted.length} business expenses recorded successfully`, 'success');
     return formatted.length;
   };
 
   const updateBusinessExpense = (id, updatedFields) => {
-    setBusinessExpenses(prev => prev.map(e => e.id === id ? {
+    const next = businessExpenses.map(e => e.id === id ? {
       ...e,
       ...updatedFields,
       amount: updatedFields.amount !== undefined ? Number(updatedFields.amount) : e.amount
-    } : e));
+    } : e);
+    setBusinessExpenses(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, next);
+    try {
+      broadcastLiveEvent('EXPENSE_SYNC', { businessExpenses: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, businessExpenses: next }, 'update_business_expense');
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ আপডেট করা হয়েছে' : 'Business expense updated');
   };
 
   const deleteBusinessExpense = (id) => {
-    setBusinessExpenses(prev => prev.filter(e => e.id !== id));
+    const next = businessExpenses.filter(e => e.id !== id);
+    setBusinessExpenses(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, next);
+    try {
+      broadcastLiveEvent('EXPENSE_SYNC', { businessExpenses: next });
+    } catch (_) {}
+    triggerImmediateCloudPush({ ...latestStateRef.current, businessExpenses: next }, 'delete_business_expense');
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ মুছে ফেলা হয়েছে' : 'Business expense deleted');
   };
 
   const paySupplier = (supplierId, amount) => {
     const amt = Number(amount);
-    setSuppliers(suppliers.map(s => {
+    const next = suppliers.map(s => {
       if (s.id === supplierId) {
         return { ...s, payableBalance: Math.max(0, s.payableBalance - amt) };
       }
       return s;
-    }));
+    });
+    setSuppliers(next);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_SUPPLIERS, next);
+    triggerImmediateCloudPush({ ...latestStateRef.current, suppliers: next }, 'pay_supplier');
     showToast(lang === 'bn' ? `সাপ্লায়ারকে ৳${amt.toLocaleString()} পরিশোধ সম্পন্ন` : `Paid ৳${amt} to supplier`);
   };
 
@@ -2859,25 +3054,44 @@ export const AppProvider = ({ children }) => {
 
     // Deduct stock for products sold in invoice
     if (invoice.items && invoice.items.length > 0) {
-      setProducts(prev => prev.map(p => {
-        const item = invoice.items.find(it => it.productId === p.id);
-        if (item && Number(item.qty) > 0) {
-          return { ...p, stock: Math.max(0, p.stock - Number(item.qty)) };
-        }
-        return p;
-      }));
+      setProducts(prev => {
+        const updated = prev.map(p => {
+          const item = invoice.items.find(it => it.productId === p.id);
+          if (item && Number(item.qty) > 0) {
+            return { ...p, stock: Math.max(0, p.stock - Number(item.qty)) };
+          }
+          return p;
+        });
+        scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, updated);
+        return updated;
+      });
     }
 
     // If customer is selected and there is dueAmount, update customer's outstandingDue
     if (invoice.customerId && dueAmount > 0) {
-      setCustomers(prev => prev.map(c => c.id === invoice.customerId ? {
-        ...c,
-        outstandingDue: (Number(c.outstandingDue) || 0) + dueAmount,
-        totalPurchased: (Number(c.totalPurchased) || 0) + grandTotal
-      } : c));
+      setCustomers(prev => {
+        const updated = prev.map(c => c.id === invoice.customerId ? {
+          ...c,
+          outstandingDue: (Number(c.outstandingDue) || 0) + dueAmount,
+          totalPurchased: (Number(c.totalPurchased) || 0) + grandTotal
+        } : c);
+        scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, updated);
+        return updated;
+      });
     }
 
-    setInvoices([newInv, ...invoices]);
+    const nextInvoices = [newInv, ...invoices];
+    setInvoices(nextInvoices);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
+    try {
+      broadcastLiveEvent('SALE_COMPLETED', { sale: newInv, items: invoice.items });
+    } catch (_) {}
+    triggerImmediateCloudPush({
+      ...latestStateRef.current,
+      invoices: nextInvoices,
+      salesHistory: [newInv, ...salesHistory]
+    }, 'add_invoice');
+
     showToast(lang === 'bn' ? `ইনভয়েস #${newInv.id} সফলভাবে তৈরি হয়েছে!` : `Invoice #${newInv.id} created!`);
     return newInv;
   };
@@ -5367,50 +5581,99 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     if (!cloudState || typeof cloudState !== 'object') return false;
 
     if (Array.isArray(cloudState.personalExpenses)) {
-      setPersonalExpenses(cloudState.personalExpenses);
-      localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(cloudState.personalExpenses));
+      setPersonalExpenses(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.personalExpenses);
+        localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.personalIncomes)) {
-      setPersonalIncomes(cloudState.personalIncomes);
-      localStorage.setItem(STORAGE_KEYS.PERSONAL_INCOMES, JSON.stringify(cloudState.personalIncomes));
+      setPersonalIncomes(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.personalIncomes);
+        localStorage.setItem(STORAGE_KEYS.PERSONAL_INCOMES, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.personalSavings)) {
-      setPersonalSavings(cloudState.personalSavings);
-      localStorage.setItem(STORAGE_KEYS.PERSONAL_SAVINGS, JSON.stringify(cloudState.personalSavings));
+      setPersonalSavings(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.personalSavings);
+        localStorage.setItem(STORAGE_KEYS.PERSONAL_SAVINGS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.personalDebts)) {
-      setPersonalDebts(cloudState.personalDebts);
-      localStorage.setItem(STORAGE_KEYS.PERSONAL_DEBTS, JSON.stringify(cloudState.personalDebts));
+      setPersonalDebts(prev => {
+        const merged = mergeDebtPersonsWithTransactions(prev, cloudState.personalDebts);
+        localStorage.setItem(STORAGE_KEYS.PERSONAL_DEBTS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.personalEvents)) {
-      setPersonalEvents(cloudState.personalEvents);
-      localStorage.setItem(STORAGE_KEYS.PERSONAL_EVENTS, JSON.stringify(cloudState.personalEvents));
+      setPersonalEvents(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.personalEvents);
+        localStorage.setItem(STORAGE_KEYS.PERSONAL_EVENTS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.bazaarShoppingList)) {
-      setBazaarShoppingList(cloudState.bazaarShoppingList);
-      localStorage.setItem(STORAGE_KEYS.BAZAAR_SHOPPING_LIST, JSON.stringify(cloudState.bazaarShoppingList));
+      setBazaarShoppingList(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.bazaarShoppingList);
+        localStorage.setItem(STORAGE_KEYS.BAZAAR_SHOPPING_LIST, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.products)) {
       const cleanProducts = filterOutDemoItems(cloudState.products);
-      setProducts(cleanProducts);
-      localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(cleanProducts));
+      setProducts(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cleanProducts);
+        localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.salesHistory)) {
-      setSalesHistory(cloudState.salesHistory);
-      localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(cloudState.salesHistory));
+      setSalesHistory(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.salesHistory);
+        localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(merged));
+        return merged;
+      });
+    }
+    if (Array.isArray(cloudState.invoices) || Array.isArray(cloudState.salesHistory)) {
+      const incomingInvoices = cloudState.invoices || cloudState.salesHistory || [];
+      setInvoices(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, incomingInvoices);
+        localStorage.setItem(STORAGE_KEYS.BIZ_INVOICES, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.customers)) {
       const cleanCustomers = filterOutDemoItems(cloudState.customers);
-      setCustomers(cleanCustomers);
-      localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(cleanCustomers));
+      setCustomers(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cleanCustomers);
+        localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.businessExpenses)) {
-      setBusinessExpenses(cloudState.businessExpenses);
-      localStorage.setItem(STORAGE_KEYS.BIZ_EXPENSES, JSON.stringify(cloudState.businessExpenses));
+      setBusinessExpenses(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.businessExpenses);
+        localStorage.setItem(STORAGE_KEYS.BIZ_EXPENSES, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.businessDebts)) {
-      setBusinessDebts(cloudState.businessDebts);
-      localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(cloudState.businessDebts));
+      setBusinessDebts(prev => {
+        const merged = mergeDebtPersonsWithTransactions(prev, cloudState.businessDebts);
+        localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(merged));
+        return merged;
+      });
+    }
+    if (Array.isArray(cloudState.suppliers)) {
+      const cleanSuppliers = filterOutDemoItems(cloudState.suppliers);
+      setSuppliers(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cleanSuppliers);
+        localStorage.setItem(STORAGE_KEYS.BIZ_SUPPLIERS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (Array.isArray(cloudState.employees)) {
       setEmployees(prev => {
@@ -5440,16 +5703,22 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       } catch (_) {}
     }
     if (Array.isArray(cloudState.businessFieldOrders)) {
-      setFieldOrders(cloudState.businessFieldOrders);
-      localStorage.setItem(STORAGE_KEYS.BIZ_FIELD_ORDERS, JSON.stringify(cloudState.businessFieldOrders));
+      setFieldOrders(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.businessFieldOrders);
+        localStorage.setItem(STORAGE_KEYS.BIZ_FIELD_ORDERS, JSON.stringify(merged));
+        return merged;
+      });
     }
     if (cloudState.businessSettings && typeof cloudState.businessSettings === 'object') {
       setBusinessSettings(prev => ({ ...prev, ...cloudState.businessSettings }));
       localStorage.setItem(STORAGE_KEYS.BIZ_SETTINGS, JSON.stringify(cloudState.businessSettings));
     }
     if (Array.isArray(cloudState.trashBin)) {
-      setTrashBin(cloudState.trashBin);
-      localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(cloudState.trashBin));
+      setTrashBin(prev => {
+        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.trashBin);
+        localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(merged));
+        return merged;
+      });
     }
     return true;
   }, []);

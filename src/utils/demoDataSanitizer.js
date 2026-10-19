@@ -83,6 +83,44 @@ export const mergeEntitiesWithoutDuplicates = (localList = [], cloudList = []) =
 };
 
 /**
+ * Deep non-destructive merge for Debt & Credit ledgers:
+ * Merges persons by ID, and merges their individual transaction histories by tx.id.
+ */
+export const mergeDebtPersonsWithTransactions = (localList = [], cloudList = []) => {
+  const cleanLocal = filterOutDemoItems(localList);
+  const cleanCloud = filterOutDemoItems(cloudList);
+
+  const map = new Map();
+  cleanCloud.forEach(p => {
+    if (p && p.id) {
+      map.set(p.id, { ...p, transactions: Array.isArray(p.transactions) ? [...p.transactions] : [] });
+    }
+  });
+
+  cleanLocal.forEach(lp => {
+    if (!lp || !lp.id) return;
+    if (!map.has(lp.id)) {
+      map.set(lp.id, lp);
+    } else {
+      const existing = map.get(lp.id);
+      const txMap = new Map();
+      (existing.transactions || []).forEach(tx => {
+        if (tx && tx.id) txMap.set(tx.id, tx);
+      });
+      (lp.transactions || []).forEach(tx => {
+        if (tx && tx.id && !txMap.has(tx.id)) {
+          txMap.set(tx.id, tx);
+        }
+      });
+      existing.transactions = Array.from(txMap.values()).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      map.set(lp.id, existing);
+    }
+  });
+
+  return Array.from(map.values());
+};
+
+/**
  * Purges legacy demo entries from all known localStorage keys
  */
 export const purgeAllLegacyDemoStorage = () => {
