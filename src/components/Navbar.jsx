@@ -489,6 +489,18 @@ export const Navbar = () => {
             setProfile('business');
             setActiveTab('pos');
           }
+        },
+        {
+          id: 'drawer_internal_chat',
+          label: lang === 'bn' ? '💬 অভ্যন্তরীণ চ্যাট ও সাপোর্ট' : 'Internal Chat & Support',
+          desc: lang === 'bn' ? 'মালিক, সেলসম্যান ও সাপোর্ট ডেস্কের সাথে সরাসরি মেসেজিং' : 'Chat with owner, salesman & helpdesk',
+          icon: MessageSquare,
+          color: '#ec4899',
+          badge: unreadChatCount > 0 ? `${unreadChatCount}` : 'LIVE',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            setShowInternalChat(true);
+          }
         }
       ]
     },
