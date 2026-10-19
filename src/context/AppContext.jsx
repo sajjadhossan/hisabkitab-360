@@ -101,7 +101,9 @@ import {
   initContinuousCloudSync,
   subscribeCloudStateSync,
   getLastCloudSyncTimestamp,
-  getLastSyncDeviceName
+  getLastSyncDeviceName,
+  markInvoiceAsDeletedTombstone,
+  isInvoiceTombstoned
 } from '../services/cloudStateSyncService';
 import {
   purgeAllLegacyDemoStorage,
@@ -1055,8 +1057,8 @@ export const AppProvider = ({ children }) => {
         console.warn('[TenantIsolation] Failed to load tenant data:', err);
       }
     } else {
-      // If switching from master Sajjad to a client account (e.g. Mariam), give Mariam a clean fresh slate
-      if (previousEmail === 'hossansajjad1994@gmail.com' && currentEmail !== 'hossansajjad1994@gmail.com') {
+      // If switching accounts or logging in as a client (e.g. Mariam), give a 100% clean slate
+      if (currentEmail !== 'hossansajjad1994@gmail.com') {
         console.log(`[TenantIsolation] Initializing fresh clean workspace for client account: ${currentEmail}`);
         setProducts([]);
         setCart([]);
@@ -1067,6 +1069,15 @@ export const AppProvider = ({ children }) => {
         setBusinessExpenses([]);
       }
     }
+
+    // Immediately trigger cloud pull scoped to this user's cloud space
+    setTimeout(() => {
+      pullLatestStateFromCloud({ force: true }).then(res => {
+        if (res.success && res.state && typeof applyCloudStateRef.current === 'function') {
+          applyCloudStateRef.current(res.state);
+        }
+      }).catch(() => {});
+    }, 400);
   }, [user]);
 
   // Multi-Branch & Multi-Counter States
@@ -1313,12 +1324,18 @@ export const AppProvider = ({ children }) => {
           console.debug(`[LocalFirst] Hydrated ${idbProducts.length} products from IndexedDB`);
           setProducts(idbProducts);
         }
-        if (Array.isArray(idbSales) && idbSales.length > salesHistory.length) {
-          console.debug(`[LocalFirst] Hydrated ${idbSales.length} sales from IndexedDB`);
-          setSalesHistory(idbSales);
+        if (Array.isArray(idbSales)) {
+          const validSales = idbSales.filter(s => !isInvoiceTombstoned(s.id));
+          if (validSales.length > salesHistory.length) {
+            console.debug(`[LocalFirst] Hydrated ${validSales.length} sales from IndexedDB`);
+            setSalesHistory(validSales);
+          }
         }
-        if (Array.isArray(idbInvoices) && idbInvoices.length > invoices.length) {
-          setInvoices(idbInvoices);
+        if (Array.isArray(idbInvoices)) {
+          const validInvoices = idbInvoices.filter(i => !isInvoiceTombstoned(i.id));
+          if (validInvoices.length > invoices.length) {
+            setInvoices(validInvoices);
+          }
         }
         if (Array.isArray(idbCustomers) && idbCustomers.length > customers.length) {
           setCustomers(idbCustomers);
@@ -3440,8 +3457,34 @@ export const AppProvider = ({ children }) => {
       }
     }
 
-    setInvoices(prev => prev.filter(item => item.id !== id));
-    setSalesHistory(prev => prev.filter(item => item.id !== id));
+    // Permanently tombstone so cloud/IDB can NEVER restore it
+    markInvoiceAsDeletedTombstone(id);
+
+    const nextInvoices = invoices.filter(item => item.id !== id);
+    const nextSales = salesHistory.filter(item => item.id !== id);
+    setInvoices(nextInvoices);
+    setSalesHistory(nextSales);
+
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
+    if (user?.email) {
+      const uTenantPrefix = `hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_`;
+      scheduleStorageWrite(`${uTenantPrefix}biz_invoices`, nextInvoices);
+      scheduleStorageWrite(`${uTenantPrefix}biz_sales`, nextSales);
+    }
+
+    try {
+      broadcastLiveEvent('SALE_VOIDED', { saleId: id, voidedAt: new Date().toISOString() });
+    } catch {}
+
+    try {
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        salesHistory: nextSales,
+        invoices: nextInvoices
+      }, 'delete_invoice');
+    } catch {}
+
     showToast(
       lang === 'bn'
         ? `ইনভয়েস মুছে ফেলা হয়েছে${restockItems ? ' এবং মালামাল স্টকে ফেরত দেওয়া হয়েছে' : ''}!`
@@ -3488,9 +3531,21 @@ export const AppProvider = ({ children }) => {
       }));
     }
 
-    // 3. Remove or Mark Void in Sales History & Invoices
-    setSalesHistory(prev => prev.filter(s => s.id !== saleId));
-    setInvoices(prev => prev.filter(i => i.id !== saleId));
+    // 3. Permanently tombstone and Remove from State
+    markInvoiceAsDeletedTombstone(saleId);
+    const nextSales = salesHistory.filter(s => s.id !== saleId);
+    const nextInvoices = invoices.filter(i => i.id !== saleId);
+
+    setSalesHistory(nextSales);
+    setInvoices(nextInvoices);
+
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
+    if (user?.email) {
+      const uTenantPrefix = `hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_`;
+      scheduleStorageWrite(`${uTenantPrefix}biz_sales`, nextSales);
+      scheduleStorageWrite(`${uTenantPrefix}biz_invoices`, nextInvoices);
+    }
 
     // 4. Record Void Event in Cloud & Local Audit
     try {
@@ -3500,8 +3555,8 @@ export const AppProvider = ({ children }) => {
     try {
       triggerImmediateCloudPush({
         ...latestStateRef.current,
-        salesHistory: salesHistory.filter(s => s.id !== saleId),
-        invoices: invoices.filter(i => i.id !== saleId)
+        salesHistory: nextSales,
+        invoices: nextInvoices
       }, 'sale_voided');
     } catch {}
 
@@ -5767,16 +5822,19 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       });
     }
     if (Array.isArray(cloudState.salesHistory)) {
+      const nonTombstonedSales = cloudState.salesHistory.filter(s => !isInvoiceTombstoned(s.id));
       setSalesHistory(prev => {
-        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.salesHistory);
+        const filteredPrev = prev.filter(s => !isInvoiceTombstoned(s.id));
+        const merged = mergeEntitiesWithoutDuplicates(filteredPrev, nonTombstonedSales).filter(s => !isInvoiceTombstoned(s.id));
         localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(merged));
         return merged;
       });
     }
     if (Array.isArray(cloudState.invoices) || Array.isArray(cloudState.salesHistory)) {
-      const incomingInvoices = cloudState.invoices || cloudState.salesHistory || [];
+      const incomingInvoices = (cloudState.invoices || cloudState.salesHistory || []).filter(i => !isInvoiceTombstoned(i.id));
       setInvoices(prev => {
-        const merged = mergeEntitiesWithoutDuplicates(prev, incomingInvoices);
+        const filteredPrev = prev.filter(i => !isInvoiceTombstoned(i.id));
+        const merged = mergeEntitiesWithoutDuplicates(filteredPrev, incomingInvoices).filter(i => !isInvoiceTombstoned(i.id));
         localStorage.setItem(STORAGE_KEYS.BIZ_INVOICES, JSON.stringify(merged));
         return merged;
       });

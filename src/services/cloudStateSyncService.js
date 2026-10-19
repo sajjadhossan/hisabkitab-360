@@ -16,6 +16,60 @@ const SYNC_ACTION = 'CLOUD_STATE_SYNC';
 const SYNC_ENTITY_TYPE = 'app_state';
 const LAST_SYNC_KEY = 'hk360_last_cloud_state_sync_ts';
 const LAST_SYNC_DEVICE_KEY = 'hk360_last_cloud_sync_device';
+const TOMBSTONE_DELETED_INVOICES_KEY = 'hk360_tombstone_deleted_invoices';
+
+/**
+ * Returns current tenant identifier (user email or default 'master_sync_state')
+ */
+export const getActiveTenantKey = () => {
+  try {
+    const rawUser = localStorage.getItem('hk360_auth_user');
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed?.email) {
+        return `tenant_${parsed.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
+      }
+    }
+  } catch {}
+  return 'master_sync_state';
+};
+
+/**
+ * Tombstone tracker: Permanently marks an invoice/sale as deleted so it can NEVER re-appear
+ */
+export const markInvoiceAsDeletedTombstone = (invoiceId) => {
+  if (!invoiceId) return;
+  try {
+    const tenant = getActiveTenantKey();
+    const storageKey = `${TOMBSTONE_DELETED_INVOICES_KEY}_${tenant}`;
+    const raw = localStorage.getItem(storageKey);
+    const set = raw ? JSON.parse(raw) : [];
+    if (!set.includes(invoiceId)) {
+      set.push(invoiceId);
+      // Keep up to 2000 most recent deleted invoice IDs
+      const trimmed = set.slice(-2000);
+      localStorage.setItem(storageKey, JSON.stringify(trimmed));
+    }
+  } catch (e) {
+    console.debug('[Tombstone] Error saving deleted ID:', e);
+  }
+};
+
+export const getDeletedInvoiceTombstones = () => {
+  try {
+    const tenant = getActiveTenantKey();
+    const storageKey = `${TOMBSTONE_DELETED_INVOICES_KEY}_${tenant}`;
+    const raw = localStorage.getItem(storageKey);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+export const isInvoiceTombstoned = (invoiceId) => {
+  if (!invoiceId) return false;
+  return getDeletedInvoiceTombstones().has(invoiceId);
+};
 
 let isSyncing = false;
 let syncDebounceTimer = null;
@@ -42,7 +96,8 @@ const notifySyncState = (state) => {
 
 export const getLastCloudSyncTimestamp = () => {
   try {
-    return Number(localStorage.getItem(LAST_SYNC_KEY)) || 0;
+    const tenant = getActiveTenantKey();
+    return Number(localStorage.getItem(`${LAST_SYNC_KEY}_${tenant}`)) || 0;
   } catch {
     return 0;
   }
@@ -50,16 +105,18 @@ export const getLastCloudSyncTimestamp = () => {
 
 export const setLastCloudSyncTimestamp = (ts, deviceName = '') => {
   try {
-    localStorage.setItem(LAST_SYNC_KEY, String(ts));
+    const tenant = getActiveTenantKey();
+    localStorage.setItem(`${LAST_SYNC_KEY}_${tenant}`, String(ts));
     if (deviceName) {
-      localStorage.setItem(LAST_SYNC_DEVICE_KEY, deviceName);
+      localStorage.setItem(`${LAST_SYNC_DEVICE_KEY}_${tenant}`, deviceName);
     }
   } catch {}
 };
 
 export const getLastSyncDeviceName = () => {
   try {
-    return localStorage.getItem(LAST_SYNC_DEVICE_KEY) || '';
+    const tenant = getActiveTenantKey();
+    return localStorage.getItem(`${LAST_SYNC_DEVICE_KEY}_${tenant}`) || '';
   } catch {
     return '';
   }
@@ -91,11 +148,13 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
     const deviceId = getLocalDeviceId();
     const deviceOrigin = getDeviceOrigin();
 
+    const tenantKey = getActiveTenantKey();
     const payload = {
       version: 1,
       timestamp,
       deviceId,
       deviceOrigin,
+      tenantKey,
       reason,
       state: stateSnapshot
     };
@@ -103,7 +162,7 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
     const { data, error } = await supabase.from('audit_logs').insert([{
       action: SYNC_ACTION,
       entity_type: SYNC_ENTITY_TYPE,
-      entity_id: 'master_sync_state',
+      entity_id: tenantKey,
       actor_name: `${deviceOrigin.name} (${deviceOrigin.type})`,
       details: payload
     }]).select('id, created_at');
@@ -121,6 +180,7 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
     try {
       await broadcastLiveEvent('CLOUD_STATE_UPDATED', {
         timestamp,
+        tenantKey,
         senderDeviceId: deviceId,
         senderDeviceName: deviceOrigin.name,
         reason
@@ -166,12 +226,14 @@ export const pullLatestStateFromCloud = async ({ force = false } = {}) => {
   try {
     const localTs = getLastCloudSyncTimestamp();
     const currentDeviceId = getLocalDeviceId();
+    const tenantKey = getActiveTenantKey();
 
     const { data, error } = await supabase
       .from('audit_logs')
       .select('id, details, created_at')
       .eq('action', SYNC_ACTION)
       .eq('entity_type', SYNC_ENTITY_TYPE)
+      .eq('entity_id', tenantKey)
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -202,6 +264,17 @@ export const pullLatestStateFromCloud = async ({ force = false } = {}) => {
     const cloudState = details.state;
     if (!cloudState || typeof cloudState !== 'object') {
       return { success: false, invalidPayload: true };
+    }
+
+    // Filter out any invoices or sales that have been explicitly tombstoned/deleted locally
+    const tombstones = getDeletedInvoiceTombstones();
+    if (tombstones.size > 0) {
+      if (Array.isArray(cloudState.salesHistory)) {
+        cloudState.salesHistory = cloudState.salesHistory.filter(s => !tombstones.has(s.id));
+      }
+      if (Array.isArray(cloudState.invoices)) {
+        cloudState.invoices = cloudState.invoices.filter(i => !tombstones.has(i.id));
+      }
     }
 
     setLastCloudSyncTimestamp(cloudTs, cloudDeviceName);
@@ -278,10 +351,15 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
     // Style B: (eventType, payload)
     const eventType = typeof eventObj === 'object' && eventObj !== null ? eventObj.eventType : eventObj;
     const payload = typeof eventObj === 'object' && eventObj !== null ? (eventObj.data || eventObj) : extraPayload;
-    const senderDeviceId = eventObj?.senderDeviceId || payload?.senderDeviceId;
-    const senderDeviceName = eventObj?.senderCounter || payload?.senderDeviceName || 'অন্য ডিভাইস';
+    const incomingTenant = eventObj?.tenantKey || payload?.tenantKey;
+    const currentTenant = getActiveTenantKey();
 
     if (eventType === 'CLOUD_STATE_UPDATED') {
+      // Ignore broadcast if it belongs to a different tenant account!
+      if (incomingTenant && incomingTenant !== currentTenant) {
+        return;
+      }
+
       const currentDeviceId = getLocalDeviceId();
       if (!senderDeviceId || senderDeviceId !== currentDeviceId) {
         try {
