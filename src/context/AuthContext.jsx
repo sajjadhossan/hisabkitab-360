@@ -1206,9 +1206,13 @@ export const AuthProvider = ({ children }) => {
 
   const currentRole = isMasterAccount ? 'superadmin' : (user?.role || 'owner');
   const isOwner = currentRole === 'owner' || currentRole === 'admin' || isMasterAccount;
+  const isManager = currentRole === 'manager';
   const isCashier = currentRole === 'cashier';
   const isSalesman = currentRole === 'salesman';
   const isSR = currentRole === 'sr';
+  const isDelivery = currentRole === 'delivery';
+  const isGodownKeeper = currentRole === 'godown_keeper';
+  const isAuditor = currentRole === 'auditor';
 
   return (
     <AuthContext.Provider
@@ -1230,20 +1234,24 @@ export const AuthProvider = ({ children }) => {
         verifySuperAdminOtpAndResetPin,
         lockSuperAdmin,
         getMasterPin,
+        isManager,
         isCashier,
         isSalesman,
         isSR,
+        isDelivery,
+        isGodownKeeper,
+        isAuditor,
 
         // Granular Security & Permission Matrix
-        canViewCostPrice: isOwner,
+        canViewCostPrice: isOwner || isManager || isAuditor,
         canViewNetProfit: isOwner,
         canDeleteSales: isOwner,
         canManageStaff: isOwner,
-        canAccessSettings: isOwner,
-        canMakeSale: isOwner || isCashier,
-        canOpenCashDrawer: isOwner || isCashier,
-        canCollectDue: isOwner || isCashier || isSR,
-        canManageCustomers: isOwner || isCashier || isSR,
+        canAccessSettings: isOwner || isManager,
+        canMakeSale: isOwner || isManager || isCashier || isSalesman,
+        canOpenCashDrawer: isOwner || isManager || isCashier,
+        canCollectDue: isOwner || isManager || isCashier || isSR || isDelivery,
+        canManageCustomers: isOwner || isManager || isCashier || isSR,
         canViewInventory: true,
 
         // Modals & Views

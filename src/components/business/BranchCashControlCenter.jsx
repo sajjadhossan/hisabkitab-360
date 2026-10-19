@@ -948,18 +948,64 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
                         {stf.name}
                       </td>
                       <td>
-                        <span
-                          className="badge"
-                          style={{
-                            fontSize: '0.72rem',
-                            background: stf.role === 'cashier' ? 'rgba(16, 185, 129, 0.15)' : (stf.role === 'salesman' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)'),
-                            color: stf.role === 'cashier' ? '#10b981' : (stf.role === 'salesman' ? '#f59e0b' : '#3b82f6'),
-                            border: `1px solid ${stf.role === 'cashier' ? '#10b981' : (stf.role === 'salesman' ? '#f59e0b' : '#3b82f6')}`,
-                            fontWeight: '700'
-                          }}
-                        >
-                          {stf.role === 'cashier' ? '🟢 ক্যাশিয়ার' : (stf.role === 'salesman' ? '🟡 সেলসম্যান' : '🔵 এসআর')}
-                        </span>
+                        {(() => {
+                          let label = '⚪ স্টাফ';
+                          let bg = 'rgba(255, 255, 255, 0.08)';
+                          let color = '#cbd5e1';
+                          let border = '#94a3b8';
+
+                          if (stf.role === 'manager') {
+                            label = '🟣 শাখা ম্যানেজার';
+                            bg = 'rgba(168, 85, 247, 0.15)';
+                            color = '#c084fc';
+                            border = '#a855f7';
+                          } else if (stf.role === 'cashier') {
+                            label = '🟢 ক্যাশিয়ার';
+                            bg = 'rgba(16, 185, 129, 0.15)';
+                            color = '#10b981';
+                            border = '#10b981';
+                          } else if (stf.role === 'salesman') {
+                            label = '🟡 সেলসম্যান';
+                            bg = 'rgba(245, 158, 11, 0.15)';
+                            color = '#f59e0b';
+                            border = '#f59e0b';
+                          } else if (stf.role === 'sr') {
+                            label = '🔵 এসআর অফিসার';
+                            bg = 'rgba(59, 130, 246, 0.15)';
+                            color = '#3b82f6';
+                            border = '#3b82f6';
+                          } else if (stf.role === 'delivery') {
+                            label = '🚚 ডেলিভারি ম্যান';
+                            bg = 'rgba(6, 182, 212, 0.15)';
+                            color = '#06b6d4';
+                            border = '#06b6d4';
+                          } else if (stf.role === 'godown_keeper') {
+                            label = '📦 গুদাম রক্ষক';
+                            bg = 'rgba(234, 88, 12, 0.15)';
+                            color = '#ea580c';
+                            border = '#ea580c';
+                          } else if (stf.role === 'auditor') {
+                            label = '📋 হিসাব নিরীক্ষক';
+                            bg = 'rgba(148, 163, 184, 0.15)';
+                            color = '#94a3b8';
+                            border = '#64748b';
+                          }
+
+                          return (
+                            <span
+                              className="badge"
+                              style={{
+                                fontSize: '0.72rem',
+                                background: bg,
+                                color,
+                                border: `1px solid ${border}`,
+                                fontWeight: '700'
+                              }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td>
                         <span style={{ fontSize: '0.82rem' }}>
@@ -1498,9 +1544,13 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
                     value={newStaffForm.role}
                     onChange={(e) => setNewStaffForm({ ...newStaffForm, role: e.target.value })}
                   >
+                    <option value="manager">🟣 শাখা ম্যানেজার (Branch Manager)</option>
                     <option value="cashier">🟢 ক্যাশিয়ার (Cashier)</option>
-                    <option value="salesman">🟡 সেলসম্যান (Salesman)</option>
-                    <option value="sr">🔵 এসআর অফিসার (SR Field)</option>
+                    <option value="salesman">🟡 সেলসম্যান (Floor Salesman)</option>
+                    <option value="sr">🔵 এসআর / ফিল্ড অফিসার (SR Field Officer)</option>
+                    <option value="delivery">🚚 ডেলিভারি ম্যান (Delivery Agent)</option>
+                    <option value="godown_keeper">📦 গুদাম রক্ষক / ইনভেন্টরি (Godown Keeper)</option>
+                    <option value="auditor">📋 অডিটর / হিসাব নিরীক্ষক (Auditor)</option>
                   </select>
                 </div>
 
