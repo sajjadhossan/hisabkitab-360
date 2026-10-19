@@ -13,6 +13,7 @@ import { initPowerOptimizer } from './services/powerOptimizerService';
 import { initFastOfflineCache } from './services/indexedDbCache';
 import { initLiveSyncChannel, subscribeLiveSync } from './services/liveSyncService';
 import { initOfflineSyncEngine } from './services/offlineSyncQueue';
+import { initChatRealtimeListener } from './services/internalChatService';
 import {
   syncNativeStatusBar,
   hideNativeSplashScreen,
@@ -312,6 +313,19 @@ const AppContent = () => {
     initLiveSyncChannel();
     initOfflineSyncEngine();
 
+    const unsubChat = initChatRealtimeListener((incomingMsg) => {
+      const cur = appStateRef.current;
+      if (cur?.showToast) {
+        const isFromSuper = incomingMsg.senderRole === 'Super Admin' || incomingMsg.senderId === 'super_admin';
+        cur.showToast(
+          isFromSuper
+            ? (cur.lang === 'bn' ? `🛡️ সুপার এডমিনের নতুন বার্তা: "${incomingMsg.text || 'নতুন বার্তা'}"` : `🛡️ Super Admin: "${incomingMsg.text || 'New message'}"`)
+            : (cur.lang === 'bn' ? `💬 ${incomingMsg.senderName || 'টিম'}: "${incomingMsg.text || 'নতুন বার্তা'}"` : `💬 ${incomingMsg.senderName || 'Team'}: "${incomingMsg.text || 'New message'}"`),
+          'info'
+        );
+      }
+    });
+
     const unsubLive = subscribeLiveSync((evt) => {
       const cur = appStateRef.current;
       if (evt?.eventType === 'CLOUD_STATE_UPDATED') {
@@ -461,6 +475,7 @@ const AppContent = () => {
 
     return () => {
       unsubBarcode();
+      if (unsubChat) unsubChat();
       if (unsubVolume) unsubVolume();
       if (unsubAutoLock) unsubAutoLock();
       if (unsubLive) unsubLive();
