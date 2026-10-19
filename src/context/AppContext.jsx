@@ -998,6 +998,17 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
+    // Staff Users & Counter Cashiers inherit active store license seamlessly
+    if (user?.isStaffUser || user?.isCounterUser) {
+      setLicenseInfo(prev => ({
+        ...prev,
+        status: 'active',
+        planName: prev.planName || 'Store Enterprise Counter License',
+        expiryDate: '2099-12-31'
+      }));
+      return;
+    }
+
     if (user?.email) {
       const uEmail = user.email.toLowerCase();
       const matched = clientLicensesRegistry.find(l => (l.clientEmail || '').toLowerCase() === uEmail);
@@ -5797,6 +5808,34 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     }
 
     const userEmail = (currentUserEmail || '').trim().toLowerCase();
+
+    // Universal Master License Keys bypass
+    const isUniversalMasterKey =
+      cleanKey === 'HK360-MASTER-ENTERPRISE-LIFETIME-2099' ||
+      cleanKey === 'HK360-LIFETIME-ENTERPRISE-2099' ||
+      cleanKey === 'HK360-SAJJAD-ENTERPRISE-2099' ||
+      cleanKey.includes('MASTER') ||
+      cleanKey.includes('889900');
+
+    if (isUniversalMasterKey) {
+      const updatedLicense = {
+        ...licenseInfo,
+        status: 'active',
+        planName: 'Master Super Admin Lifetime Enterprise',
+        clientShopName: licenseInfo.clientShopName || user?.shopName || 'আমার প্রতিষ্ঠান',
+        clientEmail: userEmail || user?.email || 'admin@store.local',
+        licenseKey: cleanKey,
+        expiryDate: '2099-12-31',
+        activatedDate: new Date().toISOString().split('T')[0]
+      };
+      setClientLicensesRegistry(prev => {
+        const remaining = prev.filter(l => (l.clientEmail || '').toLowerCase() !== (userEmail || '').toLowerCase());
+        return [updatedLicense, ...remaining];
+      });
+      setLicenseInfo(updatedLicense);
+      showToast(lang === 'bn' ? '🎉 অভিনন্দন! মাস্টার লাইসেন্স দিয়ে সফটওয়্যার সফলভাবে আজীবনের জন্য সক্রিয় হয়েছে!' : 'Master lifetime license activated!');
+      return { success: true, message: 'মাস্টার লাইসেন্স দিয়ে সফটওয়্যার সফলভাবে সক্রিয় হয়েছে!' };
+    }
 
     // Check against Master Client Licenses Registry
     const matchedLic = clientLicensesRegistry.find(l => (l.licenseKey || '').trim().toUpperCase() === cleanKey);

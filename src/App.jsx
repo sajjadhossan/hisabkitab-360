@@ -683,7 +683,7 @@ const AppContent = () => {
     }
 
     // Commercial License Gate: Check if user is pending approval, expired, suspended, or unlicensed
-    const isLicenseActive = licenseInfo?.status === 'active' || isSuperAdmin;
+    const isLicenseActive = licenseInfo?.status === 'active' || isSuperAdmin || user?.isStaffUser || user?.isCounterUser;
     const isLockedOut = !isLicenseActive && activeTab !== 'super_admin';
 
     if (isLockedOut) {
