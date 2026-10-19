@@ -227,8 +227,8 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
       console.debug('[CloudStateSync] Broadcast notice:', bcErr);
     }
 
-    // Background cleanup: keep only last 5 snapshots to avoid bloating audit_logs
-    cleanupOldCloudSyncLogs(supabase).catch(() => {});
+    // Background cleanup: keep only last 5 snapshots for THIS tenant to avoid cross-tenant wipe
+    cleanupOldCloudSyncLogs(supabase, tenantKey).catch(() => {});
 
     isSyncing = false;
     notifySyncState({
@@ -487,13 +487,15 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
 /**
  * Removes older sync logs keeping only the 5 most recent records
  */
-async function cleanupOldCloudSyncLogs(supabase) {
+async function cleanupOldCloudSyncLogs(supabase, tenantKey) {
   try {
+    if (!tenantKey) return;
     const { data } = await supabase
       .from('audit_logs')
       .select('id, created_at')
       .eq('action', SYNC_ACTION)
       .eq('entity_type', SYNC_ENTITY_TYPE)
+      .eq('entity_id', tenantKey)
       .order('created_at', { ascending: false })
       .range(5, 50);
 

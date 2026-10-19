@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { printElement } from '../../services/printService';
+import { showConfirmDialog } from '../../services/dialogService';
 import {
   BadgeDollarSign,
   Plus,
@@ -772,8 +773,14 @@ export const HRPayroll = () => {
                         {/* Delete Order */}
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm(lang === 'bn' ? 'আপনি কি নিশ্চিত যে এই ফিল্ড অর্ডারটি মুছে ফেলতে চান?' : 'Delete this field order?')) {
+                          onClick={async () => {
+                            const ok = await showConfirmDialog({
+                              title: lang === 'bn' ? 'অর্ডার মুছে ফেলবেন?' : 'Delete Field Order?',
+                              message: lang === 'bn' ? 'আপনি কি নিশ্চিত যে এই ফিল্ড অর্ডারটি মুছে ফেলতে চান?' : 'Are you sure you want to delete this field order?',
+                              confirmText: lang === 'bn' ? 'মুছে ফেলুন' : 'Delete',
+                              type: 'danger'
+                            });
+                            if (ok) {
                               deleteFieldOrder(order.id);
                             }
                           }}

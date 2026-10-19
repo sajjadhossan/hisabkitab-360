@@ -792,7 +792,7 @@ export const Navbar = () => {
           </div>
 
           {/* Center: Profile Switcher (Personal vs Business) or Single Mode Badge */}
-          {operatingMode === 'dual' ? (
+          {operatingMode === 'dual' && isOwner ? (
             <div className="navbar-profile-switcher-wrap">
               <button
                 onClick={() => setProfile('personal')}
@@ -1896,7 +1896,7 @@ export const Navbar = () => {
 
               {/* Mode Switch & Close Button */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {operatingMode === 'dual' ? (
+                {operatingMode === 'dual' && isOwner ? (
                   <button
                     type="button"
                     onClick={() => {

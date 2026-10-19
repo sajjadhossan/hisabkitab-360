@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { showConfirmDialog } from '../../services/dialogService';
 import {
   FileText,
@@ -52,6 +53,8 @@ export const InvoicesManager = () => {
     t,
     showToast
   } = useApp();
+
+  const { canDeleteSales } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | paid | partial | unpaid | returned
@@ -423,9 +426,13 @@ export const InvoicesManager = () => {
   };
 
   // ----------------------------------------------------
-  // DELETE INVOICE WITH RESTOCK CONFIRMATION
+  // DELETE INVOICE WITH RESTOCK CONFIRMATION (PROTECTED BY RBAC)
   // ----------------------------------------------------
   const handleDeleteInvoiceClick = async (inv) => {
+    if (!canDeleteSales) {
+      showToast(lang === 'bn' ? 'শুধুমাত্র ব্যবসায়ের মালিক ইনভয়েস মুছে ফেলতে পারেন।' : 'Only business owner can delete invoices.', 'warning');
+      return;
+    }
     const ok = await showConfirmDialog({
       title: lang === 'bn' ? `ইনভয়েস #${inv.id} মুছে ফেলবেন?` : `Delete invoice #${inv.id}?`,
       message: lang === 'bn'
@@ -984,15 +991,17 @@ export const InvoicesManager = () => {
                           <span>🧾 {lang === 'bn' ? 'রসিদ' : 'Slip'}</span>
                         </button>
 
-                        {/* Delete Invoice Button */}
-                        <button
-                          className="btn-icon"
-                          onClick={() => handleDeleteInvoiceClick(inv)}
-                          style={{ color: '#ef4444', padding: '4px' }}
-                          title={lang === 'bn' ? 'ইনভয়েস মুছুন (পণ্য স্টকে ফেরত যাবে)' : 'Delete invoice and restock'}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {/* Delete Invoice Button (Restricted to Owner) */}
+                        {canDeleteSales && (
+                          <button
+                            className="btn-icon"
+                            onClick={() => handleDeleteInvoiceClick(inv)}
+                            style={{ color: '#ef4444', padding: '4px' }}
+                            title={lang === 'bn' ? 'ইনভয়েস মুছুন (পণ্য স্টকে ফেরত যাবে)' : 'Delete invoice and restock'}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

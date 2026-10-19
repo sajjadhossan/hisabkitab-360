@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { showConfirmDialog } from '../../services/dialogService';
 
 export default function RecycleBinModal({ isOpen, onClose }) {
   const {
@@ -45,6 +46,20 @@ export default function RecycleBinModal({ isOpen, onClose }) {
   }, [trashBin]);
 
   if (!isOpen) return null;
+
+  const handlePermanentDelete = async (itemId, itemTitle) => {
+    const ok = await showConfirmDialog({
+      title: lang === 'bn' ? 'স্থায়ীভাবে মুছে ফেলতে চান?' : 'Permanently Delete?',
+      message: lang === 'bn' 
+        ? `"${itemTitle || 'আইটেমটি'}" স্থায়ীভাবে মুছে যাবে এবং এটি আর পুনরুদ্ধার করা যাবে না।`
+        : `"${itemTitle || 'This item'}" will be permanently deleted and cannot be restored.`,
+      confirmText: lang === 'bn' ? 'হ্যাঁ, স্থায়ীভাবে মুছুন' : 'Delete Permanently',
+      type: 'danger'
+    });
+    if (ok) {
+      permanentDeleteFromTrash(itemId);
+    }
+  };
 
   const formatDeletedTime = (isoString) => {
     if (!isoString) return '';
@@ -325,6 +340,7 @@ export default function RecycleBinModal({ isOpen, onClose }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    flexWrap: 'wrap',
                     padding: '14px 18px',
                     borderRadius: '14px',
                     backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -334,7 +350,7 @@ export default function RecycleBinModal({ isOpen, onClose }) {
                   }}
                 >
                   {/* Left: Info */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '200px', flex: '1 1 200px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
                         {item.item || item.title || 'খরচ'}
@@ -388,7 +404,7 @@ export default function RecycleBinModal({ isOpen, onClose }) {
                   </div>
 
                   {/* Right: Amount & Actions */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }}>
                     <div style={{ textAlign: 'right' }}>
                       <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5' }}>
                         ৳{Number(item.amount || 0).toLocaleString('en-IN')}
@@ -420,7 +436,7 @@ export default function RecycleBinModal({ isOpen, onClose }) {
 
                     {/* Permanent Delete Button */}
                     <button
-                      onClick={() => permanentDeleteFromTrash(itemId)}
+                      onClick={() => handlePermanentDelete(itemId, item.item || item.title)}
                       title={lang === 'bn' ? 'স্থায়ীভাবে চিরতরে মুছে ফেলুন' : 'Permanently Delete'}
                       style={{
                         display: 'flex',

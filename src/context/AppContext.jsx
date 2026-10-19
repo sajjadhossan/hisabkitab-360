@@ -1796,8 +1796,20 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Profile Switching handler (Auto-unlocks to dual mode so user is never trapped)
+  // Profile Switching handler (Auto-unlocks to dual mode so user is never trapped, blocks staff)
   const handleSwitchProfile = (newProfile) => {
+    try {
+      const activeRaw = localStorage.getItem('hk360_active_user') || localStorage.getItem('hk360_active_session_user');
+      if (activeRaw) {
+        const u = JSON.parse(activeRaw);
+        const r = (u.role || '').toLowerCase();
+        if (['cashier', 'salesman', 'sr'].includes(r) && newProfile === 'personal') {
+          showToast(lang === 'bn' ? 'স্টাফ একাউন্ট শুধুমাত্র ব্যবসায়িক মোডে ব্যবহারযোগ্য।' : 'Staff accounts are restricted to Business Mode.', 'warning');
+          return;
+        }
+      }
+    } catch {}
+
     startTransition(() => {
       if (operatingMode === 'business_only' && newProfile !== 'business') {
         setOperatingModeState('dual');
@@ -2760,57 +2772,54 @@ export const AppProvider = ({ children }) => {
     };
 
     // Deduct stock & trigger Low-Stock alerts (Feature 2: FEFO Batch Allocation)
-    setProducts(prevProducts => {
-      const updated = prevProducts.map(p => {
-        const cartItem = cart.find(ci => ci.id === p.id);
-        if (cartItem) {
-          const { updatedProduct } = allocateFefoStockDeduction(p, cartItem.qty);
-          const nextStock = updatedProduct.stock;
-          const minStockThreshold = Number(p.minStock) || 5;
-          if (nextStock <= minStockThreshold && p.stock > minStockThreshold) {
-            notifyLowStockAlert(p.name, nextStock);
-          }
-          // Feature 4: Broadcast stock update to omni-channel e-commerce stores
-          try {
-            broadcastStockUpdateToChannels(p.id, nextStock, p.barcode || p.sku);
-          } catch (e) {
-            // non-blocking
-          }
-          return updatedProduct;
+    const updatedProducts = products.map(p => {
+      const cartItem = cart.find(ci => ci.id === p.id);
+      if (cartItem) {
+        const { updatedProduct } = allocateFefoStockDeduction(p, cartItem.qty);
+        const nextStock = updatedProduct.stock;
+        const minStockThreshold = Number(p.minStock) || 5;
+        if (nextStock <= minStockThreshold && p.stock > minStockThreshold) {
+          notifyLowStockAlert(p.name, nextStock);
         }
-        return p;
-      });
-      scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, updated);
-      return updated;
+        // Feature 4: Broadcast stock update to omni-channel e-commerce stores
+        try {
+          broadcastStockUpdateToChannels(p.id, nextStock, p.barcode || p.sku);
+        } catch (e) {
+          // non-blocking
+        }
+        return updatedProduct;
+      }
+      return p;
     });
+    setProducts(updatedProducts);
+    scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, updatedProducts);
 
     const activeTenant = getActiveTenantKey();
     const userEmail = (user?.email || '').toLowerCase().trim();
     const isMaster = !userEmail || userEmail === 'hossansajjad1994@gmail.com';
 
+    let updatedCustomers = customers;
     // Update customer due, loyalty points and total purchases if customer is linked
     if (customerId) {
-      setCustomers(prevCustomers => {
-        const updated = prevCustomers.map(cust => {
-          if (cust.id === customerId) {
-            const currentPoints = Number(cust.loyaltyPoints) || 0;
-            const pointsEarned = Math.floor(grandTotal / 100);
-            const pointsDeducted = Number(usedLoyaltyPoints) || 0;
-            const nextPoints = Math.max(0, currentPoints - pointsDeducted + pointsEarned);
+      updatedCustomers = customers.map(cust => {
+        if (cust.id === customerId) {
+          const currentPoints = Number(cust.loyaltyPoints) || 0;
+          const pointsEarned = Math.floor(grandTotal / 100);
+          const pointsDeducted = Number(usedLoyaltyPoints) || 0;
+          const nextPoints = Math.max(0, currentPoints - pointsDeducted + pointsEarned);
 
-            return {
-              ...cust,
-              totalPurchased: (Number(cust.totalPurchased) || 0) + grandTotal,
-              outstandingDue: (Number(cust.outstandingDue) || 0) + dueAmount,
-              loyaltyPoints: nextPoints
-            };
-          }
-          return cust;
-        });
-        if (isMaster) scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, updated);
-        if (userEmail) scheduleStorageWrite(`hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, updated);
-        return updated;
+          return {
+            ...cust,
+            totalPurchased: (Number(cust.totalPurchased) || 0) + grandTotal,
+            outstandingDue: (Number(cust.outstandingDue) || 0) + dueAmount,
+            loyaltyPoints: nextPoints
+          };
+        }
+        return cust;
       });
+      setCustomers(updatedCustomers);
+      if (isMaster) scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, updatedCustomers);
+      if (userEmail) scheduleStorageWrite(`hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, updatedCustomers);
     }
 
     setSalesHistory(prevSales => {
@@ -2861,6 +2870,8 @@ export const AppProvider = ({ children }) => {
     try {
       triggerImmediateCloudPush({
         ...latestStateRef.current,
+        products: updatedProducts,
+        customers: updatedCustomers,
         salesHistory: [saleRecord, ...salesHistory],
         invoices: [saleRecord, ...invoices]
       }, 'sale_completed');
@@ -3662,10 +3673,13 @@ export const AppProvider = ({ children }) => {
   // Delete Invoice with optional Restock of unsold goods
   const deleteInvoice = (id, restockItems = true) => {
     const inv = invoices.find(i => i.id === id) || salesHistory.find(s => s.id === id);
+    let nextProducts = products;
+    let nextCustomers = customers;
+
     if (inv) {
       // Restock items if desired
       if (restockItems && inv.items && inv.items.length > 0) {
-        setProducts(prev => prev.map(p => {
+        nextProducts = products.map(p => {
           const it = inv.items.find(item => item.productId === p.id || item.id === p.id);
           if (it) {
             const qtyToReturn = Number(it.quantity || it.qty || 1);
@@ -3674,13 +3688,14 @@ export const AppProvider = ({ children }) => {
             return { ...p, stock: (Number(p.stock) || 0) + unreturned };
           }
           return p;
-        }));
+        });
+        setProducts(nextProducts);
       }
 
       // Reverse customer due if any
       const due = Number(inv.dueAmount !== undefined ? inv.dueAmount : inv.grandTotal) || 0;
       if (due > 0 && (inv.customerId || inv.customerName)) {
-        setCustomers(prev => prev.map(c => {
+        nextCustomers = customers.map(c => {
           if ((inv.customerId && c.id === inv.customerId) || (!inv.customerId && c.name === inv.customerName)) {
             return {
               ...c,
@@ -3688,7 +3703,8 @@ export const AppProvider = ({ children }) => {
             };
           }
           return c;
-        }));
+        });
+        setCustomers(nextCustomers);
       }
     }
 
@@ -3705,11 +3721,15 @@ export const AppProvider = ({ children }) => {
     if (isMaster) {
       scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
       scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
+      if (nextProducts !== products) scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, nextProducts);
+      if (nextCustomers !== customers) scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, nextCustomers);
     }
     if (userEmail) {
       const uTenantPrefix = `hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_`;
       scheduleStorageWrite(`${uTenantPrefix}biz_invoices`, nextInvoices);
       scheduleStorageWrite(`${uTenantPrefix}biz_sales`, nextSales);
+      if (nextProducts !== products) scheduleStorageWrite(`${uTenantPrefix}biz_products`, nextProducts);
+      if (nextCustomers !== customers) scheduleStorageWrite(`${uTenantPrefix}biz_customers`, nextCustomers);
     }
 
     try {
@@ -3719,6 +3739,8 @@ export const AppProvider = ({ children }) => {
     try {
       triggerImmediateCloudPush({
         ...latestStateRef.current,
+        products: nextProducts,
+        customers: nextCustomers,
         salesHistory: nextSales,
         invoices: nextInvoices
       }, 'delete_invoice');
