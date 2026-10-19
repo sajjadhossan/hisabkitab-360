@@ -351,16 +351,19 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
     // Style B: (eventType, payload)
     const eventType = typeof eventObj === 'object' && eventObj !== null ? eventObj.eventType : eventObj;
     const payload = typeof eventObj === 'object' && eventObj !== null ? (eventObj.data || eventObj) : extraPayload;
-    const incomingTenant = eventObj?.tenantKey || payload?.tenantKey;
+    const incomingTenant = eventObj?.tenantKey || payload?.tenantKey || eventObj?.data?.tenantKey;
     const currentTenant = getActiveTenantKey();
 
     if (eventType === 'CLOUD_STATE_UPDATED') {
       // Ignore broadcast if it belongs to a different tenant account!
-      if (incomingTenant && incomingTenant !== currentTenant) {
+      if (!incomingTenant || incomingTenant !== currentTenant) {
         return;
       }
 
       const currentDeviceId = getLocalDeviceId();
+      const senderDeviceId = eventObj?.senderDeviceId || payload?.senderDeviceId || eventObj?.data?.senderDeviceId;
+      const senderDeviceName = eventObj?.senderDeviceName || payload?.senderDeviceName || eventObj?.data?.senderDeviceName || 'ক্লাউড';
+
       if (!senderDeviceId || senderDeviceId !== currentDeviceId) {
         try {
           const pullRes = await pullLatestStateFromCloud({ force: true });

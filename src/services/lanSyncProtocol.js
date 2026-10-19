@@ -11,6 +11,19 @@ let channel = null;
 const terminalListeners = new Set();
 const DEVICE_TERMINAL_ID = 'term_' + Math.random().toString(36).substring(2, 8);
 
+export const getActiveTenantKey = () => {
+  try {
+    const rawUser = localStorage.getItem('hk360_auth_user');
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed?.email) {
+        return `tenant_${parsed.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
+      }
+    }
+  } catch {}
+  return 'master_sync_state';
+};
+
 /**
  * Initialize local IPC BroadcastChannel
  */
@@ -27,6 +40,14 @@ export const initLocalTerminalSync = () => {
       if (!msg || msg.senderTerminalId === DEVICE_TERMINAL_ID) {
         return; // Ignore self broadcasts
       }
+
+      // STRICT MULTI-TENANCY FILTER: Ignore cross-tab events belonging to other user accounts
+      const myTenant = getActiveTenantKey();
+      const eventTenant = msg.tenantKey || msg.payload?.tenantKey;
+      if (eventTenant && myTenant && eventTenant !== myTenant) {
+        return;
+      }
+
       terminalListeners.forEach((cb) => {
         try {
           cb(msg);
@@ -51,10 +72,14 @@ export const broadcastLocalTerminalEvent = (type, payload = {}) => {
   }
   if (!channel) return false;
 
+  const currentTenant = payload?.tenantKey || getActiveTenantKey();
+  const enrichedPayload = (payload && typeof payload === 'object') ? { ...payload, tenantKey: currentTenant } : { payload, tenantKey: currentTenant };
+
   try {
     const packet = {
       type,
-      payload,
+      payload: enrichedPayload,
+      tenantKey: currentTenant,
       senderTerminalId: DEVICE_TERMINAL_ID,
       timestamp: Date.now()
     };

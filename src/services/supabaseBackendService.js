@@ -9,7 +9,7 @@
 import { getSupabase, isSupabaseReady } from './supabaseClient';
 import { setIndexedDbItem, getIndexedDbItem, getAllIndexedDbItems } from './indexedDbCache';
 import { enqueueOfflineMutation } from './offlineSyncQueue';
-import { broadcastLiveEvent } from './liveSyncService';
+import { broadcastLiveEvent, getActiveTenantKey } from './liveSyncService';
 
 /**
  * Checks connectivity and verifies if the enterprise tables exist in Supabase
@@ -78,8 +78,10 @@ export const submitPosSaleToCloud = async (saleData) => {
   const supabase = getSupabase();
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
+  const activeTenant = saleData.tenantKey || getActiveTenantKey();
   // Format payload for execute_pos_sale PostgreSQL procedure
   const payload = {
+    tenantKey: activeTenant,
     client_uuid: saleData.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     invoice_number: saleData.invoiceNumber || saleData.invoice_number,
     customer_id: saleData.customerId || null,

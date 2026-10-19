@@ -23,6 +23,22 @@ let presenceState = {};
 let localDeviceMeta = null;
 
 /**
+ * Returns current tenant identifier (user email or default 'master_sync_state')
+ */
+export const getActiveTenantKey = () => {
+  try {
+    const rawUser = localStorage.getItem('hk360_auth_user');
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed?.email) {
+        return `tenant_${parsed.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
+      }
+    }
+  } catch {}
+  return 'master_sync_state';
+};
+
+/**
  * Get or create unique persistent device identifier
  */
 export const getLocalDeviceId = () => {
@@ -48,14 +64,24 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
     return null;
   }
 
+  const currentTenant = terminalMeta.tenantKey || getActiveTenantKey();
+  const targetChannelName = `hk360_live_${currentTenant}`;
+
   if (activeChannel) {
-    return activeChannel;
+    if (activeChannel.topic === `realtime:${targetChannelName}` || activeChannel.topic === targetChannelName) {
+      return activeChannel;
+    }
+    try {
+      supabase.removeChannel(activeChannel);
+    } catch {}
+    activeChannel = null;
   }
 
   const deviceId = getLocalDeviceId();
   const devOrigin = typeof window !== 'undefined' ? getDeviceOrigin() : { type: 'pc', name: 'পিসি কাউন্টার' };
   localDeviceMeta = {
     deviceId,
+    tenantKey: currentTenant,
     branchId: terminalMeta.branchId || 'br-main',
     counterName: terminalMeta.counterName || devOrigin.name,
     operatorName: terminalMeta.operatorName || 'অপারেটর',
@@ -66,7 +92,7 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
   };
 
   try {
-    activeChannel = supabase.channel(LIVE_CHANNEL_NAME, {
+    activeChannel = supabase.channel(targetChannelName, {
       config: {
         broadcast: { ack: false, self: false },
         presence: { key: deviceId }
@@ -75,10 +101,17 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
 
     // 1. Operational Broadcast Event Listener (Instant Counter-to-Counter messaging)
     activeChannel.on('broadcast', { event: 'business_event' }, (payload) => {
-      const { eventType, data, senderDeviceId, senderCounter } = payload.payload || {};
+      const { eventType, data, senderDeviceId, senderCounter, tenantKey } = payload.payload || {};
       
       // Ignore echoes from self
       if (senderDeviceId === deviceId) return;
+
+      // STRICT MULTI-TENANCY FILTER: Ignore broadcasts belonging to any other user/tenant account
+      const myTenant = getActiveTenantKey();
+      const eventTenant = tenantKey || data?.tenantKey;
+      if (eventTenant && myTenant && eventTenant !== myTenant) {
+        return;
+      }
 
       try {
         hapticFeedback.light();
@@ -89,6 +122,7 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
           cb({
             eventType,
             data,
+            tenantKey: eventTenant,
             senderDeviceId,
             senderCounter,
             timestamp: Date.now()
@@ -184,6 +218,8 @@ export const broadcastLiveEvent = async (eventType, data = {}) => {
   }
 
   const deviceId = getLocalDeviceId();
+  const currentTenant = data?.tenantKey || getActiveTenantKey();
+  const enrichedData = (data && typeof data === 'object') ? { ...data, tenantKey: currentTenant } : { data, tenantKey: currentTenant };
 
   try {
     await activeChannel.send({
@@ -191,7 +227,8 @@ export const broadcastLiveEvent = async (eventType, data = {}) => {
       event: 'business_event',
       payload: {
         eventType,
-        data,
+        data: enrichedData,
+        tenantKey: currentTenant,
         senderDeviceId: deviceId,
         senderCounter: localDeviceMeta?.counterName || 'কাউন্টার',
         timestamp: Date.now()

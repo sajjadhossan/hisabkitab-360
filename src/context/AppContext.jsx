@@ -72,6 +72,7 @@ import {
   initLiveSyncChannel,
   subscribeLiveSync,
   broadcastLiveEvent,
+  getActiveTenantKey,
   isLiveSyncConnected
 } from '../services/liveSyncService';
 import {
@@ -707,16 +708,45 @@ export const AppProvider = ({ children }) => {
     return [];
   });
 
+  // Tenant-Scoped Data Initializer:
+  // Strictly prevents client accounts (like Mariam) from inheriting Master Super Admin (Sajjad's) sales or data.
+  const getInitialTenantScopedData = (baseKey, fallback = []) => {
+    try {
+      const authUserRaw = localStorage.getItem('hk360_auth_user');
+      let activeEmail = '';
+      if (authUserRaw) {
+        try {
+          const parsed = JSON.parse(authUserRaw);
+          activeEmail = (parsed?.email || '').toLowerCase().trim();
+        } catch {}
+      }
+      const isMaster = activeEmail === 'hossansajjad1994@gmail.com';
+      if (activeEmail) {
+        const tenantKey = `hk360_t_${activeEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${baseKey}`;
+        const tenantVal = localStorage.getItem(tenantKey);
+        if (tenantVal) {
+          const parsed = JSON.parse(tenantVal);
+          return Array.isArray(parsed) ? filterOutDemoItems(parsed) : parsed;
+        }
+      }
+      // Master account fallback to global legacy key
+      if (isMaster) {
+        const globalVal = localStorage.getItem(`hk360_${baseKey}`);
+        if (globalVal) {
+          const parsed = JSON.parse(globalVal);
+          return Array.isArray(parsed) ? filterOutDemoItems(parsed) : parsed;
+        }
+      }
+      // Any other client account starts completely fresh (zero transactions, zero demo items)
+      return fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   // Business Profile Data
   const [products, setProducts] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_PRODUCTS);
-    if (!saved) return [];
-    try {
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? filterOutDemoItems(parsed) : [];
-    } catch {
-      return [];
-    }
+    return getInitialTenantScopedData('biz_products', []);
   });
 
   const [cart, setCart] = useState(() => {
@@ -742,13 +772,11 @@ export const AppProvider = ({ children }) => {
   }, [cart]);
 
   const [salesHistory, setSalesHistory] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_SALES);
-    return saved ? JSON.parse(saved) : [];
+    return getInitialTenantScopedData('biz_sales', []);
   });
 
   const [customers, setCustomers] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_CUSTOMERS);
-    return saved ? filterOutDemoItems(JSON.parse(saved)) : [];
+    return getInitialTenantScopedData('biz_customers', []);
   });
 
   const [employees, setEmployees] = useState(() => {
@@ -762,8 +790,7 @@ export const AppProvider = ({ children }) => {
   });
 
   const [businessExpenses, setBusinessExpenses] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_EXPENSES);
-    return saved ? JSON.parse(saved) : [];
+    return getInitialTenantScopedData('biz_expenses', []);
   });
 
   const [businessSettings, setBusinessSettings] = useState(() => {
@@ -786,13 +813,11 @@ export const AppProvider = ({ children }) => {
 
   // Business Invoices & Quotations
   const [invoices, setInvoices] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_INVOICES);
-    return saved ? JSON.parse(saved) : [];
+    return getInitialTenantScopedData('biz_invoices', []);
   });
 
   const [quotations, setQuotations] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_QUOTATIONS);
-    return saved ? JSON.parse(saved) : [];
+    return getInitialTenantScopedData('biz_quotations', []);
   });
 
   // Damaged Goods / Stock Waste Management
@@ -803,8 +828,7 @@ export const AppProvider = ({ children }) => {
 
   // Business Cash Debts & Credits
   const [businessDebts, setBusinessDebts] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BIZ_DEBTS);
-    return saved ? JSON.parse(saved) : [];
+    return getInitialTenantScopedData('biz_debts', []);
   });
 
   // HR & SR Field Product Orders & Delivery Status Tracking
@@ -1021,10 +1045,14 @@ export const AppProvider = ({ children }) => {
   }, [user, isSuperAdmin, clientLicensesRegistry]);
 
   // Tenant / Account Isolation: When active user switches (e.g. Sajjad to Mariam), scope data to the current account
-  const activeTenantRef = useRef(user?.email || 'guest');
+  const activeTenantRef = useRef(null);
   useEffect(() => {
     const currentEmail = (user?.email || '').toLowerCase().trim();
-    if (!currentEmail || currentEmail === activeTenantRef.current) {
+    if (activeTenantRef.current === null) {
+      activeTenantRef.current = currentEmail;
+      return;
+    }
+    if (currentEmail === activeTenantRef.current) {
       return;
     }
     const previousEmail = activeTenantRef.current;
@@ -1204,23 +1232,32 @@ export const AppProvider = ({ children }) => {
   }, [personalEvents]);
 
   useEffect(() => {
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, products);
-    if (user?.email) {
-      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_products`, products);
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, products);
+    }
+    if (currentEmail) {
+      scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_products`, products);
     }
   }, [products, user?.email]);
 
   useEffect(() => {
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, salesHistory);
-    if (user?.email) {
-      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_sales`, salesHistory);
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, salesHistory);
+    }
+    if (currentEmail) {
+      scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_sales`, salesHistory);
     }
   }, [salesHistory, user?.email]);
 
   useEffect(() => {
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, customers);
-    if (user?.email) {
-      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, customers);
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, customers);
+    }
+    if (currentEmail) {
+      scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, customers);
     }
   }, [customers, user?.email]);
 
@@ -1233,9 +1270,12 @@ export const AppProvider = ({ children }) => {
   }, [suppliers]);
 
   useEffect(() => {
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, businessExpenses);
-    if (user?.email) {
-      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_expenses`, businessExpenses);
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, businessExpenses);
+    }
+    if (currentEmail) {
+      scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_expenses`, businessExpenses);
     }
   }, [businessExpenses, user?.email]);
 
@@ -1244,9 +1284,12 @@ export const AppProvider = ({ children }) => {
   }, [businessSettings]);
 
   useEffect(() => {
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, invoices);
-    if (user?.email) {
-      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_invoices`, invoices);
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, invoices);
+    }
+    if (currentEmail) {
+      scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_invoices`, invoices);
     }
   }, [invoices, user?.email]);
 
@@ -1263,9 +1306,12 @@ export const AppProvider = ({ children }) => {
   }, [personalDebts]);
 
   useEffect(() => {
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, businessDebts);
-    if (user?.email) {
-      scheduleStorageWrite(`hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_biz_debts`, businessDebts);
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, businessDebts);
+    }
+    if (currentEmail) {
+      scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_debts`, businessDebts);
     }
   }, [businessDebts, user?.email]);
 
@@ -1354,28 +1400,50 @@ export const AppProvider = ({ children }) => {
   // Multi-terminal / Cross-tab Local Sync
   useEffect(() => {
     const unsubLan = subscribeLocalTerminalSync((msg) => {
+      const activeTenant = getActiveTenantKey();
+      const currentEmail = (user?.email || '').toLowerCase().trim();
+      const msgTenant = msg.tenantKey || msg.payload?.tenantKey;
+      const msgEmail = msg.payload?.tenantEmail;
+
+      if (msgTenant && activeTenant && msgTenant !== activeTenant) return;
+      if (msgEmail && currentEmail && msgEmail !== currentEmail) return;
+
       if (msg.type === 'SALE_COMPLETED' && msg.payload?.sale) {
         setSalesHistory((prev) => {
+          const exists = prev.some((s) => s.id === msg.payload.sale.id);
+          return exists ? prev : [msg.payload.sale, ...prev];
+        });
+        setInvoices((prev) => {
           const exists = prev.some((s) => s.id === msg.payload.sale.id);
           return exists ? prev : [msg.payload.sale, ...prev];
         });
       }
     });
     return () => unsubLan();
-  }, []);
+  }, [user?.email]);
 
   // Phase 3: Supabase Realtime Multi-Counter & Multi-Branch WebSocket Live Sync
   useEffect(() => {
     const activeBr = branches.find((b) => b.id === activeBranchId) || branches[0];
     const activeCnt = activeBr?.counters?.find((c) => c.id === activeCounterId) || activeBr?.counters?.[0];
+    const currentEmail = (user?.email || '').toLowerCase().trim();
+    const activeTenant = getActiveTenantKey();
+
     initLiveSyncChannel({
       branchId: activeBranchId,
       counterName: activeCnt?.name || 'কাউন্টার ০১',
-      operatorName: businessSettings.currentCashierName || 'ক্যাশিয়ার'
+      operatorName: businessSettings.currentCashierName || 'ক্যাশিয়ার',
+      tenantKey: activeTenant
     });
 
     const unsubLive = subscribeLiveSync((msg) => {
-      const { eventType, data, senderCounter } = msg;
+      const { eventType, data, senderCounter, tenantKey } = msg;
+
+      // STRICT MULTI-TENANCY CHECK: Never allow cross-account event leakage
+      const msgTenant = tenantKey || data?.tenantKey;
+      const msgEmail = data?.tenantEmail;
+      if (msgTenant && activeTenant && msgTenant !== activeTenant) return;
+      if (msgEmail && currentEmail && msgEmail !== currentEmail) return;
 
       if (eventType === 'SALE_COMPLETED' && data) {
         const sale = data.sale || data;
@@ -1443,7 +1511,12 @@ export const AppProvider = ({ children }) => {
         if (Array.isArray(incomingProducts) && incomingProducts.length > 0) {
           setProducts(prev => {
             const merged = mergeEntitiesWithoutDuplicates(prev, incomingProducts);
-            scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, merged);
+            if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+              scheduleStorageWrite(STORAGE_KEYS.BIZ_PRODUCTS, merged);
+            }
+            if (currentEmail) {
+              scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_products`, merged);
+            }
             return merged;
           });
         }
@@ -1452,7 +1525,12 @@ export const AppProvider = ({ children }) => {
         if (Array.isArray(incomingCust) && incomingCust.length > 0) {
           setCustomers(prev => {
             const merged = mergeEntitiesWithoutDuplicates(prev, incomingCust);
-            scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, merged);
+            if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+              scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, merged);
+            }
+            if (currentEmail) {
+              scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, merged);
+            }
             return merged;
           });
         }
@@ -1468,7 +1546,12 @@ export const AppProvider = ({ children }) => {
         } else {
           setBusinessDebts(prev => {
             const merged = mergeDebtPersonsWithTransactions(prev, incomingDebts);
-            scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, merged);
+            if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+              scheduleStorageWrite(STORAGE_KEYS.BIZ_DEBTS, merged);
+            }
+            if (currentEmail) {
+              scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_debts`, merged);
+            }
             return merged;
           });
         }
@@ -1476,7 +1559,12 @@ export const AppProvider = ({ children }) => {
         const incomingExp = data?.businessExpenses || msg.payload?.businessExpenses || [];
         setBusinessExpenses(prev => {
           const merged = mergeEntitiesWithoutDuplicates(prev, incomingExp);
-          scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, merged);
+          if (!currentEmail || currentEmail === 'hossansajjad1994@gmail.com') {
+            scheduleStorageWrite(STORAGE_KEYS.BIZ_EXPENSES, merged);
+          }
+          if (currentEmail) {
+            scheduleStorageWrite(`hk360_t_${currentEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_expenses`, merged);
+          }
           return merged;
         });
       } else if ((eventType === 'EMPLOYEES_LIVE_SYNC' || msg.type === 'EMPLOYEES_LIVE_SYNC') && (data?.employees || msg.payload?.employees)) {
@@ -2565,6 +2653,10 @@ export const AppProvider = ({ children }) => {
       return updated;
     });
 
+    const activeTenant = getActiveTenantKey();
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const isMaster = !userEmail || userEmail === 'hossansajjad1994@gmail.com';
+
     // Update customer due, loyalty points and total purchases if customer is linked
     if (customerId) {
       setCustomers(prevCustomers => {
@@ -2584,21 +2676,24 @@ export const AppProvider = ({ children }) => {
           }
           return cust;
         });
-        scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, updated);
+        if (isMaster) scheduleStorageWrite(STORAGE_KEYS.BIZ_CUSTOMERS, updated);
+        if (userEmail) scheduleStorageWrite(`hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_customers`, updated);
         return updated;
       });
     }
 
     setSalesHistory(prevSales => {
       const updated = [saleRecord, ...prevSales];
-      scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, updated);
+      if (isMaster) scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, updated);
+      if (userEmail) scheduleStorageWrite(`hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_sales`, updated);
       return updated;
     });
 
     // Also mirror to invoices list for unified management!
     setInvoices(prevInvoices => {
       const updated = [saleRecord, ...prevInvoices];
-      scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, updated);
+      if (isMaster) scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, updated);
+      if (userEmail) scheduleStorageWrite(`hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_biz_invoices`, updated);
       return updated;
     });
 
@@ -2614,14 +2709,19 @@ export const AppProvider = ({ children }) => {
 
     // Enterprise Cloud Backend ACID Sync (Phase 1)
     try {
-      submitPosSaleToCloud(saleRecord).catch((err) => {
+      submitPosSaleToCloud({ ...saleRecord, tenantKey: activeTenant, tenantEmail: userEmail }).catch((err) => {
         console.debug('[CloudSync] Deferred background sync:', err);
       });
     } catch {}
 
     // Broadcast instant Realtime WebSocket event to all other open apps (Mobile APK, Web, PC)
     try {
-      broadcastLiveEvent('SALE_COMPLETED', { sale: saleRecord, items: cart });
+      broadcastLiveEvent('SALE_COMPLETED', {
+        sale: saleRecord,
+        items: cart,
+        tenantKey: activeTenant,
+        tenantEmail: userEmail
+      });
     } catch (e) {
       console.debug('[POS] Live broadcast error:', e);
     }
@@ -2644,7 +2744,11 @@ export const AppProvider = ({ children }) => {
 
     // Instant 0ms broadcast to sibling counter terminals on LAN/Tabs
     try {
-      broadcastLocalTerminalEvent('SALE_COMPLETED', { sale: saleRecord });
+      broadcastLocalTerminalEvent('SALE_COMPLETED', {
+        sale: saleRecord,
+        tenantKey: activeTenant,
+        tenantEmail: userEmail
+      });
     } catch {}
 
     showToast(lang === 'bn' ? `ইনভয়েস #${invoiceId} সফলভাবে সম্পন্ন হয়েছে!` : `Sale #${invoiceId} completed!`);
@@ -3465,10 +3569,14 @@ export const AppProvider = ({ children }) => {
     setInvoices(nextInvoices);
     setSalesHistory(nextSales);
 
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
-    if (user?.email) {
-      const uTenantPrefix = `hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_`;
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const isMaster = !userEmail || userEmail === 'hossansajjad1994@gmail.com';
+    if (isMaster) {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
+    }
+    if (userEmail) {
+      const uTenantPrefix = `hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_`;
       scheduleStorageWrite(`${uTenantPrefix}biz_invoices`, nextInvoices);
       scheduleStorageWrite(`${uTenantPrefix}biz_sales`, nextSales);
     }
@@ -3539,10 +3647,14 @@ export const AppProvider = ({ children }) => {
     setSalesHistory(nextSales);
     setInvoices(nextInvoices);
 
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
-    scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
-    if (user?.email) {
-      const uTenantPrefix = `hk360_t_${user.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}_`;
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const isMaster = !userEmail || userEmail === 'hossansajjad1994@gmail.com';
+    if (isMaster) {
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_SALES, nextSales);
+      scheduleStorageWrite(STORAGE_KEYS.BIZ_INVOICES, nextInvoices);
+    }
+    if (userEmail) {
+      const uTenantPrefix = `hk360_t_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_`;
       scheduleStorageWrite(`${uTenantPrefix}biz_sales`, nextSales);
       scheduleStorageWrite(`${uTenantPrefix}biz_invoices`, nextInvoices);
     }
