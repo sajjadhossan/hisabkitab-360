@@ -187,82 +187,110 @@ export const printHtmlContent = (htmlContent, options = {}) => {
     }
   }
 
-  // 1. BULLETPROOF DIRECT DOM PRINT ENGINE (Works on all Browsers, Android WebViews, and Vercel)
-  document.body.classList.add('hk360-is-printing');
-
-  let directRoot = document.getElementById('hk360-direct-print-root');
-  if (!directRoot) {
-    directRoot = document.createElement('div');
-    directRoot.id = 'hk360-direct-print-root';
-    document.body.appendChild(directRoot);
-  }
-  directRoot.innerHTML = htmlContent;
-
-  // Dynamic @page size style for main document
-  const dynamicStyleId = 'hk360-active-print-rules';
-  let dynamicStyle = document.getElementById(dynamicStyleId);
-  if (!dynamicStyle) {
-    dynamicStyle = document.createElement('style');
-    dynamicStyle.id = dynamicStyleId;
-    document.head.appendChild(dynamicStyle);
-  }
-  dynamicStyle.innerHTML = `
-    @media print {
-      @page {
-        size: ${paperType === 'receipt' ? `${widthMm} auto` : paperType === 'label' ? 'auto' : 'A4 portrait'};
-        margin: ${paperType === 'receipt' ? '0mm' : paperType === 'label' ? '4mm' : '8mm 10mm'};
-      }
-      body.hk360-is-printing > *:not(#hk360-direct-print-root) {
-        display: none !important;
-      }
-      #hk360-direct-print-root {
-        display: block !important;
-        visibility: visible !important;
-        position: static !important;
-        width: 100% !important;
-        margin: 0 auto !important;
-        background: #ffffff !important;
-        color: #000000 !important;
-      }
-      #hk360-direct-print-root * {
-        visibility: visible !important;
-      }
-    }
-  `;
-
-  // Safely remove printing flag only when print session has fully finished
-  // NEVER erase directRoot.innerHTML so Chrome print spooler / preview can re-read without blanking!
-  const finishPrinting = () => {
+  // 1. ISOLATED INVISIBLE IFRAME PRINT ENGINE (Industry Gold Standard - Zero DOM/CSS Collisions)
+  const iframeId = 'hk360-isolated-print-frame';
+  let printFrame = document.getElementById(iframeId);
+  if (printFrame) {
     try {
-      document.body.classList.remove('hk360-is-printing');
+      printFrame.remove();
     } catch (_) {}
-  };
+  }
 
-  const afterPrintHandler = () => {
-    window.removeEventListener('afterprint', afterPrintHandler);
-    setTimeout(finishPrinting, 1200);
-  };
-  window.addEventListener('afterprint', afterPrintHandler, { once: true });
+  printFrame = document.createElement('iframe');
+  printFrame.id = iframeId;
+  printFrame.setAttribute('title', title);
+  printFrame.style.position = 'fixed';
+  printFrame.style.top = '-9999px';
+  printFrame.style.left = '-9999px';
+  printFrame.style.width = paperType === 'receipt' ? widthMm : '1000px';
+  printFrame.style.height = '1000px';
+  printFrame.style.border = 'none';
+  printFrame.style.opacity = '0';
+  printFrame.style.pointerEvents = 'none';
+  printFrame.style.zIndex = '-9999';
 
-  const onReturnFocus = () => {
-    window.removeEventListener('focus', onReturnFocus);
-    setTimeout(finishPrinting, 1500);
-  };
-  window.addEventListener('focus', onReturnFocus, { once: true });
+  document.body.appendChild(printFrame);
 
-  // Ensure images and fonts load before print dialog opens
-  ensureImagesLoaded(directRoot, () => {
-    requestAnimationFrame(() => {
+  const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+  if (frameDoc) {
+    frameDoc.open();
+    frameDoc.write(fullDoc);
+    frameDoc.close();
+
+    ensureImagesLoaded(frameDoc.body, () => {
+      setTimeout(() => {
+        try {
+          const frameWin = printFrame.contentWindow;
+          if (frameWin) {
+            frameWin.focus();
+            frameWin.print();
+          } else {
+            fallbackDirectPrint();
+          }
+        } catch (err) {
+          console.warn('[PrintService] Iframe print failed, fallback to direct print:', err);
+          fallbackDirectPrint();
+        }
+      }, 250);
+    });
+    return;
+  }
+
+  // Fallback direct engine if iframe document is unavailable
+  function fallbackDirectPrint() {
+    document.body.classList.add('hk360-is-printing');
+    let directRoot = document.getElementById('hk360-direct-print-root');
+    if (!directRoot) {
+      directRoot = document.createElement('div');
+      directRoot.id = 'hk360-direct-print-root';
+      document.body.appendChild(directRoot);
+    }
+    directRoot.innerHTML = htmlContent;
+
+    const dynamicStyleId = 'hk360-active-print-rules';
+    let dynamicStyle = document.getElementById(dynamicStyleId);
+    if (!dynamicStyle) {
+      dynamicStyle = document.createElement('style');
+      dynamicStyle.id = dynamicStyleId;
+      document.head.appendChild(dynamicStyle);
+    }
+    dynamicStyle.innerHTML = `
+      @media print {
+        @page {
+          size: ${paperType === 'receipt' ? `${widthMm} auto` : paperType === 'label' ? 'auto' : 'A4 portrait'};
+          margin: ${paperType === 'receipt' ? '0mm' : paperType === 'label' ? '4mm' : '8mm 10mm'};
+        }
+        body.hk360-is-printing > *:not(#hk360-direct-print-root) {
+          display: none !important;
+        }
+        #hk360-direct-print-root {
+          display: block !important;
+          visibility: visible !important;
+          position: static !important;
+          width: 100% !important;
+          margin: 0 auto !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+        }
+        #hk360-direct-print-root * {
+          visibility: visible !important;
+        }
+      }
+    `;
+
+    ensureImagesLoaded(directRoot, () => {
       setTimeout(() => {
         try {
           window.focus();
           window.print();
-        } catch (err) {
-          console.warn('[PrintService] Direct print invocation error:', err);
+        } catch (e) {
+          console.error('[PrintService] Fallback print failed:', e);
         }
-      }, 120);
+      }, 150);
     });
-  });
+  }
+
+  fallbackDirectPrint();
 };
 
 /**

@@ -3542,14 +3542,12 @@ body {
     margin: 0 !important;
   }
 
-  /* 4. Robust Direct Print Isolation (No fragile :has dependency) */
-  body.hk360-is-printing > *:not(#hk360-direct-print-root),
-  body:has(#hk360-direct-print-root:not(:empty)) > *:not(#hk360-direct-print-root) {
+  /* 4. Robust Direct Print Isolation */
+  body.hk360-is-printing > *:not(#hk360-direct-print-root) {
     display: none !important;
   }
 
-  body.hk360-is-printing #hk360-direct-print-root,
-  #hk360-direct-print-root:not(:empty) {
+  body.hk360-is-printing #hk360-direct-print-root {
     display: block !important;
     position: static !important;
     left: 0 !important;
@@ -3563,8 +3561,7 @@ body {
     z-index: 999999 !important;
   }
 
-  body.hk360-is-printing #hk360-direct-print-root *,
-  #hk360-direct-print-root:not(:empty) * {
+  body.hk360-is-printing #hk360-direct-print-root * {
     visibility: visible !important;
   }
 
