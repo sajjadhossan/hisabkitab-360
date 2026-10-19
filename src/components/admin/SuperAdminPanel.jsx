@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -53,8 +53,16 @@ import {
   Zap,
   Database,
   Brain,
-  Wrench
+  Wrench,
+  Search,
+  LayoutGrid,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+  X
 } from 'lucide-react';
+import { hapticFeedback } from '../../services/nativeAppService';
+import { playButtonClick } from '../../services/soundFeedback';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
 import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
 import { SupabaseDatabaseManager } from './SupabaseDatabaseManager';
@@ -121,6 +129,171 @@ export const SuperAdminPanel = () => {
   } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState('executive_ops'); // 'executive_ops' | 'modules' | 'templates' | 'license' | 'branding' | 'cloud_backup' | 'onboarding' | 'security'
+  const [adminGridSearch, setAdminGridSearch] = useState('');
+  const [isGridExpanded, setIsGridExpanded] = useState(true);
+
+  // Super Admin Bento Grid - 4 Curated Categories with Tile Styling matching APK More Menu
+  const superAdminGridGroups = useMemo(() => [
+    {
+      title: lang === 'bn' ? '⚡ লাইভ অপারেশন ও শিফট কন্ট্রোল' : '⚡ Live Operations & Shift Controls',
+      items: [
+        {
+          id: 'executive_ops',
+          label: lang === 'bn' ? 'লাইভ অপারেশন ও শিফট' : 'Live Ops & Shifts',
+          desc: lang === 'bn' ? 'কাউন্টার ক্যাশ ক্লোজিং, ভল্ট জমা ও লাইভ সেলস অনুমোদন' : 'Counter cash closing, vault handover & approval',
+          icon: HandCoins,
+          color: '#10b981',
+          badge: counterClosings.filter(c => c.status !== 'approved').length > 0
+            ? `${counterClosings.filter(c => c.status !== 'approved').length} পেন্ডিং`
+            : 'LIVE'
+        },
+        {
+          id: 'modules',
+          label: lang === 'bn' ? 'মডিউল সুইচবোর্ড' : 'Module Switchboard',
+          desc: lang === 'bn' ? '১২+ সফটওয়্যার ফিচার ১-ক্লিকে অন ও অফ নিয়ন্ত্রণ' : 'Toggle 12+ software ERP modules on/off',
+          icon: Sliders,
+          color: '#0ea5e9',
+          badge: 'CORE'
+        },
+        {
+          id: 'templates',
+          label: lang === 'bn' ? '১০০+ ইন্ডাস্ট্রি টেমপ্লেট' : '100+ Industry Templates',
+          desc: lang === 'bn' ? 'ফার্মেসি, রেস্তোরাঁ, মুদি, ডেইরি সহ ১০০ ক্যাটাগরি সেটআপ' : '100+ business vertical templates & setups',
+          icon: Store,
+          color: '#8b5cf6',
+          badge: '100+'
+        }
+      ]
+    },
+    {
+      title: lang === 'bn' ? '📜 লাইসেন্স, সাবস্ক্রিপশন ও ব্র্যান্ডিং' : '📜 License, Subscription & Branding',
+      items: [
+        {
+          id: 'license',
+          label: lang === 'bn' ? 'লাইসেন্স ও মেয়াদ লক' : 'License & Subscription',
+          desc: lang === 'bn' ? 'নতুন লাইসেন্স কি জেনারেট, মেয়াদ বৃদ্ধি ও ক্লায়েন্ট লক' : 'Generate license keys, expiry dates & locks',
+          icon: Award,
+          color: '#f59e0b',
+          badge: licenseInfo?.status === 'active' ? 'ACTIVE' : 'TRIAL'
+        },
+        {
+          id: 'branding',
+          label: lang === 'bn' ? 'ভেন্ডর হোয়াইট-লেবেল' : 'Vendor White-Label',
+          desc: lang === 'bn' ? 'আপনার নিজস্ব ব্র্যান্ড নাম, ফোন, লোগো ও সাপোর্ট ইনফো' : 'Reseller company info, support phone & logo',
+          icon: Building2,
+          color: '#ec4899',
+          badge: 'BRAND'
+        },
+        {
+          id: 'onboarding',
+          label: lang === 'bn' ? 'ফ্রেশ ক্লায়েন্ট সেটআপ' : 'Clean Slate Setup',
+          desc: lang === 'bn' ? 'সম্পূর্ণ খালি ও ডেমো-মুক্ত নতুন ক্লায়েন্ট স্টোর অনবোর্ডিং' : 'Zero-demo clean slate setup for new clients',
+          icon: Sparkles,
+          color: '#06b6d4',
+          badge: 'SETUP'
+        }
+      ]
+    },
+    {
+      title: lang === 'bn' ? '☁️ ক্লাউড ডাটাবেজ, ব্যাকআপ ও স্কেলিং' : '☁️ Cloud DB, Backup & Scaling',
+      items: [
+        {
+          id: 'cloud_backup',
+          label: lang === 'bn' ? 'ক্লাউড ও ড্রাইভ ব্যাকআপ' : 'Cloud & Drive Backup',
+          desc: lang === 'bn' ? 'গুগল ড্রাইভ ও ক্লাউড অটো-সিঙ্ক ও হিস্ট্রি রেজিস্ট্রি' : 'Automated 1-min Google Drive cloud backups',
+          icon: Cloud,
+          color: '#3b82f6',
+          badge: 'DRIVE'
+        },
+        {
+          id: 'phase2_hub',
+          label: lang === 'bn' ? 'ডাটাবেস ইঞ্জিন ও স্কেলিং' : 'Database Engine & Scaling',
+          desc: lang === 'bn' ? 'সুপাবেস পোস্টগ্রেস ব্যাকআপ, ইনডেক্সিং ও টেবিল হেলথ' : 'Supabase Postgres indexing & partition hub',
+          icon: Database,
+          color: '#14b8a6',
+          badge: 'SQL'
+        },
+        {
+          id: 'phase1_hub',
+          label: lang === 'bn' ? 'স্মার্ট অটোমেশন হাব' : 'Smart Automation Hub',
+          desc: lang === 'bn' ? 'ব্যাকগ্রাউন্ড অটো রিকনসিলিয়েশন ও শিডিউলার সার্ভিস' : 'Background auto scheduler & health checks',
+          icon: Zap,
+          color: '#eab308',
+          badge: 'AUTO'
+        },
+        {
+          id: 'audit_ledger',
+          label: lang === 'bn' ? 'অডিট লেজার ও হ্যাশ-চেইন' : 'Audit Ledger & Hash',
+          desc: lang === 'bn' ? 'ক্রিপ্টোগ্রাফিক অপরিবর্তনীয় ব্লকচেইন-স্টাইল অডিট ট্রেইল' : 'Tamper-proof cryptographic audit trail',
+          icon: ShieldCheck,
+          color: '#10b981',
+          badge: 'HASH'
+        }
+      ]
+    },
+    {
+      title: lang === 'bn' ? '🛡️ সিকিউরিটি, এআই ও ট্রাবলশুটিং' : '🛡️ Security, AI & Troubleshooting',
+      items: [
+        {
+          id: 'security',
+          label: lang === 'bn' ? 'মাস্টার সিকিউরিটি ও পিন' : 'Master Security & PIN',
+          desc: lang === 'bn' ? 'সুপার অ্যাডমিন গোপন পিন পরিবর্তন ও ইমেইল রিকভারি' : 'Change Master PIN & 2FA recovery settings',
+          icon: Key,
+          color: '#ef4444',
+          badge: 'PIN'
+        },
+        {
+          id: 'phase4_hub',
+          label: lang === 'bn' ? 'এন্টারপ্রাইজ সিকিউরিটি' : 'Enterprise Security',
+          desc: lang === 'bn' ? 'টোকেন অথেনটিকেশন, ডিভাইস লক ও পারমিশন কন্ট্রোল' : 'Biometrics, token security & counter restrictions',
+          icon: ShieldCheck,
+          color: '#dc2626',
+          badge: 'ROOT'
+        },
+        {
+          id: 'phase5_hub',
+          label: lang === 'bn' ? 'এআই বিজনেস ইন্টেলিজেন্স' : 'AI & Analytics',
+          desc: lang === 'bn' ? 'অ্যালগরিদমিক সেলস ট্রেন্ড, প্রেডিকশন ও ইনসাইট' : 'Smart trend predictions & neural insights',
+          icon: Brain,
+          color: '#a855f7',
+          badge: 'AI'
+        },
+        {
+          id: 'phase3_hub',
+          label: lang === 'bn' ? 'সিস্টেম ডিজাইন ও ইউএক্স' : 'System Design & UX',
+          desc: lang === 'bn' ? 'হাই-কনট্রাস্ট কালার, থিম প্রিভিউ ও রেন্ডারিং টিউন' : 'Ultra UX, contrast tweaks & animation controls',
+          icon: Sparkles,
+          color: '#ec4899',
+          badge: 'UX'
+        },
+        {
+          id: 'troubleshooting',
+          label: lang === 'bn' ? 'ট্রাবলশুটিং ও কোড গাইড' : 'Troubleshooting Hub',
+          desc: lang === 'bn' ? 'হার্ডওয়্যার এরর, ডায়াগনস্টিকস ও কোড পরিবর্তন গাইড' : 'Hardware diagnostics & code modification docs',
+          icon: Wrench,
+          color: '#64748b',
+          badge: 'DOCS'
+        }
+      ]
+    }
+  ], [lang, counterClosings, licenseInfo]);
+
+  const filteredGridGroups = useMemo(() => {
+    if (!adminGridSearch.trim()) return superAdminGridGroups;
+    const q = adminGridSearch.toLowerCase().trim();
+    return superAdminGridGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item =>
+        item.label.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q)
+      )
+    })).filter(group => group.items && group.items.length > 0);
+  }, [superAdminGridGroups, adminGridSearch]);
+
+  const activeSubTabItem = useMemo(() => {
+    return superAdminGridGroups.flatMap(g => g.items).find(i => i.id === activeSubTab) || superAdminGridGroups[0].items[0];
+  }, [superAdminGridGroups, activeSubTab]);
+
   const [driveFormState, setDriveFormState] = useState(() => ({ ...businessSettings }));
 
   useEffect(() => {
@@ -1185,74 +1358,385 @@ export const SuperAdminPanel = () => {
           </div>
         </div>
 
-        {/* Navigation Sub-Tabs */}
+        {/* ======================================================== */}
+        {/* SUPER ADMIN BENTO GRID ("খোপ খোপ" ড্রয়ার মেনু ভিউ)       */}
+        {/* ======================================================== */}
         <div style={{
-          display: 'flex',
-          gap: '8px',
           marginTop: '1.5rem',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          paddingTop: '1rem',
-          overflowX: 'auto'
+          paddingTop: '1.25rem'
         }}>
-          {[
-            { 
-              id: 'executive_ops', 
-              label: lang === 'bn' ? '⚡ লাইভ অপারেশন ও শিফট অ্যাপ্রুভাল' : '⚡ Live Ops & Shift Approvals', 
-              icon: HandCoins,
-              badge: counterClosings.filter(c => c.status !== 'approved').length
-            },
-            { id: 'modules', label: lang === 'bn' ? '🎛️ মডিউল সুইচবোর্ড' : '🎛️ Module Switchboard', icon: Sliders },
-            { id: 'templates', label: lang === 'bn' ? '🏢 ১০০+ ইন্ডাস্ট্রি টেমপ্লেট' : '🏢 100+ Industry Templates', icon: Store },
-            { id: 'license', label: lang === 'bn' ? '📜 লাইসেন্স ও মেয়াদ লক' : '📜 License & Subscription', icon: Award },
-            { id: 'branding', label: lang === 'bn' ? '🏢 ভেন্ডর ব্র্যান্ডিং' : '🏢 Vendor White-Label', icon: Building2 },
-            { id: 'cloud_backup', label: lang === 'bn' ? '☁️ ক্লাউড ও ড্রাইভ ব্যাকআপ' : '☁️ Cloud & Drive Backup', icon: Cloud },
-            { id: 'phase1_hub', label: lang === 'bn' ? '🚀 স্মার্ট অটোমেশন হাব' : '🚀 Smart Automation Hub', icon: Zap },
-            { id: 'phase2_hub', label: lang === 'bn' ? '⚡ ডাটাবেস ইঞ্জিন ও স্কেলিং' : '⚡ Database Engine & Scaling', icon: Database },
-            { id: 'phase3_hub', label: lang === 'bn' ? '✨ সিস্টেম ডিজাইন ও ইউএক্স' : '✨ System Design & UX Hub', icon: Sparkles },
-            { id: 'phase4_hub', label: lang === 'bn' ? '🛡️ এন্টারপ্রাইজ সিকিউরিটি' : '🛡️ Enterprise Security Hub', icon: ShieldCheck },
-            { id: 'phase5_hub', label: lang === 'bn' ? '🤖 এআই বিজনেস ইন্টেলিজেন্স' : '🤖 AI & Business Intelligence', icon: Brain },
-            { id: 'audit_ledger', label: lang === 'bn' ? '⛓️ অডিট লেজার ও হ্যাশ-চেইন' : '⛓️ Audit Ledger & Hash-Chain', icon: ShieldCheck },
-            { id: 'onboarding', label: lang === 'bn' ? '🧹 ফ্রেশ ক্লায়েন্ট সেটআপ' : '🧹 Clean Slate Setup', icon: Sparkles },
-            { id: 'security', label: lang === 'bn' ? '🔐 মাস্টার সিকিউরিটি ও পিন' : '🔐 Master Security & PIN', icon: Key },
-            { id: 'troubleshooting', label: lang === 'bn' ? '🛠️ অ্যাপ মডিফিকেশন ও ট্রাবলশুটিং গাইড' : '🛠️ App Modification & Troubleshooting', icon: Wrench }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '12px',
-                border: 'none',
-                background: activeSubTab === tab.id ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'rgba(255, 255, 255, 0.06)',
-                color: activeSubTab === tab.id ? '#ffffff' : '#94a3b8',
-                fontWeight: '700',
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap',
+          {/* Top Search & Bento Grid Mode Toggle Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+            marginBottom: '1rem'
+          }}>
+            {/* Live Search Input */}
+            <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: '420px' }}>
+              <Search
+                size={16}
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#94a3b8'
+                }}
+              />
+              <input
+                type="text"
+                placeholder={lang === 'bn' ? 'সুপার অ্যাডমিন অপশন খুঁজুন (যেমন: শিফট, লাইসেন্স, টেমপ্লেট)...' : 'Search Super Admin features (e.g. shift, license)...'}
+                value={adminGridSearch}
+                onChange={(e) => setAdminGridSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px 9px 36px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  color: '#ffffff',
+                  fontSize: '0.86rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              {adminGridSearch && (
+                <button
+                  type="button"
+                  onClick={() => setAdminGridSearch('')}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Grid Expand / Collapse & View Mode Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  playButtonClick();
+                  hapticFeedback.light();
+                  setIsGridExpanded(prev => !prev);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: isGridExpanded ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                  border: isGridExpanded ? '1.5px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.15)',
+                  color: isGridExpanded ? '#fca5a5' : '#ffffff',
+                  fontWeight: '700',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <LayoutGrid size={15} />
+                <span>
+                  {isGridExpanded 
+                    ? (lang === 'bn' ? 'খোপ মেনু সংক্ষেপ করুন' : 'Collapse Grid')
+                    : (lang === 'bn' ? 'সকল অপশন (খোপ মেনু খুলুন)' : 'All Options (Open Grid)')}
+                </span>
+                {isGridExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+
+              <span style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#94a3b8',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                fontSize: '0.74rem',
+                fontWeight: '700'
+              }}>
+                {superAdminGridGroups.reduce((acc, g) => acc + g.items.length, 0)} {lang === 'bn' ? 'টি অপশন' : 'Options'}
+              </span>
+            </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* THE BENTO GRID TILES CONTAINER                           */}
+          {/* ======================================================== */}
+          {isGridExpanded && (
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.25rem' }}>
+              {filteredGridGroups.map((group, gIdx) => {
+                if (!group.items || group.items.length === 0) return null;
+                return (
+                  <div key={gIdx} style={{
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '16px',
+                    padding: '1rem',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+                  }}>
+                    {/* Category Title */}
+                    <div style={{
+                      fontSize: '0.86rem',
+                      fontWeight: '800',
+                      color: '#cbd5e1',
+                      letterSpacing: '0.02em',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span>{group.title}</span>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        padding: '1px 6px',
+                        borderRadius: '6px',
+                        color: '#94a3b8'
+                      }}>
+                        {group.items.length}
+                      </span>
+                    </div>
+
+                    {/* Category Tiles Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                      gap: '10px'
+                    }}>
+                      {group.items.map((item) => {
+                        const Icon = item.icon;
+                        const isCurrentActive = activeSubTab === item.id;
+                        const tileColor = item.color || '#ef4444';
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="press-scale"
+                            onClick={() => {
+                              playButtonClick();
+                              hapticFeedback.light();
+                              setActiveSubTab(item.id);
+                            }}
+                            style={{
+                              position: 'relative',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                              padding: '12px 10px 10px',
+                              background: isCurrentActive ? `${tileColor}24` : `${tileColor}0c`,
+                              border: isCurrentActive ? `2px solid ${tileColor}` : `1.5px solid ${tileColor}38`,
+                              borderRadius: '16px',
+                              cursor: 'pointer',
+                              overflow: 'hidden',
+                              minHeight: '115px',
+                              boxSizing: 'border-box',
+                              transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                              boxShadow: isCurrentActive ? `0 0 20px ${tileColor}40` : '0 4px 14px rgba(0, 0, 0, 0.12)'
+                            }}
+                          >
+                            {/* Glowing Top Accent Border */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: '3.5px',
+                                background: `linear-gradient(90deg, ${tileColor}, ${tileColor}88)`
+                              }}
+                            />
+
+                            {/* Top Row: Icon + Badge */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                              <div
+                                style={{
+                                  width: '38px',
+                                  height: '38px',
+                                  borderRadius: '12px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  background: `${tileColor}25`,
+                                  color: tileColor,
+                                  border: `1px solid ${tileColor}45`,
+                                  boxShadow: `0 2px 8px ${tileColor}25`,
+                                  flexShrink: 0
+                                }}
+                              >
+                                <Icon size={20} />
+                              </div>
+
+                              {item.badge && (
+                                <span
+                                  style={{
+                                    fontSize: '0.62rem',
+                                    fontWeight: '800',
+                                    padding: '2px 7px',
+                                    borderRadius: '6px',
+                                    background: isCurrentActive ? `${tileColor}` : `${tileColor}22`,
+                                    color: isCurrentActive ? '#ffffff' : tileColor,
+                                    border: `1px solid ${tileColor}44`,
+                                    letterSpacing: '0.04em'
+                                  }}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Bottom Info: Title & Subtitle */}
+                            <div style={{ marginTop: '8px', width: '100%' }}>
+                              <div style={{
+                                fontSize: '0.86rem',
+                                fontWeight: '800',
+                                color: isCurrentActive ? '#ffffff' : 'var(--text-main, #ffffff)',
+                                lineHeight: 1.25,
+                                marginBottom: '2px'
+                              }}>
+                                {item.label}
+                              </div>
+                              <div style={{
+                                fontSize: '0.7rem',
+                                color: isCurrentActive ? '#e2e8f0' : '#94a3b8',
+                                lineHeight: 1.3,
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                              }}>
+                                {item.desc}
+                              </div>
+                            </div>
+
+                            {/* Active Indicator Dot */}
+                            {isCurrentActive && (
+                              <div style={{
+                                position: 'absolute',
+                                bottom: '6px',
+                                right: '6px',
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: tileColor,
+                                boxShadow: `0 0 6px ${tileColor}`
+                              }} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* CURRENT ACTIVE SUBTAB BANNER & HORIZONTAL QUICK SWITCHER */}
+          {/* ======================================================== */}
+          <div style={{
+            background: 'rgba(30, 41, 59, 0.7)',
+            border: `1.5px solid ${activeSubTabItem.color || '#ef4444'}66`,
+            borderRadius: '16px',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+            boxShadow: `0 4px 18px ${activeSubTabItem.color || '#ef4444'}20`
+          }}>
+            {/* Active SubTab Info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: `${activeSubTabItem.color || '#ef4444'}25`,
+                color: activeSubTabItem.color || '#ef4444',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                boxShadow: activeSubTab === tab.id ? '0 4px 14px rgba(239, 68, 68, 0.35)' : 'none'
-              }}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-              {tab.badge > 0 && (
-                <span style={{
-                  background: '#f59e0b',
-                  color: '#000000',
-                  fontSize: '0.72rem',
-                  fontWeight: '900',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  lineHeight: '1.2'
-                }}>
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
+                justifyContent: 'center',
+                border: `1px solid ${activeSubTabItem.color || '#ef4444'}45`
+              }}>
+                {React.createElement(activeSubTabItem.icon || Sliders, { size: 19 })}
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.92rem', fontWeight: '800', color: '#ffffff' }}>
+                    {activeSubTabItem.label}
+                  </span>
+                  <span style={{
+                    fontSize: '0.64rem',
+                    fontWeight: '800',
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    background: `${activeSubTabItem.color || '#ef4444'}25`,
+                    color: activeSubTabItem.color || '#ef4444',
+                    border: `1px solid ${activeSubTabItem.color || '#ef4444'}40`
+                  }}>
+                    {lang === 'bn' ? 'সক্রিয় সেকশন' : 'Active Section'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '1px' }}>
+                  {activeSubTabItem.desc}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Horizontal Slidable Pill Strip for Fast SubTab Switch */}
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              maxWidth: '100%',
+              padding: '2px 0'
+            }}>
+              {superAdminGridGroups.flatMap(g => g.items).map(item => {
+                const isSelected = activeSubTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      playButtonClick();
+                      hapticFeedback.light();
+                      setActiveSubTab(item.id);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 10px',
+                      borderRadius: '8px',
+                      background: isSelected ? item.color : 'rgba(255, 255, 255, 0.06)',
+                      border: isSelected ? `1px solid ${item.color}` : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: isSelected ? '#ffffff' : '#94a3b8',
+                      fontSize: '0.74rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {React.createElement(item.icon, { size: 12 })}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
