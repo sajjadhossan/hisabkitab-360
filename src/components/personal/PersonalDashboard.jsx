@@ -35,6 +35,7 @@ import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
 import SmartGroceryFolderModal from './SmartGroceryFolderModal';
 import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
+import { isPersonalExpenseTombstoned } from '../../services/cloudStateSyncService';
 
 export const PersonalDashboard = () => {
   const {
@@ -116,14 +117,34 @@ export const PersonalDashboard = () => {
   const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${pad(lastMonthDate.getMonth() + 1)}`;
   const thisYearPrefix = String(thisYear);
 
+  // Active Non-Trashed Expenses Set (Excludes any item moved to Recycle Bin or Tombstoned)
+  const activeTrashIdSet = useMemo(() => {
+    const s = new Set();
+    (trashBin || []).forEach(t => {
+      if (t.id) s.add(String(t.id));
+      if (t.trashId) s.add(String(t.trashId));
+    });
+    return s;
+  }, [trashBin]);
+
+  const activePersonalExpenses = useMemo(() => {
+    return (personalExpenses || []).filter(e => {
+      if (!e || !e.id) return false;
+      const strId = String(e.id);
+      if (activeTrashIdSet.has(strId)) return false;
+      if (isPersonalExpenseTombstoned(strId)) return false;
+      return true;
+    });
+  }, [personalExpenses, activeTrashIdSet]);
+
   // Available unique months from dataset
   const availableMonths = useMemo(() => {
     const set = new Set();
-    personalExpenses.forEach(e => {
+    activePersonalExpenses.forEach(e => {
       if (e.date && e.date.length >= 7) set.add(e.date.slice(0, 7));
     });
     return Array.from(set).sort().reverse();
-  }, [personalExpenses]);
+  }, [activePersonalExpenses]);
 
   const getMonthNameBengali = (yyyyMm) => {
     if (!yyyyMm) return '';
@@ -139,8 +160,8 @@ export const PersonalDashboard = () => {
 
   // Strictly Scoped Metrics
   const thisMonthExpenseList = useMemo(() => {
-    return personalExpenses.filter(e => (e.date || '').startsWith(thisMonthPrefix));
-  }, [personalExpenses, thisMonthPrefix]);
+    return activePersonalExpenses.filter(e => (e.date || '').startsWith(thisMonthPrefix));
+  }, [activePersonalExpenses, thisMonthPrefix]);
 
   const thisMonthTotalExpense = useMemo(() => {
     return thisMonthExpenseList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -155,16 +176,16 @@ export const PersonalDashboard = () => {
   }, [thisMonthExpenseList]);
 
   const lastMonthExpenseList = useMemo(() => {
-    return personalExpenses.filter(e => (e.date || '').startsWith(lastMonthPrefix));
-  }, [personalExpenses, lastMonthPrefix]);
+    return activePersonalExpenses.filter(e => (e.date || '').startsWith(lastMonthPrefix));
+  }, [activePersonalExpenses, lastMonthPrefix]);
 
   const lastMonthTotalExpense = useMemo(() => {
     return lastMonthExpenseList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   }, [lastMonthExpenseList]);
 
   const thisYearExpenseList = useMemo(() => {
-    return personalExpenses.filter(e => (e.date || '').startsWith(thisYearPrefix));
-  }, [personalExpenses, thisYearPrefix]);
+    return activePersonalExpenses.filter(e => (e.date || '').startsWith(thisYearPrefix));
+  }, [activePersonalExpenses, thisYearPrefix]);
 
   const thisYearTotalExpense = useMemo(() => {
     return thisYearExpenseList.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -182,8 +203,8 @@ export const PersonalDashboard = () => {
   }, [personalIncomes]);
 
   const totalAllTimeExpense = useMemo(() => {
-    return personalExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  }, [personalExpenses]);
+    return activePersonalExpenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [activePersonalExpenses]);
   const totalExpense = totalAllTimeExpense;
 
   const thisMonthNetBalance = thisMonthIncome - thisMonthTotalExpense;
@@ -191,12 +212,12 @@ export const PersonalDashboard = () => {
 
   const familySharePercent = thisMonthTotalExpense > 0
     ? Math.round((thisMonthFamilyTotal / thisMonthTotalExpense) * 100)
-    : (totalAllTimeExpense > 0 ? Math.round((personalExpenses.filter(e => e.type === 'family').reduce((s, e) => s + (Number(e.amount) || 0), 0) / totalAllTimeExpense) * 100) : 0);
+    : (totalAllTimeExpense > 0 ? Math.round((activePersonalExpenses.filter(e => e.type === 'family').reduce((s, e) => s + (Number(e.amount) || 0), 0) / totalAllTimeExpense) * 100) : 0);
 
   // 🕒 Multi-Timeframe Personal Expense Intelligence (Today, This Month, Last Month - with imported records)
   const timeframeExpenses = useMemo(() => {
     const todayStr = toYMD(now);
-    const todayList = personalExpenses.filter(e => (e.date || '').startsWith(todayStr));
+    const todayList = activePersonalExpenses.filter(e => (e.date || '').startsWith(todayStr));
     const todayTotal = todayList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     // 7-day breakdown
@@ -206,7 +227,7 @@ export const PersonalDashboard = () => {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
       const dStr = toYMD(d);
-      const dayList = personalExpenses.filter(e => (e.date || '').startsWith(dStr));
+      const dayList = activePersonalExpenses.filter(e => (e.date || '').startsWith(dStr));
       const total = dayList.reduce((s, e) => s + (Number(e.amount) || 0), 0);
       let label = bnDayNames[d.getDay()];
       if (i === 0) label = lang === 'bn' ? 'আজ' : 'Today';
@@ -226,7 +247,7 @@ export const PersonalDashboard = () => {
       lastMonthName,
       past7Days
     };
-  }, [personalExpenses, lang, now, lastMonthDate, thisMonthTotalExpense, thisMonthExpenseList.length, lastMonthTotalExpense, lastMonthExpenseList.length]);
+  }, [activePersonalExpenses, lang, now, lastMonthDate, thisMonthTotalExpense, thisMonthExpenseList.length, lastMonthTotalExpense, lastMonthExpenseList.length]);
 
   // ----------------------------------------------------
   // 🔍 TABLE TIMEFRAME FILTER & CONCURRENT SEARCH STATE
@@ -242,7 +263,7 @@ export const PersonalDashboard = () => {
     const weekAgoStr = toYMD(d7);
     const q = (tableSearchQuery || '').toLowerCase().trim();
 
-    return personalExpenses.filter(e => {
+    return activePersonalExpenses.filter(e => {
       const d = e.date || '';
       let matchesTime = true;
       if (tableTimeframe === 'today') matchesTime = d.startsWith(todayStr);
@@ -262,7 +283,7 @@ export const PersonalDashboard = () => {
       const amt = String(e.amount || '');
       return itemTitle.includes(q) || cat.includes(q) || folder.includes(q) || note.includes(q) || amt.includes(q);
     });
-  }, [personalExpenses, tableTimeframe, customSelectedMonth, tableSearchQuery, now, thisMonthPrefix, lastMonthPrefix, thisYearPrefix]);
+  }, [activePersonalExpenses, tableTimeframe, customSelectedMonth, tableSearchQuery, now, thisMonthPrefix, lastMonthPrefix, thisYearPrefix]);
 
   const tableFilterTotalAmount = useMemo(() => {
     return filteredTableExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -301,12 +322,12 @@ export const PersonalDashboard = () => {
 
   const categoryTotals = useMemo(() => {
     return categories.map(cat => {
-      const total = personalExpenses
+      const total = activePersonalExpenses
         .filter(e => e.category === cat.key)
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
       return { ...cat, total };
     }).filter(c => c.total > 0);
-  }, [categories, personalExpenses]);
+  }, [categories, activePersonalExpenses]);
 
   const handleOpenModal = (type) => {
     setEditingExpense(null);

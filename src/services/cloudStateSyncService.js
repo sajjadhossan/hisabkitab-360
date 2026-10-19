@@ -17,6 +17,7 @@ const SYNC_ENTITY_TYPE = 'app_state';
 const LAST_SYNC_KEY = 'hk360_last_cloud_state_sync_ts';
 const LAST_SYNC_DEVICE_KEY = 'hk360_last_cloud_sync_device';
 const TOMBSTONE_DELETED_INVOICES_KEY = 'hk360_tombstone_deleted_invoices';
+const TOMBSTONE_DELETED_EXPENSES_KEY = 'hk360_tombstone_deleted_expenses';
 
 import { getActiveTenantKey } from '../utils/tenantHelper';
 export { getActiveTenantKey };
@@ -56,6 +57,56 @@ export const getDeletedInvoiceTombstones = () => {
 export const isInvoiceTombstoned = (invoiceId) => {
   if (!invoiceId) return false;
   return getDeletedInvoiceTombstones().has(invoiceId);
+};
+
+/**
+ * Tombstone tracker: Permanently marks a personal expense as deleted so it can NEVER revive
+ */
+export const markPersonalExpenseAsDeletedTombstone = (expenseId) => {
+  if (!expenseId) return;
+  try {
+    const tenant = getActiveTenantKey();
+    const storageKey = `${TOMBSTONE_DELETED_EXPENSES_KEY}_${tenant}`;
+    const raw = localStorage.getItem(storageKey);
+    const set = raw ? JSON.parse(raw) : [];
+    const idStr = String(expenseId);
+    if (!set.includes(idStr)) {
+      set.push(idStr);
+      const trimmed = set.slice(-2000);
+      localStorage.setItem(storageKey, JSON.stringify(trimmed));
+    }
+  } catch (e) {
+    console.debug('[Tombstone] Error saving deleted expense ID:', e);
+  }
+};
+
+export const unmarkPersonalExpenseTombstone = (expenseId) => {
+  if (!expenseId) return;
+  try {
+    const tenant = getActiveTenantKey();
+    const storageKey = `${TOMBSTONE_DELETED_EXPENSES_KEY}_${tenant}`;
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const set = JSON.parse(raw).filter(id => String(id) !== String(expenseId));
+      localStorage.setItem(storageKey, JSON.stringify(set));
+    }
+  } catch {}
+};
+
+export const getDeletedExpenseTombstones = () => {
+  try {
+    const tenant = getActiveTenantKey();
+    const storageKey = `${TOMBSTONE_DELETED_EXPENSES_KEY}_${tenant}`;
+    const raw = localStorage.getItem(storageKey);
+    return raw ? new Set(JSON.parse(raw).map(String)) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+export const isPersonalExpenseTombstoned = (expenseId) => {
+  if (!expenseId) return false;
+  return getDeletedExpenseTombstones().has(String(expenseId));
 };
 
 let isSyncing = false;
@@ -265,6 +316,14 @@ export const pullLatestStateFromCloud = async ({ force = false } = {}) => {
       }
       if (Array.isArray(cloudState.invoices)) {
         cloudState.invoices = cloudState.invoices.filter(i => !tombstones.has(i.id));
+      }
+    }
+
+    // Filter out any personal expenses that have been explicitly tombstoned/deleted locally
+    const expenseTombstones = getDeletedExpenseTombstones();
+    if (expenseTombstones.size > 0) {
+      if (Array.isArray(cloudState.personalExpenses)) {
+        cloudState.personalExpenses = cloudState.personalExpenses.filter(e => !expenseTombstones.has(String(e.id)));
       }
     }
 

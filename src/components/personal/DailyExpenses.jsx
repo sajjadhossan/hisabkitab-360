@@ -34,6 +34,7 @@ import { DataExportImportModal } from '../common/DataExportImportModal';
 import { BazaarShoppingListModal } from './BazaarShoppingListModal';
 import { MasterHubModal } from '../common/MasterHubModal';
 import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
+import { isPersonalExpenseTombstoned } from '../../services/cloudStateSyncService';
 import { DailyExpenseAddEditModal } from './DailyExpenseAddEditModal';
 import { CashflowCalendarModal } from './CashflowCalendarModal';
 import { FamilyBudgetAllocationModal } from './FamilyBudgetAllocationModal';
@@ -126,11 +127,30 @@ export const DailyExpenses = () => {
 
   const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  const activeTrashIdSet = useMemo(() => {
+    const s = new Set();
+    (trashBin || []).forEach(t => {
+      if (t.id) s.add(String(t.id));
+      if (t.trashId) s.add(String(t.trashId));
+    });
+    return s;
+  }, [trashBin]);
+
+  const activeDailyExpenses = useMemo(() => {
+    return (personalExpenses || []).filter(e => {
+      if (!e || !e.id) return false;
+      const strId = String(e.id);
+      if (activeTrashIdSet.has(strId)) return false;
+      if (isPersonalExpenseTombstoned(strId)) return false;
+      return true;
+    });
+  }, [personalExpenses, activeTrashIdSet]);
+
   const todayTotal = useMemo(() => {
-    return (personalExpenses || [])
+    return activeDailyExpenses
       .filter(e => e.type === 'daily' && e.date === todayIso)
       .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  }, [personalExpenses, todayIso]);
+  }, [activeDailyExpenses, todayIso]);
 
   const isLimitExceeded = todayTotal > dailyLimit;
 
@@ -251,8 +271,8 @@ export const DailyExpenses = () => {
   ];
 
   const dailyList = useMemo(() => {
-    return personalExpenses.filter(e => e.type === 'daily');
-  }, [personalExpenses]);
+    return activeDailyExpenses.filter(e => e.type === 'daily');
+  }, [activeDailyExpenses]);
 
   // Extract all distinct months available in daily transactions
   const availableMonths = useMemo(() => {

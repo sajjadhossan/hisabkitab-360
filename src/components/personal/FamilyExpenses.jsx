@@ -36,6 +36,7 @@ import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
 import SmartGroceryFolderModal from './SmartGroceryFolderModal';
 import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
+import { isPersonalExpenseTombstoned } from '../../services/cloudStateSyncService';
 
 export const FamilyExpenses = () => {
   const {
@@ -160,9 +161,28 @@ export const FamilyExpenses = () => {
     eventId: ''
   });
 
+  const activeTrashIdSet = useMemo(() => {
+    const s = new Set();
+    (trashBin || []).forEach(t => {
+      if (t.id) s.add(String(t.id));
+      if (t.trashId) s.add(String(t.trashId));
+    });
+    return s;
+  }, [trashBin]);
+
+  const activeFamilyExpenses = useMemo(() => {
+    return (personalExpenses || []).filter(e => {
+      if (!e || !e.id) return false;
+      const strId = String(e.id);
+      if (activeTrashIdSet.has(strId)) return false;
+      if (isPersonalExpenseTombstoned(strId)) return false;
+      return true;
+    });
+  }, [personalExpenses, activeTrashIdSet]);
+
   const familyList = useMemo(() => {
-    return personalExpenses.filter((e) => e.type === 'family');
-  }, [personalExpenses]);
+    return activeFamilyExpenses.filter((e) => e.type === 'family');
+  }, [activeFamilyExpenses]);
 
   // Extract all distinct months available in transactions
   const availableMonths = useMemo(() => {

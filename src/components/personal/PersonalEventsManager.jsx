@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { DataExportImportModal } from '../common/DataExportImportModal';
+import { isPersonalExpenseTombstoned } from '../../services/cloudStateSyncService';
 
 // Event Categories Configuration
 const EVENT_CATEGORIES = {
@@ -96,6 +97,7 @@ export const PersonalEventsManager = () => {
     addPersonalExpense,
     updatePersonalExpense,
     deletePersonalExpense,
+    trashBin = [],
     categories = {},
     lang,
     t
@@ -165,6 +167,25 @@ export const PersonalEventsManager = () => {
     eventId: ''
   });
 
+  const activeTrashIdSet = useMemo(() => {
+    const s = new Set();
+    (trashBin || []).forEach(t => {
+      if (t.id) s.add(String(t.id));
+      if (t.trashId) s.add(String(t.trashId));
+    });
+    return s;
+  }, [trashBin]);
+
+  const activePersonalExpenses = useMemo(() => {
+    return (personalExpenses || []).filter(e => {
+      if (!e || !e.id) return false;
+      const strId = String(e.id);
+      if (activeTrashIdSet.has(strId)) return false;
+      if (isPersonalExpenseTombstoned(strId)) return false;
+      return true;
+    });
+  }, [personalExpenses, activeTrashIdSet]);
+
   // Calculate stats for each event
   const eventMetrics = useMemo(() => {
     const metrics = {};
@@ -176,7 +197,7 @@ export const PersonalEventsManager = () => {
       };
     });
 
-    personalExpenses.forEach(exp => {
+    activePersonalExpenses.forEach(exp => {
       if (exp.eventId && metrics[exp.eventId]) {
         metrics[exp.eventId].totalSpent += Number(exp.amount) || 0;
         metrics[exp.eventId].count += 1;
@@ -185,7 +206,7 @@ export const PersonalEventsManager = () => {
     });
 
     return metrics;
-  }, [personalEvents, personalExpenses]);
+  }, [personalEvents, activePersonalExpenses]);
 
   // Overall summary metrics
   const totalEvents = personalEvents.length;
@@ -207,8 +228,8 @@ export const PersonalEventsManager = () => {
   // Expenses for currently selected event
   const currentEventExpenses = useMemo(() => {
     if (!selectedEventId) return [];
-    return personalExpenses.filter(e => e.eventId === selectedEventId);
-  }, [selectedEventId, personalExpenses]);
+    return activePersonalExpenses.filter(e => e.eventId === selectedEventId);
+  }, [selectedEventId, activePersonalExpenses]);
 
   // Filtered events list for overview grid
   const filteredEvents = useMemo(() => {

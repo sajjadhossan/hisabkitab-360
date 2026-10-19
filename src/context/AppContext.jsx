@@ -105,7 +105,10 @@ import {
   getLastCloudSyncTimestamp,
   getLastSyncDeviceName,
   markInvoiceAsDeletedTombstone,
-  isInvoiceTombstoned
+  isInvoiceTombstoned,
+  markPersonalExpenseAsDeletedTombstone,
+  unmarkPersonalExpenseTombstone,
+  isPersonalExpenseTombstoned
 } from '../services/cloudStateSyncService';
 import {
   purgeAllLegacyDemoStorage,
@@ -634,13 +637,19 @@ export const AppProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PERSONAL_EXPENSES);
       const list = saved ? JSON.parse(saved) : initialData.personalExpenses;
+      const savedTrash = localStorage.getItem(STORAGE_KEYS.TRASH_BIN);
+      const trashList = savedTrash ? JSON.parse(savedTrash) : [];
+      const trashSet = new Set((trashList || []).map(t => String(t.id || t.trashId)));
+
       // Auto-heal any daily expense that was erroneously stamped with 'বাসা ও ফ্ল্যাট খরচ'
-      return (list || []).map(exp => {
-        if (exp.type === 'daily' && (exp.folder === 'বাসা ও ফ্ল্যাট খরচ' || exp.folder === 'বাসা ও ফ্লাট খরচ' || exp.folder === 'বাসা ভাড়া ও সার্ভিস চার্জ')) {
-          return { ...exp, folder: 'দৈনন্দিন বাজার খরচ' };
-        }
-        return exp;
-      });
+      return (list || [])
+        .filter(exp => exp && exp.id && !trashSet.has(String(exp.id)) && !isPersonalExpenseTombstoned(exp.id))
+        .map(exp => {
+          if (exp.type === 'daily' && (exp.folder === 'বাসা ও ফ্ল্যাট খরচ' || exp.folder === 'বাসা ও ফ্লাট খরচ' || exp.folder === 'বাসা ভাড়া ও সার্ভিস চার্জ')) {
+            return { ...exp, folder: 'দৈনন্দিন বাজার খরচ' };
+          }
+          return exp;
+        });
     } catch {
       return initialData.personalExpenses;
     }
@@ -1896,8 +1905,10 @@ export const AppProvider = ({ children }) => {
 
   // Safe Soft-Delete: Moves expense to Recycle Bin (Trash) and broadcasts instant removal across devices
   const deletePersonalExpense = (id) => {
-    const itemToDelete = personalExpenses.find(e => e.id === id);
+    const itemToDelete = personalExpenses.find(e => String(e.id) === String(id));
     if (!itemToDelete) return;
+
+    markPersonalExpenseAsDeletedTombstone(id);
 
     const trashEntry = {
       ...itemToDelete,
@@ -1907,11 +1918,15 @@ export const AppProvider = ({ children }) => {
       originalType: itemToDelete.type || 'family'
     };
 
-    const nextExpenses = personalExpenses.filter(e => e.id !== id);
-    const nextTrash = [trashEntry, ...trashBin];
+    const nextExpenses = personalExpenses.filter(e => String(e.id) !== String(id) && !isPersonalExpenseTombstoned(e.id));
+    const nextTrash = [trashEntry, ...trashBin.filter(t => String(t.id) !== String(id) && t.trashId !== trashEntry.trashId)];
 
     setPersonalExpenses(nextExpenses);
     setTrashBin(nextTrash);
+    try {
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(nextExpenses));
+      localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(nextTrash));
+    } catch { }
     scheduleStorageWrite(STORAGE_KEYS.PERSONAL_EXPENSES, nextExpenses);
     scheduleStorageWrite(STORAGE_KEYS.TRASH_BIN, nextTrash);
 
@@ -1933,15 +1948,23 @@ export const AppProvider = ({ children }) => {
 
   // Restores a soft-deleted item from the Recycle Bin back to active expenses
   const restoreFromTrash = (trashId) => {
-    const itemToRestore = trashBin.find(t => t.trashId === trashId || t.id === trashId);
+    const itemToRestore = trashBin.find(t => t.trashId === trashId || String(t.id) === String(trashId));
     if (!itemToRestore) return;
 
+    if (itemToRestore.id) {
+      unmarkPersonalExpenseTombstone(itemToRestore.id);
+    }
+
     const { trashId: _tId, deletedAt: _dAt, deletedFrom: _dFrom, originalType: _oType, ...restoredExpense } = itemToRestore;
-    const nextTrash = trashBin.filter(t => t.trashId !== trashId && t.id !== trashId);
-    const nextExpenses = [restoredExpense, ...personalExpenses];
+    const nextTrash = trashBin.filter(t => t.trashId !== trashId && String(t.id) !== String(trashId));
+    const nextExpenses = [restoredExpense, ...personalExpenses.filter(e => String(e.id) !== String(itemToRestore.id))];
 
     setTrashBin(nextTrash);
     setPersonalExpenses(nextExpenses);
+    try {
+      localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(nextExpenses));
+      localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(nextTrash));
+    } catch { }
     scheduleStorageWrite(STORAGE_KEYS.PERSONAL_EXPENSES, nextExpenses);
     scheduleStorageWrite(STORAGE_KEYS.TRASH_BIN, nextTrash);
 
@@ -1956,8 +1979,15 @@ export const AppProvider = ({ children }) => {
 
   // Permanently deletes an item from the Recycle Bin
   const permanentDeleteFromTrash = (trashId) => {
-    const nextTrash = trashBin.filter(t => t.trashId !== trashId && t.id !== trashId);
+    const itemToDelete = trashBin.find(t => t.trashId === trashId || String(t.id) === String(trashId));
+    if (itemToDelete && itemToDelete.id) {
+      markPersonalExpenseAsDeletedTombstone(itemToDelete.id);
+    }
+    const nextTrash = trashBin.filter(t => t.trashId !== trashId && String(t.id) !== String(trashId));
     setTrashBin(nextTrash);
+    try {
+      localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(nextTrash));
+    } catch { }
     scheduleStorageWrite(STORAGE_KEYS.TRASH_BIN, nextTrash);
 
     triggerImmediateCloudPush({
@@ -1971,7 +2001,13 @@ export const AppProvider = ({ children }) => {
 
   // Empties the entire Recycle Bin
   const emptyTrash = () => {
+    trashBin.forEach(t => {
+      if (t.id) markPersonalExpenseAsDeletedTombstone(t.id);
+    });
     setTrashBin([]);
+    try {
+      localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify([]));
+    } catch { }
     scheduleStorageWrite(STORAGE_KEYS.TRASH_BIN, []);
 
     triggerImmediateCloudPush({
@@ -5982,9 +6018,32 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     const isMaster = currentEmail === 'hossansajjad1994@gmail.com';
     const tenantSlug = currentEmail ? currentEmail.replace(/[^a-zA-Z0-9]/g, '_') : '';
 
+    // Collect all trash IDs from both local and cloud to prevent deleted items from reviving
+    const incomingTrashIds = new Set();
+    if (Array.isArray(cloudState.trashBin)) {
+      cloudState.trashBin.forEach(t => {
+        if (t.id) incomingTrashIds.add(String(t.id));
+        if (t.trashId) incomingTrashIds.add(String(t.trashId));
+      });
+    }
+    try {
+      const localTrashRaw = localStorage.getItem(STORAGE_KEYS.TRASH_BIN);
+      if (localTrashRaw) {
+        const localTrash = JSON.parse(localTrashRaw);
+        if (Array.isArray(localTrash)) {
+          localTrash.forEach(t => {
+            if (t.id) incomingTrashIds.add(String(t.id));
+            if (t.trashId) incomingTrashIds.add(String(t.trashId));
+          });
+        }
+      }
+    } catch { }
+
     if (Array.isArray(cloudState.personalExpenses)) {
       setPersonalExpenses(prev => {
-        const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.personalExpenses);
+        const filteredPrev = prev.filter(e => e && e.id && !incomingTrashIds.has(String(e.id)) && !isPersonalExpenseTombstoned(e.id));
+        const filteredIncoming = cloudState.personalExpenses.filter(e => e && e.id && !incomingTrashIds.has(String(e.id)) && !isPersonalExpenseTombstoned(e.id));
+        const merged = mergeEntitiesWithoutDuplicates(filteredPrev, filteredIncoming).filter(e => e && e.id && !incomingTrashIds.has(String(e.id)) && !isPersonalExpenseTombstoned(e.id));
         localStorage.setItem(STORAGE_KEYS.PERSONAL_EXPENSES, JSON.stringify(merged));
         return merged;
       });
