@@ -75,6 +75,7 @@ import {
   getActiveTenantKey,
   isLiveSyncConnected
 } from '../services/liveSyncService';
+import { getActiveTenantEmail, isMasterSuperAdmin } from '../utils/tenantHelper';
 import {
   registerDeltaSyncContextHooks,
   executeBiDirectionalSync,
@@ -712,14 +713,7 @@ export const AppProvider = ({ children }) => {
   // Strictly prevents client accounts (like Mariam) from inheriting Master Super Admin (Sajjad's) sales or data.
   const getInitialTenantScopedData = (baseKey, fallback = []) => {
     try {
-      const authUserRaw = localStorage.getItem('hk360_auth_user');
-      let activeEmail = '';
-      if (authUserRaw) {
-        try {
-          const parsed = JSON.parse(authUserRaw);
-          activeEmail = (parsed?.email || '').toLowerCase().trim();
-        } catch {}
-      }
+      const activeEmail = getActiveTenantEmail();
       const isMaster = activeEmail === 'hossansajjad1994@gmail.com';
       if (activeEmail) {
         const tenantKey = `hk360_t_${activeEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${baseKey}`;
@@ -1356,6 +1350,30 @@ export const AppProvider = ({ children }) => {
     let isMounted = true;
     const hydrateFromIndexedDb = async () => {
       try {
+        const activeTenant = getActiveTenantKey();
+        const activeEmail = getActiveTenantEmail();
+        const isMaster = activeEmail === 'hossansajjad1994@gmail.com';
+
+        // Client accounts hydrate strictly from their tenant-scoped IndexedDB keys
+        if (!isMaster) {
+          if (!activeTenant || activeTenant === 'tenant_guest') return;
+          const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts] = await Promise.all([
+            idbGet(`products_data_${activeTenant}`),
+            idbGet(`sales_history_${activeTenant}`),
+            idbGet(`invoices_${activeTenant}`),
+            idbGet(`customers_data_${activeTenant}`),
+            idbGet(`debts_${activeTenant}`)
+          ]);
+          if (!isMounted) return;
+          if (Array.isArray(idbProducts) && idbProducts.length > 0) setProducts(idbProducts);
+          if (Array.isArray(idbSales) && idbSales.length > 0) setSalesHistory(idbSales.filter(s => !isInvoiceTombstoned(s.id)));
+          if (Array.isArray(idbInvoices) && idbInvoices.length > 0) setInvoices(idbInvoices.filter(i => !isInvoiceTombstoned(i.id)));
+          if (Array.isArray(idbCustomers) && idbCustomers.length > 0) setCustomers(idbCustomers);
+          if (Array.isArray(idbDebts) && idbDebts.length > 0) setBusinessDebts(idbDebts);
+          return;
+        }
+
+        // Master account hydrates from master storage
         const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts] = await Promise.all([
           idbGet(STORAGE_KEYS.BIZ_PRODUCTS),
           idbGet(STORAGE_KEYS.BIZ_SALES),
@@ -1396,6 +1414,47 @@ export const AppProvider = ({ children }) => {
     hydrateFromIndexedDb();
     return () => { isMounted = false; };
   }, []);
+
+  // Tenant / Account Switch Hot-Swapper: Instantly isolate UI state when switching accounts
+  useEffect(() => {
+    const activeEmail = (user?.email || '').toLowerCase().trim();
+    if (!activeEmail) return;
+
+    const isMaster = activeEmail === 'hossansajjad1994@gmail.com';
+    const tenantKey = `tenant_${activeEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    const loadTenantData = (baseKey, fallback = []) => {
+      try {
+        const stored = localStorage.getItem(`hk360_t_${activeEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${baseKey}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return Array.isArray(parsed) ? filterOutDemoItems(parsed) : parsed;
+        }
+        if (isMaster) {
+          const globalStored = localStorage.getItem(`hk360_${baseKey}`);
+          if (globalStored) {
+            const parsed = JSON.parse(globalStored);
+            return Array.isArray(parsed) ? filterOutDemoItems(parsed) : parsed;
+          }
+        }
+      } catch {}
+      return fallback;
+    };
+
+    setProducts(loadTenantData('biz_products', []));
+    setSalesHistory(loadTenantData('biz_sales', []));
+    setInvoices(loadTenantData('biz_invoices', []));
+    setCustomers(loadTenantData('biz_customers', []));
+    setBusinessExpenses(loadTenantData('biz_expenses', []));
+    setBusinessDebts(loadTenantData('biz_debts', []));
+
+    // Re-bind Realtime Live Sync Channel for this tenant
+    initLiveSyncChannel({
+      branchId: activeBranchId,
+      counterName: 'কাউন্টার',
+      tenantKey: tenantKey
+    });
+  }, [user?.email]);
 
   // Multi-terminal / Cross-tab Local Sync
   useEffect(() => {
@@ -5883,6 +5942,10 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
   const applyCloudState = useCallback((cloudState) => {
     if (!cloudState || typeof cloudState !== 'object') return false;
 
+    const currentEmail = getActiveTenantEmail();
+    const isMaster = currentEmail === 'hossansajjad1994@gmail.com';
+    const tenantSlug = currentEmail ? currentEmail.replace(/[^a-zA-Z0-9]/g, '_') : '';
+
     if (Array.isArray(cloudState.personalExpenses)) {
       setPersonalExpenses(prev => {
         const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.personalExpenses);
@@ -5929,25 +5992,45 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       const cleanProducts = filterOutDemoItems(cloudState.products);
       setProducts(prev => {
         const merged = mergeEntitiesWithoutDuplicates(prev, cleanProducts);
-        localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_PRODUCTS, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_products`, JSON.stringify(merged));
         return merged;
       });
     }
     if (Array.isArray(cloudState.salesHistory)) {
-      const nonTombstonedSales = cloudState.salesHistory.filter(s => !isInvoiceTombstoned(s.id));
+      const nonTombstonedSales = cloudState.salesHistory.filter(s => {
+        if (isInvoiceTombstoned(s.id)) return false;
+        if (!isMaster) {
+          const sTenant = s.tenantKey || '';
+          if (sTenant && sTenant !== `tenant_${tenantSlug}`) return false;
+          if (s.cashierEmail === 'hossansajjad1994@gmail.com') return false;
+        }
+        return true;
+      });
       setSalesHistory(prev => {
         const filteredPrev = prev.filter(s => !isInvoiceTombstoned(s.id));
         const merged = mergeEntitiesWithoutDuplicates(filteredPrev, nonTombstonedSales).filter(s => !isInvoiceTombstoned(s.id));
-        localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_SALES, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_sales`, JSON.stringify(merged));
         return merged;
       });
     }
     if (Array.isArray(cloudState.invoices) || Array.isArray(cloudState.salesHistory)) {
-      const incomingInvoices = (cloudState.invoices || cloudState.salesHistory || []).filter(i => !isInvoiceTombstoned(i.id));
+      const rawInvoices = cloudState.invoices || cloudState.salesHistory || [];
+      const incomingInvoices = rawInvoices.filter(i => {
+        if (isInvoiceTombstoned(i.id)) return false;
+        if (!isMaster) {
+          const iTenant = i.tenantKey || '';
+          if (iTenant && iTenant !== `tenant_${tenantSlug}`) return false;
+          if (i.cashierEmail === 'hossansajjad1994@gmail.com') return false;
+        }
+        return true;
+      });
       setInvoices(prev => {
         const filteredPrev = prev.filter(i => !isInvoiceTombstoned(i.id));
         const merged = mergeEntitiesWithoutDuplicates(filteredPrev, incomingInvoices).filter(i => !isInvoiceTombstoned(i.id));
-        localStorage.setItem(STORAGE_KEYS.BIZ_INVOICES, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_INVOICES, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_invoices`, JSON.stringify(merged));
         return merged;
       });
     }
@@ -5955,21 +6038,24 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       const cleanCustomers = filterOutDemoItems(cloudState.customers);
       setCustomers(prev => {
         const merged = mergeEntitiesWithoutDuplicates(prev, cleanCustomers);
-        localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_CUSTOMERS, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_customers`, JSON.stringify(merged));
         return merged;
       });
     }
     if (Array.isArray(cloudState.businessExpenses)) {
       setBusinessExpenses(prev => {
         const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.businessExpenses);
-        localStorage.setItem(STORAGE_KEYS.BIZ_EXPENSES, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_EXPENSES, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_expenses`, JSON.stringify(merged));
         return merged;
       });
     }
     if (Array.isArray(cloudState.businessDebts)) {
       setBusinessDebts(prev => {
         const merged = mergeDebtPersonsWithTransactions(prev, cloudState.businessDebts);
-        localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_DEBTS, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_debts`, JSON.stringify(merged));
         return merged;
       });
     }
@@ -5977,7 +6063,8 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       const cleanSuppliers = filterOutDemoItems(cloudState.suppliers);
       setSuppliers(prev => {
         const merged = mergeEntitiesWithoutDuplicates(prev, cleanSuppliers);
-        localStorage.setItem(STORAGE_KEYS.BIZ_SUPPLIERS, JSON.stringify(merged));
+        if (isMaster) localStorage.setItem(STORAGE_KEYS.BIZ_SUPPLIERS, JSON.stringify(merged));
+        if (tenantSlug) localStorage.setItem(`hk360_t_${tenantSlug}_biz_suppliers`, JSON.stringify(merged));
         return merged;
       });
     }

@@ -310,7 +310,6 @@ const AppContent = () => {
     initHardwareBarcodeScannerListener();
     initPowerOptimizer();
     initFastOfflineCache();
-    initLiveSyncChannel();
     initOfflineSyncEngine();
 
     const unsubChat = initChatRealtimeListener((incomingMsg) => {

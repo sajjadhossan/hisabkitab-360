@@ -11,18 +11,8 @@ let channel = null;
 const terminalListeners = new Set();
 const DEVICE_TERMINAL_ID = 'term_' + Math.random().toString(36).substring(2, 8);
 
-export const getActiveTenantKey = () => {
-  try {
-    const rawUser = localStorage.getItem('hk360_auth_user');
-    if (rawUser) {
-      const parsed = JSON.parse(rawUser);
-      if (parsed?.email) {
-        return `tenant_${parsed.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
-      }
-    }
-  } catch {}
-  return 'master_sync_state';
-};
+import { getActiveTenantKey } from '../utils/tenantHelper';
+export { getActiveTenantKey };
 
 /**
  * Initialize local IPC BroadcastChannel

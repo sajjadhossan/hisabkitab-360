@@ -129,6 +129,12 @@ export const submitPosSaleToCloud = async (saleData) => {
       console.warn('[SupabaseBackend] RPC error, falling back to direct table insert:', error);
       
       // Fallback: direct table insert if RPC is not installed yet
+      const metadataNotes = JSON.stringify({
+        tenantKey: activeTenant,
+        cashierEmail: payload.cashier_email || '',
+        notes: payload.notes || ''
+      });
+
       const { data: invData, error: invErr } = await supabase
         .from('invoices')
         .insert([{
@@ -143,7 +149,8 @@ export const submitPosSaleToCloud = async (saleData) => {
           due_amount: Math.max(0, payload.grand_total - payload.paid_amount),
           payment_method: payload.payment_method,
           branch_id: payload.branch_id,
-          counter_id: payload.counter_id
+          counter_id: payload.counter_id,
+          notes: metadataNotes
         }])
         .select()
         .single();
@@ -306,7 +313,7 @@ export const syncCustomerToCloud = async (customer) => {
 /**
  * Fetch delta changes from Supabase Cloud modified since given timestamp
  */
-export const fetchDeltaChangesFromCloud = async (sinceIsoTimestamp) => {
+export const fetchDeltaChangesFromCloud = async (sinceIsoTimestamp, targetTenantKey) => {
   const supabase = getSupabase();
   if (!supabase || !isSupabaseReady()) {
     return { success: false, message: 'Supabase offline' };
@@ -314,6 +321,8 @@ export const fetchDeltaChangesFromCloud = async (sinceIsoTimestamp) => {
 
   try {
     const since = sinceIsoTimestamp || new Date(Date.now() - 30 * 24 * 60 * 1000).toISOString();
+    const currentTenant = targetTenantKey || getActiveTenantKey();
+    const isMasterTenant = currentTenant === 'tenant_hossansajjad1994_gmail_com';
 
     // 1. Delta Products
     const { data: deltaProducts } = await supabase
@@ -332,12 +341,29 @@ export const fetchDeltaChangesFromCloud = async (sinceIsoTimestamp) => {
       .limit(500);
 
     // 3. Delta Invoices
-    const { data: deltaInvoices } = await supabase
+    const { data: rawDeltaInvoices } = await supabase
       .from('invoices')
       .select('*, invoice_items(*)')
       .gt('created_at', since)
       .order('created_at', { ascending: true })
       .limit(200);
+
+    // Multi-tenant invoice filtering: Strictly separate tenant invoices
+    const deltaInvoices = (rawDeltaInvoices || []).filter((inv) => {
+      let invTenant = null;
+      try {
+        if (inv.notes && inv.notes.startsWith('{')) {
+          const parsed = JSON.parse(inv.notes);
+          invTenant = parsed?.tenantKey;
+        }
+      } catch {}
+
+      if (invTenant) {
+        return invTenant === currentTenant;
+      }
+      // If invoice has no explicit tenantKey metadata in notes, it is a legacy master invoice:
+      return isMasterTenant;
+    });
 
     return {
       success: true,

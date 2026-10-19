@@ -18,21 +18,8 @@ const LAST_SYNC_KEY = 'hk360_last_cloud_state_sync_ts';
 const LAST_SYNC_DEVICE_KEY = 'hk360_last_cloud_sync_device';
 const TOMBSTONE_DELETED_INVOICES_KEY = 'hk360_tombstone_deleted_invoices';
 
-/**
- * Returns current tenant identifier (user email or default 'master_sync_state')
- */
-export const getActiveTenantKey = () => {
-  try {
-    const rawUser = localStorage.getItem('hk360_auth_user');
-    if (rawUser) {
-      const parsed = JSON.parse(rawUser);
-      if (parsed?.email) {
-        return `tenant_${parsed.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
-      }
-    }
-  } catch {}
-  return 'master_sync_state';
-};
+import { getActiveTenantKey } from '../utils/tenantHelper';
+export { getActiveTenantKey };
 
 /**
  * Tombstone tracker: Permanently marks an invoice/sale as deleted so it can NEVER re-appear

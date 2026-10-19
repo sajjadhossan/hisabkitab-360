@@ -11,6 +11,9 @@
 import { getSupabase, isSupabaseReady } from './supabaseClient';
 import { hapticFeedback } from './nativeAppService';
 import { getDeviceOrigin } from './deviceManagerService';
+import { getActiveTenantKey, getActiveTenantEmail } from '../utils/tenantHelper';
+
+export { getActiveTenantKey, getActiveTenantEmail };
 
 const LIVE_CHANNEL_NAME = 'hk360_live_realtime_hub';
 let activeChannel = null;
@@ -22,21 +25,6 @@ let isConnected = false;
 let presenceState = {};
 let localDeviceMeta = null;
 
-/**
- * Returns current tenant identifier (user email or default 'master_sync_state')
- */
-export const getActiveTenantKey = () => {
-  try {
-    const rawUser = localStorage.getItem('hk360_auth_user');
-    if (rawUser) {
-      const parsed = JSON.parse(rawUser);
-      if (parsed?.email) {
-        return `tenant_${parsed.email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
-      }
-    }
-  } catch {}
-  return 'master_sync_state';
-};
 
 /**
  * Get or create unique persistent device identifier

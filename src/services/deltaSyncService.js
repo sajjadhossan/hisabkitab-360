@@ -12,6 +12,7 @@ import { flushOfflineQueue, getSyncStatus } from './offlineSyncQueue';
 import { reconcileEntitiesLWW } from './conflictResolver';
 import { idbBulkSet, idbGet, idbSet } from '../utils/idbStorage';
 import { hapticFeedback } from './nativeAppService';
+import { getActiveTenantKey } from '../utils/tenantHelper';
 
 const SYNC_TIMESTAMP_KEY = 'hk360_last_delta_sync_time';
 const CONFLICT_LOG_KEY = 'hk360_conflict_resolution_history';
@@ -113,7 +114,9 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
     // -------------------------------------------------------------
     notifyDeltaSyncState({ isSyncing: true, progress: 20, step: 'ক্লাউড থেকে সর্বশেষ আপডেট যাচাই ও আনা হচ্ছে...' });
     const sinceTimestamp = forceFull ? null : getLastDeltaSyncTime();
-    const deltaRes = await fetchDeltaChangesFromCloud(sinceTimestamp);
+    const currentTenant = getActiveTenantKey();
+    const isMasterTenant = currentTenant === 'tenant_hossansajjad1994_gmail_com';
+    const deltaRes = await fetchDeltaChangesFromCloud(sinceTimestamp, currentTenant);
 
     if (deltaRes && deltaRes.success) {
       const { deltaProducts = [], deltaCustomers = [], deltaInvoices = [], timestamp: newSyncTimestamp } = deltaRes;
@@ -139,7 +142,10 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
         }
 
         appContextHooks.setProducts(reconciled);
-        await idbBulkSet({ 'products_data': reconciled });
+        if (isMasterTenant) {
+          await idbBulkSet({ 'products_data': reconciled });
+        }
+        await idbBulkSet({ [`products_data_${currentTenant}`]: reconciled });
       }
 
       // 2b. Reconcile Customers
@@ -155,7 +161,10 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
         }
 
         appContextHooks.setCustomers(reconciled);
-        await idbBulkSet({ 'customers_data': reconciled });
+        if (isMasterTenant) {
+          await idbBulkSet({ 'customers_data': reconciled });
+        }
+        await idbBulkSet({ [`customers_data_${currentTenant}`]: reconciled });
       }
 
       // 2c. Append New Invoices
@@ -165,6 +174,22 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
 
         const newSales = [];
         for (const inv of deltaInvoices) {
+          // Strict multi-tenant verification
+          let invTenant = null;
+          try {
+            if (inv.notes && inv.notes.startsWith('{')) {
+              const meta = JSON.parse(inv.notes);
+              invTenant = meta?.tenantKey;
+            }
+          } catch {}
+
+          if (invTenant && invTenant !== currentTenant) {
+            continue;
+          }
+          if (!invTenant && !isMasterTenant) {
+            continue;
+          }
+
           if (!existingIds.has(inv.id) && !existingIds.has(inv.invoice_number) && !existingIds.has(inv.client_uuid)) {
             newSales.push({
               id: inv.client_uuid || inv.id,
@@ -186,7 +211,10 @@ export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
         if (newSales.length > 0) {
           const mergedSales = [...newSales, ...currentSales];
           appContextHooks.setSalesHistory(mergedSales);
-          await idbBulkSet({ 'sales_history': mergedSales });
+          if (isMasterTenant) {
+            await idbBulkSet({ 'sales_history': mergedSales });
+          }
+          await idbBulkSet({ [`sales_history_${currentTenant}`]: mergedSales });
         }
       }
     }

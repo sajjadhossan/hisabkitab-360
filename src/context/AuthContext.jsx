@@ -512,11 +512,15 @@ export const AuthProvider = ({ children }) => {
 
             setUser(loggedInUser);
             setRememberMe(remember);
+            localStorage.setItem('hk360_active_session_user', JSON.stringify(loggedInUser));
+            sessionStorage.setItem('hk360_auth_user', JSON.stringify(loggedInUser));
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(loggedInUser));
             if (remember) {
               localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
-              localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(loggedInUser));
+              localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
             } else {
               localStorage.removeItem(STORAGE_KEYS.SAVED_EMAIL);
+              localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
             }
 
             setAuthLoading(false);
@@ -561,9 +565,15 @@ export const AuthProvider = ({ children }) => {
 
         setUser(offlineUser);
         setRememberMe(remember);
+        localStorage.setItem('hk360_active_session_user', JSON.stringify(offlineUser));
+        sessionStorage.setItem('hk360_auth_user', JSON.stringify(offlineUser));
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(offlineUser));
         if (remember) {
           localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
-          localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(offlineUser));
+          localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.SAVED_EMAIL);
+          localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
         }
 
         setAuthLoading(false);
@@ -656,6 +666,8 @@ export const AuthProvider = ({ children }) => {
       try {
         sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
         localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, 'hossansajjad1994@gmail.com');
+        localStorage.setItem('hk360_active_session_user', JSON.stringify(masterAdminUser));
+        sessionStorage.setItem('hk360_auth_user', JSON.stringify(masterAdminUser));
         localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(masterAdminUser));
       } catch {}
       setIsAuthModalOpen(false);
@@ -677,6 +689,9 @@ export const AuthProvider = ({ children }) => {
         isStaffUser: true
       };
       setUser(staffUser);
+      localStorage.setItem('hk360_active_session_user', JSON.stringify(staffUser));
+      sessionStorage.setItem('hk360_auth_user', JSON.stringify(staffUser));
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(staffUser));
       localStorage.setItem('hk360_active_branch_id', staffUser.branchId);
       localStorage.setItem('hk360_active_counter_id', staffUser.counterId);
       setIsAuthModalOpen(false);
@@ -690,6 +705,9 @@ export const AuthProvider = ({ children }) => {
       if (acc && normalizeLoginText(acc.pin) === cleanPin) {
         const offlineUser = { ...acc, isOfflineSession: true };
         setUser(offlineUser);
+        localStorage.setItem('hk360_active_session_user', JSON.stringify(offlineUser));
+        sessionStorage.setItem('hk360_auth_user', JSON.stringify(offlineUser));
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(offlineUser));
         setIsAuthModalOpen(false);
         return { success: true, user: offlineUser };
       }
@@ -778,6 +796,9 @@ export const AuthProvider = ({ children }) => {
         };
         saveOfflineVault(vault);
         setUser(newUser);
+        localStorage.setItem('hk360_active_session_user', JSON.stringify(newUser));
+        sessionStorage.setItem('hk360_auth_user', JSON.stringify(newUser));
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(newUser));
         setIsAuthModalOpen(false);
 
         // Register in client licenses registry as pending_approval if not master
@@ -918,6 +939,11 @@ export const AuthProvider = ({ children }) => {
     }
     setUser(null);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    localStorage.removeItem('hk360_active_session_user');
+    try {
+      sessionStorage.removeItem('hk360_auth_user');
+      sessionStorage.removeItem('hk360_active_session_user');
+    } catch {}
     setIsSuperAdminUnlocked(false);
     try {
       sessionStorage.removeItem('hk360_superadmin_unlocked');
