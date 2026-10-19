@@ -201,9 +201,11 @@ export const printHtmlContent = (htmlContent, options = {}) => {
   // Dynamic @page size style for main document
   const dynamicStyleId = 'hk360-active-print-rules';
   let dynamicStyle = document.getElementById(dynamicStyleId);
-  if (dynamicStyle) dynamicStyle.remove();
-  dynamicStyle = document.createElement('style');
-  dynamicStyle.id = dynamicStyleId;
+  if (!dynamicStyle) {
+    dynamicStyle = document.createElement('style');
+    dynamicStyle.id = dynamicStyleId;
+    document.head.appendChild(dynamicStyle);
+  }
   dynamicStyle.innerHTML = `
     @media print {
       @page {
@@ -227,54 +229,69 @@ export const printHtmlContent = (htmlContent, options = {}) => {
       }
     }
   `;
-  document.head.appendChild(dynamicStyle);
 
-  const cleanup = () => {
+  // Safely remove printing flag only when print session has fully finished
+  // NEVER erase directRoot.innerHTML so Chrome print spooler / preview can re-read without blanking!
+  const finishPrinting = () => {
     try {
       document.body.classList.remove('hk360-is-printing');
-      if (directRoot) directRoot.innerHTML = '';
-      if (dynamicStyle) dynamicStyle.remove();
     } catch (_) {}
   };
 
   const afterPrintHandler = () => {
     window.removeEventListener('afterprint', afterPrintHandler);
-    cleanup();
+    setTimeout(finishPrinting, 1200);
   };
-  window.addEventListener('afterprint', afterPrintHandler);
+  window.addEventListener('afterprint', afterPrintHandler, { once: true });
 
-  // Ensure images load before print dialog opens
+  const onReturnFocus = () => {
+    window.removeEventListener('focus', onReturnFocus);
+    setTimeout(finishPrinting, 1500);
+  };
+  window.addEventListener('focus', onReturnFocus, { once: true });
+
+  // Ensure images and fonts load before print dialog opens
   ensureImagesLoaded(directRoot, () => {
-    setTimeout(() => {
-      try {
-        window.focus();
-        window.print();
-      } catch (err) {
-        console.warn('Direct print execution failed:', err);
-      } finally {
-        setTimeout(cleanup, 2500);
-      }
-    }, 80);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          window.focus();
+          window.print();
+        } catch (err) {
+          console.warn('[PrintService] Direct print invocation error:', err);
+        }
+      }, 120);
+    });
   });
 };
 
 /**
  * Prints an existing DOM element by its ID or HTMLElement reference
- * Extracts exact HTML, isolates it from parent overlays, and triggers print.
+ * Waits for DOM mounting, extracts exact HTML, isolates it from parent overlays, and triggers print.
  */
-export const printElement = (elementOrId, options = {}) => {
+export const printElement = async (elementOrId, options = {}) => {
   let el = null;
-  if (typeof elementOrId === 'string') {
-    el = document.getElementById(elementOrId) || document.querySelector(elementOrId);
-  } else if (elementOrId instanceof HTMLElement) {
-    el = elementOrId;
+  const startTime = Date.now();
+
+  // Poll up to 1200ms if element is mounting via React render/modal open
+  while (!el && (Date.now() - startTime) < 1200) {
+    if (typeof elementOrId === 'string') {
+      el = document.getElementById(elementOrId) || document.querySelector(elementOrId);
+    } else if (elementOrId instanceof HTMLElement) {
+      el = elementOrId;
+    }
+    if (!el) {
+      await new Promise(r => setTimeout(r, 50));
+    }
   }
 
   if (!el) {
-    console.warn(`Print target "${elementOrId}" not found, falling back to window.print()`);
-    window.print();
+    console.warn(`[PrintService] Target element "${elementOrId}" not found in DOM`);
     return;
   }
+
+  // Allow DOM to finish layout paint if recently mounted
+  await new Promise(r => requestAnimationFrame(r));
 
   // Clone node and strip unnecessary parent style constraints
   const clone = el.cloneNode(true);
@@ -282,6 +299,8 @@ export const printElement = (elementOrId, options = {}) => {
   clone.style.margin = '0 auto';
   clone.style.position = 'static';
   clone.style.overflow = 'visible';
+  clone.style.display = 'block';
+  clone.style.visibility = 'visible';
 
   printHtmlContent(clone.outerHTML, options);
 };

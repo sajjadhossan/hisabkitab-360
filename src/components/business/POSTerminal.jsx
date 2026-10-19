@@ -263,6 +263,7 @@ export const POSTerminal = () => {
     businessSettings,
     openScanner,
     openInvoicePrint,
+    setActiveReceipt,
     openCashDrawer,
     playScannerBeep,
     showToast,
@@ -1587,26 +1588,38 @@ export const POSTerminal = () => {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveReceipt(lastCompletedSale);
+                    setShowSuccessModal(false);
+                  }}
+                  className="btn btn-primary"
+                  style={{ flex: 1.2, minWidth: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                >
+                  <Printer size={16} />
+                  <span>{lang === 'bn' ? 'রসিদ (Thermal)' : 'Thermal Slip'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     openInvoicePrint(lastCompletedSale);
                     setShowSuccessModal(false);
                   }}
-                  className="btn btn-primary"
-                  style={{ flex: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, minWidth: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700' }}
                 >
                   <FileText size={16} />
-                  <span>{lang === 'bn' ? 'রিসিট প্রিন্ট করুন' : 'Print Receipt'}</span>
+                  <span>{lang === 'bn' ? 'A4 ইনভয়েস' : 'A4 Invoice'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowSuccessModal(false)}
                   className="btn btn-secondary"
-                  style={{ flex: 1, fontWeight: '700' }}
+                  style={{ flex: 0.8, minWidth: '80px', fontWeight: '700' }}
                 >
-                  {lang === 'bn' ? 'পরবর্তী বিল' : 'Next Sale'}
+                  {lang === 'bn' ? 'পরবর্তী বিল' : 'Next'}
                 </button>
               </div>
             </div>
@@ -5054,26 +5067,38 @@ export const POSTerminal = () => {
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReceipt(lastCompletedSale);
+                  setShowSuccessModal(false);
+                }}
+                className="btn btn-primary"
+                style={{ flex: 1.2, minWidth: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              >
+                <Printer size={16} />
+                <span>{lang === 'bn' ? 'রসিদ (Thermal)' : 'Thermal Slip'}</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   openInvoicePrint(lastCompletedSale);
                   setShowSuccessModal(false);
                 }}
-                className="btn btn-primary"
-                style={{ flex: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                className="btn btn-secondary"
+                style={{ flex: 1, minWidth: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700' }}
               >
                 <FileText size={16} />
-                <span>{lang === 'bn' ? 'রিসিট প্রিন্ট করুন' : 'Print Receipt'}</span>
+                <span>{lang === 'bn' ? 'A4 ইনভয়েস' : 'A4 Invoice'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowSuccessModal(false)}
                 className="btn btn-secondary"
-                style={{ flex: 1, fontWeight: '700' }}
+                style={{ flex: 0.8, minWidth: '80px', fontWeight: '700' }}
               >
-                {lang === 'bn' ? 'পরবর্তী বিল' : 'Next Sale'}
+                {lang === 'bn' ? 'পরবর্তী বিল' : 'Next'}
               </button>
             </div>
           </div>
