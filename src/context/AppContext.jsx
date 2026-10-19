@@ -1831,6 +1831,7 @@ export const AppProvider = ({ children }) => {
       const next = [newEntry, ...prev];
       scheduleStorageWrite(STORAGE_KEYS.PERSONAL_EXPENSES, next);
       triggerImmediateCloudPush({
+        ...latestStateRef.current,
         personalExpenses: next,
         trashBin,
         businessExpenses
@@ -1863,6 +1864,7 @@ export const AppProvider = ({ children }) => {
       const next = [...formatted, ...prev];
       scheduleStorageWrite(STORAGE_KEYS.PERSONAL_EXPENSES, next);
       triggerImmediateCloudPush({
+        ...latestStateRef.current,
         personalExpenses: next,
         trashBin,
         businessExpenses
@@ -1882,6 +1884,7 @@ export const AppProvider = ({ children }) => {
       } : e);
       scheduleStorageWrite(STORAGE_KEYS.PERSONAL_EXPENSES, next);
       scheduleDebouncedCloudPush({
+        ...latestStateRef.current,
         personalExpenses: next,
         trashBin,
         businessExpenses
@@ -1914,6 +1917,7 @@ export const AppProvider = ({ children }) => {
 
     // Instant Zero-Lag Cloud Push (Synchronizes across Web App, Mobile APK, PC within <150ms)
     triggerImmediateCloudPush({
+      ...latestStateRef.current,
       personalExpenses: nextExpenses,
       trashBin: nextTrash,
       businessExpenses
@@ -2202,26 +2206,58 @@ export const AppProvider = ({ children }) => {
       id: income.id || `pin-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       date: income.date || new Date().toISOString().split('T')[0]
     };
-    setPersonalIncomes(prev => [newEntry, ...prev]);
+    setPersonalIncomes(prev => {
+      const next = [newEntry, ...prev];
+      scheduleStorageWrite(STORAGE_KEYS.PERSONAL_INCOMES, next);
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        personalIncomes: next
+      }, 'add_personal_income');
+      return next;
+    });
     showToast(lang === 'bn' ? 'আয়ের হিসাব সফলভাবে যোগ করা হয়েছে' : 'Income added');
   };
 
   const updatePersonalIncome = (updatedIncome) => {
-    setPersonalIncomes(prev => prev.map(i => i.id === updatedIncome.id ? { ...i, ...updatedIncome } : i));
+    setPersonalIncomes(prev => {
+      const next = prev.map(i => i.id === updatedIncome.id ? { ...i, ...updatedIncome } : i);
+      scheduleStorageWrite(STORAGE_KEYS.PERSONAL_INCOMES, next);
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        personalIncomes: next
+      }, 'update_personal_income');
+      return next;
+    });
     showToast(lang === 'bn' ? 'আয়ের হিসাব সফলভাবে আপডেট করা হয়েছে' : 'Income updated');
   };
 
   const deletePersonalIncome = (id) => {
-    setPersonalIncomes(personalIncomes.filter(i => i.id !== id));
+    setPersonalIncomes(prev => {
+      const next = prev.filter(i => i.id !== id);
+      scheduleStorageWrite(STORAGE_KEYS.PERSONAL_INCOMES, next);
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        personalIncomes: next
+      }, 'delete_personal_income');
+      return next;
+    });
   };
 
   const updateSavingsGoal = (id, addedAmount) => {
-    setPersonalSavings(personalSavings.map(item => {
-      if (item.id === id) {
-        return { ...item, saved: Math.max(0, item.saved + Number(addedAmount)) };
-      }
-      return item;
-    }));
+    setPersonalSavings(prev => {
+      const next = prev.map(item => {
+        if (item.id === id) {
+          return { ...item, saved: Math.max(0, item.saved + Number(addedAmount)) };
+        }
+        return item;
+      });
+      scheduleStorageWrite(STORAGE_KEYS.PERSONAL_SAVINGS, next);
+      triggerImmediateCloudPush({
+        ...latestStateRef.current,
+        personalSavings: next
+      }, 'update_savings_goal');
+      return next;
+    });
     showToast(lang === 'bn' ? 'সঞ্চয়ের পরিমাণ আপডেট করা হয়েছে' : 'Savings updated');
   };
 

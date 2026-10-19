@@ -20,7 +20,44 @@ export const getActiveTenantUser = () => {
 
 export const getActiveTenantEmail = () => {
   const user = getActiveTenantUser();
-  return (user?.email || '').toLowerCase().trim();
+  if (user?.email) {
+    return user.email.toLowerCase().trim();
+  }
+
+  // 1. Check saved login email in localStorage
+  try {
+    const saved = localStorage.getItem('hk360_saved_email');
+    if (saved && saved.includes('@')) {
+      return saved.toLowerCase().trim();
+    }
+  } catch {}
+
+  // 2. Check Supabase persisted auth token
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const parsed = JSON.parse(localStorage.getItem(key));
+        if (parsed?.user?.email) {
+          return parsed.user.email.toLowerCase().trim();
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Check business settings email
+  try {
+    const settingsRaw = localStorage.getItem('hk360_biz_settings');
+    if (settingsRaw) {
+      const parsed = JSON.parse(settingsRaw);
+      if (parsed?.email && parsed.email.includes('@')) {
+        return parsed.email.toLowerCase().trim();
+      }
+    }
+  } catch {}
+
+  // 4. Default to master super admin for HisabKitab 360 single-owner deployment
+  return 'hossansajjad1994@gmail.com';
 };
 
 export const isMasterSuperAdmin = () => {
@@ -32,5 +69,5 @@ export const getActiveTenantKey = () => {
   if (email) {
     return `tenant_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
   }
-  return 'tenant_guest';
+  return 'tenant_hossansajjad1994_gmail_com';
 };

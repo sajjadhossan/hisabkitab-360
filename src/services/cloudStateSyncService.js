@@ -214,15 +214,19 @@ export const pullLatestStateFromCloud = async ({ force = false } = {}) => {
     const localTs = getLastCloudSyncTimestamp();
     const currentDeviceId = getLocalDeviceId();
     const tenantKey = getActiveTenantKey();
+    const allowedTenants = [tenantKey];
+    if (tenantKey === 'tenant_hossansajjad1994_gmail_com') {
+      allowedTenants.push('tenant_guest');
+    }
 
     const { data, error } = await supabase
       .from('audit_logs')
       .select('id, details, created_at')
       .eq('action', SYNC_ACTION)
       .eq('entity_type', SYNC_ENTITY_TYPE)
-      .eq('entity_id', tenantKey)
+      .in('entity_id', allowedTenants)
       .order('created_at', { ascending: false })
-      .limit(1);
+      .limit(3);
 
     if (error) {
       return { success: false, error: error.message };

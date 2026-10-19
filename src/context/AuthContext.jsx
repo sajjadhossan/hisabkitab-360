@@ -207,20 +207,21 @@ export const AuthProvider = ({ children }) => {
   // Save active user
   useEffect(() => {
     if (user) {
-      if (rememberMe) {
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
-      }
+      localStorage.setItem('hk360_active_session_user', JSON.stringify(user));
+      sessionStorage.setItem('hk360_auth_user', JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
     } else {
+      localStorage.removeItem('hk360_active_session_user');
+      sessionStorage.removeItem('hk360_auth_user');
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
     }
-  }, [user, rememberMe]);
+  }, [user]);
 
   // Save remember me preference
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, String(rememberMe));
     if (!rememberMe) {
       localStorage.removeItem(STORAGE_KEYS.SAVED_EMAIL);
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
     }
   }, [rememberMe]);
 
@@ -358,9 +359,12 @@ export const AuthProvider = ({ children }) => {
       setIsSuperAdminUnlocked(true);
       try {
         sessionStorage.setItem('hk360_superadmin_unlocked', 'true');
+        sessionStorage.setItem('hk360_auth_user', JSON.stringify(masterAdminUser));
+        localStorage.setItem('hk360_active_session_user', JSON.stringify(masterAdminUser));
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(masterAdminUser));
         if (remember) {
           localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, 'hossansajjad1994@gmail.com');
-          localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(masterAdminUser));
+          localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
         }
       } catch {}
       setIsAuthModalOpen(false);
