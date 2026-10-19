@@ -7,8 +7,62 @@ import { triggerCashDrawerHardware, printEscPosReceiptDirect } from './hardwareS
 
 /**
  * Universal print runner that prints any HTML string using a reliable,
- * off-screen compositor iframe with real dimensions and opacity 0.01.
- * This completely avoids the Chrome/Chromium 0x0 hidden iframe blocking bug.
+/**
+ * Helper to ensure all images (QR code, logo, stamp) inside a container
+ * are fully loaded before print dialog triggers.
+ */
+const ensureImagesLoaded = (container, callback) => {
+  if (!container) {
+    callback();
+    return;
+  }
+  const images = Array.from(container.querySelectorAll('img'));
+  const pending = images.filter(img => !img.complete && img.src);
+
+  if (pending.length === 0) {
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => callback()).catch(() => callback());
+    } else {
+      callback();
+    }
+    return;
+  }
+
+  let count = pending.length;
+  let done = false;
+  const finish = () => {
+    if (!done) {
+      done = true;
+      callback();
+    }
+  };
+
+  const timer = setTimeout(finish, 350); // Maximum 350ms wait so print never hangs
+
+  pending.forEach(img => {
+    img.addEventListener('load', () => {
+      count--;
+      if (count <= 0) {
+        clearTimeout(timer);
+        finish();
+      }
+    }, { once: true });
+    img.addEventListener('error', () => {
+      count--;
+      if (count <= 0) {
+        clearTimeout(timer);
+        finish();
+      }
+    }, { once: true });
+  });
+};
+
+/**
+ * Universal High-Reliability print runner for HisabKitab 360
+ * Fixes: Blank receipts, header-only time printing, modal overflow clipping.
+ * Dual-Engine:
+ *  1. Mounts content in #hk360-direct-print-root (100% Android WebView & Desktop support)
+ *  2. Runs high-compatibility out-of-screen compositor iframe (opacity: 1, left: -9999px)
  */
 export const printHtmlContent = (htmlContent, options = {}) => {
   const {
@@ -17,9 +71,10 @@ export const printHtmlContent = (htmlContent, options = {}) => {
     paperWidth = '80mm'
   } = options;
 
+  const widthMm = paperWidth === '58mm' ? '58mm' : '80mm';
+
   let pageCss = '';
   if (paperType === 'receipt') {
-    const widthMm = paperWidth === '58mm' ? '58mm' : '80mm';
     pageCss = `
       @page {
         size: ${widthMm} auto;
@@ -30,7 +85,7 @@ export const printHtmlContent = (htmlContent, options = {}) => {
         max-width: ${widthMm} !important;
         margin: 0 auto !important;
         padding: 1mm 2mm !important;
-        font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+        font-family: 'JetBrains Mono', 'Consolas', 'Courier New', 'Hind Siliguri', monospace !important;
         font-size: ${paperWidth === '58mm' ? '10.5px' : '11.5px'} !important;
         background: #ffffff !important;
         color: #000000 !important;
@@ -42,6 +97,10 @@ export const printHtmlContent = (htmlContent, options = {}) => {
         border: none !important;
         margin: 0 auto !important;
         padding: 0 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        display: block !important;
+        visibility: visible !important;
       }
     `;
   } else if (paperType === 'label') {
@@ -82,6 +141,10 @@ export const printHtmlContent = (htmlContent, options = {}) => {
         border: 1px solid #cbd5e1 !important;
         margin: 0 auto !important;
         padding: 8mm 10mm !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        display: block !important;
+        visibility: visible !important;
       }
     `;
   }
@@ -91,9 +154,6 @@ export const printHtmlContent = (htmlContent, options = {}) => {
 <head>
   <meta charset="utf-8" />
   <title>${title}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {
       box-sizing: border-box !important;
@@ -103,8 +163,8 @@ export const printHtmlContent = (htmlContent, options = {}) => {
     ${pageCss}
     .no-print { display: none !important; }
     table { width: 100% !important; border-collapse: collapse !important; }
-    th, td, tr { page-break-inside: avoid !important; }
-    img { max-width: 100% !important; }
+    th, td, tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    img { max-width: 100% !important; -webkit-print-color-adjust: exact !important; }
   </style>
 </head>
 <body>
@@ -123,32 +183,66 @@ export const printHtmlContent = (htmlContent, options = {}) => {
         return;
       }
     } catch (err) {
-      console.warn('[PrintService] AndroidPrintBridge failed, falling back to iframe:', err);
+      console.warn('[PrintService] AndroidPrintBridge failed, falling back to universal engine:', err);
     }
   }
 
-  // Print execution: Use off-screen rendered iframe with real dimensions and low opacity
+  // 1. DIRECT DOM ENGINE: Populate #hk360-direct-print-root for primary/fallback window.print()
+  let directRoot = document.getElementById('hk360-direct-print-root');
+  if (!directRoot) {
+    directRoot = document.createElement('div');
+    directRoot.id = 'hk360-direct-print-root';
+    document.body.appendChild(directRoot);
+  }
+  directRoot.innerHTML = htmlContent;
+
+  // Dynamic @page size style for main document
+  const dynamicStyleId = 'hk360-active-print-rules';
+  let dynamicStyle = document.getElementById(dynamicStyleId);
+  if (dynamicStyle) dynamicStyle.remove();
+  dynamicStyle = document.createElement('style');
+  dynamicStyle.id = dynamicStyleId;
+  dynamicStyle.innerHTML = `
+    @media print {
+      @page {
+        size: ${paperType === 'receipt' ? `${widthMm} auto` : paperType === 'label' ? 'auto' : 'A4 portrait'};
+        margin: ${paperType === 'receipt' ? '0mm' : paperType === 'label' ? '4mm' : '8mm 10mm'};
+      }
+    }
+  `;
+  document.head.appendChild(dynamicStyle);
+
+  const cleanupDirectRoot = () => {
+    try {
+      if (directRoot) directRoot.innerHTML = '';
+      if (dynamicStyle) dynamicStyle.remove();
+    } catch (_) {}
+  };
+
+  // 2. COMPOSITOR IFRAME ENGINE: Out-of-screen (-9999px) with full opacity so Chromium never discards it
   const frameId = 'hk360-print-worker-frame';
   let iframe = document.getElementById(frameId);
   if (iframe) iframe.remove();
 
   iframe = document.createElement('iframe');
   iframe.id = frameId;
-  iframe.setAttribute('title', 'Print Frame');
+  iframe.setAttribute('title', 'Print Worker Frame');
   iframe.style.position = 'fixed';
-  iframe.style.right = '0';
-  iframe.style.bottom = '0';
-  iframe.style.width = '1000px';
-  iframe.style.height = '1000px';
-  iframe.style.opacity = '0.01';
-  iframe.style.pointerEvents = 'none';
-  iframe.style.zIndex = '-9999';
+  iframe.style.left = '-9999px';
+  iframe.style.top = '-9999px';
+  iframe.style.width = paperWidth === '58mm' ? '280px' : '380px';
+  iframe.style.height = '800px';
   iframe.style.border = 'none';
+  iframe.style.background = '#ffffff';
+  iframe.style.zIndex = '1';
   document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow?.document;
   if (!doc) {
-    window.print();
+    ensureImagesLoaded(directRoot, () => {
+      window.print();
+      setTimeout(cleanupDirectRoot, 2000);
+    });
     return;
   }
 
@@ -156,32 +250,31 @@ export const printHtmlContent = (htmlContent, options = {}) => {
   doc.write(fullDoc);
   doc.close();
 
-  // Allow web fonts, images, and QR canvas to settle
-  setTimeout(() => {
+  const executePrintJob = () => {
     try {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
     } catch (err) {
-      console.warn('Iframe print error, falling back to popup window:', err);
-      try {
-        const win = window.open('', '_blank', 'width=850,height=750');
-        if (win) {
-          win.document.write(fullDoc);
-          win.document.close();
-          win.focus();
-          setTimeout(() => {
-            win.print();
-          }, 300);
-        }
-      } catch (e) {
-        window.print();
-      }
+      console.warn('Iframe print failed, falling back to window.print():', err);
+      window.print();
+    } finally {
+      // Auto clean up after user finishes or cancels print dialog
+      setTimeout(() => {
+        cleanupDirectRoot();
+        try { iframe?.remove(); } catch (_) {}
+      }, 3000);
     }
-  }, 220);
+  };
+
+  // Wait for images inside iframe doc or fallback timeout
+  ensureImagesLoaded(doc.body, () => {
+    setTimeout(executePrintJob, 80);
+  });
 };
 
 /**
  * Prints an existing DOM element by its ID or HTMLElement reference
+ * Extracts exact HTML, isolates it from parent overlays, and triggers print.
  */
 export const printElement = (elementOrId, options = {}) => {
   let el = null;
@@ -197,7 +290,14 @@ export const printElement = (elementOrId, options = {}) => {
     return;
   }
 
-  printHtmlContent(el.outerHTML, options);
+  // Clone node and strip unnecessary parent style constraints
+  const clone = el.cloneNode(true);
+  clone.style.boxShadow = 'none';
+  clone.style.margin = '0 auto';
+  clone.style.position = 'static';
+  clone.style.overflow = 'visible';
+
+  printHtmlContent(clone.outerHTML, options);
 };
 
 /**

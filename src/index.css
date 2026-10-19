@@ -3471,3 +3471,129 @@ body {
     gap: 12px !important;
   }
 }
+
+/* ======================================================== */
+/* BULLETPROOF UNIVERSAL PRINT SYSTEM (@media print)        */
+/* Fixes: Blank receipts, header-only time printing, modal  */
+/* clipping, and dark background issues across all browsers */
+/* ======================================================== */
+#hk360-direct-print-root {
+  display: none;
+}
+
+@media print {
+  /* 1. Global Reset & Pure White Crisp Print Surface */
+  *, *::before, *::after {
+    box-sizing: border-box !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    text-shadow: none !important;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', 'Hind Siliguri', monospace !important;
+    font-size: 11.5px !important;
+    line-height: 1.35 !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* 2. Hide All UI Controls, Navigation Bars, Floating Pads, and Buttons */
+  .no-print,
+  .btn,
+  .btn-icon,
+  .navbar-top-bar,
+  .mobile-bottom-nav,
+  .floating-quick-pad,
+  .modal-overlay .no-print,
+  header,
+  nav,
+  footer {
+    display: none !important;
+  }
+
+  /* 3. Modal Overlay Normalization for Clean Paper Output */
+  .modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .modal-content {
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 4. When Direct Print Root has content, isolate it */
+  body:has(#hk360-direct-print-root:not(:empty)) > *:not(#hk360-direct-print-root) {
+    display: none !important;
+  }
+
+  #hk360-direct-print-root:not(:empty) {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    visibility: visible !important;
+  }
+
+  #hk360-direct-print-root:not(:empty) * {
+    visibility: visible !important;
+  }
+
+  /* 5. Direct Thermal Receipts & A4 Invoices Force Visible & Non-Clipped */
+  #printable-receipt-slip,
+  .printable-receipt,
+  #printable-a4-invoice,
+  .printable-invoice,
+  .printable-quotation {
+    display: block !important;
+    visibility: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+  }
+
+  /* 6. Avoid Page-break / Cell Splitting */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  tr, th, td {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
