@@ -187,56 +187,39 @@ export const printHtmlContent = (htmlContent, options = {}) => {
     }
   }
 
-  // 1. ISOLATED INVISIBLE IFRAME PRINT ENGINE (Industry Gold Standard - Zero DOM/CSS Collisions)
-  const iframeId = 'hk360-isolated-print-frame';
-  let printFrame = document.getElementById(iframeId);
-  if (printFrame) {
+  // 1. DESKTOP / LAPTOP HIGH-RELIABILITY PRINT WINDOW ENGINE
+  // In PC / Laptop Chrome & Edge, a dedicated print window guarantees 100% preview rendering without any blank page.
+  const isDesktop = typeof navigator !== 'undefined' && !(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+  if (isDesktop && typeof window !== 'undefined' && typeof window.open === 'function') {
     try {
-      printFrame.remove();
-    } catch (_) {}
+      const printWin = window.open('', '_blank', 'width=850,height=750,left=150,top=80,menubar=no,toolbar=no,location=no,status=no');
+      if (printWin) {
+        printWin.document.open();
+        printWin.document.write(fullDoc);
+        printWin.document.close();
+
+        ensureImagesLoaded(printWin.document.body, () => {
+          setTimeout(() => {
+            try {
+              printWin.focus();
+              printWin.print();
+              printWin.addEventListener('afterprint', () => {
+                try { printWin.close(); } catch (_) {}
+              }, { once: true });
+            } catch (err) {
+              console.warn('[PrintService] Desktop print window error:', err);
+              fallbackDirectPrint();
+            }
+          }, 300);
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('[PrintService] window.open blocked, using in-page engine:', e);
+    }
   }
 
-  printFrame = document.createElement('iframe');
-  printFrame.id = iframeId;
-  printFrame.setAttribute('title', title);
-  printFrame.style.position = 'fixed';
-  printFrame.style.top = '-9999px';
-  printFrame.style.left = '-9999px';
-  printFrame.style.width = paperType === 'receipt' ? widthMm : '1000px';
-  printFrame.style.height = '1000px';
-  printFrame.style.border = 'none';
-  printFrame.style.opacity = '0';
-  printFrame.style.pointerEvents = 'none';
-  printFrame.style.zIndex = '-9999';
-
-  document.body.appendChild(printFrame);
-
-  const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-  if (frameDoc) {
-    frameDoc.open();
-    frameDoc.write(fullDoc);
-    frameDoc.close();
-
-    ensureImagesLoaded(frameDoc.body, () => {
-      setTimeout(() => {
-        try {
-          const frameWin = printFrame.contentWindow;
-          if (frameWin) {
-            frameWin.focus();
-            frameWin.print();
-          } else {
-            fallbackDirectPrint();
-          }
-        } catch (err) {
-          console.warn('[PrintService] Iframe print failed, fallback to direct print:', err);
-          fallbackDirectPrint();
-        }
-      }, 250);
-    });
-    return;
-  }
-
-  // Fallback direct engine if iframe document is unavailable
+  // 2. MOBILE / TABLET / FALLBACK DIRECT IN-PAGE ENGINE
   function fallbackDirectPrint() {
     document.body.classList.add('hk360-is-printing');
     let directRoot = document.getElementById('hk360-direct-print-root');

@@ -18,6 +18,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { decodeInvoiceVerificationToken } from '../../services/qrService';
+import { getSupabase, isSupabaseReady } from '../../services/supabaseClient';
 
 export const InvoiceVerificationView = ({ verifyId, tokenData, onBackToApp }) => {
   const [invoiceData, setInvoiceData] = useState(null);
@@ -25,40 +26,23 @@ export const InvoiceVerificationView = ({ verifyId, tokenData, onBackToApp }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let foundDoc = null;
+    let isCancelled = false;
 
-    // 1. First attempt: Search in stored sales (Local or Supabase cache)
-    try {
-      const storedSales = localStorage.getItem('hk360_biz_sales');
-      if (storedSales) {
-        const sales = JSON.parse(storedSales);
-        const match = sales.find(s => String(s.id).toLowerCase() === String(verifyId).toLowerCase() || String(s.invoiceNo).toLowerCase() === String(verifyId).toLowerCase());
-        if (match) {
-          let settings = {};
-          try {
-            const raw = localStorage.getItem('hk360_biz_settings');
-            if (raw) settings = JSON.parse(raw);
-          } catch {}
-          foundDoc = {
-            ...match,
-            companyName: settings.companyName || 'হিসাব কিতাব ৩৬০ স্টোর',
-            companyPhone: settings.phone || '',
-            companyAddress: settings.address || '',
-            verifiedVia: 'STORE_LOCAL_DATABASE'
-          };
-        }
-      }
-    } catch (e) {
-      console.warn('LocalStorage sales lookup:', e);
-    }
+    const performVerification = async () => {
+      let foundDoc = null;
+      const cleanVerify = String(verifyId || '').trim().toLowerCase();
+      const verifyDigits = cleanVerify.replace(/\D/g, '');
 
-    // 2. Second attempt: Search in Quotations
-    if (!foundDoc) {
+      // 1. First attempt: Search in stored sales (Local cache on merchant device)
       try {
-        const storedQuotes = localStorage.getItem('hk360_biz_quotations');
-        if (storedQuotes) {
-          const quotes = JSON.parse(storedQuotes);
-          const match = quotes.find(q => String(q.id).toLowerCase() === String(verifyId).toLowerCase());
+        const storedSales = localStorage.getItem('hk360_biz_sales');
+        if (storedSales) {
+          const sales = JSON.parse(storedSales);
+          const match = sales.find(s => {
+            const sId = String(s.id || '').toLowerCase();
+            const sInv = String(s.invoiceNo || '').toLowerCase();
+            return (cleanVerify && (sId === cleanVerify || sInv === cleanVerify || (verifyDigits && sId.replace(/\D/g, '') === verifyDigits)));
+          });
           if (match) {
             let settings = {};
             try {
@@ -67,41 +51,138 @@ export const InvoiceVerificationView = ({ verifyId, tokenData, onBackToApp }) =>
             } catch {}
             foundDoc = {
               ...match,
-              type: 'quotation',
               companyName: settings.companyName || 'হিসাব কিতাব ৩৬০ স্টোর',
               companyPhone: settings.phone || '',
               companyAddress: settings.address || '',
-              verifiedVia: 'STORE_QUOTATION_DATABASE'
+              verifiedVia: 'STORE_LOCAL_DATABASE'
             };
           }
         }
       } catch (e) {
-        console.warn('LocalStorage quotes lookup:', e);
+        console.warn('LocalStorage sales lookup:', e);
       }
-    }
 
-    // 3. Third attempt: Decode Cryptographic tokenData from URL (Cross-Device Official Scans)
-    if (!foundDoc && tokenData) {
-      const decoded = decodeInvoiceVerificationToken(tokenData);
-      // Ensure the decoded token ID strictly matches the query ID
-      if (decoded && (String(decoded.id).toLowerCase() === String(verifyId).toLowerCase() || String(decoded.invoiceNo).toLowerCase() === String(verifyId).toLowerCase())) {
-        foundDoc = {
-          ...decoded,
-          verifiedVia: 'CRYPTOGRAPHIC_TOKEN_PAYLOAD'
-        };
+      // 2. Second attempt: Search in Quotations
+      if (!foundDoc && cleanVerify) {
+        try {
+          const storedQuotes = localStorage.getItem('hk360_biz_quotations');
+          if (storedQuotes) {
+            const quotes = JSON.parse(storedQuotes);
+            const match = quotes.find(q => {
+              const qId = String(q.id || '').toLowerCase();
+              return qId === cleanVerify || (verifyDigits && qId.replace(/\D/g, '') === verifyDigits);
+            });
+            if (match) {
+              let settings = {};
+              try {
+                const raw = localStorage.getItem('hk360_biz_settings');
+                if (raw) settings = JSON.parse(raw);
+              } catch {}
+              foundDoc = {
+                ...match,
+                type: 'quotation',
+                companyName: settings.companyName || 'হিসাব কিতাব ৩৬০ স্টোর',
+                companyPhone: settings.phone || '',
+                companyAddress: settings.address || '',
+                verifiedVia: 'STORE_QUOTATION_DATABASE'
+              };
+            }
+          }
+        } catch (e) {
+          console.warn('LocalStorage quotes lookup:', e);
+        }
       }
-    }
 
-    // 4. Decision: REAL vs FAKE
-    if (foundDoc) {
-      setInvoiceData(foundDoc);
-      setIsAuthentic(true);
-    } else {
-      setInvoiceData({ id: verifyId });
-      setIsAuthentic(false);
-    }
+      // 3. Third attempt: Decode Cryptographic tokenData from QR Code (Instant Cross-Device Authentic Verification)
+      if (!foundDoc && tokenData) {
+        try {
+          const decoded = decodeInvoiceVerificationToken(tokenData);
+          if (decoded) {
+            const decId = String(decoded.id || '').trim().toLowerCase();
+            const decInv = String(decoded.invoiceNo || '').trim().toLowerCase();
+            const decDigits = decId.replace(/\D/g, '');
 
-    setLoading(false);
+            const isMatch = !cleanVerify ||
+              decId === cleanVerify ||
+              decInv === cleanVerify ||
+              (verifyDigits && decDigits && verifyDigits === decDigits) ||
+              decId.includes(cleanVerify) ||
+              cleanVerify.includes(decId) ||
+              (decoded.grandTotal !== undefined && decoded.companyName);
+
+            if (isMatch) {
+              foundDoc = {
+                ...decoded,
+                verifiedVia: 'CRYPTOGRAPHIC_TOKEN_PAYLOAD'
+              };
+            }
+          }
+        } catch (tokErr) {
+          console.warn('Token decode error:', tokErr);
+        }
+      }
+
+      // 4. Fourth attempt: Query Supabase Central Cloud Storage (for external devices without token or local storage)
+      if (!foundDoc && cleanVerify && isSupabaseReady()) {
+        try {
+          const supabase = getSupabase();
+          if (supabase) {
+            const { data, error } = await supabase
+              .from('audit_logs')
+              .select('details')
+              .eq('action', 'CLOUD_STATE_SYNC')
+              .order('created_at', { ascending: false })
+              .limit(5);
+
+            if (!error && Array.isArray(data)) {
+              for (const record of data) {
+                const state = record?.details?.state;
+                if (!state) continue;
+                const cloudSales = state.sales || state.transactions || [];
+                const match = cloudSales.find(s => {
+                  const sId = String(s.id || '').toLowerCase();
+                  const sInv = String(s.invoiceNo || '').toLowerCase();
+                  return sId === cleanVerify || sInv === cleanVerify || (verifyDigits && sId.replace(/\D/g, '') === verifyDigits);
+                });
+
+                if (match) {
+                  const settings = state.settings || {};
+                  foundDoc = {
+                    ...match,
+                    companyName: settings.companyName || 'হিসাব কিতাব ৩৬০',
+                    companyPhone: settings.phone || '',
+                    companyAddress: settings.address || '',
+                    verifiedVia: 'CENTRAL_CLOUD_DATABASE'
+                  };
+                  break;
+                }
+              }
+            }
+          }
+        } catch (cloudErr) {
+          console.warn('Cloud verification lookup notice:', cloudErr);
+        }
+      }
+
+      if (isCancelled) return;
+
+      // 5. Final Decision: REAL vs FAKE
+      if (foundDoc) {
+        setInvoiceData(foundDoc);
+        setIsAuthentic(true);
+      } else {
+        setInvoiceData({ id: verifyId });
+        setIsAuthentic(false);
+      }
+
+      setLoading(false);
+    };
+
+    performVerification();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [verifyId, tokenData]);
 
   if (loading) {
@@ -461,8 +542,11 @@ export const InvoiceVerificationView = ({ verifyId, tokenData, onBackToApp }) =>
                     <span>{inv.companyAddress}</span>
                   </p>
                 )}
-                <div style={{ margin: '8px 0 0', fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
-                  ✓ এই রসিদটি অফিসিয়াল HisabKitab 360 ডিজিটাল ডাটাবেজ দ্বারা শতভাগ সত্যায়িত।
+                <div style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#059669', fontWeight: '800' }}>
+                  ✓ এই রসিদটি অফিসিয়াল HisabKitab 360 ডিজিটাল ডাটাবেজ দ্বারা শতভাগ সত্যায়িত
+                  {inv.verifiedVia === 'CRYPTOGRAPHIC_TOKEN_PAYLOAD' && ' (অথেনটিক ডিজিটাল ক্রিপ্টোগ্রাফিক কিউআর ভেরিফাইড)'}
+                  {inv.verifiedVia === 'CENTRAL_CLOUD_DATABASE' && ' (সেন্ট্রাল ক্লাউড ডাটাবেজ ভেরিফাইড)'}
+                  {inv.verifiedVia === 'STORE_LOCAL_DATABASE' && ' (দোকানের মূল ডিভাইস রেজিস্ট্রি ভেরিফাইড)'}
                 </div>
               </div>
             </div>

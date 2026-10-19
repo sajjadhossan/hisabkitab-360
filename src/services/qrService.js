@@ -69,6 +69,42 @@ export const generateInvoiceQrPayload = (invoice, businessSettings) => {
   ].filter(Boolean).join('\n');
 };
 
+// Reliable UTF-8 to Base64 (supporting Bengali text, numbers, symbols)
+export const safeUtf8ToBase64 = (str) => {
+  try {
+    const bytes = new TextEncoder().encode(str);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  } catch {
+    try {
+      return btoa(unescape(encodeURIComponent(str)));
+    } catch {
+      return '';
+    }
+  }
+};
+
+// Reliable Base64 to UTF-8
+export const safeBase64ToUtf8 = (base64) => {
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch {
+    try {
+      return decodeURIComponent(escape(atob(base64)));
+    } catch {
+      return null;
+    }
+  }
+};
+
 /**
  * Builds a portable verification URL with compact encoded invoice payload
  * so that any smartphone scanning the QR code can display the official invoice details
@@ -87,22 +123,21 @@ export const createInvoiceVerificationUrl = (invoice, businessSettings) => {
 
   const payload = {
     id: invoice.id || invoice.bill_no,
-    date: invoice.date || invoice.created_at || new Date().toISOString().split('T')[0],
-    customerName: invoice.customerName || invoice.patient || 'সম্মানিত গ্রাহক',
-    customerPhone: invoice.customerPhone || invoice.phone || '',
-    grandTotal,
-    paidAmount: paid,
-    dueAmount: due,
-    status: invoice.status || (due === 0 ? 'paid' : 'due'),
-    paymentMethod: invoice.paymentMethod || invoice.payment_method || 'নগদ',
-    companyName: businessSettings?.companyName || 'হিসাব কিতাব ৩৬০',
-    companyPhone: businessSettings?.phone || '',
-    companyAddress: businessSettings?.address || '',
-    items: (invoice.items || []).map(item => ({
-      name: item.name,
-      qty: item.qty || 1,
-      price: item.price || item.rate || 0,
-      subtotal: item.subtotal || ((item.qty || 1) * (item.price || item.rate || 0))
+    dt: invoice.date || invoice.created_at || new Date().toISOString().split('T')[0],
+    c: invoice.customerName || invoice.patient || 'সম্মানিত গ্রাহক',
+    p: invoice.customerPhone || invoice.phone || '',
+    gt: grandTotal,
+    pd: paid,
+    du: due,
+    st: invoice.status || (due === 0 ? 'paid' : 'due'),
+    pm: invoice.paymentMethod || invoice.payment_method || 'নগদ',
+    co: businessSettings?.companyName || 'হিসাব কিতাব ৩৬০',
+    ph: businessSettings?.phone || '',
+    ad: businessSettings?.address || '',
+    items: (invoice.items || []).slice(0, 10).map(item => ({
+      n: item.name,
+      q: item.qty || 1,
+      p: item.price || item.rate || 0
     }))
   };
 
@@ -120,8 +155,7 @@ export const createInvoiceVerificationUrl = (invoice, businessSettings) => {
 
   try {
     const jsonStr = JSON.stringify(payload);
-    // Safe utf8 base64 encoding
-    const token = encodeURIComponent(btoa(unescape(encodeURIComponent(jsonStr))));
+    const token = encodeURIComponent(safeUtf8ToBase64(jsonStr));
     const docId = encodeURIComponent(invoice.id || invoice.bill_no);
     return `${baseUrl}?verify=${docId}&data=${token}`;
   } catch {
@@ -136,8 +170,38 @@ export const createInvoiceVerificationUrl = (invoice, businessSettings) => {
 export const decodeInvoiceVerificationToken = (token) => {
   if (!token) return null;
   try {
-    const jsonStr = decodeURIComponent(escape(atob(decodeURIComponent(token))));
-    return JSON.parse(jsonStr);
+    let decodedStr = safeBase64ToUtf8(token);
+    if (!decodedStr) {
+      decodedStr = safeBase64ToUtf8(decodeURIComponent(token));
+    }
+    if (!decodedStr) {
+      try {
+        decodedStr = decodeURIComponent(escape(atob(decodeURIComponent(token))));
+      } catch (_) {}
+    }
+    if (!decodedStr) return null;
+
+    const data = JSON.parse(decodedStr);
+    return {
+      id: data.id || data.bill_no,
+      date: data.date || data.dt || new Date().toISOString().split('T')[0],
+      customerName: data.customerName || data.c || 'সম্মানিত গ্রাহক',
+      customerPhone: data.customerPhone || data.p || '',
+      grandTotal: Number(data.grandTotal !== undefined ? data.grandTotal : (data.gt !== undefined ? data.gt : 0)),
+      paidAmount: Number(data.paidAmount !== undefined ? data.paidAmount : (data.pd !== undefined ? data.pd : 0)),
+      dueAmount: Number(data.dueAmount !== undefined ? data.dueAmount : (data.du !== undefined ? data.du : 0)),
+      status: data.status || data.st || 'paid',
+      paymentMethod: data.paymentMethod || data.pm || 'নগদ',
+      companyName: data.companyName || data.co || 'হিসাব কিতাব ৩৬০',
+      companyPhone: data.companyPhone || data.ph || '',
+      companyAddress: data.companyAddress || data.ad || '',
+      items: (data.items || []).map(it => ({
+        name: it.name || it.n,
+        qty: it.qty || it.q || 1,
+        price: it.price || it.p || 0,
+        subtotal: (it.qty || it.q || 1) * (it.price || it.p || 0)
+      }))
+    };
   } catch (err) {
     console.warn('Could not decode invoice token:', err);
     return null;
