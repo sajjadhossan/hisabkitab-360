@@ -23,6 +23,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
+import { geotagTransaction } from '../../services/fieldGpsTrackerService';
 
 export const SRDeliveryHub = ({ onSwitchToSalesman = null }) => {
   const { lang, showToast, products, setProducts, salesHistory = [], setSalesHistory } = useApp();
@@ -83,8 +84,8 @@ export const SRDeliveryHub = ({ onSwitchToSalesman = null }) => {
     setReceivedAmount(String(order.totalAmount || 0));
   };
 
-  // Complete delivery: deduct inventory, record sale, update order
-  const handleConfirmDelivery = () => {
+  // Complete delivery: deduct inventory, record sale, update order with real-time GPS verification
+  const handleConfirmDelivery = async () => {
     if (!selectedOrderForDelivery) return;
 
     const order = selectedOrderForDelivery;
@@ -108,6 +109,12 @@ export const SRDeliveryHub = ({ onSwitchToSalesman = null }) => {
       );
     }
 
+    // Geotag delivery event
+    const geotaggedInfo = await geotagTransaction({
+      deliveredAt: new Date().toISOString(),
+      deliveredBy: user?.name || user?.email || (lang === 'bn' ? 'এসআর ডেলিভারিম্যান' : 'Delivery SR')
+    }, order.customer);
+
     // 2. Record in sales history
     const completedSale = {
       id: order.id,
@@ -120,7 +127,8 @@ export const SRDeliveryHub = ({ onSwitchToSalesman = null }) => {
       items: order.items,
       deliveredBy: user?.name || user?.email || (lang === 'bn' ? 'এসআর ডেলিভারিম্যান' : 'Delivery SR'),
       salesman: order.salesman?.name || '',
-      status: 'completed'
+      status: 'completed',
+      geotag: geotaggedInfo.geotag || null
     };
 
     if (setSalesHistory) {
@@ -136,7 +144,8 @@ export const SRDeliveryHub = ({ onSwitchToSalesman = null }) => {
             deliveredAt: new Date().toISOString(),
             deliveredBy: user?.name || 'SR',
             paidAmount: paid,
-            paymentMethod
+            paymentMethod,
+            geotag: geotaggedInfo.geotag || null
           }
         : o
     );

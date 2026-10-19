@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { geotagTransaction } from '../../services/fieldGpsTrackerService';
 import {
   Users,
   MapPin,
@@ -64,8 +65,8 @@ export const SRFieldManager = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Handle Due Collection
-  const handleCollectDue = (e) => {
+  // Handle Due Collection with Real-Time GPS Geotagging
+  const handleCollectDue = async (e) => {
     e.preventDefault();
     if (!selectedCustomer || !collectionAmount) return;
 
@@ -74,7 +75,7 @@ export const SRFieldManager = () => {
 
     collectDue(selectedCustomer.id, amount);
 
-    const receipt = {
+    const baseReceipt = {
       id: `SR-REC-${Date.now()}`,
       srName: user?.name || 'এসআর (ফিল্ড অফিসার)',
       customerName: selectedCustomer.name,
@@ -87,6 +88,8 @@ export const SRFieldManager = () => {
       previousDue: selectedCustomer.outstandingDue,
       remainingDue: Math.max(0, selectedCustomer.outstandingDue - amount)
     };
+
+    const receipt = await geotagTransaction(baseReceipt, selectedCustomer);
 
     setLastReceipt(receipt);
     setCollectionAmount('');
@@ -109,11 +112,11 @@ export const SRFieldManager = () => {
     }
   };
 
-  // Submit Field Order
-  const handleSubmitFieldOrder = () => {
+  // Submit Field Order with GPS Geotagging
+  const handleSubmitFieldOrder = async () => {
     if (!selectedCustomer || orderItems.length === 0) return;
 
-    createFieldOrder({
+    const baseOrder = {
       employeeId: user?.id || 'sr-1',
       employeeName: user?.name || 'এসআর (ফিল্ড অফিসার)',
       employeeRole: 'এসআর / ফিল্ড অফিসার',
@@ -129,7 +132,10 @@ export const SRFieldManager = () => {
         subtotal: i.subtotal
       })),
       deliveryNote: 'ফিল্ডে অর্ডার কাটা হয়েছে'
-    });
+    };
+
+    const enrichedOrder = await geotagTransaction(baseOrder, selectedCustomer);
+    createFieldOrder(enrichedOrder);
 
     setOrderItems([]);
     setActiveTab('delivery_status');
@@ -203,7 +209,30 @@ export const SRFieldManager = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__openFieldForceRadar) window.__openFieldForceRadar();
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '5px 12px',
+              borderRadius: '20px',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              background: 'rgba(16, 185, 129, 0.14)',
+              color: '#10b981',
+              fontSize: '0.78rem',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+            title={lang === 'bn' ? 'লাইভ ফিল্ড জিপিএস রাডার দেখুন' : 'View Live GPS Radar'}
+          >
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981', animation: 'pulse 1.5s infinite' }}></span>
+            <span>{lang === 'bn' ? '📍 জিপিএস রাডার' : 'GPS Radar'}</span>
+          </button>
           <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', fontWeight: '700' }}>
             👤 এসআর: {user?.name || 'অফিসার'}
           </span>

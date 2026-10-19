@@ -124,6 +124,9 @@ const OfflineCloudResilienceHubModal = lazyNamed(() => import('./components/offl
 // Phase 10 Hardware Connectivity, Printing Engine & Business Scaling Hub
 const HardwareScalingHubModal = lazyNamed(() => import('./components/hardware/HardwareScalingHubModal'), 'HardwareScalingHubModal');
 
+// Field Force Live GPS Radar & Agent Tracking Modal
+const FieldForceRadarModal = lazyNamed(() => import('./components/business/FieldForceRadarModal'), 'FieldForceRadarModal');
+
 import { AutoUpdateToast } from './components/common/AutoUpdateToast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { DynamicBreadcrumbs } from './components/common/DynamicBreadcrumbs';
@@ -131,6 +134,7 @@ import { CommandPaletteModal } from './components/common/CommandPaletteModal';
 import { UndoNotificationToast } from './components/common/UndoNotificationToast';
 import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
 import { initInactivityWatchdog } from './services/inactivityWatchdogService';
+import { startStaffGpsTracker, stopStaffGpsTracker } from './services/fieldGpsTrackerService';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -215,6 +219,21 @@ const AppContent = () => {
   // Phase 10 Hardware Connectivity & Scaling Modal State
   const [showHardwareScalingModal, setShowHardwareScalingModal] = useState(false);
 
+  // Field Force Live GPS Radar Modal State
+  const [showFieldForceRadarModal, setShowFieldForceRadarModal] = useState(false);
+
+  // Automatic Smart Pulse GPS Tracking for Field Agents
+  React.useEffect(() => {
+    if (user) {
+      startStaffGpsTracker(user);
+    } else {
+      stopStaffGpsTracker();
+    }
+    return () => {
+      stopStaffGpsTracker();
+    };
+  }, [user]);
+
   React.useEffect(() => {
     telemetryService.init();
     pwaSyncManager.register();
@@ -223,6 +242,7 @@ const AppContent = () => {
     window.__openRbacSecurity = () => setShowRbacModal(true);
     window.__openBlindShiftHandover = () => setShowBlindShiftModal(true);
     window.__openAntiTheftAudit = () => setShowAntiTheftModal(true);
+    window.__openFieldForceRadar = () => setShowFieldForceRadarModal(true);
 
     // Phase 7 Window Triggers
     window.__openFinancialIntelligence = () => setShowFinancialIntelligenceModal(true);
@@ -252,6 +272,7 @@ const AppContent = () => {
       delete window.__openRbacSecurity;
       delete window.__openBlindShiftHandover;
       delete window.__openAntiTheftAudit;
+      delete window.__openFieldForceRadar;
       delete window.__openFinancialIntelligence;
       delete window.__openBankMfsReconciliation;
       delete window.__openClvIntelligence;
@@ -1312,6 +1333,15 @@ const AppContent = () => {
           <HardwareScalingHubModal
             isOpen={showHardwareScalingModal}
             onClose={() => setShowHardwareScalingModal(false)}
+            lang={lang}
+          />
+        )}
+
+        {/* Field Force Live GPS Radar & Staff Monitoring Hub Modal */}
+        {showFieldForceRadarModal && (
+          <FieldForceRadarModal
+            isOpen={showFieldForceRadarModal}
+            onClose={() => setShowFieldForceRadarModal(false)}
             lang={lang}
           />
         )}

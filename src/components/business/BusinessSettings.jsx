@@ -366,6 +366,30 @@ export const BusinessSettings = () => {
           <button
             type="button"
             onClick={() => {
+              if (window.__openFieldForceRadar) window.__openFieldForceRadar();
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#059669',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title={lang === 'bn' ? 'সেলসম্যান ও ফিল্ড কর্মীদের লাইভ লোকেশন ম্যাপ' : 'Field Force Live GPS Radar'}
+          >
+            <MapPin size={14} />
+            <span>{lang === 'bn' ? 'ফিল্ড জিপিএস রাডার' : 'Field Radar'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
               if (window.__openBlindShiftHandover) window.__openBlindShiftHandover();
             }}
             style={{

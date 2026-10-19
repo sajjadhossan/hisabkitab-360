@@ -291,6 +291,24 @@ export const HRPayroll = () => {
             <span>{lang === 'bn' ? '📷 কিউআর হাজিরা টার্মিনাল' : 'QR Attendance Terminal'}</span>
           </button>
 
+          <button
+            type="button"
+            className="btn btn-secondary press-scale"
+            style={{
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              color: '#0284c7',
+              fontWeight: '800',
+              background: 'rgba(56, 189, 248, 0.08)'
+            }}
+            onClick={() => {
+              if (window.__openFieldForceRadar) window.__openFieldForceRadar();
+            }}
+            title={lang === 'bn' ? 'সেলসম্যান ও ফিল্ড কর্মীদের লাইভ লোকেশন ম্যাপ' : 'Field Force Live GPS Radar'}
+          >
+            <MapPin size={16} />
+            <span>{lang === 'bn' ? '📍 লাইভ জিপিএস রাডার' : 'Live GPS Radar'}</span>
+          </button>
+
           {activeSubTab === 'delivery' ? (
             <button
               className="btn btn-primary"
