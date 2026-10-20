@@ -219,6 +219,9 @@ export const TenantFeatureSwitchboardModal = ({
     } else if (presetId === 'preset_electronics_mobile') {
       const list = MASTER_INDUSTRY_TEMPLATES.filter(t => t.sectorId === 'electronics_mobile').map(t => t.id);
       setAllowedTemplates(list);
+    } else if (presetId === 'preset_samity_association') {
+      const list = MASTER_INDUSTRY_TEMPLATES.filter(t => t.sectorId === 'samity_club_ngo').map(t => t.id);
+      setAllowedTemplates(list);
     }
   };
 

@@ -13,6 +13,7 @@ export const DynamicBreadcrumbs = () => {
     quotations: { bn: 'কোটেশন খাতা', en: 'Quotations', icon: FileText },
     crm: { bn: 'গ্রাহক ও সাপ্লায়ার', en: 'CRM & Contacts', icon: Users },
     healthcare: { bn: 'হাসপাতাল ও ফার্মাসি হাব', en: 'Healthcare Hub', icon: HeartPulse },
+    samity: { bn: 'সমিতি ও সমবায় ব্যবস্থাপনা হাব', en: 'Samity & Association Hub', icon: Users },
     reports: { bn: 'অ্যানালিটিক্স ও রিপোর্ট', en: 'Periodic Reports', icon: LayoutGrid },
     settings: { bn: 'সিস্টেম সেটিংস', en: 'Settings', icon: Settings },
     daily_expenses: { bn: 'দৈনিক খরচের খাতা', en: 'Daily Expenses', icon: HandCoins },

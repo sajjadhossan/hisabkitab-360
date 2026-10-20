@@ -84,6 +84,7 @@ const BusinessPeriodicReportHub = lazyNamed(() => import('./components/business/
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
 import { CattleFarmHubView } from './components/pos/modals/CattleFarmModal';
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
+const SamityManagementHub = lazyNamed(() => import('./components/samity/SamityManagementHub'), 'SamityManagementHub');
 
 // On-Demand Modals & Widgets (Code-split to keep initial bundle ultra-lightweight)
 const AuthModal = lazyNamed(() => import('./components/auth/AuthModal'), 'AuthModal');
@@ -1071,6 +1072,8 @@ const AppContent = () => {
           return <CattleFarmHubView onClose={() => setActiveTab('pos')} />;
         case 'healthcare':
           return <HealthcareHub />;
+        case 'samity':
+          return <SamityManagementHub onClose={() => setActiveTab('dashboard')} />;
         case 'master_hub':
           return <MasterHub onNavigateToPos={() => setActiveTab('pos')} onNavigateToInventory={() => setActiveTab('inventory')} />;
         case 'reports':

@@ -617,6 +617,12 @@ export const Navbar = () => {
       ]
     },
     {
+      title: lang === 'bn' ? '🤝 সমিতি, সমবায় ও ক্লাব ব্যবস্থাপনা' : '🤝 Samity, Club & Association',
+      items: [
+        { id: 'samity', label: lang === 'bn' ? 'সমিতি ইআরপি হাব' : 'Samity & Association ERP', desc: lang === 'bn' ? 'সদস্য চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার' : 'Member, Dues, Bank Deposit, Multi-Channel Reminders & Letterhead', icon: Users, color: '#14b8a6', badge: 'NEW' }
+      ]
+    },
+    {
       title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টুলস' : '⚙️ System & Backup',
       items: [
         ...(isOwner || isSuperAdmin ? [{
@@ -713,6 +719,7 @@ export const Navbar = () => {
         // 1. System module activation check
         let modOk = true;
         if (item.id === 'healthcare') modOk = isModEnabled('healthcare');
+        else if (item.id === 'samity') modOk = isModEnabled('samity');
         else if (item.id === 'branch_control') modOk = isModEnabled('branch_control');
         else if (item.id === 'cattle') modOk = true;
         else if (!item.isAction && !item.isTool) modOk = isModEnabled(item.id);

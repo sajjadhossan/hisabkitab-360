@@ -385,6 +385,16 @@ export const MASTER_FEATURE_REGISTRY = [
     badge: 'ইআরপি',
     navKeys: ['erp'],
     defaultOn: false
+  },
+  {
+    id: 'samity',
+    categoryId: 'enterprise_automation',
+    name: 'সমিতি, সমবায় সংস্থা ও ক্লাব ইআরপি হাব',
+    enName: 'Samity, Club & Association ERP Hub',
+    description: 'সদস্য ব্যবস্থাপনা, মাসিক চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার',
+    badge: 'সমিতি ইআরপি',
+    navKeys: ['samity'],
+    defaultOn: true
   }
 ];
 
@@ -479,6 +489,15 @@ export const resolveFeaturesForIndustryTemplate = (templateId = '') => {
     baseMap.pos_barcode = true;
     baseMap.kot_kitchen = false;
   }
+  // If Samity / Club / Association
+  else if (tid.includes('samity') || tid.includes('club') || tid.includes('association') || tid.includes('ngo')) {
+    baseMap.samity = true;
+    baseMap.debts = true;
+    baseMap.bank_accounts = true;
+    baseMap.daily_expense = true;
+    baseMap.kot_kitchen = false;
+    baseMap.table_management = false;
+  }
 
   return baseMap;
 };
@@ -554,6 +573,13 @@ export const TEMPLATE_QUICK_PRESETS = [
     badge: 'টেক প্যাক',
     color: '#3b82f6',
     description: 'স্মার্টফোন শপ, কম্পিউটার/ল্যাপটপ, হোম অ্যাপ্লায়েন্স ও সার্ভিস'
+  },
+  {
+    id: 'preset_samity_association',
+    name: '🤝 সমিতি, সমবায় সংস্থা ও ক্লাব',
+    badge: 'সমিতি প্যাক',
+    color: '#14b8a6',
+    description: 'সদস্য চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার'
   }
 ];
 

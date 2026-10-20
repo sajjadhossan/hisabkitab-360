@@ -63,7 +63,8 @@ export const MENU_CATEGORIES = [
     enTitle: 'Specialized Verticals',
     items: [
       { id: 'cattle', name: 'গরুর খামার ও ডেইরি হাব', desc: 'পশুর পাল, খাবার ও দুধের হিসাব', category: 'verticals' },
-      { id: 'healthcare', name: 'হেলথকেয়ার ও ফার্মা হাব', desc: 'প্রেসক্রিপশন, রোগী ও ক্লিনিক্যাল রিপোর্ট', category: 'verticals' }
+      { id: 'healthcare', name: 'হেলথকেয়ার ও ফার্মা হাব', desc: 'প্রেসক্রিপশন, রোগী ও ক্লিনিক্যাল রিপোর্ট', category: 'verticals' },
+      { id: 'samity', name: 'সমিতি ও সমবায় ব্যবস্থাপনা হাব', desc: 'সদস্য চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার', category: 'verticals' }
     ]
   },
   {
@@ -114,6 +115,7 @@ export const DEFAULT_STAFF_MENU_PERMISSIONS = {
     sr: false,
     cattle: false,
     healthcare: false,
+    samity: false,
     settings: false,
     tool_diagnostics: false,
     tool_backup: false,
@@ -146,6 +148,7 @@ export const DEFAULT_STAFF_MENU_PERMISSIONS = {
     sr: false,
     cattle: false,
     healthcare: false,
+    samity: false,
     settings: false,
     tool_diagnostics: false,
     tool_backup: false,
@@ -179,6 +182,7 @@ export const DEFAULT_STAFF_MENU_PERMISSIONS = {
     sr: false,
     cattle: false,
     healthcare: false,
+    samity: false,
     settings: false,
     tool_diagnostics: false,
     tool_backup: false,
@@ -209,6 +213,7 @@ export const DEFAULT_STAFF_MENU_PERMISSIONS = {
     sr: false,
     cattle: false,
     healthcare: false,
+    samity: false,
     settings: false,
     tool_diagnostics: false,
     tool_backup: false,

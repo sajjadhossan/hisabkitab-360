@@ -13,7 +13,8 @@ export const INDUSTRY_SECTORS = [
   { id: 'logistics_courier', name: 'কুরিয়ার, পার্সেল ও সিএন্ডএফ', enName: 'Courier, Logistics & Freight', icon: 'Truck', color: '#6366f1' },
   { id: 'services_lifestyle', name: 'সেলুন, পার্লার, লন্ড্রি ও সার্ভিস', enName: 'Services, Salon & Lifestyle', icon: 'Scissors', color: '#ec4899' },
   { id: 'agro_poultry', name: 'কৃষি, পোল্ট্রি, ডেইরি ও ফিশারিজ', enName: 'Agriculture, Poultry & Dairy', icon: 'Wheat', color: '#84cc16' },
-  { id: 'entertainment_events', name: 'সিনেমা, ইভেন্ট ও টিকেট বুকিং', enName: 'Cinema, Events & Entertainment', icon: 'Film', color: '#a855f7' }
+  { id: 'entertainment_events', name: 'সিনেমা, ইভেন্ট ও টিকেট বুকিং', enName: 'Cinema, Events & Entertainment', icon: 'Film', color: '#a855f7' },
+  { id: 'samity_club_ngo', name: 'সমিতি, সমবায় সংস্থা ও ক্লাব', enName: 'Samity, Club & Association', icon: 'Users', color: '#14b8a6' }
 ];
 
 export const MASTER_INDUSTRY_TEMPLATES = [
@@ -950,6 +951,44 @@ export const MASTER_INDUSTRY_TEMPLATES = [
       { name: 'উন্নত নেপিয়ার কাঁচা ঘাস (১ আঁটি)', category: 'কাঁচা ঘাস, খড় ও সাইলেজ', costPrice: 30, sellPrice: 50, unit: 'আঁটি', stock: 100 },
       { name: 'খামারের শুকনো গোবর সার (৪০ কেজি)', category: 'জৈব গোবর ও ভার্মিকম্পোস্ট সার', costPrice: 120, sellPrice: 280, unit: 'বস্তা', stock: 50 }
     ]
+  },
+  // ==========================================
+  // 13. SAMITY, CLUB & CO-OPERATIVE ASSOCIATION
+  // ==========================================
+  {
+    id: 'samity_management_hub',
+    sectorId: 'samity_club_ngo',
+    name: 'সমিতি সদস্য, ব্যাংক জমা, বকেয়া, মাল্টি-চ্যানেল রিমাইন্ডার, লেটারহেড ও স্বাক্ষর ব্যবস্থাপনা টেমপ্লেট',
+    enName: 'Samity Member, Bank Deposit, Due, Multi-Channel Reminder, Letterhead & Signature Management Template',
+    icon: 'Users',
+    uiMode: 'samity',
+    posViewMode: 'compact',
+    supportsPhotos: true,
+    units: ['জন', 'কিস্তি', 'শেয়ার', 'টাকা', 'মাস'],
+    features: [
+      'samity_multi_branch_setup',
+      'member_ledger_contacts',
+      'monthly_subscription_dues',
+      'bank_deposit_tracking',
+      'bulk_deposit_voucher',
+      'payment_status_dashboard',
+      'paid_receipt_generation',
+      'whatsapp_sms_telegram_reminders',
+      'samity_expenses_fund_balance',
+      'custom_letterhead_designer',
+      'digital_signatures_seals',
+      'document_generator_notices',
+      'approval_workflow_audit_logs'
+    ],
+    defaultCategories: [
+      'মাসিক সাধারণ সঞ্চয় ও চাঁদা',
+      'বিশেষ অনুদান ও কল্যাণ তহবিল',
+      'ভর্তি ফি ও শেয়ার মূলধন',
+      'ঋণ কিস্তি ও সার্ভিস চার্জ',
+      'বিলম্ব ফি ও জরিমানা',
+      'বিবিধ সমবায় জমা'
+    ],
+    sampleProducts: []
   }
 ];
 

@@ -145,6 +145,14 @@ export const CommandPaletteModal = () => {
         action: () => setActiveTab('healthcare')
       },
       {
+        id: 'nav_samity',
+        category: lang === 'bn' ? 'নেভিগেশন' : 'Navigation',
+        title: lang === 'bn' ? 'সমিতি ও সমবায় ব্যবস্থাপনা হাব' : 'Samity & Association Management',
+        subtitle: lang === 'bn' ? 'সদস্য চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার' : 'Member dues, bank deposits & multi-channel reminders',
+        icon: Users,
+        action: () => setActiveTab('samity')
+      },
+      {
         id: 'nav_settings',
         category: lang === 'bn' ? 'নেভিগেশন' : 'Navigation',
         title: lang === 'bn' ? 'সিস্টেম ও ব্যবসা সেটিংস' : 'System & Business Settings',
