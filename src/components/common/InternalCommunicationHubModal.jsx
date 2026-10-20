@@ -100,6 +100,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [zoomImage, setZoomImage] = useState(null);
   const [handoverAmount, setHandoverAmount] = useState('');
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(null);
 
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -342,17 +343,16 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
   };
 
   const handleDeleteMsg = async (msgId) => {
-    if (window.confirm(lang === 'bn' ? 'মেসেজটি সবার জন্য মুছে ফেলতে চান?' : 'Delete message for everyone?')) {
-      await deleteMessage(msgId, true);
-    }
+    await deleteMessage(msgId, true);
+    setDeleteConfirmModal(null);
+    if (showToast) showToast(lang === 'bn' ? 'মেসেজটি সবার জন্য মুছে ফেলা হয়েছে' : 'Message deleted', 'info');
   };
 
   const handlePurgeDeletedPlaceholder = (msgId) => {
-    if (window.confirm(lang === 'bn' ? 'মুছে ফেলা মেসেজের এই নোটিশটিও কি চ্যাট স্ক্রিন থেকে সম্পূর্ণ সরিয়ে ফেলতে চান?' : 'Permanently remove this deleted notice from chat?')) {
-      purgeMessagePermanently(msgId);
-      setMessages((prev) => prev.filter((m) => m.id !== msgId));
-      if (showToast) showToast(lang === 'bn' ? 'মেসেজ নোটিশ সম্পূর্ণ মুছে ফেলা হয়েছে' : 'Notice cleared', 'info');
-    }
+    purgeMessagePermanently(msgId);
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    setDeleteConfirmModal(null);
+    if (showToast) showToast(lang === 'bn' ? 'মেসেজ নোটিশ সম্পূর্ণ মুছে ফেলা হয়েছে' : 'Notice cleared', 'info');
   };
 
   const handleAcknowledgeNotice = (msgId) => {
@@ -1216,7 +1216,7 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                     return (
                       <div
                         key={m.id}
-                        onClick={() => handlePurgeDeletedPlaceholder(m.id)}
+                        onClick={() => setDeleteConfirmModal({ actionType: 'purge_placeholder', msgId: m.id })}
                         title={lang === 'bn' ? 'ট্যাপ করে এই মেসেজ নোটিশটি চিরতরে সরিয়ে ফেলুন' : 'Tap to permanently remove this notice'}
                         style={{
                           alignSelf: isMe ? 'flex-end' : 'flex-start',
@@ -1521,7 +1521,11 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                         {(isMe || isSuperAdmin || isOwner) && (
                           <button
                             type="button"
-                            onClick={() => handleDeleteMsg(m.id)}
+                            onClick={() => setDeleteConfirmModal({
+                              actionType: 'delete_message',
+                              msgId: m.id,
+                              previewText: m.text || (m.attachment ? (m.attachment.type === 'invoice' ? `ইনভয়েস #${m.attachment.invoiceNumber}` : m.attachment.name || 'সংযুক্ত ফাইল') : 'বার্তা')
+                            })}
                             title="মুছে ফেলুন"
                             style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '1px' }}
                           >
@@ -1958,6 +1962,155 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
             >
               ✕
             </button>
+          </div>
+        </div>
+      )}
+      {/* Custom Glassmorphic Message Deletion Modal */}
+      {deleteConfirmModal && (
+        <div
+          className="modal-overlay animate-fade-in"
+          style={{
+            zIndex: 1500,
+            background: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setDeleteConfirmModal(null)}
+        >
+          <div
+            className="glass-card animate-scale-up"
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              padding: '24px',
+              borderRadius: '20px',
+              border: '1.5px solid rgba(239, 68, 68, 0.35)',
+              background: 'linear-gradient(145deg, rgba(30, 20, 25, 0.96), rgba(15, 10, 15, 0.98))',
+              boxShadow: '0 20px 50px rgba(239, 68, 68, 0.25), 0 0 30px rgba(0, 0, 0, 0.8)',
+              color: 'var(--text-main)',
+              textAlign: 'center'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Glowing Icon */}
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '2px solid rgba(239, 68, 68, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+                boxShadow: '0 0 20px rgba(239, 68, 68, 0.35)'
+              }}
+            >
+              <Trash2 size={26} color="#ef4444" />
+            </div>
+
+            <h3 style={{ margin: '0 0 8px', fontSize: '1.15rem', fontWeight: '800', color: '#fff' }}>
+              {deleteConfirmModal.actionType === 'purge_placeholder'
+                ? (lang === 'bn' ? 'নোটিশটি চিরতরে সরাবেন?' : 'Purge Notice Permanently?')
+                : (lang === 'bn' ? 'বার্তাটি মুছে ফেলতে চান?' : 'Delete This Message?')}
+            </h3>
+
+            {/* Message preview snippet if available */}
+            {deleteConfirmModal.previewText && (
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  margin: '12px 0',
+                  fontSize: '0.82rem',
+                  color: 'var(--text-muted)',
+                  textAlign: 'left',
+                  maxHeight: '70px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  borderLeft: '3px solid #ef4444'
+                }}
+              >
+                <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', marginBottom: '2px' }}>
+                  {lang === 'bn' ? 'নির্বাচিত বার্তা:' : 'Selected Message:'}
+                </div>
+                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {deleteConfirmModal.previewText}
+                </div>
+              </div>
+            )}
+
+            <p style={{ margin: '0 0 20px', fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.5 }}>
+              {deleteConfirmModal.actionType === 'purge_placeholder'
+                ? (lang === 'bn'
+                    ? 'এই মোছা বার্তার নোটিশটি চ্যাট স্ক্রিন থেকে সম্পূর্ণভাবে চিরতরে পরিষ্কার করা হবে।'
+                    : 'This deleted message notice will be permanently cleared from chat screen.')
+                : (lang === 'bn'
+                    ? 'বার্তাটি সবার জন্য মুছে ফেলা হবে এবং সেখানে একটি মোছা নোটিশ প্রদর্শিত হবে।'
+                    : 'This message will be deleted for everyone across all devices.')}
+            </p>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmModal(null)}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-main)',
+                  fontWeight: '700',
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s'
+                }}
+              >
+                {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleteConfirmModal.actionType === 'purge_placeholder') {
+                    handlePurgeDeletedPlaceholder(deleteConfirmModal.msgId);
+                  } else {
+                    handleDeleteMsg(deleteConfirmModal.msgId);
+                  }
+                }}
+                style={{
+                  flex: 1.3,
+                  padding: '11px 16px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: '#ffffff',
+                  fontWeight: '800',
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 18px rgba(239, 68, 68, 0.45)'
+                }}
+              >
+                <Trash2 size={15} />
+                <span>
+                  {deleteConfirmModal.actionType === 'purge_placeholder'
+                    ? (lang === 'bn' ? 'চিরতরে মুছুন' : 'Purge Notice')
+                    : (lang === 'bn' ? 'সবার জন্য মুছুন' : 'Delete for Everyone')}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

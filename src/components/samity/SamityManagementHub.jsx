@@ -67,7 +67,7 @@ import { playButtonClick, playSuccessChime } from '../../services/soundFeedback'
 import { hapticFeedback } from '../../services/nativeAppService';
 
 export const SamityManagementHub = ({ onClose }) => {
-  const { lang = 'bn', showToast = () => {} } = useApp() || {};
+  const { lang = 'bn', showToast = () => {}, businessSettings } = useApp() || {};
 
   // Core Data State
   const [data, setData] = useState(() => loadSamityData());
@@ -636,7 +636,7 @@ export const SamityManagementHub = ({ onClose }) => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                {currentSamity.nameBn || 'সমিতি ও সমবায় ব্যবস্থাপনা হাব'}
+                {businessSettings?.companyName || currentSamity.nameBn || 'সমিতি ও সমবায় ব্যবস্থাপনা হাব'}
               </h1>
               <span
                 style={{
@@ -653,7 +653,7 @@ export const SamityManagementHub = ({ onClose }) => {
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>
-              {currentSamity.sloganBn || 'সদস্য, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার'}
+              {businessSettings?.tagline || currentSamity.sloganBn || 'সদস্য, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার'}
             </p>
           </div>
         </div>

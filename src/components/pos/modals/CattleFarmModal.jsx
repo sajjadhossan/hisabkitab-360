@@ -147,7 +147,7 @@ export const FARM_POS_CATALOG = [
 ];
 
 export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview', isPageMode = false }) => {
-  const { lang, showToast, addToCart, addExpense, setSalesHistory } = useApp();
+  const { lang, showToast, addToCart, addExpense, setSalesHistory, businessSettings } = useApp();
 
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
 
@@ -976,11 +976,11 @@ export const CattleFarmModal = ({ isOpen = true, onClose, initialTab = 'overview
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>ক্যাটেল ও ডেইরি ফার্মিং হাব</span>
+              <span>{businessSettings?.companyName || 'ক্যাটেল ও ডেইরি ফার্মিং হাব'}</span>
               <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>FARM 360</span>
             </h3>
             <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-              খামার-কেন্দ্রিক পিওএস, এআই ক্যামেরা ওজন স্ক্যানার, রঙিন কেপিআই খোপ এবং পূর্ণাঙ্গ খামার খতিয়ান
+              {businessSettings?.tagline || 'খামার-কেন্দ্রিক পিওএস, এআই ক্যামেরা ওজন স্ক্যানার, রঙিন কেপিআই খোপ এবং পূর্ণাঙ্গ খামার খতিয়ান'}
             </p>
           </div>
         </div>

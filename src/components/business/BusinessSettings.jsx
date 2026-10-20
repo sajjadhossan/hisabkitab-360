@@ -104,7 +104,8 @@ export const BusinessSettings = () => {
     disconnectDriveOAuth,
     getGoogleClientId,
     saveGoogleClientId,
-    switchDriveOAuth
+    switchDriveOAuth,
+    showToast
   } = useApp();
 
   const { user } = useAuth();
@@ -120,6 +121,7 @@ export const BusinessSettings = () => {
   const [isSoundboxActive, setIsSoundboxActive] = useState(() => isSoundboxEnabled());
   const [selectedSector, setSelectedSector] = useState('all');
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+  const [orgIdentitySaved, setOrgIdentitySaved] = useState(false);
 
   const handleSelectTemplate = (templateId) => {
     let mode = 'pos';
@@ -172,6 +174,40 @@ export const BusinessSettings = () => {
     };
     setFormState(updated);
     updateBusinessSettings(updated);
+  };
+
+  const handleSaveOrgIdentity = () => {
+    const updated = {
+      ...formState,
+      companyName: (formState.companyName || '').trim(),
+      tagline: (formState.tagline || '').trim(),
+      registrationNo: (formState.registrationNo || '').trim(),
+      taxNumber: (formState.registrationNo || formState.taxNumber || '').trim(),
+      address: (formState.address || '').trim(),
+      phone: (formState.phone || '').trim()
+    };
+    setFormState(updated);
+    updateBusinessSettings(updated);
+
+    // If samity mode, also sync to samity storage immediately
+    try {
+      const samityRaw = localStorage.getItem('hk360_samity_erp_data');
+      if (samityRaw) {
+        const samityData = JSON.parse(samityRaw);
+        if (samityData?.samities?.length > 0) {
+          if (updated.companyName) samityData.samities[0].nameBn = updated.companyName;
+          if (updated.registrationNo) samityData.samities[0].registrationNo = updated.registrationNo;
+          if (updated.address) samityData.samities[0].address = updated.address;
+          localStorage.setItem('hk360_samity_erp_data', JSON.stringify(samityData));
+        }
+      }
+    } catch {}
+
+    setOrgIdentitySaved(true);
+    if (showToast) {
+      showToast(lang === 'bn' ? 'প্রতিষ্ঠানের নাম ও পরিচিতি সফলভাবে সংরক্ষিত হয়েছে' : 'Organization identity saved', 'success');
+    }
+    setTimeout(() => setOrgIdentitySaved(false), 3500);
   };
 
   // Commercial / Reseller and Clean Slate setup states
@@ -909,12 +945,293 @@ export const BusinessSettings = () => {
               </div>
             </div>
 
-            {/* 1. Operating Mode Switcher (সমিতি বনাম পিওএস বনাম ইআরপি) */}
+            {/* 1. Custom Organization Name & Brand Identity Setup Card */}
+            <div
+              className="glass-card"
+              style={{
+                padding: '1.25rem',
+                borderRadius: '16px',
+                border: formState.primaryOperatingMode === 'samity' ? '1.5px solid rgba(20, 184, 166, 0.4)' :
+                        formState.primaryOperatingMode === 'healthcare' ? '1.5px solid rgba(13, 148, 136, 0.4)' :
+                        formState.primaryOperatingMode === 'cattle' ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1.5px solid rgba(99, 102, 241, 0.35)',
+                background: formState.primaryOperatingMode === 'samity' ? 'linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(15, 23, 42, 0.5))' :
+                            formState.primaryOperatingMode === 'healthcare' ? 'linear-gradient(145deg, rgba(13, 148, 136, 0.08), rgba(15, 23, 42, 0.5))' :
+                            formState.primaryOperatingMode === 'cattle' ? 'linear-gradient(145deg, rgba(16, 185, 129, 0.08), rgba(15, 23, 42, 0.5))' : 'linear-gradient(145deg, rgba(99, 102, 241, 0.06), rgba(15, 23, 42, 0.5))',
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {formState.primaryOperatingMode === 'samity' ? <Users size={18} style={{ color: '#14b8a6' }} /> :
+                     formState.primaryOperatingMode === 'healthcare' ? <Stethoscope size={18} style={{ color: '#0d9488' }} /> :
+                     formState.primaryOperatingMode === 'cattle' ? <Store size={18} style={{ color: '#10b981' }} /> : <Building2 size={18} style={{ color: '#6366f1' }} />}
+                    <span>
+                      {formState.primaryOperatingMode === 'samity' ? (lang === 'bn' ? '১. সমিতির নাম, সমবায় নিবন্ধন ও ব্র্যান্ডিং তথ্য' : '1. Samity Name & Registration Info') :
+                       formState.primaryOperatingMode === 'healthcare' ? (lang === 'bn' ? '১. স্বাস্থ্যসেবা / ফার্মেসির নাম ও ড্রাগ লাইসেন্স' : '1. Clinic & Pharmacy Name & Drug License') :
+                       formState.primaryOperatingMode === 'cattle' ? (lang === 'bn' ? '১. খামারের নাম, ব্র্যান্ডিং ও প্রাণিসম্পদ লাইসেন্স' : '1. Farm Name & Livestock License') :
+                       (lang === 'bn' ? '১. প্রতিষ্ঠানের নাম, ব্র্যান্ডিং ও লাইসেন্স পরিচিতি' : '1. Business Name & Brand Identity')}
+                    </span>
+                  </h4>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? 'সমিতির সঠিক নাম ও রেজিঃ নম্বর লিখুন। এটি সকল সদস্য ভাউচার, লেটারহেড ও ইনভয়েসে স্বয়ংক্রিয়ভাবে দেখাবে।' : 'Official samity name and cooperative registration number.')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? 'হাসপাতাল, ক্লিনিক বা ফার্মেসির নাম ও ড্রাগ লাইসেন্স লিখুন। এটি প্রেসক্রিপশন ও বিলিং রিসিটে প্রিন্ট হবে।' : 'Clinic/Pharmacy legal name and drug license number.')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? 'ডেইরি বা ক্যাটেল খামারের নাম ও তথ্য লিখুন। এটি খামার পোর্টাল ও বিক্রয় চালানে প্রিন্ট হবে।' : 'Cattle/dairy farm name and livestock permit number.')
+                      : (lang === 'bn' ? 'আপনার প্রতিষ্ঠানের বাণিজ্যিক নাম ও লাইসেন্স দিন। এটি পিওএস ইনভয়েস ও রিসিটে প্রিন্ট হবে।' : 'Company official name and licensing details.')}
+                  </p>
+                </div>
+
+                {/* Live Preview Pill */}
+                <div
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '0.74rem',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Eye size={12} style={{ color: 'var(--business-primary)' }} />
+                  <span>{lang === 'bn' ? 'বর্তমান নাম:' : 'Current Name:'}</span>
+                  <strong style={{ color: 'var(--text-main)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {formState.companyName || (lang === 'bn' ? 'নাম দেওয়া হয়নি' : 'Not set')}
+                  </strong>
+                </div>
+              </div>
+
+              {/* 2-Column Responsive Input Form */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                {/* Field 1: Name */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)' }}>
+                    {formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? '🏛️ সমিতির পূর্ণাঙ্গ নাম (Official Samity Name) *' : 'Samity Official Name *')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? '🏥 ক্লিনিক / ফার্মেসির নাম (Healthcare Name) *' : 'Clinic / Pharmacy Name *')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? '🌾 খামার / এগ্রো ফার্মের নাম (Dairy & Farm Name) *' : 'Farm Name *')
+                      : (lang === 'bn' ? '🏢 প্রতিষ্ঠানের বাণিজ্যিক নাম (Business Name) *' : 'Business Name *')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="input-field"
+                    placeholder={
+                      formState.primaryOperatingMode === 'samity'
+                        ? (lang === 'bn' ? 'যেমন: স্বপ্নপূরণ বহুমুখী সমবায় সমিতি লিঃ' : 'e.g. Swapnapuran Multipurpose Co-operative Ltd.')
+                        : formState.primaryOperatingMode === 'healthcare'
+                        ? (lang === 'bn' ? 'যেমন: নিরাময় হেলথকেয়ার ও মডেল ফার্মেসি' : 'e.g. Niramoy Healthcare & Pharmacy')
+                        : formState.primaryOperatingMode === 'cattle'
+                        ? (lang === 'bn' ? 'যেমন: আল-মদিনা ডেইরি ও ক্যাটেল ফার্ম' : 'e.g. Al-Madina Dairy & Cattle Farm')
+                        : (lang === 'bn' ? 'যেমন: মেসার্স রহিম ব্রাদার্স ট্রেডিং' : 'e.g. Rahim Brothers Trading')
+                    }
+                    value={formState.companyName || ''}
+                    onChange={(e) => setFormState({ ...formState, companyName: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1.5px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.9rem',
+                      fontWeight: '700'
+                    }}
+                  />
+                </div>
+
+                {/* Field 2: Registration / License No */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)' }}>
+                    {formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? '📜 সমবায় নিবন্ধন / রেজিঃ নং (Registration No)' : 'Cooperative Reg No')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? '💊 ড্রাগ লাইসেন্স / ডিজিএইচএস অনুমোদন নম্বর' : 'Drug License / DGHS Reg')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? '🐄 প্রাণিসম্পদ অধিদপ্তর খামার লাইসেন্স নম্বর' : 'Livestock Farm Permit No')
+                      : (lang === 'bn' ? '📜 ট্রেড লাইসেন্স / ভ্যাট-বিন নম্বর (Trade / BIN)' : 'Trade License / BIN')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={
+                      formState.primaryOperatingMode === 'samity'
+                        ? (lang === 'bn' ? 'যেমন: সমবায় রেজিঃ নং-৪৫২১/২০২৪' : 'e.g. REG-4521/2024')
+                        : formState.primaryOperatingMode === 'healthcare'
+                        ? (lang === 'bn' ? 'যেমন: ড্রাগ লাইসেন্স নং-ডিএল/৪৫৬৭/২৫' : 'e.g. DL-4567/2025')
+                        : formState.primaryOperatingMode === 'cattle'
+                        ? (lang === 'bn' ? 'যেমন: ডিএলএস-খামার-৮৮৯১/২৫' : 'e.g. DLS-FARM-8891/25')
+                        : (lang === 'bn' ? 'যেমন: ট্রেড লাইসেন্স নং-TR-89712' : 'e.g. TR-89712')
+                    }
+                    value={formState.registrationNo || formState.taxNumber || ''}
+                    onChange={(e) => setFormState({ ...formState, registrationNo: e.target.value, taxNumber: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.86rem'
+                    }}
+                  />
+                </div>
+
+                {/* Field 3: Tagline / Slogan */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)' }}>
+                    {formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? '🎯 সমিতির স্লোগান / মূলমন্ত্র (Tagline)' : 'Samity Motto / Tagline')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? '🎯 সেবার স্লোগান / বিশেষত্ব' : 'Service Motto / Slogan')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? '🎯 খামারের বিশেষত্ব / স্লোগান' : 'Farm Speciality / Tagline')
+                      : (lang === 'bn' ? '🎯 ব্যবসার স্লোগান / ট্যাগলাইন' : 'Business Tagline / Slogan')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={
+                      formState.primaryOperatingMode === 'samity'
+                        ? (lang === 'bn' ? 'যেমন: একতাই বল, সঞ্চয়েই সমৃদ্ধি ও আত্মনির্ভরতা' : 'e.g. Unity in Savings, Prosperity for All')
+                        : formState.primaryOperatingMode === 'healthcare'
+                        ? (lang === 'bn' ? 'যেমন: অভিজ্ঞ ডাক্তারের পরামর্শ ও নির্ভুল পরীক্ষা' : 'e.g. Professional Care, Trusted Health')
+                        : formState.primaryOperatingMode === 'cattle'
+                        ? (lang === 'bn' ? 'যেমন: শতভাগ খাঁটি দুধ ও মোটাতাজাকরণ ষাঁড়ের খামার' : 'e.g. 100% Pure Milk & Healthy Cattle')
+                        : (lang === 'bn' ? 'যেমন: পাইকারি ও খুচরা বিক্রয়ের নির্ভরযোগ্য প্রতিষ্ঠান' : 'e.g. Premium Quality, Best Price')
+                    }
+                    value={formState.tagline || ''}
+                    onChange={(e) => setFormState({ ...formState, tagline: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.86rem'
+                    }}
+                  />
+                </div>
+
+                {/* Field 4: Address / Location */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', marginBottom: '6px', color: 'var(--text-main)' }}>
+                    {formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? '📍 প্রধান কার্যালয়ের ঠিকানা (Office Address)' : 'Office Address')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? '📍 ক্লিনিক / ফার্মেসির ঠিকানা' : 'Clinic / Pharmacy Address')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? '📍 খামারের অবস্থান / ঠিকানা (Farm Location)' : 'Farm Location')
+                      : (lang === 'bn' ? '📍 দোকান / প্রতিষ্ঠানের ঠিকানা' : 'Business Address')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={
+                      formState.primaryOperatingMode === 'samity'
+                        ? (lang === 'bn' ? 'যেমন: বাড়ি #১২, রোড #০৫, ব্লক-সি, মিরপুর-১০, ঢাকা' : 'e.g. Road #5, Block C, Mirpur, Dhaka')
+                        : formState.primaryOperatingMode === 'healthcare'
+                        ? (lang === 'bn' ? 'যেমন: মেইন রোড, থানা মোড়, সদর হাসপাতাল সংলগ্ন' : 'e.g. Main Hospital Road')
+                        : formState.primaryOperatingMode === 'cattle'
+                        ? (lang === 'bn' ? 'যেমন: রামপুর, ডাকঘর: শ্রীপুর, গাজীপুর' : 'e.g. Sreepur, Gazipur')
+                        : (lang === 'bn' ? 'যেমন: দোকান নং-৪, নিউ মার্কেট, ঢাকা' : 'e.g. Shop #4, Market, Dhaka')
+                    }
+                    value={formState.address || ''}
+                    onChange={(e) => setFormState({ ...formState, address: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.86rem'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Bottom Action Strip with Save Button & Status */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  paddingTop: '0.75rem',
+                  borderTop: '1px solid var(--border-color)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {orgIdentitySaved ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        border: '1px solid rgba(16, 185, 129, 0.35)',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: '800'
+                      }}
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>{lang === 'bn' ? '✓ প্রতিষ্ঠানের নাম ও তথ্য সফলভাবে সংরক্ষিত ও সিঙ্কড হয়েছে!' : '✓ Organization details saved & synced!'}</span>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {lang === 'bn'
+                        ? '💡 নাম পরিবর্তন করলে তা অবিলম্বে অ্যাপের হেডার, ইনভয়েস ও রিসিটে আপডেট হয়ে যাবে।'
+                        : '💡 Name changes update headers and receipts immediately.'}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveOrgIdentity}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: formState.primaryOperatingMode === 'samity' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' :
+                                formState.primaryOperatingMode === 'healthcare' ? 'linear-gradient(135deg, #0d9488, #0f766e)' :
+                                formState.primaryOperatingMode === 'cattle' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Save size={15} />
+                  <span>{lang === 'bn' ? '✓ নাম ও তথ্য সংরক্ষণ করুন' : '✓ Save Details'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Operating Mode Switcher (সমিতি বনাম পিওএস বনাম ইআরপি) */}
             <div className="glass-card" style={{ padding: '1.25rem', borderRadius: '16px' }}>
               <div style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
                 <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Sliders size={18} style={{ color: 'var(--business-primary)' }} />
-                  <span>{lang === 'bn' ? '১. প্রতিষ্ঠানের প্রধান কার্যপদ্ধতি (Primary Operating Mode)' : '1. Primary Operating Mode'}</span>
+                  <span>{lang === 'bn' ? '২. প্রতিষ্ঠানের প্রধান কার্যপদ্ধতি (Primary Operating Mode)' : '2. Primary Operating Mode'}</span>
                 </h4>
                 <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                   {lang === 'bn'
@@ -1345,22 +1662,55 @@ export const BusinessSettings = () => {
               </h3>
 
               <div className="form-group">
-                <label>{lang === 'bn' ? 'কোম্পানি / দোকানের নাম *' : 'Company Name *'}</label>
+                <label>
+                  {formState.primaryOperatingMode === 'samity'
+                    ? (lang === 'bn' ? 'সমিতির পূর্ণাঙ্গ নাম (Official Samity Name) *' : 'Samity Official Name *')
+                    : formState.primaryOperatingMode === 'healthcare'
+                    ? (lang === 'bn' ? 'ক্লিনিক / ফার্মেসির নাম (Healthcare Name) *' : 'Clinic / Pharmacy Name *')
+                    : formState.primaryOperatingMode === 'cattle'
+                    ? (lang === 'bn' ? 'খামার / এগ্রো ফার্মের নাম (Dairy & Farm Name) *' : 'Farm Name *')
+                    : (lang === 'bn' ? 'কোম্পানি / দোকানের নাম *' : 'Company Name *')}
+                </label>
                 <input
                   type="text"
                   required
                   className="input-field"
+                  placeholder={
+                    formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? 'যেমন: স্বপ্নপূরণ বহুমুখী সমবায় সমিতি লিঃ' : 'e.g. Swapnapuran Multipurpose Co-operative Ltd.')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? 'যেমন: নিরাময় হেলথকেয়ার ও মডেল ফার্মেসি' : 'e.g. Niramoy Healthcare & Pharmacy')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? 'যেমন: আল-মদিনা ডেইরি ও ক্যাটেল ফার্ম' : 'e.g. Al-Madina Dairy & Cattle Farm')
+                      : (lang === 'bn' ? 'যেমন: মেসার্স রহিম ব্রাদার্স ট্রেডিং' : 'e.g. Rahim Brothers Trading')
+                  }
                   value={formState.companyName}
                   onChange={(e) => setFormState({ ...formState, companyName: e.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label>{lang === 'bn' ? 'ব্যবসার স্লোগান / ট্যাগলাইন' : 'Tagline / Slogan'}</label>
+                <label>
+                  {formState.primaryOperatingMode === 'samity'
+                    ? (lang === 'bn' ? 'সমিতির স্লোগান / মূলমন্ত্র' : 'Samity Motto / Tagline')
+                    : formState.primaryOperatingMode === 'healthcare'
+                    ? (lang === 'bn' ? 'সেবার স্লোগান / বিশেষত্ব' : 'Service Motto / Slogan')
+                    : formState.primaryOperatingMode === 'cattle'
+                    ? (lang === 'bn' ? 'খামারের বিশেষত্ব / স্লোগান' : 'Farm Speciality / Tagline')
+                    : (lang === 'bn' ? 'ব্যবসার স্লোগান / ট্যাগলাইন' : 'Tagline / Slogan')}
+                </label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder={lang === 'bn' ? 'যেমন: পাইকারি ও খুচরা বিক্রেতা' : 'e.g. Premium Groceries & Wholesale'}
+                  placeholder={
+                    formState.primaryOperatingMode === 'samity'
+                      ? (lang === 'bn' ? 'যেমন: একতাই বল, সঞ্চয়েই সমৃদ্ধি' : 'e.g. Unity in Savings')
+                      : formState.primaryOperatingMode === 'healthcare'
+                      ? (lang === 'bn' ? 'যেমন: অভিজ্ঞ ডাক্তারের পরামর্শ ও বিশ্বস্ত সেবা' : 'e.g. Trusted Healthcare')
+                      : formState.primaryOperatingMode === 'cattle'
+                      ? (lang === 'bn' ? 'যেমন: শতভাগ খাঁটি দুধ ও সুস্থ গবাদিপশুর খামার' : 'e.g. 100% Pure Milk')
+                      : (lang === 'bn' ? 'যেমন: পাইকারি ও খুচরা বিক্রেতা' : 'e.g. Premium Groceries & Wholesale')
+                  }
                   value={formState.tagline}
                   onChange={(e) => setFormState({ ...formState, tagline: e.target.value })}
                 />

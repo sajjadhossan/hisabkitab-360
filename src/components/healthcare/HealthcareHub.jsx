@@ -80,7 +80,7 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
     setActiveHealthcareTab
   } = useHealthcare();
 
-  const { setActiveTab, lang = 'bn' } = useApp() || {};
+  const { setActiveTab, lang = 'bn', businessSettings } = useApp() || {};
 
   // Organization Type state
   const [instType, setInstType] = useState(() => {
@@ -214,10 +214,10 @@ export default function HealthcareHub({ embeddedMode = false, onLaunchFullscreen
                 </span>
               </div>
               <h1 style={{ fontSize: '1.45rem', fontWeight: '900', color: '#ffffff', margin: '2px 0 4px', letterSpacing: '-0.02em' }}>
-                🏥 হেলথকেয়ার 360° — হাসপাতাল, ডায়াগনস্টিক, ডাক্তার চেম্বার ও ফার্মেসি
+                {businessSettings?.companyName ? `🏥 ${businessSettings.companyName}` : '🏥 হেলথকেয়ার 360° — হাসপাতাল, ডায়াগনস্টিক, ডাক্তার চেম্বার ও ফার্মেসি'}
               </h1>
               <p style={{ fontSize: '0.8rem', color: '#cbd5e1', margin: 0 }}>
-                নিচের যে কোনো কাউন্টারে সরাসরি প্রবেশ করুন। প্রেসক্রিপশন, ল্যাব টেস্ট, ড্রাগ স্টক ও বিলিং স্বয়ংক্রিয়ভাবে সিঙ্কড।
+                {businessSettings?.tagline || 'নিচের যে কোনো কাউন্টারে সরাসরি প্রবেশ করুন। প্রেসক্রিপশন, ল্যাব টেস্ট, ড্রাগ স্টক ও বিলিং স্বয়ংক্রিয়ভাবে সিঙ্কড।'}
               </p>
             </div>
 
