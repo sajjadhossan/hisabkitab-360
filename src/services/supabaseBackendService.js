@@ -131,7 +131,9 @@ export const submitPosSaleToCloud = async (saleData) => {
       // Fallback: direct table insert if RPC is not installed yet
       const metadataNotes = JSON.stringify({
         tenantKey: activeTenant,
+        ownerEmail: getActiveTenantEmail(),
         cashierEmail: payload.cashier_email || '',
+        cashierName: payload.cashier_name || '',
         notes: payload.notes || ''
       });
 

@@ -165,6 +165,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const addStaffAccount = (staffData) => {
+    const activeOwnerEmail = (user?.ownerEmail || user?.email || localStorage.getItem('hk360_active_owner_email') || localStorage.getItem('hk360_saved_email') || '').toLowerCase().trim();
+    const activeOwnerTenantKey = activeOwnerEmail ? `tenant_${activeOwnerEmail.replace(/[^a-zA-Z0-9]/g, '_')}` : 'tenant_guest';
+
     const newStaff = {
       id: `stf-${Date.now()}`,
       name: (staffData.name || '').trim(),
@@ -175,6 +178,9 @@ export const AuthProvider = ({ children }) => {
       counterId: staffData.counterId || 'cnt-1',
       pin: (staffData.pin || '1234').trim(),
       password: (staffData.password || staffData.pin || '1234').trim(),
+      ownerEmail: staffData.ownerEmail || activeOwnerEmail,
+      ownerTenantKey: staffData.ownerTenantKey || activeOwnerTenantKey,
+      shopName: user?.shopName || 'আমার প্রতিষ্ঠান',
       createdAt: new Date().toISOString()
     };
     setStaffAccounts(prev => {
@@ -210,6 +216,16 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('hk360_active_session_user', JSON.stringify(user));
       sessionStorage.setItem('hk360_auth_user', JSON.stringify(user));
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(user));
+
+      // Persist owner email & tenant key for cashier / staff / data isolation
+      if (user.ownerEmail && user.ownerEmail.includes('@')) {
+        localStorage.setItem('hk360_active_owner_email', user.ownerEmail.toLowerCase().trim());
+        const tKey = user.ownerTenantKey || `tenant_${user.ownerEmail.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_')}`;
+        localStorage.setItem('hk360_active_tenant_key', tKey);
+      } else if (!user.isStaffUser && user.email && user.email.includes('@') && !user.email.endsWith('@shop.local')) {
+        localStorage.setItem('hk360_active_owner_email', user.email.toLowerCase().trim());
+        localStorage.setItem('hk360_active_tenant_key', `tenant_${user.email.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_')}`);
+      }
     } else {
       localStorage.removeItem('hk360_active_session_user');
       sessionStorage.removeItem('hk360_auth_user');
@@ -384,6 +400,12 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (matchedStaff) {
+      const activeOwnerEmail = matchedStaff.ownerEmail || 
+                               localStorage.getItem('hk360_active_owner_email') || 
+                               localStorage.getItem('hk360_saved_email') || '';
+      const activeOwnerTenantKey = matchedStaff.ownerTenantKey || 
+                                   (activeOwnerEmail ? `tenant_${activeOwnerEmail.replace(/[^a-zA-Z0-9]/g, '_')}` : 'tenant_guest');
+
       const staffUser = {
         id: matchedStaff.id,
         email: matchedStaff.email,
@@ -393,6 +415,10 @@ export const AuthProvider = ({ children }) => {
         counterId: matchedStaff.counterId || 'cnt-1',
         phone: matchedStaff.phone,
         pin: matchedStaff.pin,
+        ownerEmail: activeOwnerEmail,
+        ownerTenantKey: activeOwnerTenantKey,
+        tenantKey: activeOwnerTenantKey,
+        shopName: matchedStaff.shopName || 'আমার প্রতিষ্ঠান',
         isStaffUser: true
       };
       setUser(staffUser);
@@ -400,6 +426,10 @@ export const AuthProvider = ({ children }) => {
       if (remember) {
         localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
         localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(staffUser));
+      }
+      if (activeOwnerEmail) {
+        localStorage.setItem('hk360_active_owner_email', activeOwnerEmail);
+        localStorage.setItem('hk360_active_tenant_key', activeOwnerTenantKey);
       }
       localStorage.setItem('hk360_active_branch_id', staffUser.branchId);
       localStorage.setItem('hk360_active_counter_id', staffUser.counterId);
@@ -440,6 +470,10 @@ export const AuthProvider = ({ children }) => {
         const isPinMatch = cleanPass === normalizeLoginText(c.pin || '1234') || cleanPass === '1234';
 
         if (isCodeMatch && isPinMatch) {
+          const activeOwnerEmail = localStorage.getItem('hk360_active_owner_email') || 
+                                   localStorage.getItem('hk360_saved_email') || '';
+          const activeOwnerTenantKey = activeOwnerEmail ? `tenant_${activeOwnerEmail.replace(/[^a-zA-Z0-9]/g, '_')}` : 'tenant_guest';
+
           const counterUser = {
             id: `usr-${c.id}`,
             email: `${(c.code || 'pos').toLowerCase()}@shop.local`,
@@ -449,6 +483,9 @@ export const AuthProvider = ({ children }) => {
             counterId: c.id,
             phone: c.code,
             pin: c.pin || '1234',
+            ownerEmail: activeOwnerEmail,
+            ownerTenantKey: activeOwnerTenantKey,
+            tenantKey: activeOwnerTenantKey,
             isCounterUser: true,
             isStaffUser: true
           };
@@ -457,6 +494,10 @@ export const AuthProvider = ({ children }) => {
           if (remember) {
             localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, cleanRaw);
             localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(counterUser));
+          }
+          if (activeOwnerEmail) {
+            localStorage.setItem('hk360_active_owner_email', activeOwnerEmail);
+            localStorage.setItem('hk360_active_tenant_key', activeOwnerTenantKey);
           }
           localStorage.setItem('hk360_active_branch_id', b.id);
           localStorage.setItem('hk360_active_counter_id', c.id);
@@ -681,6 +722,12 @@ export const AuthProvider = ({ children }) => {
     // 1. Check if matches any real staff PIN created by Owner
     const matchedStaff = staffAccounts.find(s => normalizeLoginText(s.pin) === cleanPin);
     if (matchedStaff) {
+      const activeOwnerEmail = matchedStaff.ownerEmail || 
+                               localStorage.getItem('hk360_active_owner_email') || 
+                               localStorage.getItem('hk360_saved_email') || '';
+      const activeOwnerTenantKey = matchedStaff.ownerTenantKey || 
+                                   (activeOwnerEmail ? `tenant_${activeOwnerEmail.replace(/[^a-zA-Z0-9]/g, '_')}` : 'tenant_guest');
+
       const staffUser = {
         id: matchedStaff.id,
         email: matchedStaff.email,
@@ -690,9 +737,17 @@ export const AuthProvider = ({ children }) => {
         counterId: matchedStaff.counterId || 'cnt-1',
         phone: matchedStaff.phone,
         pin: matchedStaff.pin,
+        ownerEmail: activeOwnerEmail,
+        ownerTenantKey: activeOwnerTenantKey,
+        tenantKey: activeOwnerTenantKey,
+        shopName: matchedStaff.shopName || 'আমার প্রতিষ্ঠান',
         isStaffUser: true
       };
       setUser(staffUser);
+      if (activeOwnerEmail) {
+        localStorage.setItem('hk360_active_owner_email', activeOwnerEmail);
+        localStorage.setItem('hk360_active_tenant_key', activeOwnerTenantKey);
+      }
       localStorage.setItem('hk360_active_session_user', JSON.stringify(staffUser));
       sessionStorage.setItem('hk360_auth_user', JSON.stringify(staffUser));
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(staffUser));
@@ -803,6 +858,8 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('hk360_active_session_user', JSON.stringify(newUser));
         sessionStorage.setItem('hk360_auth_user', JSON.stringify(newUser));
         localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(newUser));
+        localStorage.setItem('hk360_active_owner_email', cleanEmail);
+        localStorage.setItem('hk360_active_tenant_key', `tenant_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`);
         setIsAuthModalOpen(false);
 
         // Register in client licenses registry as pending_approval if not master

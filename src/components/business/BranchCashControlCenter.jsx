@@ -314,7 +314,8 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
       role: newStaffForm.role,
       branchId: newStaffForm.branchId,
       counterId: newStaffForm.counterId,
-      pin: newStaffForm.pin.trim() || '1234'
+      pin: newStaffForm.pin.trim() || '1234',
+      ownerEmail: user?.email || undefined
     });
 
     setShowAddStaffModal(false);
