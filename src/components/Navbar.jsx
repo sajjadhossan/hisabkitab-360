@@ -1001,6 +1001,41 @@ export const Navbar = () => {
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 
+            {/* Master Business & Staff Control Hub Button for Owner / Admin */}
+            {(isOwner || isSuperAdmin) && (
+              <button
+                type="button"
+                onClick={() => {
+                  playButtonClick();
+                  if (typeof window !== 'undefined') {
+                    if (window.__openRbacSecurity) window.__openRbacSecurity();
+                    else window.dispatchEvent(new CustomEvent('hk360_open_rbac_security'));
+                  }
+                }}
+                className="btn btn-secondary navbar-control-hub-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 11px',
+                  borderRadius: '24px',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(16, 185, 129, 0.16))',
+                  border: '1.5px solid #f59e0b',
+                  color: '#f59e0b',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  boxShadow: '0 0 10px rgba(245, 158, 11, 0.22)',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap'
+                }}
+                title={lang === 'bn' ? 'মালিকের একক কন্ট্রোল সেন্টার — ১-ক্লিক ইন্ডাস্ট্রি টেমপ্লেট ও কর্মী পারমিশন' : 'Master Business Control Center'}
+              >
+                <ShieldCheck size={14} style={{ color: '#f59e0b' }} />
+                <span>{lang === 'bn' ? '🛡️ কন্ট্রোল সেন্টার' : '🛡️ Control Hub'}</span>
+              </button>
+            )}
+
             {/* Cashier Branch & Section Indicator Badge */}
             {isCashier && (
               <div

@@ -16,13 +16,86 @@ import {
   Check,
   ChevronRight,
   Eye,
-  EyeOff
+  EyeOff,
+  ShoppingBag,
+  Truck,
+  Sparkles,
+  ShieldCheck,
+  Briefcase,
+  Zap
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { logAuditEvent, AUDIT_ACTIONS } from '../../services/auditService';
 import { getInactivityTimeoutMs, setInactivityTimeoutMs } from '../../services/inactivityWatchdogService';
+
+export const INDUSTRY_PRESETS = [
+  {
+    id: 'retail',
+    name: 'স্ট্যান্ডার্ড রিটেইল ও সুপারশপ (Retail & Grocery)',
+    desc: 'ক্যাশিয়ার কেনা দাম দেখতে পারবে না, মেমো ডিলিট ব্লক, সর্বোচ্চ ১০% ডিসকাউন্ট, ক্যাশ ড্রয়ার নিরাপদ',
+    badge: 'সেরা পছন্দ',
+    color: '#10b981',
+    config: {
+      manager: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 20, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      cashier: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 10, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      salesman: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 5, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      delivery: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      hr_manager: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      godown_keeper: { hideCostPrice: false, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: false, blockProfitReports: true, preventManualDrawerOpen: true },
+      auditor: { hideCostPrice: false, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: false, preventManualDrawerOpen: true }
+    }
+  },
+  {
+    id: 'wholesale',
+    name: 'পাইকারি, হোলসেল ও ডিস্ট্রিবিউশন (Wholesale & Distribution)',
+    desc: 'সেলসম্যান ও এসআর শুধু বুকিং করবে, ডেলিভারিম্যান চালান ডেলিভারি ও বকেয়া নেবে, ড্রয়ার লক থাকবে',
+    badge: 'ডিস্ট্রিবিউশন',
+    color: '#3b82f6',
+    config: {
+      manager: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 15, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      cashier: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 5, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      salesman: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 3, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      delivery: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      hr_manager: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      godown_keeper: { hideCostPrice: false, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: false, blockProfitReports: true, preventManualDrawerOpen: true },
+      auditor: { hideCostPrice: false, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: false, preventManualDrawerOpen: true }
+    }
+  },
+  {
+    id: 'pharmacy',
+    name: 'ফার্মেসি ও ক্লিনিক্যাল হেলথকেয়ার (Pharmacy & Healthcare)',
+    desc: 'ফার্মাসিস্ট স্টক ও মেয়াদ দেখবে কিন্তু কেনা দাম গোপন থাকবে, ড্রয়ার অনুমোদিত ক্যাশিয়ারের নিয়ন্ত্রণে',
+    badge: 'হেলথকেয়ার',
+    color: '#8b5cf6',
+    config: {
+      manager: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 12, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      cashier: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 8, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      salesman: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      delivery: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      hr_manager: { hideCostPrice: true, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: true, preventManualDrawerOpen: true },
+      godown_keeper: { hideCostPrice: false, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: false, blockProfitReports: true, preventManualDrawerOpen: true },
+      auditor: { hideCostPrice: false, preventInvoiceDelete: true, maxDiscountPercent: 0, preventStockOverwrite: true, blockProfitReports: false, preventManualDrawerOpen: true }
+    }
+  },
+  {
+    id: 'trusted',
+    name: 'সম্পূর্ণ ওপেন ট্রাস্টেড মোড (Full Trusted Enterprise)',
+    desc: 'কর্মীদের সমস্ত ক্ষমতা ও কেনা দাম উন্মুক্ত থাকবে, কোনো নিষেধাজ্ঞা নেই',
+    badge: 'ওপেন মোড',
+    color: '#f59e0b',
+    config: {
+      manager: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 50, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      cashier: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 30, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      salesman: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 20, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      delivery: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 10, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      hr_manager: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 10, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      godown_keeper: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 0, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false },
+      auditor: { hideCostPrice: false, preventInvoiceDelete: false, maxDiscountPercent: 0, preventStockOverwrite: false, blockProfitReports: false, preventManualDrawerOpen: false }
+    }
+  }
+];
 
 /**
  * HisabKitab 360 - Staff RBAC, Device Whitelisting & Emergency Lockdown Hub (Phase 6, Features 51, 57, 59, 60)
@@ -37,7 +110,7 @@ export const StaffRbacSecurityModal = ({ isOpen, onClose, lang = 'bn' }) => {
 
   const { user } = useAuth() || {};
 
-  const [activeTab, setActiveTab] = useState('rbac_roles'); // 'rbac_roles' | 'device_binding' | 'lockdown_settings'
+  const [activeTab, setActiveTab] = useState('presets_templates'); // 'presets_templates' | 'rbac_roles' | 'device_binding' | 'lockdown_settings'
   const [selectedRole, setSelectedRole] = useState('cashier');
 
   // RBAC Permission Matrix State
@@ -67,6 +140,22 @@ export const StaffRbacSecurityModal = ({ isOpen, onClose, lang = 'bn' }) => {
         hideCostPrice: true,
         preventInvoiceDelete: true,
         maxDiscountPercent: 5,
+        preventStockOverwrite: true,
+        blockProfitReports: true,
+        preventManualDrawerOpen: true
+      },
+      delivery: {
+        hideCostPrice: true,
+        preventInvoiceDelete: true,
+        maxDiscountPercent: 0,
+        preventStockOverwrite: true,
+        blockProfitReports: true,
+        preventManualDrawerOpen: true
+      },
+      hr_manager: {
+        hideCostPrice: true,
+        preventInvoiceDelete: true,
+        maxDiscountPercent: 0,
         preventStockOverwrite: true,
         blockProfitReports: true,
         preventManualDrawerOpen: true
@@ -230,12 +319,23 @@ export const StaffRbacSecurityModal = ({ isOpen, onClose, lang = 'bn' }) => {
     showToast?.(`ইনঅ্যাক্টিভিটি অটো-লক ${mins > 0 ? mins + ' মিনিটে' : 'বন্ধ'} নির্ধারণ করা হয়েছে`, 'success');
   };
 
+  const handleApplyPreset = (preset) => {
+    playSuccessChime?.();
+    setRolePermissions(preset.config);
+    try {
+      localStorage.setItem('hk360_security_rbac_matrix', JSON.stringify(preset.config));
+    } catch {}
+    showToast?.(`"${preset.name}" টেমপ্লেট সফলভাবে সক্রিয় হয়েছে!`, 'success');
+  };
+
   if (!isOpen) return null;
 
   const rolesList = [
-    { id: 'manager', label: 'ম্যানেজার (Manager)', desc: 'দৈনিক কার্যক্রম ও হিসাব পর্যবেক্ষণ' },
-    { id: 'cashier', label: 'ক্যাশিয়ার (Cashier)', desc: 'পিওএস বিলিং ও ক্যাশ ড্রয়ার পরিচালনা' },
-    { id: 'salesman', label: 'সেলসম্যান / এসআর (Salesman)', desc: 'অর্ডার সংগ্রহ ও পণ্য ডেলিভারি' },
+    { id: 'manager', label: 'ম্যানেজার (Branch Manager)', desc: 'শাখার দৈনিক কার্যক্রম ও হিসাব পর্যবেক্ষণ' },
+    { id: 'cashier', label: 'ক্যাশিয়ার (Cashier)', desc: 'পিওএস বিলিং ও ক্যাশ কাউন্টার পরিচালনা' },
+    { id: 'salesman', label: 'সেলসম্যান / এসআর (Salesman)', desc: 'ফিল্ড বুকিং ও কাস্টমার অর্ডার' },
+    { id: 'delivery', label: 'ডেলিভারি ম্যান (Delivery Man)', desc: 'মাল পৌঁছানো ও বকেয়া কালেকশন' },
+    { id: 'hr_manager', label: 'এইচআর ম্যানেজার (HR Manager)', desc: 'কর্মী হাজিরা, ছুটি ও বেতন শিট' },
     { id: 'godown_keeper', label: 'গোডাউন কিপার (Godown)', desc: 'মাল খালাস, স্টক ইন ও ওয়্যারহাউজ' },
     { id: 'auditor', label: 'অডিটর (Auditor)', desc: 'হিসাব নিরীক্ষা ও লেজার ভেরিফিকেশন' }
   ];
@@ -250,20 +350,20 @@ export const StaffRbacSecurityModal = ({ isOpen, onClose, lang = 'bn' }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-rose-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-emerald-600 flex items-center justify-center text-white shadow-md shadow-amber-500/20">
               <Shield className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  সিকিউরিটি, রোলস ও অ্যান্টি-থেফ্ট গার্ড
+                  🛡️ বিজনেস ও স্টাফ কন্ট্রোল সেন্টার (Master Governance Hub)
                 </h3>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 font-semibold border border-rose-300 dark:border-rose-800">
-                  Phase 6 Standard
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800">
+                  সুপার ওনার পাওয়ার
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                গ্র্যানুলার স্টাফ পারমিশন, ডিভাইস বাইন্ডিং, ওয়াটারমার্ক ও জরুরি সেশন লকডাউন
+                ১-ক্লিক ইন্ডাস্ট্রি টেমপ্লেট, গ্র্যানুলার স্টাফ পারমিশন ও ডিভাইস লকডাউন
               </p>
             </div>
           </div>
@@ -277,6 +377,17 @@ export const StaffRbacSecurityModal = ({ isOpen, onClose, lang = 'bn' }) => {
 
         {/* Tab Navigation */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 px-5 bg-slate-100/50 dark:bg-slate-800/40 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('presets_templates')}
+            className={`py-3 px-4 text-xs font-semibold border-b-2 flex items-center gap-2 whitespace-nowrap transition ${
+              activeTab === 'presets_templates'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-amber-500" />
+            ⚡ ১-ক্লিক ইন্ডাস্ট্রি টেমপ্লেট
+          </button>
           <button
             onClick={() => setActiveTab('rbac_roles')}
             className={`py-3 px-4 text-xs font-semibold border-b-2 flex items-center gap-2 whitespace-nowrap transition ${
@@ -314,6 +425,55 @@ export const StaffRbacSecurityModal = ({ isOpen, onClose, lang = 'bn' }) => {
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {activeTab === 'presets_templates' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-indigo-500/10 border border-amber-500/30">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  সুপার অ্যাডমিন ও মালিকের ১-ক্লিক রেডিমেড প্রোফাইল
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                  আপনার ব্যবসার ধরন নির্বাচন করুন। ক্যাশিয়ার, ম্যানেজার, সেলসম্যান ও ডেলিভারিম্যানের সমস্ত ক্ষমতা মুহূর্তেই আন্তর্জাতিক মানে স্বয়ংক্রিয়ভাবে কনফিগার হয়ে যাবে।
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {INDUSTRY_PRESETS.map((preset) => (
+                  <div
+                    key={preset.id}
+                    className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:shadow-lg transition flex flex-col justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span
+                          className="text-xs px-2.5 py-0.5 rounded-full font-bold"
+                          style={{ background: `${preset.color}20`, color: preset.color, border: `1px solid ${preset.color}40` }}
+                        >
+                          {preset.badge}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        {preset.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                        {preset.desc}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset(preset)}
+                      className="w-full py-2.5 px-4 rounded-xl font-bold text-xs text-white shadow-md transition flex items-center justify-center gap-2"
+                      style={{ background: preset.color }}
+                    >
+                      <Check className="w-4 h-4" />
+                      এই টেমপ্লেটটি প্রয়োগ করুন
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {activeTab === 'rbac_roles' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Left Role Selection Column */}

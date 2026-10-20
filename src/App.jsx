@@ -244,6 +244,9 @@ const AppContent = () => {
     window.__openAntiTheftAudit = () => setShowAntiTheftModal(true);
     window.__openFieldForceRadar = () => setShowFieldForceRadarModal(true);
 
+    const handleOpenRbac = () => setShowRbacModal(true);
+    window.addEventListener('hk360_open_rbac_security', handleOpenRbac);
+
     // Phase 7 Window Triggers
     window.__openFinancialIntelligence = () => setShowFinancialIntelligenceModal(true);
     window.__openBankMfsReconciliation = () => setShowBankMfsModal(true);

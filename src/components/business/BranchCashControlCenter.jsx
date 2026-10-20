@@ -911,15 +911,42 @@ export const BranchCashControlCenter = ({ onOpenPOS }) => {
               {lang === 'bn' ? 'মালিক কর্তৃক তৈরি করা ক্যাশিয়ার, সেলসম্যান ও এসআর কর্মচারীদের লগইন আইডি ও গোপন পিন তালিকা' : 'Manage cashier login PINs and branch assignments'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setShowAddStaffModal(true)}
-            style={{ fontSize: '0.82rem', padding: '6px 14px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <User size={14} />
-            <span>{lang === 'bn' ? '+ নতুন ক্যাশিয়ার / স্টাফ যোগ করুন' : '+ Add Staff Account'}</span>
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  if (window.__openRbacSecurity) window.__openRbacSecurity();
+                  else window.dispatchEvent(new CustomEvent('hk360_open_rbac_security'));
+                }
+              }}
+              style={{
+                fontSize: '0.82rem',
+                padding: '6px 14px',
+                fontWeight: '700',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(16, 185, 129, 0.15))',
+                border: '1px solid #f59e0b',
+                color: '#f59e0b'
+              }}
+              title={lang === 'bn' ? 'স্টাফ পারমিশন ও ক্ষমতা নিয়ন্ত্রণ করুন' : 'Manage Permissions'}
+            >
+              <ShieldCheck size={14} style={{ color: '#f59e0b' }} />
+              <span>{lang === 'bn' ? '🛡️ কর্মী পারমিশন ও রোল কন্ট্রোল' : 'Staff RBAC Hub'}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowAddStaffModal(true)}
+              style={{ fontSize: '0.82rem', padding: '6px 14px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <User size={14} />
+              <span>{lang === 'bn' ? '+ নতুন ক্যাশিয়ার / স্টাফ যোগ করুন' : '+ Add Staff Account'}</span>
+            </button>
+          </div>
         </div>
 
         {(!staffAccounts || staffAccounts.length === 0) ? (
