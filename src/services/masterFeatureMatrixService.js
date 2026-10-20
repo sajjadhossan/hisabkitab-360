@@ -507,3 +507,77 @@ export const isTenantModuleAllowed = (moduleId, tenantLicense) => {
   const activeMods = getTenantActiveModules(tenantLicense);
   return activeMods[moduleId] !== false;
 };
+
+// ============================================================================
+// TENANT TEMPLATE ENTITLEMENT HELPERS (100+ Templates Access Control)
+// ============================================================================
+
+export const TEMPLATE_QUICK_PRESETS = [
+  {
+    id: 'preset_all_templates',
+    name: '👑 ১০০+ টেমপ্লেটই উন্মুক্ত (All Unlocked)',
+    badge: 'ফুল ক্যাটালগ',
+    color: '#6366f1',
+    description: 'অ্যাপ্লিকেশনের সকল ইন্ডাস্ট্রির ১০০+ টেমপ্লেট সম্পূর্ণ এক্সেসযোগ্য'
+  },
+  {
+    id: 'preset_grocery_retail',
+    name: '🛒 মুদি, সুপারশপ ও কাঁচাবাজার',
+    badge: 'রিটেইল প্যাক',
+    color: '#10b981',
+    description: 'মুদি দোকান, ডিপার্টমেন্টাল স্টোর, জেনারেল স্টোর ও মিনিমার্ট'
+  },
+  {
+    id: 'preset_food_hospitality',
+    name: '🍽️ রেস্টুরেন্ট, ক্যাফে ও ফাস্টফুড',
+    badge: 'ফুড প্যাক',
+    color: '#f59e0b',
+    description: 'ডাইন-ইন রেস্টুরেন্ট, পিৎজা/বার্গার শপ, ক্যাফে, বেকারি ও জুস বার'
+  },
+  {
+    id: 'preset_pharmacy_health',
+    name: '💊 ফার্মেসি, ল্যাব ও স্বাস্থ্যসেবা',
+    badge: 'মেডিকেল প্যাক',
+    color: '#ef4444',
+    description: 'ফার্মেসি ও ড্রাগ স্টোর, অপটিক্যাল চশমার দোকান ও ডেন্টাল ক্লিনিক'
+  },
+  {
+    id: 'preset_fashion_lifestyle',
+    name: '👔 ফ্যাশন, পোশাক, জুতা ও টেইলার্স',
+    badge: 'ফ্যাশন প্যাক',
+    color: '#8b5cf6',
+    description: 'রেডিমেড পোশাক, জেন্টস ও লেডিস টেইলার্স, জুতার শোরুম'
+  },
+  {
+    id: 'preset_electronics_mobile',
+    name: '📱 মোবাইল, গ্যাজেট ও ইলেকট্রনিক্স',
+    badge: 'টেক প্যাক',
+    color: '#3b82f6',
+    description: 'স্মার্টফোন শপ, কম্পিউটার/ল্যাপটপ, হোম অ্যাপ্লায়েন্স ও সার্ভিস'
+  }
+];
+
+// Returns array of allowed template IDs for a tenant.
+// If tenant.allowedTemplates is not defined, by default return null (meaning open or fallback to industryTemplateId)
+export const getTenantAllowedTemplates = (tenantLicense) => {
+  if (!tenantLicense) return null;
+  if (Array.isArray(tenantLicense.allowedTemplates)) {
+    return tenantLicense.allowedTemplates;
+  }
+  // If only specific single template is assigned
+  if (tenantLicense.industryTemplateId) {
+    return [tenantLicense.industryTemplateId];
+  }
+  return null;
+};
+
+// Check if a specific template is allowed for a tenant
+export const isTenantTemplateAllowed = (templateId, tenantLicense, isSuperAdmin = false) => {
+  if (isSuperAdmin) return true;
+  if (!templateId) return true;
+  const allowed = getTenantAllowedTemplates(tenantLicense);
+  // If null or empty array, default is unlocked for backwards compatibility
+  if (!allowed || allowed.length === 0) return true;
+  return allowed.includes(templateId);
+};
+

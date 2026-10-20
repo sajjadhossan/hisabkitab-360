@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   INDUSTRY_SECTORS,
   MASTER_INDUSTRY_TEMPLATES
 } from '../../data/industryTemplates';
+import { isTenantTemplateAllowed } from '../../services/masterFeatureMatrixService';
 import {
   Sparkles,
   Search,
@@ -22,7 +24,9 @@ import {
   Info,
   ChevronRight,
   Plus,
-  Trash2
+  Trash2,
+  Lock,
+  MessageCircle
 } from 'lucide-react';
 
 export const TemplateReviewModal = ({ isOpen, onClose }) => {
@@ -30,8 +34,12 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
     activeIndustryId,
     switchIndustryTemplate,
     lang,
+    licenseInfo,
     showToast
   } = useApp();
+  const { isSuperAdmin = false } = useAuth() || {};
+
+  const [onlyAllowedFilter, setOnlyAllowedFilter] = useState(false);
 
   const [selectedSector, setSelectedSector] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,9 +102,22 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
     setCustomCategories(prev => prev.filter(c => c !== cat));
   };
 
+  const isSelectedAllowed = useMemo(() => {
+    return isTenantTemplateAllowed(selectedTemplate?.id, licenseInfo, isSuperAdmin);
+  }, [selectedTemplate, licenseInfo, isSuperAdmin]);
+
   // Activate & apply template to the whole app
   const handleApplyTemplate = () => {
     if (!selectedTemplate) return;
+    if (!isSelectedAllowed) {
+      showToast(
+        lang === 'bn'
+          ? `🔒 "${selectedTemplate.name}" টেমপ্লেটটি আপনার অ্যাকাউন্টে লকড রয়েছে। এটি সক্রিয় করতে সুপার অ্যাডমিনের সাথে যোগাযোগ করুন।`
+          : `🔒 "${selectedTemplate.enName}" is locked for your account. Contact Super Admin to unlock.`,
+        'warning'
+      );
+      return;
+    }
     switchIndustryTemplate(selectedTemplate.id, activeFeatures);
     showToast(
       lang === 'bn'
@@ -117,9 +138,13 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
         (tpl.enName && tpl.enName.toLowerCase().includes(q)) ||
         (tpl.units && tpl.units.some(u => u.toLowerCase().includes(q))) ||
         (tpl.defaultCategories && tpl.defaultCategories.some(c => c.toLowerCase().includes(q)));
+      
+      const isAllowed = isTenantTemplateAllowed(tpl.id, licenseInfo, isSuperAdmin);
+      if (onlyAllowedFilter && !isAllowed) return false;
+
       return matchSector && matchSearch;
     });
-  }, [selectedSector, searchQuery]);
+  }, [selectedSector, searchQuery, onlyAllowedFilter, licenseInfo, isSuperAdmin]);
 
   if (!isOpen) return null;
 
@@ -186,6 +211,7 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={handleApplyTemplate}
+              disabled={!isSelectedAllowed}
               className="btn btn-primary"
               style={{
                 display: 'inline-flex',
@@ -194,12 +220,15 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                 padding: '8px 18px',
                 fontSize: '0.88rem',
                 fontWeight: '800',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)'
+                background: isSelectedAllowed ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(239, 68, 68, 0.15)',
+                color: isSelectedAllowed ? '#ffffff' : '#ef4444',
+                border: isSelectedAllowed ? 'none' : '1.5px solid rgba(239, 68, 68, 0.4)',
+                cursor: isSelectedAllowed ? 'pointer' : 'not-allowed',
+                boxShadow: isSelectedAllowed ? '0 4px 16px rgba(16, 185, 129, 0.35)' : 'none'
               }}
             >
-              <Check size={16} />
-              <span>{lang === 'bn' ? 'এই টেমপ্লেট সক্রিয় করুন' : 'Activate Template'}</span>
+              {isSelectedAllowed ? <Check size={16} /> : <Lock size={16} />}
+              <span>{isSelectedAllowed ? (lang === 'bn' ? 'এই টেমপ্লেট সক্রিয় করুন' : 'Activate Template') : (lang === 'bn' ? '🔒 টেমপ্লেটটি লকড' : 'Template Locked')}</span>
             </button>
             <button
               type="button"
@@ -256,6 +285,32 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                   ))}
                 </select>
               </div>
+
+              {/* Only Allowed Filter Toggle for non-superadmin */}
+              {!isSuperAdmin && (
+                <div
+                  onClick={() => setOnlyAllowedFilter(prev => !prev)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '8px',
+                    fontSize: '0.74rem',
+                    color: onlyAllowedFilter ? '#10b981' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontWeight: '700',
+                    userSelect: 'none'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={onlyAllowedFilter}
+                    onChange={() => {}}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>শুধুমাত্র অনুমোদিত টেমপ্লেটসমূহ</span>
+                </div>
+              )}
             </div>
 
             {/* Template Items List */}
@@ -265,6 +320,7 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                   const isCurrentActive = tpl.id === activeIndustryId;
                   const isSelected = selectedTemplate?.id === tpl.id;
                   const sector = INDUSTRY_SECTORS.find(s => s.id === tpl.sectorId);
+                  const isAllowed = isTenantTemplateAllowed(tpl.id, licenseInfo, isSuperAdmin);
 
                   return (
                     <div
@@ -284,6 +340,7 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                         border: isSelected
                           ? '1.5px solid #6366f1'
                           : (isCurrentActive ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent'),
+                        opacity: isAllowed ? 1 : 0.65,
                         transition: 'all 0.15s ease'
                       }}
                     >
@@ -292,6 +349,11 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                           <span style={{ fontSize: '0.85rem', fontWeight: isSelected ? '800' : '600', color: isSelected ? 'var(--text-main)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {tpl.name}
                           </span>
+                          {!isAllowed && (
+                            <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: '800' }}>
+                              🔒 লকড
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '0.7rem', color: sector?.color || 'var(--text-dim)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <span>{sector?.name?.split(' ')[0] || 'ব্যবসা'}</span>
@@ -369,19 +431,88 @@ export const TemplateReviewModal = ({ isOpen, onClose }) => {
                   ) : (
                     <button
                       onClick={handleApplyTemplate}
+                      disabled={!isSelectedAllowed}
                       className="btn btn-primary"
                       style={{
                         padding: '8px 16px',
                         fontSize: '0.85rem',
                         fontWeight: '800',
-                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                        background: isSelectedAllowed ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'rgba(239, 68, 68, 0.2)',
+                        color: isSelectedAllowed ? '#ffffff' : '#ef4444',
+                        border: isSelectedAllowed ? 'none' : '1px solid rgba(239, 68, 68, 0.4)',
+                        cursor: isSelectedAllowed ? 'pointer' : 'not-allowed'
                       }}
                     >
-                      সুইচ করুন
+                      {isSelectedAllowed ? 'সুইচ করুন' : '🔒 লকড'}
                     </button>
                   )}
                 </div>
               </div>
+
+              {/* Locked Warning Banner if not allowed */}
+              {!isSelectedAllowed && (
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1.5px solid rgba(239, 68, 68, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ef4444'
+                      }}
+                    >
+                      <Lock size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#ef4444', fontSize: '0.88rem' }}>
+                        এই টেমপ্লেটটি আপনার ব্যবসায়িক অ্যাকাউন্টে লক করা রয়েছে
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        আপনার প্যাকেজে এই ইন্ডাস্ট্রি টেমপ্লেটটি সক্রিয় করতে সুপার অ্যাডমিনের সাথে যোগাযোগ করুন।
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`https://wa.me/8801700000000?text=${encodeURIComponent(`আসসালামু আলাইকুম। আমার দোকানের নাম: ${licenseInfo?.clientShopName || ''}। আমি HisabKitab 360-এ "${selectedTemplate.name}" টেমপ্লেটটি আনলক করতে চাই।`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn"
+                    style={{
+                      background: '#25d366',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+                    }}
+                  >
+                    <MessageCircle size={15} /> হোয়াটসঅ্যাপে আনলক রিকোয়েস্ট
+                  </a>
+                </div>
+              )}
 
               {/* 1. Features Checklist (কী লাগবে, কী লাগবে না) */}
               <div className="glass-card" style={{ padding: '1.25rem', borderRadius: '14px' }}>

@@ -5988,13 +5988,18 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       ) {
         setLicenseInfo(prev => ({
           ...prev,
-          modules: detail.modules,
-          industryTemplateId: detail.industryTemplateId || prev.industryTemplateId
+          modules: detail.modules || prev.modules,
+          industryTemplateId: detail.industryTemplateId || prev.industryTemplateId,
+          allowedTemplates: detail.allowedTemplates || prev.allowedTemplates
         }));
       }
     };
     window.addEventListener('hk360_tenant_features_updated', handleTenantFeaturesUpdated);
-    return () => window.removeEventListener('hk360_tenant_features_updated', handleTenantFeaturesUpdated);
+    window.addEventListener('hk360_tenant_templates_updated', handleTenantFeaturesUpdated);
+    return () => {
+      window.removeEventListener('hk360_tenant_features_updated', handleTenantFeaturesUpdated);
+      window.removeEventListener('hk360_tenant_templates_updated', handleTenantFeaturesUpdated);
+    };
   }, [user, licenseInfo]);
 
   const switchIndustryTemplate = (templateId, customFeaturesOrLoadSample = false) => {
