@@ -83,6 +83,7 @@ import { TelegramBotModal } from './common/TelegramBotModal';
 import { getTelegramBackupConfig } from '../services/telegramBackupService';
 import { InternalCommunicationHubModal } from './common/InternalCommunicationHubModal';
 import { getUnreadCount } from '../services/internalChatService';
+import { getStaffMenuPermissions, isMenuItemAllowedForRole } from '../services/staffRolePermissionEngine';
 import appBrandLogo from '../assets/logo.png';
 
 export const Navbar = () => {
@@ -167,6 +168,28 @@ export const Navbar = () => {
       window.removeEventListener('hk360_internal_msg_cleared', updateUnread);
     };
   }, [user, isSuperAdmin]);
+
+  // Granular Staff Role Menu Visibility State
+  const [staffMenuPermissions, setStaffMenuPermissions] = useState(() => {
+    return getStaffMenuPermissions(businessSettings);
+  });
+
+  useEffect(() => {
+    if (businessSettings?.staffMenuPermissions) {
+      setStaffMenuPermissions(getStaffMenuPermissions(businessSettings));
+    }
+  }, [businessSettings?.staffMenuPermissions]);
+
+  useEffect(() => {
+    const handlePermsUpdate = (e) => {
+      if (e?.detail) {
+        setStaffMenuPermissions(e.detail);
+      }
+    };
+    window.addEventListener('hk360_staff_permissions_updated', handlePermsUpdate);
+    return () => window.removeEventListener('hk360_staff_permissions_updated', handlePermsUpdate);
+  }, []);
+
   const [showAlertCenter, setShowAlertCenter] = useState(false);
   const [showMasterPinModal, setShowMasterPinModal] = useState(false);
   const [activeTool, setActiveTool] = useState(null); // 'calculator' | 'cash' | 'notes' | 'backup_hub' | 'shortcuts'
@@ -435,15 +458,8 @@ export const Navbar = () => {
     if (isOwner || isSuperAdmin || !isAuthenticated || !role || role === 'owner' || role === 'admin') {
       return businessNavItems;
     }
-    if (role === 'cashier') {
-      return businessNavItems.filter(i => ['pos', 'invoices', 'debts', 'master_hub', 'branch_control'].includes(i.id));
-    } else if (role === 'salesman') {
-      return businessNavItems.filter(i => ['pos', 'inventory', 'crm', 'master_hub'].includes(i.id));
-    } else if (role === 'sr') {
-      return businessNavItems.filter(i => ['sr', 'crm', 'debts', 'inventory'].includes(i.id));
-    }
-    return businessNavItems;
-  }, [businessNavItems, isOwner, isSuperAdmin, isAuthenticated, role]);
+    return businessNavItems.filter(i => isMenuItemAllowedForRole(i.id, role, staffMenuPermissions, isOwner, isSuperAdmin));
+  }, [businessNavItems, isOwner, isSuperAdmin, isAuthenticated, role, staffMenuPermissions]);
 
   const navItems = useMemo(() => {
     return profile === 'personal' ? personalNavItems : filteredBusinessNavItems;
@@ -455,10 +471,15 @@ export const Navbar = () => {
         { id: 'dashboard', label: t.businessNav?.dashboard || (lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'), icon: LayoutDashboard },
         { id: 'pos', label: t.businessNav?.pos || (lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'), icon: ScanLine },
         { id: 'inventory', label: t.businessNav?.inventory || (lang === 'bn' ? '📦 ইনভেন্টরি স্টক' : '📦 Inventory'), icon: Boxes },
+        { id: 'salesman_order', label: lang === 'bn' ? '📝 অর্ডার বুকিং' : '📝 Order Booking', icon: FileText },
+        { id: 'sr_delivery', label: lang === 'bn' ? '🚚 ডেলিভারি হাব' : '🚚 SR Delivery', icon: Truck },
         { id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger'), icon: HandCoins },
         { id: 'invoices', label: t.businessNav?.invoices || (lang === 'bn' ? '🧾 বিক্রয় মেমো' : '🧾 Invoices'), icon: FileText }
       ];
-      return candidates.filter(c => isModEnabled(c.id));
+      return candidates.filter(c => {
+        const modOk = isModEnabled(c.id) || c.id === 'salesman_order' || c.id === 'sr_delivery';
+        return modOk && isMenuItemAllowedForRole(c.id, role, staffMenuPermissions, isOwner, isSuperAdmin);
+      });
     } else {
       return [
         { id: 'dashboard', label: lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard', icon: LayoutDashboard },
@@ -468,7 +489,7 @@ export const Navbar = () => {
         { id: 'income', label: lang === 'bn' ? '💵 ব্যক্তিগত আয়' : '💵 Income', icon: Wallet }
       ];
     }
-  }, [profile, isModEnabled, t.businessNav, lang]);
+  }, [profile, isModEnabled, t.businessNav, lang, role, staffMenuPermissions, isOwner, isSuperAdmin]);
 
   // Mobile Categorized Drawer Groups
   const businessDrawerGroups = [
@@ -643,13 +664,19 @@ export const Navbar = () => {
     return businessDrawerGroups.map(group => ({
       ...group,
       items: group.items.filter(item => {
-        if (item.isAction || item.isTool) return true;
-        if (item.id === 'healthcare') return isModEnabled('healthcare');
-        if (item.id === 'cattle') return true;
-        return isModEnabled(item.id);
+        // 1. System module activation check
+        let modOk = true;
+        if (item.id === 'healthcare') modOk = isModEnabled('healthcare');
+        else if (item.id === 'branch_control') modOk = isModEnabled('branch_control');
+        else if (item.id === 'cattle') modOk = true;
+        else if (!item.isAction && !item.isTool) modOk = isModEnabled(item.id);
+        if (!modOk) return false;
+
+        // 2. Strict Role Menu Permission Check (Master Switchboard)
+        return isMenuItemAllowedForRole(item.id, role, staffMenuPermissions, isOwner, isSuperAdmin);
       })
     })).filter(group => group.items && group.items.length > 0);
-  }, [businessDrawerGroups, licenseInfo]);
+  }, [businessDrawerGroups, licenseInfo, role, staffMenuPermissions, isOwner, isSuperAdmin]);
 
   const currentDrawerGroups = profile === 'business' ? enabledBusinessDrawerGroups : personalDrawerGroups;
 
@@ -665,27 +692,34 @@ export const Navbar = () => {
     })).filter(group => group.items && group.items.length > 0);
   }, [currentDrawerGroups, drawerSearch]);
 
-  // Dynamic business mobile bottom nav items based on admin/owner active modules
+  // Dynamic business mobile bottom nav items based on admin/owner active modules and staff role permissions
   const businessBottomNavSlots = useMemo(() => {
-    const isPosActive = isModEnabled('pos');
+    const isPosPermitted = isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
+    const isPosActive = isModEnabled('pos') && isPosPermitted;
+
     const allCandidates = [
       { id: 'dashboard', label: lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home', icon: LayoutDashboard },
-      { id: 'debts', label: lang === 'bn' ? 'দেনা-পাওনা' : 'Debts', icon: HandCoins },
       { id: 'inventory', label: lang === 'bn' ? 'ইনভেন্টরি' : 'Stock', icon: Boxes },
+      { id: 'salesman_order', label: lang === 'bn' ? 'অর্ডার' : 'Orders', icon: FileText },
+      { id: 'sr_delivery', label: lang === 'bn' ? 'ডেলিভারি' : 'Delivery', icon: Truck },
+      { id: 'debts', label: lang === 'bn' ? 'দেনা-পাওনা' : 'Debts', icon: HandCoins },
       { id: 'invoices', label: lang === 'bn' ? 'চালান' : 'Invoices', icon: FileText },
       { id: 'master_hub', label: lang === 'bn' ? 'মাস্টার ডাটা' : 'Master', icon: FolderOpen },
       { id: 'erp', label: lang === 'bn' ? 'লাভ-ক্ষতি' : 'Accounts', icon: Calculator },
       { id: 'crm', label: lang === 'bn' ? 'কাস্টমার' : 'CRM', icon: Users }
     ];
 
-    const activeNonHero = allCandidates.filter(c => isModEnabled(c.id));
+    const activeNonHero = allCandidates.filter(c => {
+      const modOk = isModEnabled(c.id) || c.id === 'salesman_order' || c.id === 'sr_delivery';
+      return modOk && isMenuItemAllowedForRole(c.id, role, staffMenuPermissions, isOwner, isSuperAdmin);
+    });
 
     return {
       isPosActive,
       leftItems: activeNonHero.slice(0, 2),
       rightItems: activeNonHero.slice(2, isPosActive ? 3 : 4)
     };
-  }, [licenseInfo, lang]);
+  }, [licenseInfo, lang, role, staffMenuPermissions, isOwner, isSuperAdmin]);
 
   return (
     <>

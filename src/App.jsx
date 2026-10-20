@@ -135,6 +135,7 @@ import { UndoNotificationToast } from './components/common/UndoNotificationToast
 import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
 import { initInactivityWatchdog } from './services/inactivityWatchdogService';
 import { startStaffGpsTracker, stopStaffGpsTracker } from './services/fieldGpsTrackerService';
+import { getStaffMenuPermissions, isMenuItemAllowedForRole, getFirstAllowedTabForRole } from './services/staffRolePermissionEngine';
 
 // Shimmer skeleton loading fallback
 const ViewLoadingFallback = () => (
@@ -191,7 +192,7 @@ const AppContent = () => {
     closeThemeCustomizer = () => {},
     activateSoftwareWithKey = () => {}
   } = appContext;
-  const { user = null, openAuthModal = () => {}, isAuthModalOpen = false, closeAuthModal = () => {}, isSuperAdmin = false, logout = () => {} } = useAuth() || {};
+  const { user = null, openAuthModal = () => {}, isAuthModalOpen = false, closeAuthModal = () => {}, isSuperAdmin = false, isOwner = false, logout = () => {} } = useAuth() || {};
 
   const [unlockKeyInput, setUnlockKeyInput] = useState('');
   const [unlockError, setUnlockError] = useState('');
@@ -326,6 +327,32 @@ const AppContent = () => {
       }
     }
   }, [activeTab]);
+
+  // Strict Staff Route Guard: Protect against unauthorized direct tab navigation
+  React.useEffect(() => {
+    if (!user || isSuperAdmin || isOwner) return;
+
+    // Only guard if user is a restricted staff role
+    const staffRole = user.role || (user.isCashier ? 'cashier' : (user.isSalesman ? 'salesman' : null));
+    if (!staffRole) return;
+
+    const staffMenuPerms = getStaffMenuPermissions(businessSettings);
+    const isAllowed = isMenuItemAllowedForRole(activeTab, staffRole, staffMenuPerms, false, false);
+
+    // If active tab is not allowed for this staff role, gracefully route to their first allowed tab
+    if (!isAllowed) {
+      const fallbackTab = getFirstAllowedTabForRole(staffRole, staffMenuPerms);
+      if (fallbackTab && fallbackTab !== activeTab) {
+        setActiveTab(fallbackTab);
+        showToast(
+          lang === 'bn'
+            ? '⛔ এই মডিউলে প্রবেশের অনুমতি আপনার রোলের জন্য বন্ধ রয়েছে।'
+            : '⛔ Access to this module is restricted for your role.',
+          'warning'
+        );
+      }
+    }
+  }, [activeTab, user, isSuperAdmin, isOwner, businessSettings?.staffMenuPermissions]);
 
   // Initialize Native Android Hardware Handlers & Fast Live Engines
   React.useEffect(() => {
