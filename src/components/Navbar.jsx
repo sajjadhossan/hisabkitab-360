@@ -65,7 +65,8 @@ import {
   ExternalLink,
   Zap,
   BarChart3,
-  Send
+  Send,
+  Monitor
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -117,7 +118,10 @@ export const Navbar = () => {
     personalDebts = [],
     customers = [],
     salesHistory = [],
-    driveUser
+    driveUser,
+    branches = [],
+    activeBranch = null,
+    activeCounter = null
   } = useApp();
 
   const {
@@ -135,6 +139,11 @@ export const Navbar = () => {
     isSuperAdmin
   } = useAuth();
 
+  const currentCashierBranch = branches.find(b => b.id === (user?.branchId || user?.branch)) || activeBranch || (branches.length > 0 ? branches[0] : null);
+  const cashierBranchName = user?.branchName || user?.branch || currentCashierBranch?.name || (lang === 'bn' ? 'শ্রীনগর প্রধান শাখা' : 'Main Branch');
+  const staffCounter = currentCashierBranch?.counters?.find(c => c.id === (user?.counterId || user?.counter)) || activeCounter;
+  const cashierCounterName = user?.counterName || staffCounter?.name || (staffCounter?.code ? `কাউন্টার ${staffCounter.code}` : (lang === 'bn' ? 'কাউন্টার ০১' : 'Counter 01'));
+
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig());
   const activeUserEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_user_account') : '') || 'hossansajjad1994@gmail.com';
@@ -142,11 +151,12 @@ export const Navbar = () => {
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInternalChat, setShowInternalChat] = useState(false);
-  const [unreadChatCount, setUnreadChatCount] = useState(() => getUnreadCount(user?.id || 'owner'));
+  const activeChatUserId = isSuperAdmin ? 'super_admin' : (user?.id || 'owner');
+  const [unreadChatCount, setUnreadChatCount] = useState(() => getUnreadCount(activeChatUserId));
 
   useEffect(() => {
     const updateUnread = () => {
-      setUnreadChatCount(getUnreadCount(user?.id || 'owner'));
+      setUnreadChatCount(getUnreadCount(isSuperAdmin ? 'super_admin' : (user?.id || 'owner')));
     };
     window.addEventListener('hk360_internal_msg_received', updateUnread);
     window.addEventListener('hk360_internal_msg_read', updateUnread);
@@ -156,7 +166,7 @@ export const Navbar = () => {
       window.removeEventListener('hk360_internal_msg_read', updateUnread);
       window.removeEventListener('hk360_internal_msg_cleared', updateUnread);
     };
-  }, [user]);
+  }, [user, isSuperAdmin]);
   const [showAlertCenter, setShowAlertCenter] = useState(false);
   const [showMasterPinModal, setShowMasterPinModal] = useState(false);
   const [activeTool, setActiveTool] = useState(null); // 'calculator' | 'cash' | 'notes' | 'backup_hub' | 'shortcuts'
@@ -991,6 +1001,39 @@ export const Navbar = () => {
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 
+            {/* Cashier Branch & Section Indicator Badge */}
+            {isCashier && (
+              <div
+                className="navbar-cashier-branch-banner"
+                onClick={() => {
+                  if (typeof setActiveTab === 'function') setActiveTab('branch_control');
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 11px',
+                  borderRadius: '24px',
+                  background: 'rgba(16, 185, 129, 0.14)',
+                  border: '1.5px solid #10b981',
+                  color: '#10b981',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.22)',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer'
+                }}
+                title={lang === 'bn' ? `বর্তমান শাখা: ${cashierBranchName} • কাউন্টার: ${cashierCounterName} (ক্লিক করে ব্রাঞ্চ ও ক্যাশ হাব দেখুন)` : `Branch: ${cashierBranchName}`}
+              >
+                <Building2 size={13} style={{ color: '#10b981' }} />
+                <span>{cashierBranchName}</span>
+                <span style={{ opacity: 0.4 }}>•</span>
+                <Monitor size={12} style={{ color: '#818cf8' }} />
+                <span style={{ color: '#818cf8' }}>{cashierCounterName}</span>
+              </div>
+            )}
+
             {/* Prominent Login Status Indicator (সুপার অ্যাডমিন, ওনার, ক্যাশিয়ার, এসআর, সেলসম্যান) */}
             {user ? (() => {
               const pillColor = isSuperAdmin ? '#3b82f6' :
@@ -1000,7 +1043,7 @@ export const Navbar = () => {
 
               const roleTag = isSuperAdmin ? (lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin') :
                               isOwner ? (lang === 'bn' ? '🟢 ওনার অ্যাকাউন্ট' : '🟢 Owner') :
-                              isCashier ? (lang === 'bn' ? '🟢 ক্যাশিয়ার' : '🟢 Cashier') :
+                              isCashier ? (lang === 'bn' ? `🟢 ক্যাশিয়ার (${cashierBranchName.replace(/ শাখা.*$/, '') || 'প্রধান শাখা'})` : `🟢 Cashier (${cashierBranchName.replace(/ Branch.*$/, '')})`) :
                               isSR ? (lang === 'bn' ? '🔵 এসআর অফিসার' : '🔵 SR Rep') :
                               isSalesman ? (lang === 'bn' ? '🟡 সেলসম্যান' : '🟡 Salesman') :
                               (lang === 'bn' ? '🟢 ব্যবসায়িক অ্যাকাউন্ট' : '🟢 Business');

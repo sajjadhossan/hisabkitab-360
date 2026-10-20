@@ -359,16 +359,18 @@ export const InvoicePrintModal = () => {
           {/* Financial Breakdown & Notes */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1.5rem', marginBottom: '2rem' }}>
             <div>
-              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', marginBottom: '4px' }}>
-                  {lang === 'bn' ? 'ব্যাংক ও অনলাইন পেমেন্ট তথ্য:' : 'BANK & PAYMENT DETAILS:'}
+              {(businessSettings.bankAccountNo || businessSettings.bankName || businessSettings.bkashMerchant) && (
+                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569', marginBottom: '4px' }}>
+                    {lang === 'bn' ? 'ব্যাংক ও অনলাইন পেমেন্ট তথ্য:' : 'BANK & PAYMENT DETAILS:'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#334155', lineHeight: 1.6 }}>
+                    {businessSettings.bankName && <div><strong>{lang === 'bn' ? 'ব্যাংক:' : 'Bank:'}</strong> {businessSettings.bankName}</div>}
+                    {businessSettings.bankAccountNo && <div><strong>{lang === 'bn' ? 'হিসাব নং:' : 'A/C No:'}</strong> {businessSettings.bankAccountNo}</div>}
+                    {businessSettings.bkashMerchant && <div><strong>{lang === 'bn' ? 'বিকাশ মার্চেন্ট:' : 'bKash Merchant:'}</strong> {businessSettings.bkashMerchant}</div>}
+                  </div>
                 </div>
-                <div style={{ fontSize: '11px', color: '#334155', lineHeight: 1.6 }}>
-                  <div><strong>{lang === 'bn' ? 'ব্যাংক:' : 'Bank:'}</strong> {businessSettings.bankName || 'ব্র্যাক ব্যাংক পিএলসি, মিরপুর শাখা'}</div>
-                  <div><strong>{lang === 'bn' ? 'হিসাব নং:' : 'A/C No:'}</strong> {businessSettings.bankAccountNo || '1501204892019001 (মেসার্স আল-মদিনা)'}</div>
-                  <div><strong>{lang === 'bn' ? 'বিকাশ মার্চেন্ট:' : 'bKash Merchant:'}</strong> {businessSettings.bkashMerchant || '01712-345678'}</div>
-                </div>
-              </div>
+              )}
 
               {inv.notes && (
                 <div style={{ fontSize: '11px', color: '#475569', background: '#fffbeb', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fef3c7', marginBottom: '8px' }}>

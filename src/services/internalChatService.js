@@ -398,8 +398,18 @@ export const initChatRealtimeListener = (onIncomingMessage) => {
 export const getUnreadCount = (activeUserId = 'owner') => {
   try {
     const msgs = getStoredMessages();
-    const readIds = JSON.parse(localStorage.getItem(`hk360_read_msgs_${activeUserId}`) || '[]');
-    const unread = msgs.filter((m) => m.senderId !== activeUserId && !readIds.includes(m.id));
+    const readIds = new Set(JSON.parse(localStorage.getItem(`hk360_read_msgs_${activeUserId}`) || '[]'));
+    const isSuper = activeUserId === 'super_admin';
+    const unread = msgs.filter((m) => {
+      if (m.senderId === activeUserId) return false;
+      if (isSuper && (m.senderRole === 'সুপার এডমিন' || m.senderRole === 'Super Admin' || m.senderId === 'super_admin')) return false;
+      if (m.read) return false;
+      if (readIds.has(m.id)) return false;
+      if (isSuper) {
+        return m.recipientId === 'super_admin' || m.channelId === 'super_admin_desk';
+      }
+      return true;
+    });
     return unread.length;
   } catch {
     return 0;
@@ -411,20 +421,31 @@ export const markChannelAsRead = (channelOrTargetId, activeUserId = 'owner') => 
     const msgs = getStoredMessages();
     const readKey = `hk360_read_msgs_${activeUserId}`;
     const readIds = new Set(JSON.parse(localStorage.getItem(readKey) || '[]'));
+    let changed = false;
 
     msgs.forEach((m) => {
-      if (
+      const match = (
         m.channelId === channelOrTargetId ||
         m.recipientId === channelOrTargetId ||
         m.senderId === channelOrTargetId ||
         (m.recipientEmail && m.recipientEmail === channelOrTargetId) ||
-        (m.senderEmail && m.senderEmail === channelOrTargetId)
-      ) {
+        (m.senderEmail && m.senderEmail === channelOrTargetId) ||
+        (channelOrTargetId === 'super_admin' && (m.recipientId === 'super_admin' || m.senderId === 'super_admin' || m.channelId === 'super_admin_desk'))
+      );
+      if (match) {
         readIds.add(m.id);
+        if (!m.read) {
+          m.read = true;
+          m.readAt = Date.now();
+          changed = true;
+        }
       }
     });
 
     localStorage.setItem(readKey, JSON.stringify(Array.from(readIds)));
+    if (changed) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('hk360_internal_msg_read'));
     }

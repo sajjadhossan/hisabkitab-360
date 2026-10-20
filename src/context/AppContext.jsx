@@ -168,25 +168,36 @@ const STORAGE_KEYS = {
 export const DEFAULT_BRANCHES = [
   {
     id: 'br-main',
-    name: 'প্রধান শাখা (Main Branch)',
+    name: 'শ্রীনগর প্রধান শাখা (Sreenagar Branch)',
     code: 'BR-01',
-    address: 'মিরপুর ১০, ঢাকা',
+    address: 'শ্রীনগর বাজার, মুন্সিগঞ্জ',
     phone: '০১৭০০-০০০০০০',
     isMain: true,
     counters: [
-      { id: 'cnt-1', name: 'কাউন্টার ০১ (ক্যাশ ও কার্ড)', code: 'POS-01', openingFloat: 1000 },
-      { id: 'cnt-2', name: 'কাউন্টার ০২ (এক্সপ্রেস ক্যাশ)', code: 'POS-02', openingFloat: 1000 }
+      { id: 'cnt-1', name: 'কাউন্টার ০১ (ক্যাশ ও বিলিং)', code: 'POS-01', openingFloat: 1000 },
+      { id: 'cnt-2', name: 'কাউন্টার ০২ (এক্সপ্রেস কাউন্টার)', code: 'POS-02', openingFloat: 1000 }
+    ]
+  },
+  {
+    id: 'br-munshiganj',
+    name: 'মুন্সিগঞ্জ সদর শাখা (Munshiganj Branch)',
+    code: 'BR-02',
+    address: 'সদর রোড, মুন্সিগঞ্জ',
+    phone: '০১৮০০-০০০০০০',
+    isMain: false,
+    counters: [
+      { id: 'cnt-3', name: 'কাউন্টার ০১ (প্রধান কাউন্টার)', code: 'POS-01', openingFloat: 1000 }
     ]
   },
   {
     id: 'br-dhanmondi',
     name: 'ধানমন্ডি শাখা (Dhanmondi Branch)',
-    code: 'BR-02',
+    code: 'BR-03',
     address: 'ধানমন্ডি ২৭, ঢাকা',
-    phone: '০১৮০০-০০০০০০',
+    phone: '০১৯০০-০০০০০০',
     isMain: false,
     counters: [
-      { id: 'cnt-3', name: 'কাউন্টার ০১ (কাউন্টার সেল)', code: 'POS-01', openingFloat: 1000 }
+      { id: 'cnt-4', name: 'কাউন্টার ০১ (কাউন্টার সেল)', code: 'POS-01', openingFloat: 1000 }
     ]
   }
 ];

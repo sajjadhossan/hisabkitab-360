@@ -465,16 +465,18 @@ export const buildInvoiceHtml = (inv, settings = {}, lang = 'bn', qrCodeUrl = ''
       <!-- Financials Grid -->
       <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; margin-bottom: 2rem;">
         <div>
+          ${(settings.bankAccountNo || settings.bankName || settings.bkashMerchant) ? `
           <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
             <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569; margin-bottom: 4px;">
               ${lang === 'bn' ? 'ব্যাংক ও অনলাইন পেমেন্ট তথ্য:' : 'BANK & PAYMENT DETAILS:'}
             </div>
             <div style="font-size: 11px; color: #334155; line-height: 1.6;">
-              <div><strong>${lang === 'bn' ? 'ব্যাংক:' : 'Bank:'}</strong> ${settings.bankName || 'ব্র্যাক ব্যাংক পিএলসি, মিরপুর শাখা'}</div>
-              <div><strong>${lang === 'bn' ? 'হিসাব নং:' : 'A/C No:'}</strong> ${settings.bankAccountNo || '1501204892019001 (মেসার্স আল-মদিনা)'}</div>
-              <div><strong>${lang === 'bn' ? 'বিকাশ মার্চেন্ট:' : 'bKash Merchant:'}</strong> ${settings.bkashMerchant || '01712-345678'}</div>
+              ${settings.bankName ? `<div><strong>${lang === 'bn' ? 'ব্যাংক:' : 'Bank:'}</strong> ${settings.bankName}</div>` : ''}
+              ${settings.bankAccountNo ? `<div><strong>${lang === 'bn' ? 'হিসাব নং:' : 'A/C No:'}</strong> ${settings.bankAccountNo}</div>` : ''}
+              ${settings.bkashMerchant ? `<div><strong>${lang === 'bn' ? 'বিকাশ মার্চেন্ট:' : 'bKash Merchant:'}</strong> ${settings.bkashMerchant}</div>` : ''}
             </div>
           </div>
+          ` : ''}
           ${inv.notes ? `
             <div style="font-size: 11px; color: #475569; background: #fffbeb; padding: 8px 12px; border-radius: 6px; border: 1px solid #fef3c7;">
               <strong>${lang === 'bn' ? 'বিশেষ দ্রষ্টব্য / নোট:' : 'Notes:'}</strong> ${inv.notes}

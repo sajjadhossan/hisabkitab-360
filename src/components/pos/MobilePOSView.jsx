@@ -40,7 +40,8 @@ import {
   ChevronDown,
   Check,
   Settings,
-  PlusCircle
+  PlusCircle,
+  Building2
 } from 'lucide-react';
 import { playCartPop, playButtonClick } from '../../services/soundFeedback';
 import { VoiceInputButton } from '../common/VoiceInputButton';
@@ -577,7 +578,7 @@ export const MobilePOSView = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '4px',
-              padding: '3px 7px',
+              padding: '3px 8px',
               borderRadius: '8px',
               background: 'rgba(16, 185, 129, 0.12)',
               border: '1px solid rgba(16, 185, 129, 0.35)',
@@ -586,15 +587,20 @@ export const MobilePOSView = ({
               fontSize: '0.7rem',
               fontWeight: '800'
             }}
-            title={lang === 'bn' ? 'টার্মিনাল ও ক্যাশিয়ার পরিচালনা করতে ক্লিক করুন' : 'Click to manage terminal & cashier'}
+            title={lang === 'bn' ? `শাখা: ${activeBranch?.name || 'প্রধান শাখা'} • কাউন্টার: ${activeCounter?.code || activeCounter?.name || 'POS-০১'} • ক্যাশিয়ার: ${assignedCashierName}` : 'Click to manage terminal & cashier'}
           >
-            <Monitor size={12} style={{ color: '#10b981' }} />
-            <span style={{ color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-              {activeCounter?.code || activeCounter?.name || 'POS-01'}
+            <Building2 size={11} style={{ color: '#10b981' }} />
+            <span style={{ maxWidth: '85px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#10b981' }}>
+              {activeBranch?.name?.replace(/ শাখা.*$/, '') || (lang === 'bn' ? 'প্রধান' : 'Main')}
             </span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <User size={12} style={{ color: '#818cf8' }} />
-            <span style={{ maxWidth: '65px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Monitor size={11} style={{ color: '#818cf8' }} />
+            <span style={{ color: '#818cf8', fontFamily: 'var(--font-mono)' }}>
+              {activeCounter?.code || 'POS-01'}
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <User size={11} style={{ color: 'var(--text-main)' }} />
+            <span style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {assignedCashierName}
             </span>
             <ChevronDown size={10} style={{ color: 'var(--text-muted)' }} />

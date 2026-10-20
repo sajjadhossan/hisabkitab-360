@@ -231,8 +231,13 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     const timeStr = last.timestamp
       ? new Date(last.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
       : '';
+    const readKey = `hk360_read_msgs_${activeUserId}`;
+    let readIds = new Set();
+    try {
+      readIds = new Set(JSON.parse(localStorage.getItem(readKey) || '[]'));
+    } catch {}
 
-    const unreadCount = matched.filter((m) => !m.read && m.senderDeviceId !== myLocalDeviceId && m.senderId !== activeUserId).length;
+    const unreadCount = matched.filter((m) => !m.read && !readIds.has(m.id) && m.senderDeviceId !== myLocalDeviceId && m.senderId !== activeUserId).length;
 
     return {
       last,
@@ -1497,7 +1502,24 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                           </button>
                         )}
 
-                        {isMe && <CheckCheck size={12} color="#10b981" />}
+                        {isMe && (
+                          m.read ? (
+                            <span
+                              title={lang === 'bn' ? 'পঠিত (Seen / Read)' : 'Read'}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#10b981', fontSize: '0.62rem', fontWeight: '800' }}
+                            >
+                              <CheckCheck size={12} color="#10b981" />
+                              <span>{lang === 'bn' ? 'পঠিত' : 'Read'}</span>
+                            </span>
+                          ) : (
+                            <span
+                              title={lang === 'bn' ? 'প্রেরিত (Sent)' : 'Sent'}
+                              style={{ display: 'inline-flex', alignItems: 'center', color: 'rgba(255, 255, 255, 0.65)' }}
+                            >
+                              <Check size={12} />
+                            </span>
+                          )
+                        )}
                       </div>
                     </div>
                   );
