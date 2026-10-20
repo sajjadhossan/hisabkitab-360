@@ -146,25 +146,43 @@ export const TenantFeatureSwitchboardModal = ({
     return list;
   }, [selectedSector, templateSearchQuery]);
 
+  // Safe Haptic Helper
+  const triggerHaptic = () => {
+    try {
+      if (typeof hapticFeedback === 'function') {
+        hapticFeedback('light');
+      } else if (hapticFeedback && typeof hapticFeedback.light === 'function') {
+        hapticFeedback.light();
+      }
+    } catch (e) {
+      // Ignore haptic errors on web
+    }
+  };
+
   // Toggle single module
   const handleToggleModule = (moduleId) => {
     playButtonClick();
-    hapticFeedback();
-    setModulesState(prev => ({
-      ...prev,
-      [moduleId]: !prev[moduleId]
-    }));
+    triggerHaptic();
+    setModulesState(prev => {
+      const currentState = prev || {};
+      const isCurrentlyEnabled = currentState[moduleId] !== false;
+      return {
+        ...currentState,
+        [moduleId]: !isCurrentlyEnabled
+      };
+    });
   };
 
   // Toggle single template
   const handleToggleTemplate = (templateId) => {
     playButtonClick();
-    hapticFeedback();
+    triggerHaptic();
     setAllowedTemplates(prev => {
-      if (prev.includes(templateId)) {
-        return prev.filter(id => id !== templateId);
+      const currentList = Array.isArray(prev) ? prev : [];
+      if (currentList.includes(templateId)) {
+        return currentList.filter(id => id !== templateId);
       } else {
-        return [...prev, templateId];
+        return [...currentList, templateId];
       }
     });
   };
@@ -172,7 +190,7 @@ export const TenantFeatureSwitchboardModal = ({
   // Apply module preset
   const handleApplyModulePreset = (preset) => {
     playButtonClick();
-    hapticFeedback();
+    triggerHaptic();
     const nextState = {};
     MASTER_FEATURE_REGISTRY.forEach(f => {
       nextState[f.id] = preset.enabledIds.includes(f.id);
@@ -183,7 +201,7 @@ export const TenantFeatureSwitchboardModal = ({
   // Apply template preset
   const handleApplyTemplatePreset = (presetId) => {
     playButtonClick();
-    hapticFeedback();
+    triggerHaptic();
     if (presetId === 'preset_all_templates') {
       setAllowedTemplates(MASTER_INDUSTRY_TEMPLATES.map(t => t.id));
     } else if (presetId === 'preset_grocery_retail') {
@@ -207,7 +225,7 @@ export const TenantFeatureSwitchboardModal = ({
   // Sector Bulk Toggle: Enable or disable all templates in current sector
   const handleToggleCurrentSector = (enable) => {
     playButtonClick();
-    hapticFeedback();
+    triggerHaptic();
     const targetTemplates = (selectedSector === 'all'
       ? MASTER_INDUSTRY_TEMPLATES
       : MASTER_INDUSTRY_TEMPLATES.filter(t => t.sectorId === selectedSector)
@@ -226,7 +244,7 @@ export const TenantFeatureSwitchboardModal = ({
   // Apply Template Defaults to Modules
   const handleApplyTemplateDefaultsToModules = (templateId) => {
     playButtonClick();
-    hapticFeedback();
+    triggerHaptic();
     setSelectedTemplateId(templateId);
     const defaults = resolveFeaturesForIndustryTemplate(templateId);
     setModulesState(defaults);
@@ -237,7 +255,7 @@ export const TenantFeatureSwitchboardModal = ({
   // Enable / Disable All Modules
   const handleSetAllModules = (enable) => {
     playButtonClick();
-    hapticFeedback();
+    triggerHaptic();
     const nextState = {};
     MASTER_FEATURE_REGISTRY.forEach(f => {
       nextState[f.id] = enable;
@@ -248,7 +266,7 @@ export const TenantFeatureSwitchboardModal = ({
   // Save handler
   const handleSave = () => {
     playSuccessChime();
-    hapticFeedback();
+    triggerHaptic();
     if (onSaveTenantModules) {
       onSaveTenantModules(tenant.id, {
         modules: modulesState,

@@ -16,69 +16,64 @@ export const isNativePlatform = () => Capacitor.isNativePlatform();
 // ==========================================
 // 1. HAPTIC FEEDBACK (Vibration Engine)
 // ==========================================
-export const hapticFeedback = {
-  light: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(12);
-      }
-    } catch {}
-  },
-  medium: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.impact({ style: ImpactStyle.Medium });
-      } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(25);
-      }
-    } catch {}
-  },
-  heavy: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.impact({ style: ImpactStyle.Heavy });
-      } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(40);
-      }
-    } catch {}
-  },
-  success: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.notification({ type: NotificationType.Success });
-      } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([20, 40, 25]);
-      }
-    } catch {}
-  },
-  warning: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.notification({ type: NotificationType.Warning });
-      } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([30, 50, 30]);
-      }
-    } catch {}
-  },
-  error: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.notification({ type: NotificationType.Error });
-      } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([50, 60, 50, 60, 50]);
-      }
-    } catch {}
-  },
-  selection: async () => {
-    try {
-      if (isNativePlatform()) {
-        await Haptics.selectionStart();
-      }
-    } catch {}
-  }
+const triggerNativeHaptic = async (style = 'light') => {
+  try {
+    if (isNativePlatform()) {
+      if (style === 'medium') await Haptics.impact({ style: ImpactStyle.Medium });
+      else if (style === 'heavy') await Haptics.impact({ style: ImpactStyle.Heavy });
+      else await Haptics.impact({ style: ImpactStyle.Light });
+    } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(style === 'medium' ? 25 : (style === 'heavy' ? 40 : 12));
+    }
+  } catch {}
 };
+
+export const hapticFeedback = Object.assign(
+  function(style = 'light') {
+    triggerNativeHaptic(style);
+  },
+  {
+    light: async () => triggerNativeHaptic('light'),
+    medium: async () => triggerNativeHaptic('medium'),
+    heavy: async () => triggerNativeHaptic('heavy'),
+    success: async () => {
+      try {
+        if (isNativePlatform()) {
+          await Haptics.notification({ type: NotificationType.Success });
+        } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([20, 40, 25]);
+        }
+      } catch {}
+    },
+    warning: async () => {
+      try {
+        if (isNativePlatform()) {
+          await Haptics.notification({ type: NotificationType.Warning });
+        } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([30, 50, 30]);
+        }
+      } catch {}
+    },
+    error: async () => {
+      try {
+        if (isNativePlatform()) {
+          await Haptics.notification({ type: NotificationType.Error });
+        } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([50, 60, 50, 60, 50]);
+        }
+      } catch {}
+    },
+    selection: async () => {
+      try {
+        if (isNativePlatform()) {
+          await Haptics.selectionStart();
+        } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(8);
+        }
+      } catch {}
+    }
+  }
+);
 
 // ==========================================
 // 2. STATUS BAR & THEME INTEGRATION
