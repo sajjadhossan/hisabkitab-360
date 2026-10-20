@@ -240,6 +240,24 @@ export const deleteMessage = async (messageId, deleteForEveryone = true) => {
 };
 
 /**
+ * Permanently purges a message (including deleted placeholder) from local storage and UI
+ */
+export const purgeMessagePermanently = (messageId) => {
+  try {
+    const current = getStoredMessages();
+    const updated = current.filter((m) => m.id !== messageId);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, purged: true } }));
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to purge message:', err);
+    return false;
+  }
+};
+
+/**
  * Pulls missed messages from Supabase Cloud and merges into local storage
  */
 export const syncCloudMessages = async () => {

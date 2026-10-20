@@ -58,7 +58,10 @@ import {
   UtensilsCrossed,
   Stethoscope,
   Search,
-  ArrowRight
+  ArrowRight,
+  MoreHorizontal,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
 import { POSPermissionsSettings } from './POSPermissionsSettings';
@@ -107,6 +110,7 @@ export const BusinessSettings = () => {
   const { user } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState('profile'); // 'profile' | 'receipt' | 'hardware' | 'backup' | 'commercial'
+  const [showMoreSubTabs, setShowMoreSubTabs] = useState(false);
   const [formState, setFormState] = useState({ ...businessSettings });
   const [scannerLiveInput, setScannerLiveInput] = useState('');
   const [lastScannedTestProduct, setLastScannedTestProduct] = useState(null);
@@ -334,370 +338,472 @@ export const BusinessSettings = () => {
             <Printer size={14} />
             <span>{lang === 'bn' ? 'রিসিট ও প্রিন্ট কাস্টমাইজার' : 'Receipt & Print Designer'}</span>
           </button>
-
+          {/* Sleek "More Options" Button */}
           <button
             type="button"
-            onClick={() => setActiveSubTab('hardware')}
+            onClick={() => setShowMoreSubTabs(!showMoreSubTabs)}
             style={{
               padding: '6px 14px',
               borderRadius: '8px',
-              border: 'none',
-              background: activeSubTab === 'hardware' ? 'var(--business-primary)' : 'transparent',
-              color: activeSubTab === 'hardware' ? '#fff' : 'var(--text-muted)',
+              border: '1.5px dashed var(--border-color)',
+              background: showMoreSubTabs
+                ? 'rgba(99, 102, 241, 0.2)'
+                : ['hardware', 'pos_permissions', 'backup', 'commercial'].includes(activeSubTab)
+                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(16, 185, 129, 0.25))'
+                : 'rgba(255, 255, 255, 0.04)',
+              color: ['hardware', 'pos_permissions', 'backup', 'commercial'].includes(activeSubTab) || showMoreSubTabs
+                ? 'var(--text-main)'
+                : 'var(--text-muted)',
               fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <FolderOpen size={14} />
-            <span>{lang === 'bn' ? 'ক্যাশ বক্স ও বারকোড স্ক্যানার' : 'POS Hardware & Drawer'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('pos_permissions')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSubTab === 'pos_permissions' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
-              color: activeSubTab === 'pos_permissions' ? '#fff' : 'var(--text-muted)',
-              fontSize: '0.82rem',
-              fontWeight: '700',
+              fontWeight: '800',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: activeSubTab === 'pos_permissions' ? '0 2px 10px rgba(16, 185, 129, 0.35)' : 'none'
+              marginLeft: 'auto',
+              boxShadow: showMoreSubTabs ? '0 0 12px rgba(99, 102, 241, 0.3)' : 'none',
+              transition: 'all 0.2s ease'
             }}
           >
-            <ShieldCheck size={14} />
-            <span>{lang === 'bn' ? '🛡️ স্টাফ ও POS পারমিশন কন্ট্রোল' : '🛡️ Staff & POS Permissions'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('backup')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSubTab === 'backup' ? 'var(--business-primary)' : 'transparent',
-              color: activeSubTab === 'backup' ? '#fff' : 'var(--text-muted)',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Download size={14} />
-            <span>{lang === 'bn' ? 'ব্যাকআপ ও রিস্টোর' : 'Backup & Reset'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openAuditTrail) window.__openAuditTrail();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(20, 184, 166, 0.15)',
-              color: '#0d9488',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>{lang === 'bn' ? 'অডিট ট্রেইল লগ' : 'Audit Logs'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openRbacSecurity) window.__openRbacSecurity();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(99, 102, 241, 0.15)',
-              color: '#4f46e5',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>{lang === 'bn' ? 'স্টাফ রোল ও আরবিএসি' : 'Staff RBAC'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openFieldForceRadar) window.__openFieldForceRadar();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#059669',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            title={lang === 'bn' ? 'সেলসম্যান ও ফিল্ড কর্মীদের লাইভ লোকেশন ম্যাপ' : 'Field Force Live GPS Radar'}
-          >
-            <MapPin size={14} />
-            <span>{lang === 'bn' ? 'ফিল্ড জিপিএস রাডার' : 'Field Radar'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openBlindShiftHandover) window.__openBlindShiftHandover();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#059669',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>{lang === 'bn' ? 'ব্লাইন্ড শিফট ও ক্যাশ ড্রপ' : 'Blind Shift & Drop'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openAntiTheftAudit) window.__openAntiTheftAudit();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(245, 158, 11, 0.15)',
-              color: '#d97706',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>{lang === 'bn' ? 'অ্যান্টি-থেফ্ট অডিট হাব' : 'Anti-Theft Hub'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openFinancialIntelligence) window.__openFinancialIntelligence();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(6, 182, 212, 0.15)',
-              color: '#0891b2',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Sparkles size={14} />
-            <span>{lang === 'bn' ? 'ফাইন্যান্সিয়াল ইন্টেলিজেন্স ও এআই' : 'AI Financial Hub'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openBankMfsReconciliation) window.__openBankMfsReconciliation();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(236, 72, 153, 0.15)',
-              color: '#db2777',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Building2 size={14} />
-            <span>{lang === 'bn' ? 'ব্যাংক/বিকাশ রিকনসিলিয়েশন' : 'MFS & Bank Reconcile'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openClvIntelligence) window.__openClvIntelligence();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(168, 85, 247, 0.15)',
-              color: '#9333ea',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Users size={14} />
-            <span>{lang === 'bn' ? 'কাস্টমার লাইফটাইম ভ্যালু (CLV)' : 'Customer CLV Matrix'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openSpecializedVerticals) window.__openSpecializedVerticals();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(249, 115, 22, 0.15)',
-              color: '#ea580c',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <UtensilsCrossed size={14} />
-            <span>{lang === 'bn' ? 'ভার্টিক্যাল হাব (রেস্তোরাঁ/টেইলারিং/ওয়ার্কশপ)' : 'Verticals Hub (Dine/Tailor/Auto)'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openPharmacyClinical) window.__openPharmacyClinical();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#059669',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Stethoscope size={14} />
-            <span>{lang === 'bn' ? 'ফার্মাসি ও ক্লিনিক্যাল হাব' : 'Pharmacy & Clinical Hub'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openOfflineCloudResilience) window.__openOfflineCloudResilience();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(56, 189, 248, 0.15)',
-              color: '#0284c7',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Cloud size={14} />
-            <span>{lang === 'bn' ? 'অফলাইন ও ক্লাউড রেজিলিয়েন্স (Phase 9)' : 'Offline & Cloud Resilience'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (window.__openHardwareScaling) window.__openHardwareScaling();
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'rgba(99, 102, 241, 0.15)',
-              color: '#4f46e5',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Printer size={14} />
-            <span>{lang === 'bn' ? 'হার্ডওয়্যার ও গ্রোথ হাব (Phase 10)' : 'Hardware & Scaling Hub'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('commercial')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeSubTab === 'commercial' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
-              color: activeSubTab === 'commercial' ? '#fff' : 'var(--text-muted)',
-              fontSize: '0.82rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: activeSubTab === 'commercial' ? '0 2px 10px rgba(16, 185, 129, 0.3)' : 'none'
-            }}
-          >
-            <Sparkles size={14} />
-            <span>{lang === 'bn' ? 'সফটওয়্যার লাইসেন্স ও সেলস' : 'License & Reselling'}</span>
+            <MoreHorizontal size={14} style={{ color: '#6366f1' }} />
+            <span>{lang === 'bn' ? '⋯ আরও অপশন ও টুলস' : '⋯ More Options'}</span>
+            {['hardware', 'pos_permissions', 'backup', 'commercial'].includes(activeSubTab) && (
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  background: '#6366f1',
+                  color: '#fff',
+                  padding: '1px 6px',
+                  borderRadius: '5px',
+                  fontWeight: '800'
+                }}
+              >
+                {activeSubTab === 'hardware'
+                  ? (lang === 'bn' ? 'ক্যাশ বক্স' : 'Hardware')
+                  : activeSubTab === 'pos_permissions'
+                  ? (lang === 'bn' ? 'পারমিশন' : 'Permissions')
+                  : activeSubTab === 'backup'
+                  ? (lang === 'bn' ? 'ব্যাকআপ' : 'Backup')
+                  : (lang === 'bn' ? 'লাইসেন্স' : 'License')}
+              </span>
+            )}
+            <ChevronDown
+              size={13}
+              style={{
+                transform: showMoreSubTabs ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease'
+              }}
+            />
           </button>
         </div>
+
+        {/* Categorized "More Options" Floating Modal / Popover */}
+        {showMoreSubTabs && (
+          <div
+            className="glass-card"
+            style={{
+              marginTop: '8px',
+              marginBottom: '1rem',
+              padding: '1.25rem',
+              borderRadius: '16px',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-secondary)',
+              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.45)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              animation: 'fadeIn 0.2s ease-in-out'
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} style={{ color: '#6366f1' }} />
+                <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'অতিরিক্ত সেটিংস, সিকিউরিটি ও অ্যাডভান্সড টুলস' : 'Extended Settings & Advanced Enterprise Tools'}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMoreSubTabs(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Categorized 3-Column Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              {/* CATEGORY 1: Hardware & Security Controls */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <ShieldCheck size={14} />
+                  <span>{lang === 'bn' ? 'হার্ডওয়্যার ও সিকিউরিটি' : 'Hardware & Security'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveSubTab('hardware'); setShowMoreSubTabs(false); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: activeSubTab === 'hardware' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                      color: activeSubTab === 'hardware' ? '#10b981' : 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <FolderOpen size={14} style={{ color: '#10b981' }} />
+                    <span>{lang === 'bn' ? 'ক্যাশ বক্স ও বারকোড স্ক্যানার' : 'POS Hardware & Drawer'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setActiveSubTab('pos_permissions'); setShowMoreSubTabs(false); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: activeSubTab === 'pos_permissions' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                      color: activeSubTab === 'pos_permissions' ? '#10b981' : 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <ShieldCheck size={14} style={{ color: '#10b981' }} />
+                    <span>{lang === 'bn' ? 'স্টাফ ও POS পারমিশন কন্ট্রোল' : 'Staff POS Permissions'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openRbacSecurity) window.__openRbacSecurity(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <UserCheck size={14} style={{ color: '#6366f1' }} />
+                    <span>{lang === 'bn' ? 'স্টাফ রোল ও আরবিএসি (RBAC)' : 'Staff RBAC Roles'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openAntiTheftAudit) window.__openAntiTheftAudit(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+                    <span>{lang === 'bn' ? 'অ্যান্টি-থেফ্ট ও অডিট হাব' : 'Anti-Theft Audit Hub'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openHardwareScaling) window.__openHardwareScaling(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Printer size={14} style={{ color: '#4f46e5' }} />
+                    <span>{lang === 'bn' ? 'হার্ডওয়্যার ও গ্রোথ স্কেলিং' : 'Hardware & Growth'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* CATEGORY 2: Data, Backup & Cloud Resilience */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0ea5e9', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <HardDrive size={14} />
+                  <span>{lang === 'bn' ? 'ডাটা ও ক্লাউড রেজিলিয়েন্স' : 'Data & Cloud Sync'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveSubTab('backup'); setShowMoreSubTabs(false); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: activeSubTab === 'backup' ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+                      color: activeSubTab === 'backup' ? '#0ea5e9' : 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Download size={14} style={{ color: '#0ea5e9' }} />
+                    <span>{lang === 'bn' ? 'ক্লাউড ও লোকাল ব্যাকআপ / রিস্টোর' : 'Cloud Backup & Reset'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openAuditTrail) window.__openAuditTrail(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <ShieldCheck size={14} style={{ color: '#0d9488' }} />
+                    <span>{lang === 'bn' ? 'অডিট ট্রেইল ও সিকিউরিটি লগ' : 'Audit Trail Logs'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setActiveSubTab('commercial'); setShowMoreSubTabs(false); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: activeSubTab === 'commercial' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                      color: activeSubTab === 'commercial' ? '#10b981' : 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Key size={14} style={{ color: '#10b981' }} />
+                    <span>{lang === 'bn' ? 'সফটওয়্যার লাইসেন্স ও সেলস' : 'License & Commercial'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openOfflineCloudResilience) window.__openOfflineCloudResilience(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Cloud size={14} style={{ color: '#0284c7' }} />
+                    <span>{lang === 'bn' ? 'অফলাইন ও ক্লাউড রেজিলিয়েন্স' : 'Offline Cloud Resilience'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openInvoiceVerification) window.__openInvoiceVerification(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <ScanLine size={14} style={{ color: '#f59e0b' }} />
+                    <span>{lang === 'bn' ? 'ইনভয়েস ভেরিফিকেশন ও ট্র্যাকিং' : 'Invoice Verification'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* CATEGORY 3: Smart AI & Specialized Verticals */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Sparkles size={14} />
+                  <span>{lang === 'bn' ? 'স্মার্ট এআই ও ভার্টিক্যাল হাব' : 'Smart AI & Verticals'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openFinancialIntelligence) window.__openFinancialIntelligence(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Sparkles size={14} style={{ color: '#0891b2' }} />
+                    <span>{lang === 'bn' ? 'ফাইন্যান্সিয়াল ইন্টেলিজেন্স ও এআই' : 'AI Financial Hub'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openBankMfsReconciliation) window.__openBankMfsReconciliation(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Building2 size={14} style={{ color: '#db2777' }} />
+                    <span>{lang === 'bn' ? 'ব্যাংক/বিকাশ রিকনসিলিয়েশন' : 'MFS & Bank Reconcile'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openClvIntelligence) window.__openClvIntelligence(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Users size={14} style={{ color: '#10b981' }} />
+                    <span>{lang === 'bn' ? 'কাস্টমার লাইফটাইম ভ্যালু (CLV)' : 'Customer Lifetime Value'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openVerticalsHub) window.__openVerticalsHub(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <UtensilsCrossed size={14} style={{ color: '#ea580c' }} />
+                    <span>{lang === 'bn' ? 'ভার্টিক্যাল হাব (রেস্তোরাঁ/টেইলারিং)' : 'Verticals (Dine/Tailor)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowMoreSubTabs(false); if (window.__openPharmacyClinical) window.__openPharmacyClinical(); }}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <Stethoscope size={14} style={{ color: '#059669' }} />
+                    <span>{lang === 'bn' ? 'ফার্মাসি ও ক্লিনিক্যাল হাব' : 'Pharmacy Clinical Hub'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit}>

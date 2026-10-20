@@ -45,6 +45,7 @@ import {
   clearChannelHistory,
   syncCloudMessages,
   deleteMessage,
+  purgeMessagePermanently,
   compressImageFile
 } from '../../services/internalChatService';
 
@@ -343,6 +344,14 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
   const handleDeleteMsg = async (msgId) => {
     if (window.confirm(lang === 'bn' ? 'মেসেজটি সবার জন্য মুছে ফেলতে চান?' : 'Delete message for everyone?')) {
       await deleteMessage(msgId, true);
+    }
+  };
+
+  const handlePurgeDeletedPlaceholder = (msgId) => {
+    if (window.confirm(lang === 'bn' ? 'মুছে ফেলা মেসেজের এই নোটিশটিও কি চ্যাট স্ক্রিন থেকে সম্পূর্ণ সরিয়ে ফেলতে চান?' : 'Permanently remove this deleted notice from chat?')) {
+      purgeMessagePermanently(msgId);
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      if (showToast) showToast(lang === 'bn' ? 'মেসেজ নোটিশ সম্পূর্ণ মুছে ফেলা হয়েছে' : 'Notice cleared', 'info');
     }
   };
 
@@ -1207,22 +1216,40 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                     return (
                       <div
                         key={m.id}
+                        onClick={() => handlePurgeDeletedPlaceholder(m.id)}
+                        title={lang === 'bn' ? 'ট্যাপ করে এই মেসেজ নোটিশটি চিরতরে সরিয়ে ফেলুন' : 'Tap to permanently remove this notice'}
                         style={{
                           alignSelf: isMe ? 'flex-end' : 'flex-start',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px dashed var(--border-color)',
+                          padding: '6px 14px',
+                          borderRadius: '10px',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px dashed rgba(239, 68, 68, 0.35)',
                           color: 'var(--text-muted)',
                           fontSize: '0.74rem',
                           fontStyle: 'italic',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px'
+                          gap: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
                         }}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={12} style={{ color: '#ef4444' }} />
                         <span>{lang === 'bn' ? '🚫 এই বার্তাটি মুছে ফেলা হয়েছে' : '🚫 Message deleted'}</span>
+                        <span
+                          style={{
+                            fontSize: '0.64rem',
+                            color: '#ef4444',
+                            marginLeft: '6px',
+                            fontWeight: '800',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          ✕ {lang === 'bn' ? 'ক্লিয়ার' : 'Clear'}
+                        </span>
                       </div>
                     );
                   }
