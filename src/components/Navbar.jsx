@@ -461,7 +461,8 @@ export const Navbar = () => {
   const businessNavItems = useMemo(() => [
     ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav?.dashboard || '📊 ড্যাশবোর্ড', icon: LayoutDashboard }] : []),
     ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ' : '🏢 Branch & Cash Hub', icon: Building2, highlight: true }] : []),
-    ...(isModEnabled('pos') ? [{ id: 'pos', label: t.businessNav?.pos || '⚡ পিওএস সেলস', icon: ScanLine, highlight: true }] : []),
+    ...(isModEnabled('samity') ? [{ id: 'samity', label: lang === 'bn' ? '🤝 সমিতি ইআরপি' : '🤝 Samity Hub', icon: Users, highlight: true }] : []),
+    ...((!businessSettings?.hideRetailPos && isModEnabled('pos')) ? [{ id: 'pos', label: t.businessNav?.pos || '⚡ পিওএস সেলস', icon: ScanLine, highlight: true }] : []),
     ...(isModEnabled('debts') ? [{ id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
     ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t.businessNav?.invoices || '🧾 বিক্রয় মেমো', icon: FileText }] : []),
     ...(isModEnabled('quotations') ? [{ id: 'quotations', label: t.businessNav?.quotations || '📑 কোটেশন', icon: FileCheck }] : []),
@@ -474,7 +475,7 @@ export const Navbar = () => {
     ...(isModEnabled('sr') ? [{ id: 'sr', label: lang === 'bn' ? '🛵 এসআর ফিল্ড' : 'SR Field', icon: Users }] : []),
     { id: 'settings', label: t.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
     ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
-  ], [isModEnabled, t.businessNav, lang, isSuperAdmin]);
+  ], [isModEnabled, t.businessNav, lang, isSuperAdmin, businessSettings?.hideRetailPos]);
 
   const filteredBusinessNavItems = useMemo(() => {
     if (isOwner || isSuperAdmin || !isAuthenticated || !role || role === 'owner' || role === 'admin') {
@@ -747,32 +748,36 @@ export const Navbar = () => {
 
   // Dynamic business mobile bottom nav items based on admin/owner active modules and staff role permissions
   const businessBottomNavSlots = useMemo(() => {
-    const isPosPermitted = isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
-    const isPosActive = isModEnabled('pos') && isPosPermitted;
+    const isSamityMode = businessSettings?.primaryOperatingMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub';
+    const isPosPermitted = !businessSettings?.hideRetailPos && isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
+    const isPosActive = !businessSettings?.hideRetailPos && isModEnabled('pos') && isPosPermitted;
 
     const allCandidates = [
+      ...(isSamityMode ? [{ id: 'samity', label: lang === 'bn' ? 'সমিতি' : 'Samity', icon: Users }] : []),
       { id: 'dashboard', label: lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home', icon: LayoutDashboard },
+      { id: 'debts', label: lang === 'bn' ? 'দেনা-পাওনা' : 'Debts', icon: HandCoins },
+      { id: 'erp', label: lang === 'bn' ? 'লাভ-ক্ষতি' : 'Accounts', icon: Calculator },
       { id: 'inventory', label: lang === 'bn' ? 'ইনভেন্টরি' : 'Stock', icon: Boxes },
       { id: 'salesman_order', label: lang === 'bn' ? 'অর্ডার' : 'Orders', icon: FileText },
       { id: 'sr_delivery', label: lang === 'bn' ? 'ডেলিভারি' : 'Delivery', icon: Truck },
-      { id: 'debts', label: lang === 'bn' ? 'দেনা-পাওনা' : 'Debts', icon: HandCoins },
       { id: 'invoices', label: lang === 'bn' ? 'চালান' : 'Invoices', icon: FileText },
       { id: 'master_hub', label: lang === 'bn' ? 'মাস্টার ডাটা' : 'Master', icon: FolderOpen },
-      { id: 'erp', label: lang === 'bn' ? 'লাভ-ক্ষতি' : 'Accounts', icon: Calculator },
       { id: 'crm', label: lang === 'bn' ? 'কাস্টমার' : 'CRM', icon: Users }
     ];
 
     const activeNonHero = allCandidates.filter(c => {
+      if (c.id === 'samity') return isModEnabled('samity');
       const modOk = isModEnabled(c.id) || c.id === 'salesman_order' || c.id === 'sr_delivery';
       return modOk && isMenuItemAllowedForRole(c.id, role, staffMenuPermissions, isOwner, isSuperAdmin);
     });
 
     return {
+      isSamityMode,
       isPosActive,
       leftItems: activeNonHero.slice(0, 2),
-      rightItems: activeNonHero.slice(2, isPosActive ? 3 : 4)
+      rightItems: activeNonHero.slice(2, (isPosActive || isSamityMode) ? 3 : 4)
     };
-  }, [licenseInfo, lang, role, staffMenuPermissions, isOwner, isSuperAdmin]);
+  }, [licenseInfo, lang, role, staffMenuPermissions, isOwner, isSuperAdmin, businessSettings?.primaryOperatingMode, businessSettings?.industryTemplateId, businessSettings?.hideRetailPos]);
 
   return (
     <>
@@ -860,6 +865,28 @@ export const Navbar = () => {
                     }}
                   >
                     🛡️ {lang === 'bn' ? 'স্টাফ কন্ট্রোল' : 'Staff Control'}
+                  </span>
+                )}
+                {/* Samity Operating Mode Badge (Click to open Samity Hub directly) */}
+                {(businessSettings?.primaryOperatingMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub') && (
+                  <span
+                    className="badge"
+                    onClick={() => setActiveTab('samity')}
+                    title={lang === 'bn' ? 'সমিতি ইআরপি হাব খুলুন' : 'Open Samity ERP Hub'}
+                    style={{
+                      background: 'rgba(20, 184, 166, 0.16)',
+                      color: '#0d9488',
+                      border: '1.5px solid #14b8a6',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 0 10px rgba(20, 184, 166, 0.25)'
+                    }}
+                  >
+                    🏛️ {lang === 'bn' ? 'সমিতি মোড' : 'Samity Mode'}
                   </span>
                 )}
 
@@ -1944,19 +1971,34 @@ export const Navbar = () => {
               );
             })}
 
-            {/* Center Hero POS Button (Only when POS module is enabled) */}
-            {businessBottomNavSlots.isPosActive && (
+            {/* Center Hero Button (Samity Hero if in Samity Mode, or POS if in POS mode) */}
+            {businessBottomNavSlots.isSamityMode ? (
               <div className="mobile-bottom-hero-container">
                 <button
                   type="button"
-                  className={`mobile-bottom-hero-btn ${activeTab === 'pos' ? 'active' : ''}`}
-                  onClick={() => handleBottomNavTabClick('pos', 'medium')}
-                  title={lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Checkout'}
+                  className={`mobile-bottom-hero-btn ${activeTab === 'samity' ? 'active' : ''}`}
+                  onClick={() => handleBottomNavTabClick('samity', 'medium')}
+                  style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)', boxShadow: '0 4px 18px rgba(20, 184, 166, 0.45)' }}
+                  title={lang === 'bn' ? 'সমিতি ইআরপি হাব' : 'Samity ERP Hub'}
                 >
-                  <ScanLine size={24} />
-                  <span className="hero-btn-label">POS</span>
+                  <Users size={24} />
+                  <span className="hero-btn-label">{lang === 'bn' ? 'সমিতি' : 'Samity'}</span>
                 </button>
               </div>
+            ) : (
+              businessBottomNavSlots.isPosActive && (
+                <div className="mobile-bottom-hero-container">
+                  <button
+                    type="button"
+                    className={`mobile-bottom-hero-btn ${activeTab === 'pos' ? 'active' : ''}`}
+                    onClick={() => handleBottomNavTabClick('pos', 'medium')}
+                    title={lang === 'bn' ? 'POS সেলস কাউন্টার' : 'POS Checkout'}
+                  >
+                    <ScanLine size={24} />
+                    <span className="hero-btn-label">POS</span>
+                  </button>
+                </div>
+              )
             )}
 
             {/* Dynamic Active Right Items */}

@@ -561,7 +561,21 @@ export const AppProvider = ({ children }) => {
   });
   const [lang, setLang] = useState(() => localStorage.getItem(STORAGE_KEYS.LANG) || 'bn');
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_KEYS.THEME) || 'dark');
-  const [activeTab, setActiveTabState] = useState('dashboard');
+  const [activeTab, setActiveTabState] = useState(() => {
+    try {
+      const savedBiz = localStorage.getItem('hk360_biz_settings');
+      if (savedBiz) {
+        const parsed = JSON.parse(savedBiz);
+        if (parsed?.primaryOperatingMode === 'samity' || parsed?.industryTemplateId === 'samity_management_hub') {
+          return 'samity';
+        }
+        if (parsed?.defaultLandingTab) {
+          return parsed.defaultLandingTab;
+        }
+      }
+    } catch {}
+    return 'dashboard';
+  });
 
   // UI Data Density Mode: 'standard' | 'compact'
   const [densityMode, setDensityMode] = useState(() => localStorage.getItem('hk360_density') || 'standard');

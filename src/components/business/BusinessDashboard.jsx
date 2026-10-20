@@ -834,35 +834,120 @@ export const BusinessDashboard = () => {
             )}
           </div>
 
-          {/* Primary High-Contrast POS Button */}
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              hapticFeedback.medium();
-              setActiveTab('pos');
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '9px 18px',
-              borderRadius: '11px',
-              fontWeight: '800',
-              fontSize: '0.88rem',
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              border: 'none',
-              color: '#ffffff',
-              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-              cursor: 'pointer'
-            }}
-            title={lang === 'bn' ? 'পিওএস সেলস কাউন্টার খুলুন (F1)' : 'Open POS Terminal (F1)'}
-          >
-            <ScanLine size={17} />
-            <span>{lang === 'bn' ? '⚡ নতুন বিক্রয় (POS)' : '⚡ New Sale (POS)'}</span>
-          </button>
+          {/* Samity Hub Button if Samity Mode */}
+          {(businessSettings?.primaryOperatingMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub') && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                hapticFeedback.medium();
+                setActiveTab('samity');
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '11px',
+                fontWeight: '800',
+                fontSize: '0.88rem',
+                background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                border: 'none',
+                color: '#ffffff',
+                boxShadow: '0 4px 14px rgba(20, 184, 166, 0.4)',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'সমিতি ইআরপি হাব খুলুন' : 'Open Samity Hub'}
+            >
+              <Users size={17} />
+              <span>{lang === 'bn' ? '🤝 সমিতি হাব' : '🤝 Samity Hub'}</span>
+            </button>
+          )}
+
+          {/* Primary High-Contrast POS Button (Hidden if hideRetailPos is set) */}
+          {!businessSettings?.hideRetailPos && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                hapticFeedback.medium();
+                setActiveTab('pos');
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '11px',
+                fontWeight: '800',
+                fontSize: '0.88rem',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                border: 'none',
+                color: '#ffffff',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                cursor: 'pointer'
+              }}
+              title={lang === 'bn' ? 'পিওএস সেলস কাউন্টার খুলুন (F1)' : 'Open POS Terminal (F1)'}
+            >
+              <ScanLine size={17} />
+              <span>{lang === 'bn' ? '⚡ নতুন বিক্রয় (POS)' : '⚡ New Sale (POS)'}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 🏛️ Samity Mode Quick Access Banner */}
+      {(businessSettings?.primaryOperatingMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub') && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.14) 0%, rgba(99, 102, 241, 0.08) 100%)',
+            border: '1.5px solid rgba(20, 184, 166, 0.4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(20, 184, 166, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+              <Users size={22} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                {lang === 'bn' ? '🏛️ আপনার প্রতিষ্ঠান বর্তমানে সমিতি ও সমবায় মোডে পরিচালিত হচ্ছে' : '🏛️ Running in Samity & Co-operative Association Mode'}
+              </strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn'
+                  ? 'সদস্য তালিকা, কিস্তি ও চাঁদা জমা, ব্যাংক ভাউচার, বকেয়া নোটিশ ও অফিসিয়াল লেটারহেড ব্যবস্থাপনার জন্য সমিতি হাবে যান।'
+                  : 'Manage members, installment collections, bank deposits, due reminders and official letterhead.'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('samity')}
+            className="btn btn-primary"
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '0.84rem',
+              background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <span>{lang === 'bn' ? '🚀 সমিতি ইআরপি হাব খুলুন ➔' : 'Open Samity Hub ➔'}</span>
+          </button>
+        </div>
+      )}
 
       {/* 🧭 MODERN INTERACTIVE TIME HORIZON SWITCHER */}
       <div

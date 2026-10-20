@@ -56,16 +56,20 @@ import {
   Volume2,
   VolumeX,
   UtensilsCrossed,
-  Stethoscope
+  Stethoscope,
+  Search,
+  ArrowRight
 } from 'lucide-react';
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
 import { POSPermissionsSettings } from './POSPermissionsSettings';
 import { GoogleDriveBackupManager } from './GoogleDriveBackupManager';
+import { INDUSTRY_SECTORS, MASTER_INDUSTRY_TEMPLATES, getTemplateById } from '../../data/industryTemplates';
 
 export const BusinessSettings = () => {
   const {
     operatingMode,
     setOperatingMode,
+    setActiveTab,
     businessSettings,
     updateBusinessSettings,
     exportAllData,
@@ -110,6 +114,34 @@ export const BusinessSettings = () => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [inputLicenseKey, setInputLicenseKey] = useState('');
   const [isSoundboxActive, setIsSoundboxActive] = useState(() => isSoundboxEnabled());
+  const [selectedSector, setSelectedSector] = useState('all');
+  const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+
+  const handleSelectTemplate = (templateId) => {
+    const isSamity = templateId === 'samity_management_hub';
+    const updated = {
+      ...formState,
+      industryTemplateId: templateId,
+      primaryOperatingMode: isSamity ? 'samity' : (formState.primaryOperatingMode || 'pos'),
+      hideRetailPos: isSamity ? true : false,
+      defaultLandingTab: isSamity ? 'samity' : (formState.defaultLandingTab || 'pos')
+    };
+    setFormState(updated);
+    updateBusinessSettings(updated);
+  };
+
+  const handleOperatingModeSwitch = (mode) => {
+    const isSamity = mode === 'samity';
+    const updated = {
+      ...formState,
+      primaryOperatingMode: mode,
+      industryTemplateId: isSamity ? 'samity_management_hub' : (formState.industryTemplateId || 'retail_grocery'),
+      hideRetailPos: isSamity,
+      defaultLandingTab: mode
+    };
+    setFormState(updated);
+    updateBusinessSettings(updated);
+  };
 
   // Commercial / Reseller and Clean Slate setup states
   const [resellerForm, setResellerForm] = useState({
@@ -188,6 +220,29 @@ export const BusinessSettings = () => {
 
         {/* Sub-tab Navigation Pills (Swipeable on Mobile) */}
         <div className="horizontal-touch-strip" style={{ background: 'var(--bg-secondary)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)', gap: '4px' }}>
+          {/* Dedicated Industry Template & Operating Mode Tab */}
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('industry_template')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeSubTab === 'industry_template' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent',
+              color: activeSubTab === 'industry_template' ? '#fff' : 'var(--text-muted)',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: activeSubTab === 'industry_template' ? '0 2px 10px rgba(20, 184, 166, 0.4)' : 'none'
+            }}
+          >
+            <Users size={14} />
+            <span>{lang === 'bn' ? '🏛️ ব্যবসার ধরন ও ইন্ডাস্ট্রি টেমপ্লেট' : '🏛️ Industry & Mode'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveSubTab('profile')}
@@ -620,6 +675,445 @@ export const BusinessSettings = () => {
 
       <form onSubmit={handleSubmit}>
         {/* ========================================================= */}
+        {/* TAB 0: INDUSTRY TEMPLATE & OPERATING MODE HUB */}
+        {/* ========================================================= */}
+        {activeSubTab === 'industry_template' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Top Active Template Status Banner */}
+            <div
+              className="glass-card"
+              style={{
+                padding: '1.25rem',
+                borderRadius: '16px',
+                border: '1.5px solid var(--border-color)',
+                background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
+                boxShadow: '0 4px 20px rgba(20, 184, 166, 0.15)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div
+                    style={{
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '14px',
+                      background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      boxShadow: '0 4px 14px rgba(20, 184, 166, 0.4)',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Users size={28} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="badge" style={{ background: '#14b8a6', color: '#fff', fontSize: '0.72rem', fontWeight: '800' }}>
+                        {formState.primaryOperatingMode === 'samity' ? '🏛️ সক্রিয় সমিতি মোড' : '🏢 সক্রিয় ইন্ডাস্ট্রি'}
+                      </span>
+                      <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', fontSize: '0.72rem' }}>
+                        সুপার অ্যাডমিন অনুমোদিত
+                      </span>
+                    </div>
+                    <h3 style={{ margin: '4px 0 2px', fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      {formState.industryTemplateId === 'samity_management_hub' || formState.primaryOperatingMode === 'samity'
+                        ? (lang === 'bn' ? 'সমিতি, সমবায় সংস্থা, এনজিও ও ক্লাব ব্যবস্থাপনা' : 'Samity, Club & Association Management')
+                        : (getTemplateById(formState.industryTemplateId || 'retail_grocery')?.name || 'সাধারণ খুচরা ও সুপারশপ')}
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      {lang === 'bn'
+                        ? 'আপনার প্রতিষ্ঠানের চাহিদা অনুযায়ী সঠিক ইন্ডাস্ট্রি মোড ও টেমপ্লেট নির্বাচন করুন। অপ্রয়োজনীয় পিওএস ফিচার লুকিয়ে রাখা যাবে।'
+                        : 'Choose the exact business operating mode and industry template for zero bloat.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Direct Launch Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (formState.industryTemplateId === 'samity_management_hub' || formState.primaryOperatingMode === 'samity') {
+                      setActiveTab('samity');
+                    } else {
+                      setActiveTab(formState.defaultLandingTab || 'dashboard');
+                    }
+                  }}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    fontWeight: '800',
+                    fontSize: '0.88rem',
+                    background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                    boxShadow: '0 4px 16px rgba(20, 184, 166, 0.4)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span>{lang === 'bn' ? '🚀 সমিতি ইআরপি হাবে এখনই প্রবেশ করুন' : '🚀 Open Samity ERP Hub'}</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* 1. Operating Mode Switcher (সমিতি বনাম পিওএস বনাম ইআরপি) */}
+            <div className="glass-card" style={{ padding: '1.25rem', borderRadius: '16px' }}>
+              <div style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sliders size={18} style={{ color: 'var(--business-primary)' }} />
+                  <span>{lang === 'bn' ? '১. প্রতিষ্ঠানের প্রধান কার্যপদ্ধতি (Primary Operating Mode)' : '1. Primary Operating Mode'}</span>
+                </h4>
+                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn'
+                    ? 'আপনার ব্যবসার ধরন সিলেক্ট করুন যাতে অপ্রয়োজনীয় মেনু নিজে থেকেই বাদ হয়ে যায়।'
+                    : 'Select how your business operates. Hides irrelevant retail POS options automatically.'}
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                {/* Mode 1: Samity Mode */}
+                <div
+                  onClick={() => handleOperatingModeSwitch('samity')}
+                  style={{
+                    padding: '1.1rem',
+                    borderRadius: '14px',
+                    border: formState.primaryOperatingMode === 'samity' ? '2.5px solid #14b8a6' : '1px solid var(--border-color)',
+                    background: formState.primaryOperatingMode === 'samity' ? 'rgba(20, 184, 166, 0.12)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: formState.primaryOperatingMode === 'samity' ? '0 4px 20px rgba(20, 184, 166, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🏛️</span>
+                      <strong style={{ fontSize: '0.96rem', color: formState.primaryOperatingMode === 'samity' ? '#14b8a6' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'সমিতি ও সমবায় মোড (Samity Mode)' : 'Samity & Club Mode'}
+                      </strong>
+                    </div>
+                    {formState.primaryOperatingMode === 'samity' && <CheckCircle2 size={18} style={{ color: '#14b8a6' }} />}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'সমিতি, সমবায়, এনজিও ও ক্লাবের জন্য। অ্যাপ চালু হলেই সরাসরি সমিতি হাব ওপেন হবে। সদস্য চাঁদা, কিস্তি, ব্যাংক জমা, বকেয়া রিমাইন্ডার, প্যাড ও সিল সক্রিয় থাকবে। খুচরা পিওএস লুকানো থাকবে।'
+                      : 'Tailored for Samity, NGO, and associations. Automatically boots to Samity Hub. Member ledger, bank deposits, and due reminders active.'}
+                  </p>
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: 'rgba(20, 184, 166, 0.15)', color: '#0d9488', fontSize: '0.68rem' }}>সদস্য খাতা</span>
+                    <span className="badge" style={{ background: 'rgba(20, 184, 166, 0.15)', color: '#0d9488', fontSize: '0.68rem' }}>ব্যাংক জমা</span>
+                    <span className="badge" style={{ background: 'rgba(20, 184, 166, 0.15)', color: '#0d9488', fontSize: '0.68rem' }}>WhatsApp রিমাইন্ডার</span>
+                    <span className="badge" style={{ background: 'rgba(20, 184, 166, 0.15)', color: '#0d9488', fontSize: '0.68rem' }}>প্যাড ও সিল</span>
+                  </div>
+                </div>
+
+                {/* Mode 2: Retail POS */}
+                <div
+                  onClick={() => handleOperatingModeSwitch('pos')}
+                  style={{
+                    padding: '1.1rem',
+                    borderRadius: '14px',
+                    border: formState.primaryOperatingMode === 'pos' ? '2.5px solid #10b981' : '1px solid var(--border-color)',
+                    background: formState.primaryOperatingMode === 'pos' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: formState.primaryOperatingMode === 'pos' ? '0 4px 20px rgba(16, 185, 129, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🛒</span>
+                      <strong style={{ fontSize: '0.96rem', color: formState.primaryOperatingMode === 'pos' ? '#10b981' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'রিটেইল ও পিওএস ক্যাশ কাউন্টার' : 'Retail POS Mode'}
+                      </strong>
+                    </div>
+                    {formState.primaryOperatingMode === 'pos' && <CheckCircle2 size={18} style={{ color: '#10b981' }} />}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'দোকান, সুপারশপ ও ট্রেডিংয়ের জন্য। অ্যাপ চালু হলে বারকোড স্ক্যানার ও ক্যাশ কাউন্টার সরাসরি ওপেন হবে।'
+                      : 'For supermarkets & stores. Boots into barcode checkout terminal and inventory management.'}
+                  </p>
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>ক্যাশ কাউন্টার</span>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>বারকোড স্ক্যান</span>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>ইনভেন্টরি স্টক</span>
+                  </div>
+                </div>
+
+                {/* Mode 3: General Business ERP */}
+                <div
+                  onClick={() => handleOperatingModeSwitch('dashboard')}
+                  style={{
+                    padding: '1.1rem',
+                    borderRadius: '14px',
+                    border: formState.primaryOperatingMode === 'dashboard' ? '2.5px solid #6366f1' : '1px solid var(--border-color)',
+                    background: formState.primaryOperatingMode === 'dashboard' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: formState.primaryOperatingMode === 'dashboard' ? '0 4px 20px rgba(99, 102, 241, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>📊</span>
+                      <strong style={{ fontSize: '0.96rem', color: formState.primaryOperatingMode === 'dashboard' ? '#6366f1' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'সাধারণ ইআরপি ড্যাশবোর্ড মোড' : 'ERP Dashboard Mode'}
+                      </strong>
+                    </div>
+                    {formState.primaryOperatingMode === 'dashboard' && <CheckCircle2 size={18} style={{ color: '#6366f1' }} />}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'কর্পোরেট প্রতিষ্ঠান বা পাইকারি ব্যবসার জন্য। অ্যাপ চালু হলে নির্বাহী ড্যাশবোর্ড ও সার্বিক আর্থিক অবস্থা দেখা যাবে।'
+                      : 'For wholesale and multi-branch companies. Boots into executive analytics.'}
+                  </p>
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#4f46e5', fontSize: '0.68rem' }}>ড্যাশবোর্ড</span>
+                    <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#4f46e5', fontSize: '0.68rem' }}>লাভ-ক্ষতি</span>
+                    <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#4f46e5', fontSize: '0.68rem' }}>অডিট ট্রেইল</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* POS Visibility Toggle Switch */}
+              <div
+                style={{
+                  marginTop: '1.25rem',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}
+              >
+                <div>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'block' }}>
+                    {lang === 'bn' ? '🛒 রিটেইল পিওএস (Retail POS) ক্যাশ কাউন্টার সম্পূর্ণ লুকান' : 'Hide Retail POS Cash Counter'}
+                  </strong>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn'
+                      ? 'সমিতি বা ক্লাবে যদি কোনো মালামাল খুচরা বিক্রি না থাকে, তবে পিওএস লুকানো রাখলে মেনু পরিচ্ছন্ন ও সুপারফাস্ট থাকে।'
+                      : 'If your organization does not sell retail goods, hiding POS keeps navigation clean.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newVal = !formState.hideRetailPos;
+                    const updated = { ...formState, hideRetailPos: newVal };
+                    setFormState(updated);
+                    updateBusinessSettings(updated);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: formState.hideRetailPos ? '#ef4444' : 'var(--bg-primary)',
+                    color: formState.hideRetailPos ? '#fff' : 'var(--text-main)',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: formState.hideRetailPos ? '0 2px 8px rgba(239, 68, 68, 0.4)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {formState.hideRetailPos ? '✓ পিওএস লুকানো আছে' : 'পিওএস দৃশ্যমান (লুকান)'}
+                </button>
+              </div>
+            </div>
+
+            {/* 2. 100+ Master Industry Templates Catalog */}
+            <div className="glass-card" style={{ padding: '1.25rem', borderRadius: '16px' }}>
+              <div style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Building2 size={18} style={{ color: 'var(--business-primary)' }} />
+                  <span>{lang === 'bn' ? '২. ১০০+ ইন্ডাস্ট্রি টেমপ্লেট লাইব্রেরি ও নির্বাচন' : '2. 100+ Industry Template Catalog'}</span>
+                </h4>
+                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn'
+                    ? 'আপনার ব্যবসার নির্দিষ্ট টেমপ্লেট নির্বাচন করুন। সমবায় সমিতি ও ক্লাবের জন্য নিচে স্পেশাল টেমপ্লেট প্রস্তুত রয়েছে।'
+                    : 'Select your exact business niche template from the catalog.'}
+                </p>
+              </div>
+
+              {/* Sector Filters & Search */}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+                <div style={{ position: 'relative', flex: '1 1 250px' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    value={templateSearchQuery}
+                    onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                    placeholder={lang === 'bn' ? 'টেমপ্লেট খুঁজুন (যেমন: সমিতি, মুদি, রেস্টুরেন্ট...)' : 'Search templates...'}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px 8px 36px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                </div>
+
+                <div className="horizontal-touch-strip" style={{ gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSector('all')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: selectedSector === 'all' ? 'var(--business-primary)' : 'var(--bg-secondary)',
+                      color: selectedSector === 'all' ? '#fff' : 'var(--text-muted)',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {lang === 'bn' ? 'সকল সেক্টর' : 'All Sectors'}
+                  </button>
+                  {INDUSTRY_SECTORS.map(sec => (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => setSelectedSector(sec.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: selectedSector === sec.id ? (sec.color || 'var(--business-primary)') : 'var(--bg-secondary)',
+                        color: selectedSector === sec.id ? '#fff' : 'var(--text-muted)',
+                        fontSize: '0.78rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {sec.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Template Cards Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                {MASTER_INDUSTRY_TEMPLATES
+                  .filter(tpl => {
+                    if (selectedSector !== 'all' && tpl.sectorId !== selectedSector) return false;
+                    if (templateSearchQuery) {
+                      const q = templateSearchQuery.toLowerCase();
+                      const matchName = (tpl.name || '').toLowerCase().includes(q);
+                      const matchEn = (tpl.enName || '').toLowerCase().includes(q);
+                      return matchName || matchEn;
+                    }
+                    return true;
+                  })
+                  .map(tpl => {
+                    const isSelected = formState.industryTemplateId === tpl.id || (tpl.id === 'samity_management_hub' && formState.primaryOperatingMode === 'samity');
+                    const isSamityTpl = tpl.id === 'samity_management_hub';
+                    return (
+                      <div
+                        key={tpl.id}
+                        style={{
+                          padding: '1.1rem',
+                          borderRadius: '14px',
+                          border: isSelected ? '2px solid #14b8a6' : (isSamityTpl ? '2px dashed #14b8a6' : '1px solid var(--border-color)'),
+                          background: isSelected ? 'rgba(20, 184, 166, 0.08)' : (isSamityTpl ? 'rgba(20, 184, 166, 0.04)' : 'var(--bg-primary)'),
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          boxShadow: isSelected ? '0 4px 18px rgba(20, 184, 166, 0.25)' : 'none'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1.5rem' }}>{isSamityTpl ? '🏛️' : '📦'}</span>
+                              <div>
+                                <strong style={{ fontSize: '0.92rem', color: isSelected ? '#14b8a6' : 'var(--text-main)', display: 'block' }}>
+                                  {tpl.name}
+                                </strong>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{tpl.enName}</span>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <span className="badge" style={{ background: '#14b8a6', color: '#fff', fontSize: '0.65rem', flexShrink: 0 }}>
+                                ✓ সক্রিয়
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {(tpl.features || []).slice(0, 4).map((f, i) => (
+                              <span key={i} className="badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)', fontSize: '0.66rem' }}>
+                                {f.replace(/_/g, ' ')}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectTemplate(tpl.id)}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: isSelected ? '1px solid #14b8a6' : '1px solid var(--border-color)',
+                              background: isSelected ? '#14b8a6' : 'var(--bg-secondary)',
+                              color: isSelected ? '#fff' : 'var(--text-main)',
+                              fontSize: '0.8rem',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isSelected ? '✓ সক্রিয় টেমপ্লেট' : 'টেমপ্লেট সক্রিয় করুন'}
+                          </button>
+                          {isSamityTpl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleSelectTemplate('samity_management_hub');
+                                setActiveTab('samity');
+                              }}
+                              className="btn btn-primary"
+                              style={{
+                                padding: '8px 14px',
+                                borderRadius: '8px',
+                                fontWeight: '800',
+                                fontSize: '0.8rem',
+                                background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                                cursor: 'pointer'
+                              }}
+                              title="সমিতি ইআরপি হাব খুলুন"
+                            >
+                              🚀 হাব খুলুন
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
         {/* TAB 1: COMPANY PROFILE, BRANDING & DOCUMENTS */}
         {/* ========================================================= */}
         {activeSubTab === 'profile' && (
@@ -963,6 +1457,57 @@ export const BusinessSettings = () => {
         {/* ========================================================= */}
         {activeSubTab === 'modules' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Top Shortcut Banner to Industry Template Switcher */}
+            <div
+              style={{
+                padding: '1rem 1.25rem',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.14), rgba(99, 102, 241, 0.12))',
+                border: '1.5px solid rgba(20, 184, 166, 0.45)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                boxShadow: '0 4px 16px rgba(20, 184, 166, 0.15)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{lang === 'bn' ? '🏛️ ব্যবসার ধরন ও ইন্ডাস্ট্রি টেমপ্লেট নির্বাচন হাব' : '🏛️ Industry Template & Operating Mode Hub'}</span>
+                    <span className="badge" style={{ background: '#14b8a6', color: '#fff', fontSize: '0.65rem' }}>HOT</span>
+                  </h4>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn'
+                      ? 'সমিতি ও সমবায় মোড সক্রিয় করতে, পিওএস বন্ধ করতে বা ১০০+ টেমপ্লেটের মধ্য থেকে ব্যবসার ধরন বদলাতে ক্লিক করুন।'
+                      : 'Switch between Samity, Retail POS, or ERP modes and choose from 100+ business templates.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('industry_template')}
+                className="btn btn-primary"
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>{lang === 'bn' ? 'টেমপ্লেট নির্বাচন করুন ➔' : 'Open Template Hub ➔'}</span>
+              </button>
+            </div>
+
             {/* 1. Operating Mode Selection */}
             <div
               className="glass-card"
