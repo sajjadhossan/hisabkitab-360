@@ -437,13 +437,26 @@ export const Navbar = () => {
   ], [t.personalNav, lang]);
 
   const isModEnabled = useCallback((modId) => {
-    // Core retail and management hubs are permanently active and fast-loaded
-    if (['dashboard', 'branch_control', 'pos', 'debts', 'invoices', 'quotations', 'inventory', 'master_hub', 'erp', 'crm', 'hr', 'sr', 'settings', 'super_admin', 'reports'].includes(modId)) {
+    if (!modId) return true;
+    // Essential settings and super admin panel always allowed for authorized roles
+    if (modId === 'settings' || (modId === 'super_admin' && isSuperAdmin)) {
+      return true;
+    }
+    // If Super Admin is viewing the app in owner/admin preview mode, allow full master control
+    if (isSuperAdmin) {
       return true;
     }
     if (!licenseInfo?.modules) return true;
-    return licenseInfo.modules[modId] !== false;
-  }, [licenseInfo]);
+
+    // Check specific module and known aliases
+    if (licenseInfo.modules[modId] === false) return false;
+    if (modId === 'salesman_order' && licenseInfo.modules.sr === false) return false;
+    if (modId === 'sr_delivery' && (licenseInfo.modules.sr_delivery === false || licenseInfo.modules.sr === false)) return false;
+    if (modId === 'kot_screen' && licenseInfo.modules.kot_kitchen === false) return false;
+    if (modId === 'table_mgmt' && licenseInfo.modules.table_management === false) return false;
+
+    return true;
+  }, [licenseInfo, isSuperAdmin]);
 
   const businessNavItems = useMemo(() => [
     ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav?.dashboard || '📊 ড্যাশবোর্ড', icon: LayoutDashboard }] : []),

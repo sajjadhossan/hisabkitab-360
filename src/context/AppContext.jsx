@@ -5967,11 +5967,35 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
 
   const isModuleActive = useCallback((moduleKey) => {
     if (!moduleKey) return true;
-    // Core administrative & operation hubs are always accessible
-    if (['settings', 'super_admin', 'branch_control', 'salesman_order', 'sr_delivery', 'master_hub', 'pos', 'dashboard', 'healthcare'].includes(moduleKey)) return true;
+    if (moduleKey === 'settings' || moduleKey === 'super_admin') return true;
     if (!licenseInfo || !licenseInfo.modules) return true;
-    return licenseInfo.modules[moduleKey] !== false;
+    if (licenseInfo.modules[moduleKey] === false) return false;
+    if (moduleKey === 'salesman_order' && licenseInfo.modules.sr === false) return false;
+    if (moduleKey === 'sr_delivery' && (licenseInfo.modules.sr_delivery === false || licenseInfo.modules.sr === false)) return false;
+    if (moduleKey === 'kot_screen' && licenseInfo.modules.kot_kitchen === false) return false;
+    if (moduleKey === 'table_mgmt' && licenseInfo.modules.table_management === false) return false;
+    return true;
   }, [licenseInfo]);
+
+  useEffect(() => {
+    const handleTenantFeaturesUpdated = (e) => {
+      const detail = e?.detail;
+      if (!detail) return;
+      if (
+        (user?.email && detail.clientEmail && user.email.toLowerCase() === detail.clientEmail.toLowerCase()) ||
+        (licenseInfo?.id && detail.tenantId === licenseInfo.id) ||
+        (licenseInfo?.clientEmail && detail.clientEmail && licenseInfo.clientEmail.toLowerCase() === detail.clientEmail.toLowerCase())
+      ) {
+        setLicenseInfo(prev => ({
+          ...prev,
+          modules: detail.modules,
+          industryTemplateId: detail.industryTemplateId || prev.industryTemplateId
+        }));
+      }
+    };
+    window.addEventListener('hk360_tenant_features_updated', handleTenantFeaturesUpdated);
+    return () => window.removeEventListener('hk360_tenant_features_updated', handleTenantFeaturesUpdated);
+  }, [user, licenseInfo]);
 
   const switchIndustryTemplate = (templateId, customFeaturesOrLoadSample = false) => {
     const tpl = getTemplateById(templateId);

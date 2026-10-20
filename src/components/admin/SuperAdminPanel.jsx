@@ -64,6 +64,7 @@ import {
 import { hapticFeedback } from '../../services/nativeAppService';
 import { playButtonClick } from '../../services/soundFeedback';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
+import { TenantFeatureSwitchboardModal } from './TenantFeatureSwitchboardModal';
 import { GoogleDriveBackupManager } from '../business/GoogleDriveBackupManager';
 import { SupabaseDatabaseManager } from './SupabaseDatabaseManager';
 import { LocalDatabaseManager } from './LocalDatabaseManager';
@@ -309,6 +310,7 @@ export const SuperAdminPanel = () => {
 
   // Executive Ops & Template Review states
   const [showTemplateReviewModal, setShowTemplateReviewModal] = useState(false);
+  const [switchboardTenant, setSwitchboardTenant] = useState(null);
   const [shiftFilter, setShiftFilter] = useState('all'); // 'all' | 'pending' | 'approved'
   const [cashAdjustModal, setCashAdjustModal] = useState({
     isOpen: false,
@@ -3265,6 +3267,27 @@ export const SuperAdminPanel = () => {
                       </button>
 
                       <button
+                        onClick={() => setSwitchboardTenant(latestCreatedLic)}
+                        className="btn"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 95, 70, 0.2))',
+                          color: '#10b981',
+                          border: '1.5px solid #10b981',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: '800',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Sliders size={16} />
+                        🛡️ ফিচার ও মডিউল অন/অফ করুন
+                      </button>
+
+                      <button
                         onClick={() => {
                           updateLicenseInfo({
                             clientShopName: latestCreatedLic?.clientShopName || licenseForm.clientShopName,
@@ -3745,6 +3768,26 @@ export const SuperAdminPanel = () => {
                               </button>
                             )}
                             <button
+                              onClick={() => setSwitchboardTenant(lic)}
+                              className="btn"
+                              title="ব্যবসায়ীর ফিচার ও মডিউল অন/অফ সুইচবোর্ড"
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.15))',
+                                color: '#10b981',
+                                border: '1.5px solid rgba(16, 185, 129, 0.45)',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Sliders size={13} /> ফিচার কন্ট্রোল
+                            </button>
+                            <button
                               onClick={() => handleCopyClientDeliveryMessage(lic)}
                               className="btn"
                               title="হোয়াটসঅ্যাপ ডেলিভারি মেসেজ কপি করুন"
@@ -3939,6 +3982,27 @@ export const SuperAdminPanel = () => {
                           <Check size={14} /> অনুমোদন করুন
                         </button>
                       )}
+                      <button
+                        onClick={() => setSwitchboardTenant(lic)}
+                        className="btn"
+                        style={{
+                          flex: 1,
+                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.15))',
+                          color: '#10b981',
+                          border: '1.5px solid rgba(16, 185, 129, 0.45)',
+                          padding: '8px',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Sliders size={15} /> ফিচার অন/অফ
+                      </button>
                       <button
                         onClick={() => handleCopyClientDeliveryMessage(lic)}
                         className="btn"
@@ -4587,6 +4651,18 @@ export const SuperAdminPanel = () => {
       <TemplateReviewModal
         isOpen={showTemplateReviewModal}
         onClose={() => setShowTemplateReviewModal(false)}
+      />
+
+      {/* Super Admin Tenant Feature & Module Switchboard Modal */}
+      <TenantFeatureSwitchboardModal
+        isOpen={!!switchboardTenant}
+        onClose={() => setSwitchboardTenant(null)}
+        tenant={switchboardTenant}
+        onSaveTenantModules={(id, updates) => {
+          if (updateClientLicense) {
+            updateClientLicense(id, updates);
+          }
+        }}
       />
 
     </div>
