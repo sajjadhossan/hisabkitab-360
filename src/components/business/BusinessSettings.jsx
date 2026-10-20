@@ -293,7 +293,7 @@ export const BusinessSettings = () => {
             }}
           >
             <ShieldCheck size={14} />
-            <span>{lang === 'bn' ? '🛒 POS ও পারমিশন কন্ট্রোল' : '🛒 POS & Permissions'}</span>
+            <span>{lang === 'bn' ? '🛡️ স্টাফ ও POS পারমিশন কন্ট্রোল' : '🛡️ Staff & POS Permissions'}</span>
           </button>
 
           <button
@@ -1263,6 +1263,71 @@ export const BusinessSettings = () => {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* 2.5 Prominent Link to Staff Role & Menu Control Switchboard */}
+            <div
+              style={{
+                padding: '1.1rem 1.25rem',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(99, 102, 241, 0.12))',
+                border: '1.5px solid rgba(16, 185, 129, 0.45)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                boxShadow: '0 4px 18px rgba(16, 185, 129, 0.15)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 10px rgba(16, 185, 129, 0.4)',
+                    flexShrink: 0
+                  }}
+                >
+                  <ShieldCheck size={24} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{lang === 'bn' ? '🛡️ কর্মচারীদের (ক্যাশিয়ার, সেলসম্যান, ডেলিভারি) মেনু কন্ট্রোল' : '🛡️ Staff Role & Menu Control Switchboard'}</span>
+                    <span className="badge" style={{ background: '#10b981', color: '#fff', fontSize: '0.65rem' }}>HOT</span>
+                  </h4>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn'
+                      ? 'সেলসম্যানের শুধু স্টক ও পণ্য, ডেলিভারিম্যানের শুধু অর্ডার—ক্যাশিয়ার ও স্টাফদের প্রতিটি অপশন অন/অফ করুন।'
+                      : 'Customize which menus and features each staff role (Cashier, Salesman, Delivery) can see.'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('pos_permissions')}
+                className="btn btn-primary"
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.86rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>{lang === 'bn' ? 'স্টাফ কন্ট্রোল খুলুন ➔' : 'Open Staff Switchboard ➔'}</span>
+              </button>
             </div>
 
             {/* 3. Individual Admin & Owner Feature On-Off Switches */}

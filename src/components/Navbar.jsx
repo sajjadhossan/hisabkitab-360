@@ -84,6 +84,7 @@ import { getTelegramBackupConfig } from '../services/telegramBackupService';
 import { InternalCommunicationHubModal } from './common/InternalCommunicationHubModal';
 import { getUnreadCount } from '../services/internalChatService';
 import { getStaffMenuPermissions, isMenuItemAllowedForRole } from '../services/staffRolePermissionEngine';
+import { StaffPermissionsModal } from './common/StaffPermissionsModal';
 import appBrandLogo from '../assets/logo.png';
 
 export const Navbar = () => {
@@ -200,6 +201,14 @@ export const Navbar = () => {
   const [showTemplateReviewModal, setShowTemplateReviewModal] = useState(false);
   const [showPriceTrackerModal, setShowPriceTrackerModal] = useState(false);
   const [showRoutinePresetsModal, setShowRoutinePresetsModal] = useState(false);
+  const [showStaffPermissionsModal, setShowStaffPermissionsModal] = useState(false);
+
+  useEffect(() => {
+    window.__openStaffPermissions = () => setShowStaffPermissionsModal(true);
+    return () => {
+      delete window.__openStaffPermissions;
+    };
+  }, []);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDriveSyncing, setIsDriveSyncing] = useState(false);
   const [soundMuted, setSoundMuted] = useState(isSoundMuted());
@@ -567,7 +576,19 @@ export const Navbar = () => {
       items: [
         { id: 'crm', label: lang === 'bn' ? 'কাস্টমার তালিকা (CRM)' : 'Customer CRM', desc: lang === 'bn' ? 'ক্রেতাদের ফোন ও বাকি' : 'Customer directory', icon: Users, color: '#6366f1' },
         { id: 'hr', label: lang === 'bn' ? 'কর্মচারী ও বেতন (HR)' : 'Staff & Payroll', desc: lang === 'bn' ? 'হাজিরা ও মাসিক বেতন' : 'Employee salaries', icon: BadgeDollarSign, color: '#8b5cf6' },
-        { id: 'sr', label: lang === 'bn' ? 'এসআর ফিল্ড অফিসার' : 'SR Field Rep', desc: lang === 'bn' ? 'অর্ডার কালেকশন ও রুট' : 'Field route collection', icon: Users, color: '#3b82f6' }
+        { id: 'sr', label: lang === 'bn' ? 'এসআর ফিল্ড অফিসার' : 'SR Field Rep', desc: lang === 'bn' ? 'অর্ডার কালেকশন ও রুট' : 'Field route collection', icon: Users, color: '#3b82f6' },
+        ...(isOwner || isSuperAdmin ? [{
+          id: 'staff_permissions_control',
+          label: lang === 'bn' ? '🛡️ স্টাফ রোল ও মেনু অন/অফ' : '🛡️ Staff Menu Permissions',
+          desc: lang === 'bn' ? 'সেলসম্যান, ক্যাশিয়ারদের অপশন অন-অফ সুইচ' : 'Toggle features ON/OFF for staff',
+          icon: ShieldCheck,
+          color: '#10b981',
+          badge: 'ADMIN',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            setShowStaffPermissionsModal(true);
+          }
+        }] : [])
       ]
     },
     {
@@ -585,6 +606,18 @@ export const Navbar = () => {
     {
       title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টুলস' : '⚙️ System & Backup',
       items: [
+        ...(isOwner || isSuperAdmin ? [{
+          id: 'staff_permissions_control_sys',
+          label: lang === 'bn' ? '🛡️ স্টাফ রোল ও মেনু সুইচবোর্ড' : '🛡️ Staff Role Switchboard',
+          desc: lang === 'bn' ? '১-ক্লিকে সেলসম্যান, ক্যাশিয়ার অপশন অন/অফ' : '1-Click Staff Access Switchboard',
+          icon: ShieldCheck,
+          color: '#10b981',
+          badge: 'HOT',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            setShowStaffPermissionsModal(true);
+          }
+        }] : []),
         { id: 'settings', label: lang === 'bn' ? 'সফটওয়্যার সেটিংস' : 'Business Settings', desc: lang === 'bn' ? 'দোকানের নাম, ভ্যাট ও প্রিন্ট' : 'Store profile & print', icon: Settings, color: '#64748b' },
         { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 সিস্টেম ডায়াগনোসিস ও SOS' : 'System Diagnostics & SOS', desc: lang === 'bn' ? 'প্রিন্টার, মেমোরি ও SOS রিপোর্ট' : 'Hardware & repair hub', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); }, badge: 'SOS' },
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Manager', desc: lang === 'bn' ? 'সকল ক্যাটাগরি ম্যানেজ' : 'Manage all categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
@@ -787,6 +820,29 @@ export const Navbar = () => {
                     </span>
                   )
                 )}
+                {/* Staff Role & Menu Control Quick Button (For Owner & Super Admin) */}
+                {(isOwner || isSuperAdmin) && (
+                  <span
+                    className="badge hide-mobile"
+                    onClick={() => setShowStaffPermissionsModal(true)}
+                    title={lang === 'bn' ? 'স্টাফ রোল ও মেনু অন/অফ কন্ট্রোল (Staff Menu Switchboard)' : 'Staff Role & Menu Switchboard'}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.16)',
+                      color: '#10b981',
+                      border: '1.5px solid #10b981',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 0 10px rgba(16, 185, 129, 0.25)'
+                    }}
+                  >
+                    🛡️ {lang === 'bn' ? 'স্টাফ কন্ট্রোল' : 'Staff Control'}
+                  </span>
+                )}
+
                 {/* Super Admin Quick Button (Only for Software Owner / Master Vendor) */}
                 {isSuperAdmin && (
                   <span
@@ -1801,6 +1857,13 @@ export const Navbar = () => {
       <SystemDiagnosticsModal
         isOpen={showDiagnosticsModal}
         onClose={() => setShowDiagnosticsModal(false)}
+      />
+
+      {/* STAFF ROLE MENU ON/OFF CONTROL MODAL */}
+      <StaffPermissionsModal
+        isOpen={showStaffPermissionsModal}
+        onClose={() => setShowStaffPermissionsModal(false)}
+        lang={lang}
       />
 
       {/* INDUSTRY TEMPLATE REVIEW & CUSTOMIZER MODAL */}
