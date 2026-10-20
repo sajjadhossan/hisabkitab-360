@@ -569,6 +569,12 @@ export const AppProvider = ({ children }) => {
         if (parsed?.primaryOperatingMode === 'samity' || parsed?.industryTemplateId === 'samity_management_hub') {
           return 'samity';
         }
+        if (parsed?.primaryOperatingMode === 'healthcare' || parsed?.industryTemplateId === 'pharmacy_health') {
+          return 'healthcare';
+        }
+        if (parsed?.primaryOperatingMode === 'cattle' || parsed?.industryTemplateId === 'agro_poultry') {
+          return 'cattle';
+        }
         if (parsed?.defaultLandingTab) {
           return parsed.defaultLandingTab;
         }

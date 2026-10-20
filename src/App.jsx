@@ -1069,7 +1069,7 @@ const AppContent = () => {
         case 'settings':
           return <BusinessSettings />;
         case 'cattle':
-          return <CattleFarmHubView onClose={() => setActiveTab('pos')} />;
+          return <CattleFarmHubView onClose={() => setActiveTab(businessSettings?.primaryOperatingMode === 'cattle' ? 'cattle' : 'dashboard')} />;
         case 'healthcare':
           return <HealthcareHub />;
         case 'samity':
@@ -1081,6 +1081,15 @@ const AppContent = () => {
         case 'super_admin':
           return <SuperAdminPanel />;
         default:
+          if (businessSettings?.primaryOperatingMode === 'samity') {
+            return <SamityManagementHub onClose={() => {}} />;
+          }
+          if (businessSettings?.primaryOperatingMode === 'healthcare') {
+            return <HealthcareHub />;
+          }
+          if (businessSettings?.primaryOperatingMode === 'cattle') {
+            return <CattleFarmHubView onClose={() => {}} />;
+          }
           return <BusinessDashboard />;
       }
     }

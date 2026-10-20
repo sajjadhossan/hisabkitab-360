@@ -118,25 +118,52 @@ export const BusinessSettings = () => {
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
 
   const handleSelectTemplate = (templateId) => {
-    const isSamity = templateId === 'samity_management_hub';
+    let mode = 'pos';
+    let hidePos = false;
+    if (templateId === 'samity_management_hub') {
+      mode = 'samity';
+      hidePos = true;
+    } else if (templateId === 'pharmacy_health' || templateId === 'healthcare_clinic') {
+      mode = 'healthcare';
+      hidePos = true;
+    } else if (templateId === 'agro_poultry' || templateId === 'cattle_dairy') {
+      mode = 'cattle';
+      hidePos = true;
+    }
+
     const updated = {
       ...formState,
       industryTemplateId: templateId,
-      primaryOperatingMode: isSamity ? 'samity' : (formState.primaryOperatingMode || 'pos'),
-      hideRetailPos: isSamity ? true : false,
-      defaultLandingTab: isSamity ? 'samity' : (formState.defaultLandingTab || 'pos')
+      primaryOperatingMode: mode,
+      hideRetailPos: hidePos,
+      defaultLandingTab: mode
     };
     setFormState(updated);
     updateBusinessSettings(updated);
   };
 
   const handleOperatingModeSwitch = (mode) => {
-    const isSamity = mode === 'samity';
+    let templateId = formState.industryTemplateId;
+    let hidePos = false;
+    if (mode === 'samity') {
+      templateId = 'samity_management_hub';
+      hidePos = true;
+    } else if (mode === 'healthcare') {
+      templateId = 'pharmacy_health';
+      hidePos = true;
+    } else if (mode === 'cattle') {
+      templateId = 'agro_poultry';
+      hidePos = true;
+    } else if (mode === 'pos') {
+      templateId = 'retail_grocery';
+      hidePos = false;
+    }
+
     const updated = {
       ...formState,
       primaryOperatingMode: mode,
-      industryTemplateId: isSamity ? 'samity_management_hub' : (formState.industryTemplateId || 'retail_grocery'),
-      hideRetailPos: isSamity,
+      industryTemplateId: templateId,
+      hideRetailPos: hidePos,
       defaultLandingTab: mode
     };
     setFormState(updated);
@@ -711,15 +738,21 @@ export const BusinessSettings = () => {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span className="badge" style={{ background: '#14b8a6', color: '#fff', fontSize: '0.72rem', fontWeight: '800' }}>
-                        {formState.primaryOperatingMode === 'samity' ? '🏛️ সক্রিয় সমিতি মোড' : '🏢 সক্রিয় ইন্ডাস্ট্রি'}
+                        {formState.primaryOperatingMode === 'samity' ? '🏛️ সক্রিয় সমিতি মোড' :
+                         formState.primaryOperatingMode === 'healthcare' ? '🏥 সক্রিয় হেলথকেয়ার মোড' :
+                         formState.primaryOperatingMode === 'cattle' ? '🐄 সক্রিয় ডেইরি খামার মোড' : '🏢 সক্রিয় রিটেইল মোড'}
                       </span>
                       <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', fontSize: '0.72rem' }}>
                         সুপার অ্যাডমিন অনুমোদিত
                       </span>
                     </div>
                     <h3 style={{ margin: '4px 0 2px', fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                      {formState.industryTemplateId === 'samity_management_hub' || formState.primaryOperatingMode === 'samity'
+                      {formState.primaryOperatingMode === 'samity'
                         ? (lang === 'bn' ? 'সমিতি, সমবায় সংস্থা, এনজিও ও ক্লাব ব্যবস্থাপনা' : 'Samity, Club & Association Management')
+                        : formState.primaryOperatingMode === 'healthcare'
+                        ? (lang === 'bn' ? 'হেলথকেয়ার, ক্লিনিক, ডাক্তার চেম্বার ও ডায়াগনস্টিক ল্যাব' : 'Healthcare, Clinic & Diagnostic Laboratory')
+                        : formState.primaryOperatingMode === 'cattle'
+                        ? (lang === 'bn' ? 'ক্যাটেল, ডেইরি ও গরুর খামার ব্যবস্থাপনা ইআরপি' : 'Cattle & Dairy Farming ERP')
                         : (getTemplateById(formState.industryTemplateId || 'retail_grocery')?.name || 'সাধারণ খুচরা ও সুপারশপ')}
                     </h3>
                     <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
@@ -734,8 +767,12 @@ export const BusinessSettings = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (formState.industryTemplateId === 'samity_management_hub' || formState.primaryOperatingMode === 'samity') {
+                    if (formState.primaryOperatingMode === 'samity') {
                       setActiveTab('samity');
+                    } else if (formState.primaryOperatingMode === 'healthcare') {
+                      setActiveTab('healthcare');
+                    } else if (formState.primaryOperatingMode === 'cattle') {
+                      setActiveTab('cattle');
                     } else {
                       setActiveTab(formState.defaultLandingTab || 'dashboard');
                     }
@@ -746,15 +783,21 @@ export const BusinessSettings = () => {
                     borderRadius: '12px',
                     fontWeight: '800',
                     fontSize: '0.88rem',
-                    background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
-                    boxShadow: '0 4px 16px rgba(20, 184, 166, 0.4)',
+                    background: formState.primaryOperatingMode === 'samity' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' :
+                                formState.primaryOperatingMode === 'healthcare' ? 'linear-gradient(135deg, #0d9488, #0f766e)' :
+                                formState.primaryOperatingMode === 'cattle' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
                     cursor: 'pointer'
                   }}
                 >
-                  <span>{lang === 'bn' ? '🚀 সমিতি ইআরপি হাবে এখনই প্রবেশ করুন' : '🚀 Open Samity ERP Hub'}</span>
+                  <span>
+                    {formState.primaryOperatingMode === 'samity' ? '🚀 সমিতি ইআরপি হাবে এখনই প্রবেশ করুন' :
+                     formState.primaryOperatingMode === 'healthcare' ? '🚀 হেলথকেয়ার হাবে এখনই প্রবেশ করুন' :
+                     formState.primaryOperatingMode === 'cattle' ? '🚀 ডেইরি ও খামার হাবে এখনই প্রবেশ করুন' : '🚀 ড্যাশবোর্ডে প্রবেশ করুন'}
+                  </span>
                   <ArrowRight size={16} />
                 </button>
               </div>
@@ -810,7 +853,77 @@ export const BusinessSettings = () => {
                   </div>
                 </div>
 
-                {/* Mode 2: Retail POS */}
+                {/* Mode 2: Healthcare & Clinic Mode */}
+                <div
+                  onClick={() => handleOperatingModeSwitch('healthcare')}
+                  style={{
+                    padding: '1.1rem',
+                    borderRadius: '14px',
+                    border: formState.primaryOperatingMode === 'healthcare' ? '2.5px solid #0d9488' : '1px solid var(--border-color)',
+                    background: formState.primaryOperatingMode === 'healthcare' ? 'rgba(13, 148, 136, 0.12)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: formState.primaryOperatingMode === 'healthcare' ? '0 4px 20px rgba(13, 148, 136, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🏥</span>
+                      <strong style={{ fontSize: '0.96rem', color: formState.primaryOperatingMode === 'healthcare' ? '#0d9488' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'হেলথকেয়ার ও ক্লিনিক মোড' : 'Healthcare & Clinic Mode'}
+                      </strong>
+                    </div>
+                    {formState.primaryOperatingMode === 'healthcare' && <CheckCircle2 size={18} style={{ color: '#0d9488' }} />}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'ডাক্তার চেম্বার, ডায়াগনস্টিক ল্যাব ও ক্লিনিকের জন্য। সরাসরি রোগী তালিকা, প্রেসক্রিপশন ও ল্যাব টেস্ট স্ক্রিন ওপেন হবে। সাধারণ রিটেইল পিওএস বন্ধ থাকবে।'
+                      : 'For clinics and diagnostic labs. Boots into Patient Management, Doctor Chambers, and Lab Tests.'}
+                  </p>
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0f766e', fontSize: '0.68rem' }}>রোগী খাতা</span>
+                    <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0f766e', fontSize: '0.68rem' }}>প্রেসক্রিপশন</span>
+                    <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0f766e', fontSize: '0.68rem' }}>ডায়াগনস্টিক ল্যাব</span>
+                    <span className="badge" style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0f766e', fontSize: '0.68rem' }}>ফার্মেসি বিলিং</span>
+                  </div>
+                </div>
+
+                {/* Mode 3: Cattle & Dairy Farming Mode */}
+                <div
+                  onClick={() => handleOperatingModeSwitch('cattle')}
+                  style={{
+                    padding: '1.1rem',
+                    borderRadius: '14px',
+                    border: formState.primaryOperatingMode === 'cattle' ? '2.5px solid #10b981' : '1px solid var(--border-color)',
+                    background: formState.primaryOperatingMode === 'cattle' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: formState.primaryOperatingMode === 'cattle' ? '0 4px 20px rgba(16, 185, 129, 0.25)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>🐄</span>
+                      <strong style={{ fontSize: '0.96rem', color: formState.primaryOperatingMode === 'cattle' ? '#10b981' : 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'ক্যাটেল ও ডেইরি খামার মোড' : 'Cattle & Dairy Farming Mode'}
+                      </strong>
+                    </div>
+                    {formState.primaryOperatingMode === 'cattle' && <CheckCircle2 size={18} style={{ color: '#10b981' }} />}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                    {lang === 'bn'
+                      ? 'ডেইরি ও গবাদিপশুর খামারের জন্য। সরাসরি পশুর পাল, দুধ উৎপাদন হিসাব, খাদ্য মজুত ও টিকা শিডিউল ওপেন হবে। সাধারণ দোকান পিওএস উধাও থাকবে।'
+                      : 'For cattle and dairy farms. Boots into Herd Management, Daily Milk Production, Feed Inventory and Vaccines.'}
+                  </p>
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>পশুর পাল</span>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>দুধ উৎপাদন</span>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>খাদ্য মজুত</span>
+                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontSize: '0.68rem' }}>টিকা অ্যালার্ট</span>
+                  </div>
+                </div>
+
+                {/* Mode 4: Retail POS */}
                 <div
                   onClick={() => handleOperatingModeSwitch('pos')}
                   style={{
