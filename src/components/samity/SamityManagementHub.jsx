@@ -77,6 +77,14 @@ import {
   MOBILE_BANKING_PROVIDERS,
   MOBILE_BANKING_ACCOUNT_TYPES,
   SAMITY_STATUSES,
+  MEMBER_TYPES,
+  MEMBER_STATUSES,
+  PAYMENT_CYCLES,
+  BLOOD_GROUPS,
+  GENDERS,
+  createDefaultMemberObject,
+  downloadMembersCsvTemplate,
+  parseMembersCsv,
   SAMITY_SQL_MIGRATION_SCHEMA,
   SAMITY_28_MODULES,
   SAMITY_RBAC_ROLES,
@@ -171,12 +179,23 @@ export const SamityManagementHub = ({ onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [memberFilterType, setMemberFilterType] = useState('all');
   const [memberFilterStatus, setMemberFilterStatus] = useState('all');
+  const [memberFilterPaymentStatus, setMemberFilterPaymentStatus] = useState('all');
   const [targetMonth, setTargetMonth] = useState(() => new Date().toLocaleString('en-US', { month: 'long' }));
   const [targetYear, setTargetYear] = useState(() => new Date().getFullYear());
 
   // Modal States
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [memberFormActiveTab, setMemberFormActiveTab] = useState('basic'); // 'basic' | 'contact' | 'address' | 'membership' | 'remarks'
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedMemberProfile, setSelectedMemberProfile] = useState(null);
+  const [profileActiveTab, setProfileActiveTab] = useState('overview'); // 'overview' | 'deposits' | 'dues' | 'reminders'
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
+  const [bulkImportCsvText, setBulkImportCsvText] = useState('');
+  const [bulkImportParsedMembers, setBulkImportParsedMembers] = useState([]);
+  const [bulkImportError, setBulkImportError] = useState('');
+  const [isPrintMemberListOpen, setIsPrintMemberListOpen] = useState(false);
+
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isSamityModalOpen, setIsSamityModalOpen] = useState(false);
@@ -244,24 +263,44 @@ export const SamityManagementHub = ({ onClose }) => {
   const [approvalFilter, setApprovalFilter] = useState('pending');
   const [apiSimulatorOutput, setApiSimulatorOutput] = useState(null);
 
-  // Form States
-  const [memberForm, setMemberForm] = useState({
+  // Form States (38 Specification Fields for Member)
+  const [memberForm, setMemberForm] = useState(() => ({
+    id: '',
+    memberCode: '',
     nameBn: '',
     nameEn: '',
     fatherName: '',
     motherName: '',
+    dateOfBirth: '',
+    gender: 'Male',
+    nidNumber: '',
+    passportNumber: '',
+    photo: '',
     mobile: '',
+    altMobile: '',
     whatsappNumber: '',
     telegramHandle: '',
     facebookProfileUrl: '',
+    messengerUsername: '',
     email: '',
-    nidNumber: '',
-    bloodGroup: '',
     presentAddress: '',
+    permanentAddress: '',
+    occupation: '',
+    organization: '',
+    bloodGroup: '',
     membershipType: 'General Member',
+    membershipStartDate: new Date().toISOString().split('T')[0],
+    membershipEndDate: '',
+    monthlySubscription: 500,
     customSubscription: '',
-    status: 'active'
-  });
+    paymentCycle: 'Monthly',
+    status: 'Active',
+    remarks: '',
+    createdBy: 'Admin',
+    createdAt: new Date().toISOString(),
+    updatedBy: 'Admin',
+    updatedAt: new Date().toISOString()
+  }));
 
   const [depositForm, setDepositForm] = useState({
     memberId: '',
@@ -324,45 +363,81 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   // --------------------------------------------------------------------------
-  // Handlers: Member Management
+  // Handlers: Member Management (#2 Module - 38 Fields Standard)
   // --------------------------------------------------------------------------
   const handleOpenMemberModal = (member = null) => {
     playButtonClick?.();
     triggerHaptic();
+    setMemberFormActiveTab('basic');
     if (member) {
       setEditingMember(member);
-      setMemberForm({ ...member });
-    } else {
-      setEditingMember(null);
       setMemberForm({
-        nameBn: '',
-        nameEn: '',
-        fatherName: '',
-        motherName: '',
-        mobile: '',
-        whatsappNumber: '',
-        telegramHandle: '',
-        facebookProfileUrl: '',
-        email: '',
-        nidNumber: '',
-        bloodGroup: '',
-        presentAddress: '',
-        membershipType: 'General Member',
-        customSubscription: '',
-        status: 'active'
+        ...member,
+        nameBn: member.nameBn || '',
+        nameEn: member.nameEn || '',
+        fatherName: member.fatherName || '',
+        motherName: member.motherName || '',
+        dateOfBirth: member.dateOfBirth || '',
+        gender: member.gender || 'Male',
+        nidNumber: member.nidNumber || '',
+        passportNumber: member.passportNumber || '',
+        photo: member.photo || '',
+        mobile: member.mobile || '',
+        altMobile: member.altMobile || '',
+        whatsappNumber: member.whatsappNumber || '',
+        telegramHandle: member.telegramHandle || '',
+        facebookProfileUrl: member.facebookProfileUrl || '',
+        messengerUsername: member.messengerUsername || '',
+        email: member.email || '',
+        presentAddress: member.presentAddress || '',
+        permanentAddress: member.permanentAddress || '',
+        occupation: member.occupation || '',
+        organization: member.organization || '',
+        bloodGroup: member.bloodGroup || '',
+        membershipType: member.membershipType || 'General Member',
+        membershipStartDate: member.membershipStartDate || new Date().toISOString().split('T')[0],
+        membershipEndDate: member.membershipEndDate || '',
+        monthlySubscription: member.monthlySubscription || currentSamity.monthlySubscription || 500,
+        customSubscription: member.customSubscription || '',
+        paymentCycle: member.paymentCycle || 'Monthly',
+        status: member.status || 'Active',
+        remarks: member.remarks || ''
       });
+    } else {
+      const newMemberId = generateMemberId(data.members, currentSamity.memberIdPrefix || 'SM-');
+      setEditingMember(null);
+      setMemberForm(createDefaultMemberObject(activeSamityId, data.members.length + 1, {
+        id: newMemberId,
+        memberCode: newMemberId,
+        monthlySubscription: currentSamity.monthlySubscription || 500
+      }));
     }
     setIsMemberModalOpen(true);
+  };
+
+  const handleMemberPhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast?.('ছবির সাইজ সর্বোচ্চ ২ মেগাবাইট হতে পারবে', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      setMemberForm(prev => ({ ...prev, photo: uploadEvent.target.result }));
+      showToast?.('ছবি সফলভাবে যুক্ত হয়েছে', 'success');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveMember = (e) => {
     e.preventDefault();
     if (!memberForm.nameBn.trim() && !memberForm.nameEn.trim()) {
-      showToast?.('সদস্যের নাম প্রদান করুন', 'error');
+      showToast?.('সদস্যের নাম (বাংলা বা ইংরেজি) প্রদান করুন', 'error');
       return;
     }
     if (!memberForm.mobile.trim()) {
-      showToast?.('সদস্যের মোবাইল নম্বর আবশ্যক', 'error');
+      showToast?.('সদস্যের ব্যক্তিগত মোবাইল নম্বর আবশ্যক', 'error');
       return;
     }
 
@@ -370,9 +445,15 @@ export const SamityManagementHub = ({ onClose }) => {
     triggerHaptic();
 
     if (editingMember) {
+      const updated = {
+        ...editingMember,
+        ...memberForm,
+        updatedBy: 'Admin',
+        updatedAt: new Date().toISOString()
+      };
       updateAndSave(prev => ({
         ...prev,
-        members: prev.members.map(m => m.id === editingMember.id ? { ...m, ...memberForm, updatedAt: new Date().toISOString() } : m)
+        members: prev.members.map(m => m.id === editingMember.id ? updated : m)
       }), {
         action: 'UPDATE_MEMBER',
         module: 'MEMBERS',
@@ -380,15 +461,20 @@ export const SamityManagementHub = ({ onClose }) => {
         details: { name: memberForm.nameBn || memberForm.nameEn }
       });
       showToast?.('সদস্য তথ্য সফলভাবে আপডেট করা হয়েছে', 'success');
+      if (selectedMemberProfile && selectedMemberProfile.id === editingMember.id) {
+        setSelectedMemberProfile(updated);
+      }
     } else {
-      const newMemberId = generateMemberId(data.members, currentSamity.memberIdPrefix || 'SM-');
+      const newMemberId = memberForm.id || generateMemberId(data.members, currentSamity.memberIdPrefix || 'SM-');
       const newMember = {
         ...memberForm,
         id: newMemberId,
-        memberCode: newMemberId,
+        memberCode: memberForm.memberCode || newMemberId,
         samityId: activeSamityId,
-        membershipStartDate: new Date().toISOString().split('T')[0],
-        createdAt: new Date().toISOString()
+        createdBy: 'Admin',
+        createdAt: new Date().toISOString(),
+        updatedBy: 'Admin',
+        updatedAt: new Date().toISOString()
       };
 
       updateAndSave(prev => ({
@@ -419,7 +505,90 @@ export const SamityManagementHub = ({ onClose }) => {
       recordId: memberId,
       details: { memberId }
     });
+    if (selectedMemberProfile && selectedMemberProfile.id === memberId) {
+      setIsProfileModalOpen(false);
+      setSelectedMemberProfile(null);
+    }
     showToast?.('সদস্য মুছে ফেলা হয়েছে', 'info');
+  };
+
+  const handleViewMemberProfile = (member) => {
+    playButtonClick?.();
+    triggerHaptic();
+    setSelectedMemberProfile(member);
+    setProfileActiveTab('overview');
+    setIsProfileModalOpen(true);
+  };
+
+  // Bulk Import Handlers
+  const handleOpenBulkImportModal = () => {
+    playButtonClick?.();
+    triggerHaptic();
+    setBulkImportCsvText('');
+    setBulkImportParsedMembers([]);
+    setBulkImportError('');
+    setIsBulkImportModalOpen(true);
+  };
+
+  const handleBulkImportFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (fileEvent) => {
+      const content = fileEvent.target.result;
+      setBulkImportCsvText(content);
+      const parseResult = parseMembersCsv(content, activeSamityId, data.members);
+      if (parseResult.success) {
+        setBulkImportParsedMembers(parseResult.members);
+        setBulkImportError('');
+        showToast?.(`${parseResult.members.length} জন সদস্যের রেকর্ড যাচাই করা হয়েছে`, 'info');
+      } else {
+        setBulkImportParsedMembers([]);
+        setBulkImportError(parseResult.error || 'CSV ফরম্যাট সঠিক নয়');
+        showToast?.(parseResult.error || 'CSV ফরম্যাট সঠিক নয়', 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkImportTextChange = (text) => {
+    setBulkImportCsvText(text);
+    if (!text.trim()) {
+      setBulkImportParsedMembers([]);
+      setBulkImportError('');
+      return;
+    }
+    const parseResult = parseMembersCsv(text, activeSamityId, data.members);
+    if (parseResult.success) {
+      setBulkImportParsedMembers(parseResult.members);
+      setBulkImportError('');
+    } else {
+      setBulkImportParsedMembers([]);
+      setBulkImportError(parseResult.error || '');
+    }
+  };
+
+  const handleExecuteBulkImport = () => {
+    if (!bulkImportParsedMembers || bulkImportParsedMembers.length === 0) {
+      showToast?.('ইমপোর্ট করার মতো কোনো বৈধ সদস্য রেকর্ড নেই', 'error');
+      return;
+    }
+
+    playSuccessChime?.();
+    triggerHaptic();
+
+    updateAndSave(prev => ({
+      ...prev,
+      members: [...bulkImportParsedMembers, ...prev.members]
+    }), {
+      action: 'BULK_IMPORT_MEMBERS',
+      module: 'MEMBERS',
+      recordId: `BATCH-${Date.now()}`,
+      details: { count: bulkImportParsedMembers.length }
+    });
+
+    showToast?.(`সাফল্যের সাথে ${bulkImportParsedMembers.length} জন সদস্য ইমপোর্ট সম্পন্ন হয়েছে!`, 'success');
+    setIsBulkImportModalOpen(false);
   };
 
   // --------------------------------------------------------------------------
@@ -1076,16 +1245,22 @@ export const SamityManagementHub = ({ onClose }) => {
       if (m.samityId !== activeSamityId) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchName = (m.nameBn + ' ' + m.nameEn).toLowerCase().includes(q);
-        const matchPhone = (m.mobile || '').includes(q);
+        const matchName = ((m.nameBn || '') + ' ' + (m.nameEn || '')).toLowerCase().includes(q);
+        const matchPhone = (m.mobile || '').includes(q) || (m.altMobile || '').includes(q);
+        const matchWa = (m.whatsappNumber || '').includes(q);
         const matchCode = (m.memberCode || m.id || '').toLowerCase().includes(q);
-        if (!matchName && !matchPhone && !matchCode) return false;
+        const matchNid = (m.nidNumber || '').toLowerCase().includes(q);
+        if (!matchName && !matchPhone && !matchWa && !matchCode && !matchNid) return false;
       }
       if (memberFilterType !== 'all' && m.membershipType !== memberFilterType) return false;
-      if (memberFilterStatus !== 'all' && m.status !== memberFilterStatus) return false;
+      if (memberFilterStatus !== 'all' && (m.status || 'Active').toLowerCase() !== memberFilterStatus.toLowerCase()) return false;
+      if (memberFilterPaymentStatus !== 'all') {
+        const payStatus = calculateMemberPaymentStatus(m, currentSamity, data.deposits, targetMonth, targetYear);
+        if (payStatus.status !== memberFilterPaymentStatus) return false;
+      }
       return true;
     });
-  }, [data.members, activeSamityId, searchQuery, memberFilterType, memberFilterStatus]);
+  }, [data.members, data.deposits, activeSamityId, searchQuery, memberFilterType, memberFilterStatus, memberFilterPaymentStatus, targetMonth, targetYear, currentSamity]);
 
   return (
     <div
@@ -2312,46 +2487,140 @@ export const SamityManagementHub = ({ onClose }) => {
         )}
 
         {/* TAB 2: MEMBERS MANAGEMENT */}
+        {/* TAB 2: MEMBERS MANAGEMENT (#2 MODULE) */}
         {activeTab === 'members' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Filter & Search Bar */}
+            {/* Top KPI Cards for Member Management */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>মোট নিবন্ধিত সদস্য</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#fff' }}>{metrics.totalMembers} জন</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                  <CheckCircle2 size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>সক্রিয় সদস্য</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981' }}>{metrics.activeMembers} জন</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(34, 197, 94, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(34, 197, 94, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22c55e' }}>
+                  <Receipt size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>চলতি মাসে পরিশোধিত</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#22c55e' }}>{metrics.paidMembersCount} জন</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                  <Clock size={22} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>চলতি মাসে বকেয়া</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#ef4444' }}>{metrics.unpaidMembersCount + metrics.partiallyPaidCount} জন</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter & Search Toolbar */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
                 flexWrap: 'wrap',
-                background: 'rgba(30, 41, 59, 0.7)',
-                padding: '12px 16px',
-                borderRadius: '12px',
-                border: '1px solid rgba(255, 255, 255, 0.08)'
+                background: 'rgba(30, 41, 59, 0.85)',
+                padding: '14px 16px',
+                borderRadius: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
               }}
             >
-              <div style={{ position: 'relative', flex: '1 1 240px' }}>
-                <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              {/* Search Box */}
+              <div style={{ position: 'relative', flex: '1 1 260px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="সদস্যের নাম, আইডি (SM-001) বা মোবাইল দিয়ে খুঁজুন..."
+                  placeholder="নাম, সদস্য আইডি (SM-001), মোবাইল বা হোয়াটসঅ্যাপ দিয়ে খুঁজুন..."
                   style={{
                     width: '100%',
-                    padding: '8px 10px 8px 34px',
+                    padding: '8px 12px 8px 36px',
                     borderRadius: '8px',
-                    background: 'rgba(15, 23, 42, 0.9)',
+                    background: 'rgba(15, 23, 42, 0.95)',
                     border: '1px solid rgba(255, 255, 255, 0.15)',
                     color: '#fff',
                     fontSize: '0.82rem',
                     outline: 'none'
                   }}
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
 
+              {/* Filter by Membership Type */}
               <select
                 value={memberFilterType}
                 onChange={(e) => setMemberFilterType(e.target.value)}
                 style={{
-                  background: 'rgba(15, 23, 42, 0.9)',
+                  background: 'rgba(15, 23, 42, 0.95)',
                   color: '#fff',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
                   borderRadius: '8px',
@@ -2361,21 +2630,18 @@ export const SamityManagementHub = ({ onClose }) => {
                   outline: 'none'
                 }}
               >
-                <option value="all">সব সদস্য পদবি</option>
-                <option value="General Member">সাধারণ সদস্য</option>
-                <option value="Life Member">আজীবন সদস্য</option>
-                <option value="Executive Member">কার্যনির্বাহী সদস্য</option>
-                <option value="Advisor">উপদেষ্টা</option>
-                <option value="President">সভাপতি</option>
-                <option value="General Secretary">সাধারণ সম্পাদক</option>
-                <option value="Treasurer">কোষাধ্যক্ষ</option>
+                <option value="all">সব সদস্য পদবি ({data.members.filter(m => m.samityId === activeSamityId).length})</option>
+                {MEMBER_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.labelBn}</option>
+                ))}
               </select>
 
+              {/* Filter by Status */}
               <select
                 value={memberFilterStatus}
                 onChange={(e) => setMemberFilterStatus(e.target.value)}
                 style={{
-                  background: 'rgba(15, 23, 42, 0.9)',
+                  background: 'rgba(15, 23, 42, 0.95)',
                   color: '#fff',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
                   borderRadius: '8px',
@@ -2386,64 +2652,205 @@ export const SamityManagementHub = ({ onClose }) => {
                 }}
               >
                 <option value="all">সব স্ট্যাটাস</option>
-                <option value="active">সক্রিয় (Active)</option>
-                <option value="inactive">নিষ্ক্রিয় (Inactive)</option>
-                <option value="suspended">স্থগিত (Suspended)</option>
+                {MEMBER_STATUSES.map(s => (
+                  <option key={s.value} value={s.value}>{s.labelBn}</option>
+                ))}
               </select>
 
-              <button
-                onClick={() => handleOpenMemberModal()}
-                className="btn"
+              {/* Filter by Payment Status */}
+              <select
+                value={memberFilterPaymentStatus}
+                onChange={(e) => setMemberFilterPaymentStatus(e.target.value)}
                 style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: 'rgba(15, 23, 42, 0.95)',
                   color: '#fff',
-                  border: 'none',
-                  padding: '8px 16px',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
                   borderRadius: '8px',
-                  fontSize: '0.82rem',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                  marginLeft: 'auto'
+                  padding: '8px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  outline: 'none'
                 }}
               >
-                <Plus size={16} />
-                <span>+ নতুন সদস্য নিবন্ধন</span>
-              </button>
+                <option value="all">সব পেমেন্ট অবস্থা</option>
+                <option value="paid">✓ পরিশোধিত (Paid)</option>
+                <option value="partially_paid">⏳ আংশিক পরিশোধ (Partial)</option>
+                <option value="unpaid">⚠️ বকেয়া (Unpaid)</option>
+                <option value="advance_paid">🌟 অগ্রিম পরিশোধ (Advance)</option>
+              </select>
+
+              {/* Month Selector */}
+              <select
+                value={targetMonth}
+                onChange={(e) => setTargetMonth(e.target.value)}
+                style={{
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  color: '#38bdf8',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '8px',
+                  padding: '8px 10px',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  outline: 'none'
+                }}
+              >
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+
+              {/* Action Buttons: Add, Bulk Import, Export CSV, Print */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleOpenMemberModal()}
+                  className="btn"
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>+ নতুন সদস্য নিবন্ধন</span>
+                </button>
+
+                <button
+                  onClick={handleOpenBulkImportModal}
+                  title="এক্সেল বা CSV ফাইল থেকে বাল্ক সদস্য ইমপোর্ট"
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Upload size={14} />
+                  <span>বাল্ক ইমপোর্ট (CSV)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    playButtonClick?.();
+                    triggerHaptic();
+                    exportMembersCsv(filteredMembers, currentSamity);
+                    showToast?.('সদস্য তালিকা CSV ফাইল ডাউনলোড শুরু হয়েছে', 'success');
+                  }}
+                  title="এক্সেল বা CSV ফাইল ডাউনলোড করুন"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Download size={14} />
+                  <span>এক্সপোর্ট ({filteredMembers.length})</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    playButtonClick?.();
+                    triggerHaptic();
+                    setIsPrintMemberListOpen(true);
+                  }}
+                  title="সদস্য তালিকা প্রিন্ট বা PDF হিসেবে সংরক্ষণ করুন"
+                  style={{
+                    background: 'rgba(168, 85, 247, 0.15)',
+                    color: '#c084fc',
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Printer size={14} />
+                  <span>প্রিন্ট / PDF</span>
+                </button>
+              </div>
             </div>
 
             {/* Member Directory Table */}
             <div
               style={{
-                background: 'rgba(30, 41, 59, 0.7)',
+                background: 'rgba(30, 41, 59, 0.75)',
                 borderRadius: '14px',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                overflowX: 'auto'
+                overflowX: 'auto',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
               }}
             >
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                 <thead>
-                  <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>আইডি নং</th>
+                  <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', width: '120px' }}>ছবি ও আইডি</th>
                     <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>সদস্যের নাম ও পদবি</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>যোগাযোগ</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>মাসিক চাঁদা</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>চলতি মাসের অবস্থা</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>অ্যাকশন</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>যোগাযোগ ও সোশ্যাল</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ঠিকানা ও পেশা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>চাঁদা পলিসি</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{targetMonth} এর অবস্থা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', width: '210px' }}>অ্যাকশন</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        কোনো সদস্যের রেকর্ড পাওয়া যায়নি। "+ নতুন সদস্য নিবন্ধন" বাটনে ক্লিক করে সদস্য যোগ করুন।
+                      <td colSpan={7} style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                          <Users size={36} style={{ color: 'rgba(255, 255, 255, 0.2)' }} />
+                          <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#fff' }}>কোনো সদস্য রেকর্ড খুঁজে পাওয়া যায়নি</div>
+                          <div style={{ fontSize: '0.78rem', maxWidth: '420px', lineHeight: '1.4' }}>
+                            {searchQuery || memberFilterType !== 'all' || memberFilterStatus !== 'all' || memberFilterPaymentStatus !== 'all'
+                              ? 'আপনার ফিল্টারের সাথে মেলানো কোনো সদস্য নেই। ফিল্টার রিসেট করে আবার চেষ্টা করুন।'
+                              : 'এই সমিতিতে এখনো কোনো সদস্য নিবন্ধিত হয়নি। উপরের "+ নতুন সদস্য নিবন্ধন" বা "বাল্ক ইমপোর্ট (CSV)" বাটনে ক্লিক করুন।'}
+                          </div>
+                          {(searchQuery || memberFilterType !== 'all' || memberFilterStatus !== 'all' || memberFilterPaymentStatus !== 'all') && (
+                            <button
+                              onClick={() => {
+                                setSearchQuery('');
+                                setMemberFilterType('all');
+                                setMemberFilterStatus('all');
+                                setMemberFilterPaymentStatus('all');
+                              }}
+                              style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                            >
+                              ফিল্টার রিসেট করুন
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : (
                     filteredMembers.map(member => {
                       const status = calculateMemberPaymentStatus(member, currentSamity, data.deposits, targetMonth, targetYear);
+                      const isMemberActive = (member.status || 'Active').toLowerCase() === 'active';
+
                       return (
                         <tr
                           key={member.id}
@@ -2452,51 +2859,201 @@ export const SamityManagementHub = ({ onClose }) => {
                             transition: 'background 0.15s ease'
                           }}
                         >
-                          <td style={{ padding: '12px 14px', fontWeight: '900', color: '#38bdf8' }}>
-                            {member.id}
-                          </td>
+                          {/* Photo / Avatar & ID */}
                           <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: '800', color: '#fff' }}>{member.nameBn || member.nameEn}</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              {member.membershipType} • {member.nameEn}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {member.photo ? (
+                                <img
+                                  src={member.photo}
+                                  alt={member.nameBn || member.nameEn}
+                                  style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(56, 189, 248, 0.4)' }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#fff',
+                                    fontWeight: '900',
+                                    fontSize: '0.85rem'
+                                  }}
+                                >
+                                  {(member.nameBn || member.nameEn || 'M').charAt(0)}
+                                </div>
+                              )}
+                              <div>
+                                <div style={{ fontWeight: '900', color: '#38bdf8', fontSize: '0.82rem' }}>{member.id}</div>
+                                {member.memberCode && member.memberCode !== member.id && (
+                                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>কোর্ড: {member.memberCode}</div>
+                                )}
+                              </div>
                             </div>
                           </td>
+
+                          {/* Member Name & Designation */}
                           <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: '700' }}>{member.mobile}</div>
+                            <div style={{ fontWeight: '800', color: '#fff', fontSize: '0.86rem' }}>
+                              {member.nameBn || member.nameEn}
+                            </div>
+                            {member.nameEn && member.nameBn && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                {member.nameEn}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                              <span
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  color: '#38bdf8',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: '700'
+                                }}
+                              >
+                                {member.membershipType || 'General Member'}
+                              </span>
+                              {member.bloodGroup && (
+                                <span
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    color: '#ef4444',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.68rem',
+                                    fontWeight: '800'
+                                  }}
+                                >
+                                  🩸 {member.bloodGroup}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Contact & Social Links */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                              <a
+                                href={`tel:${member.mobile}`}
+                                style={{ color: '#fff', textDecoration: 'none', fontWeight: '700' }}
+                              >
+                                {member.mobile}
+                              </a>
+                            </div>
+
                             {member.whatsappNumber && (
-                              <div style={{ fontSize: '0.7rem', color: '#10b981' }}>
-                                WA: {member.whatsappNumber}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <MessageSquare size={13} style={{ color: '#25D366' }} />
+                                <a
+                                  href={`https://wa.me/${(member.whatsappNumber || '').replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: '#25D366', textDecoration: 'none', fontSize: '0.72rem', fontWeight: '600' }}
+                                >
+                                  WA: {member.whatsappNumber}
+                                </a>
+                              </div>
+                            )}
+
+                            {member.email && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                ✉️ {member.email}
                               </div>
                             )}
                           </td>
-                          <td style={{ padding: '12px 14px', fontWeight: '800' }}>
-                            ৳ {member.customSubscription || currentSamity.monthlySubscription}/-
-                          </td>
+
+                          {/* Address & Occupation */}
                           <td style={{ padding: '12px 14px' }}>
-                            <span
-                              style={{
-                                background: status.status === 'paid' ? 'rgba(16, 185, 129, 0.2)' : status.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                color: status.status === 'paid' ? '#10b981' : status.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
-                                border: `1px solid ${status.status === 'paid' ? '#10b981' : status.status === 'partially_paid' ? '#f59e0b' : '#ef4444'}50`,
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontSize: '0.72rem',
-                                fontWeight: '800'
-                              }}
-                            >
-                              {status.status === 'paid' ? '✓ পরিশোধিত' : status.status === 'partially_paid' ? 'আংশিক পরিশোধ' : `বাকি: ৳${status.dueAmount}`}
-                            </span>
+                            <div style={{ fontSize: '0.78rem', color: '#e2e8f0', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {member.presentAddress || 'ঠিকানা দেওয়া নেই'}
+                            </div>
+                            {member.occupation && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                💼 {member.occupation} {member.organization ? `(${member.organization})` : ''}
+                              </div>
+                            )}
                           </td>
+
+                          {/* Subscription Fee & Cycle */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: '800', color: '#fff', fontSize: '0.85rem' }}>
+                              ৳ {member.customSubscription || member.monthlySubscription || currentSamity.monthlySubscription || 500}/-
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              সাইকেল: {member.paymentCycle || 'Monthly'}
+                              {member.customSubscription ? ' (কাস্টম)' : ''}
+                            </div>
+                          </td>
+
+                          {/* Current Month Status & Member Status */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span
+                                style={{
+                                  background: status.status === 'paid' ? 'rgba(16, 185, 129, 0.2)' : status.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                  color: status.status === 'paid' ? '#10b981' : status.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
+                                  border: `1px solid ${status.status === 'paid' ? '#10b981' : status.status === 'partially_paid' ? '#f59e0b' : '#ef4444'}50`,
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  display: 'inline-block',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                {status.status === 'paid' ? '✓ পরিশোধিত' : status.status === 'partially_paid' ? `আংশিক: ৳${status.paidAmount}` : `বকেয়া: ৳${status.dueAmount}`}
+                              </span>
+
+                              <span
+                                style={{
+                                  fontSize: '0.66rem',
+                                  color: isMemberActive ? '#10b981' : '#f59e0b',
+                                  fontWeight: '700'
+                                }}
+                              >
+                                স্ট্যাটাস: {member.status || 'Active'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Actions: View Profile, Add Deposit, WhatsApp Reminder, Edit, Delete */}
                           <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                               <button
+                                onClick={() => handleViewMemberProfile(member)}
+                                title="পূর্ণাঙ্গ প্রোফাইল ও ইতিহাস দেখুন"
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  color: '#38bdf8',
+                                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Eye size={13} />
+                                <span>প্রোফাইল</span>
+                              </button>
+
+                              <button
                                 onClick={() => handleOpenDepositModal(member.id)}
-                                title="জমা নিন"
+                                title="নতুন চাঁদা জমা নিন"
                                 style={{
                                   background: 'rgba(16, 185, 129, 0.15)',
                                   color: '#10b981',
-                                  border: 'none',
-                                  padding: '5px 10px',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  padding: '5px 8px',
                                   borderRadius: '6px',
                                   fontSize: '0.72rem',
                                   fontWeight: '800',
@@ -2505,13 +3062,14 @@ export const SamityManagementHub = ({ onClose }) => {
                               >
                                 + জমা
                               </button>
+
                               <button
                                 onClick={() => handleSendReminder(member, 'whatsapp')}
-                                title="হোয়াটসঅ্যাপে রিমাইন্ডার পাঠান"
+                                title="হোয়াটসঅ্যাপে বকেয়া তাগাদা পাঠান"
                                 style={{
                                   background: 'rgba(37, 211, 102, 0.15)',
                                   color: '#25D366',
-                                  border: 'none',
+                                  border: '1px solid rgba(37, 211, 102, 0.3)',
                                   padding: '5px 8px',
                                   borderRadius: '6px',
                                   cursor: 'pointer'
@@ -2519,13 +3077,14 @@ export const SamityManagementHub = ({ onClose }) => {
                               >
                                 <Share2 size={13} />
                               </button>
+
                               <button
                                 onClick={() => handleOpenMemberModal(member)}
-                                title="সম্পাদনা করুন"
+                                title="সদস্যের তথ্য সম্পাদনা করুন"
                                 style={{
                                   background: 'rgba(255, 255, 255, 0.08)',
                                   color: '#fff',
-                                  border: 'none',
+                                  border: '1px solid rgba(255, 255, 255, 0.15)',
                                   padding: '5px 8px',
                                   borderRadius: '6px',
                                   cursor: 'pointer'
@@ -2533,13 +3092,14 @@ export const SamityManagementHub = ({ onClose }) => {
                               >
                                 <Edit3 size={13} />
                               </button>
+
                               <button
                                 onClick={() => handleDeleteMember(member.id)}
-                                title="মুছে ফেলুন"
+                                title="সদস্য মুছে ফেলুন"
                                 style={{
                                   background: 'rgba(239, 68, 68, 0.15)',
                                   color: '#ef4444',
-                                  border: 'none',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
                                   padding: '5px 8px',
                                   borderRadius: '6px',
                                   cursor: 'pointer'
@@ -4401,8 +4961,8 @@ export const SamityManagementHub = ({ onClose }) => {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(6px)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)',
             zIndex: 100,
             display: 'flex',
             alignItems: 'center',
@@ -4416,140 +4976,1173 @@ export const SamityManagementHub = ({ onClose }) => {
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '16px',
               width: '100%',
-              maxWidth: '650px',
-              maxHeight: '90vh',
+              maxWidth: '750px',
+              maxHeight: '92vh',
               overflowY: 'auto',
-              padding: '24px'
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)'
             }}
           >
+            {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>
-                {editingMember ? 'সদস্যের তথ্য সম্পাদনা' : 'নতুন সদস্য নিবন্ধন ফরম'}
-              </h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users size={20} style={{ color: '#38bdf8' }} />
+                  <span>{editingMember ? 'সদস্যের তথ্য সম্পাদনা' : 'নতুন সদস্য নিবন্ধন ফরম (৩৮টি ফিল্ড মানদণ্ড)'}</span>
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  সমিতি: <strong style={{ color: '#38bdf8' }}>{currentSamity.nameBn}</strong> • সদস্য আইডি: <strong style={{ color: '#10b981' }}>{memberForm.id || 'স্বয়ংক্রিয়'}</strong>
+                </p>
+              </div>
               <button
                 onClick={() => setIsMemberModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                style={{ background: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveMember} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>পূর্ণ নাম (বাংলায়) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={memberForm.nameBn}
-                    onChange={(e) => setMemberForm({ ...memberForm, nameBn: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Full Name (English)</label>
-                  <input
-                    type="text"
-                    value={memberForm.nameEn}
-                    onChange={(e) => setMemberForm({ ...memberForm, nameEn: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ব্যক্তিগত মোবাইল নম্বর *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={memberForm.mobile}
-                    onChange={(e) => setMemberForm({ ...memberForm, mobile: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>হোয়াটসঅ্যাপ নম্বর</label>
-                  <input
-                    type="tel"
-                    placeholder="017XXXXXXXX"
-                    value={memberForm.whatsappNumber}
-                    onChange={(e) => setMemberForm({ ...memberForm, whatsappNumber: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>টেলিগ্রাম নম্বর / ইউজারনেম</label>
-                  <input
-                    type="text"
-                    placeholder="@username or phone"
-                    value={memberForm.telegramHandle}
-                    onChange={(e) => setMemberForm({ ...memberForm, telegramHandle: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>মেম্বারশিপ টাইপ / পদবি</label>
-                  <select
-                    value={memberForm.membershipType}
-                    onChange={(e) => setMemberForm({ ...memberForm, membershipType: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+            {/* 5 Form Sub-Tabs */}
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              {[
+                { id: 'basic', label: '১. পরিচিতি ও ছবি', icon: Users },
+                { id: 'contact', label: '২. যোগাযোগ ও সোশ্যাল', icon: Phone },
+                { id: 'address', label: '৩. ঠিকানা ও পেশা', icon: MapPin },
+                { id: 'membership', label: '৪. সদস্যপদ ও চাঁদা', icon: Wallet },
+                { id: 'remarks', label: '৫. মন্তব্য ও অডিট', icon: FileText }
+              ].map(tab => {
+                const Icon = tab.icon;
+                const isActive = memberFormActiveTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      playButtonClick?.();
+                      triggerHaptic();
+                      setMemberFormActiveTab(tab.id);
+                    }}
+                    style={{
+                      background: isActive ? '#38bdf8' : 'rgba(255, 255, 255, 0.06)',
+                      color: isActive ? '#0f172a' : '#cbd5e1',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '7px 12px',
+                      fontSize: '0.76rem',
+                      fontWeight: isActive ? '800' : '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
                   >
-                    <option value="General Member">সাধারণ সদস্য</option>
-                    <option value="Life Member">আজীবন সদস্য</option>
-                    <option value="Executive Member">কার্যনির্বাহী সদস্য</option>
-                    <option value="Advisor">উপদেষ্টা</option>
-                    <option value="President">সভাপতি</option>
-                    <option value="Vice President">সহ-সভাপতি</option>
-                    <option value="General Secretary">সাধারণ সম্পাদক</option>
-                    <option value="Treasurer">কোষাধ্যক্ষ</option>
-                  </select>
+                    <Icon size={14} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <form onSubmit={handleSaveMember} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* TAB 1: PERSONAL & BIO */}
+              {memberFormActiveTab === 'basic' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Photo Upload and Preview */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(15, 23, 42, 0.6)', padding: '14px', borderRadius: '12px', border: '1px dashed rgba(56, 189, 248, 0.3)' }}>
+                    {memberForm.photo ? (
+                      <div style={{ position: 'relative' }}>
+                        <img
+                          src={memberForm.photo}
+                          alt="Member Preview"
+                          style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #38bdf8' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMemberForm(prev => ({ ...prev, photo: '' }))}
+                          style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: '#fff', border: 'none', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+                        <ImageIcon size={28} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
+                        সদস্যের ছবি আপলোড (Photo Upload)
+                      </label>
+                      <p style={{ margin: '0 0 8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        পাসপোর্ট সাইজ ছবি (JPG/PNG, সর্বোচ্চ ২ মেগাবাইট)
+                      </p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleMemberPhotoUpload}
+                        style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সদস্য আইডি (Member ID)</label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={memberForm.id}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#38bdf8', fontSize: '0.82rem', fontWeight: '800' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সদস্য কোড (Member Code)</label>
+                      <input
+                        type="text"
+                        value={memberForm.memberCode}
+                        onChange={(e) => setMemberForm({ ...memberForm, memberCode: e.target.value })}
+                        placeholder="ঐচ্ছিক কাস্টম কোড"
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: '#fff', fontWeight: '700', marginBottom: '4px' }}>পূর্ণ নাম (বাংলায়) *</label>
+                      <input
+                        type="text"
+                        required
+                        value={memberForm.nameBn}
+                        onChange={(e) => setMemberForm({ ...memberForm, nameBn: e.target.value })}
+                        placeholder="যেমন: জনাব মোহাম্মাদ আব্দুর রহিম"
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(56, 189, 248, 0.4)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Full Name (English)</label>
+                      <input
+                        type="text"
+                        value={memberForm.nameEn}
+                        onChange={(e) => setMemberForm({ ...memberForm, nameEn: e.target.value })}
+                        placeholder="e.g. Mohammad Abdur Rahim"
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>পিতার নাম (Father's Name)</label>
+                      <input
+                        type="text"
+                        value={memberForm.fatherName}
+                        onChange={(e) => setMemberForm({ ...memberForm, fatherName: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>মাতার নাম (Mother's Name)</label>
+                      <input
+                        type="text"
+                        value={memberForm.motherName}
+                        onChange={(e) => setMemberForm({ ...memberForm, motherName: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>জন্ম তারিখ (Date of Birth)</label>
+                      <input
+                        type="date"
+                        value={memberForm.dateOfBirth}
+                        onChange={(e) => setMemberForm({ ...memberForm, dateOfBirth: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>লিঙ্গ (Gender)</label>
+                      <select
+                        value={memberForm.gender}
+                        onChange={(e) => setMemberForm({ ...memberForm, gender: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      >
+                        {GENDERS.map(g => (
+                          <option key={g.value} value={g.value}>{g.labelBn}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>রক্তের গ্রুপ (Blood Group)</label>
+                      <select
+                        value={memberForm.bloodGroup}
+                        onChange={(e) => setMemberForm({ ...memberForm, bloodGroup: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      >
+                        <option value="">নির্বাচন করুন (ঐচ্ছিক)</option>
+                        {BLOOD_GROUPS.map(bg => (
+                          <option key={bg} value={bg}>{bg}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>মাসিক চাঁদা (খালি রাখলে ডিফল্ট ৫০০/-)</label>
-                  <input
-                    type="number"
-                    placeholder={currentSamity.monthlySubscription || 500}
-                    value={memberForm.customSubscription}
-                    onChange={(e) => setMemberForm({ ...memberForm, customSubscription: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
+              )}
+
+              {/* TAB 2: IDENTIFICATION & CONTACTS */}
+              {memberFormActiveTab === 'contact' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: '#fff', fontWeight: '700', marginBottom: '4px' }}>ব্যক্তিগত মোবাইল নম্বর *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={memberForm.mobile}
+                      onChange={(e) => setMemberForm({ ...memberForm, mobile: e.target.value })}
+                      placeholder="017XXXXXXXX"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>বিকল্প মোবাইল নম্বর (Alternative)</label>
+                    <input
+                      type="tel"
+                      value={memberForm.altMobile}
+                      onChange={(e) => setMemberForm({ ...memberForm, altMobile: e.target.value })}
+                      placeholder="018XXXXXXXX"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>হোয়াটসঅ্যাপ নম্বর (WhatsApp)</label>
+                    <input
+                      type="tel"
+                      value={memberForm.whatsappNumber}
+                      onChange={(e) => setMemberForm({ ...memberForm, whatsappNumber: e.target.value })}
+                      placeholder="খালি রাখলে মোবাইলের নম্বর বসবে"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>টেলিগ্রাম ইউজারনেম / নম্বর</label>
+                    <input
+                      type="text"
+                      value={memberForm.telegramHandle}
+                      onChange={(e) => setMemberForm({ ...memberForm, telegramHandle: e.target.value })}
+                      placeholder="@username or 017XXXXXXXX"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ফেসবুক প্রোফাইল URL</label>
+                    <input
+                      type="url"
+                      value={memberForm.facebookProfileUrl}
+                      onChange={(e) => setMemberForm({ ...memberForm, facebookProfileUrl: e.target.value })}
+                      placeholder="https://facebook.com/username"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>মেসেঞ্জার ইউজারনেম (Messenger)</label>
+                    <input
+                      type="text"
+                      value={memberForm.messengerUsername}
+                      onChange={(e) => setMemberForm({ ...memberForm, messengerUsername: e.target.value })}
+                      placeholder="username or m.me/handle"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ইমেইল ঠিকানা (Email Address)</label>
+                    <input
+                      type="email"
+                      value={memberForm.email}
+                      onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
+                      placeholder="member@example.com"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>জাতীয় পরিচয়পত্র (NID) নম্বর</label>
+                    <input
+                      type="text"
+                      value={memberForm.nidNumber}
+                      onChange={(e) => setMemberForm({ ...memberForm, nidNumber: e.target.value })}
+                      placeholder="১০, ১৩ বা ১৭ ডিজিট NID"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>পাসপোর্ট নম্বর (Passport Number)</label>
+                    <input
+                      type="text"
+                      value={memberForm.passportNumber}
+                      onChange={(e) => setMemberForm({ ...memberForm, passportNumber: e.target.value })}
+                      placeholder="যেমন: A01234567"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>জাতীয় পরিচয়পত্র (NID) নম্বর</label>
-                  <input
-                    type="text"
-                    value={memberForm.nidNumber}
-                    onChange={(e) => setMemberForm({ ...memberForm, nidNumber: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
+              )}
+
+              {/* TAB 3: ADDRESS & OCCUPATION */}
+              {memberFormActiveTab === 'address' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>বর্তমান ঠিকানা (Present Address)</label>
+                    <textarea
+                      rows={2}
+                      value={memberForm.presentAddress}
+                      onChange={(e) => setMemberForm({ ...memberForm, presentAddress: e.target.value })}
+                      placeholder="বাড়ি/রোড নং, এলাকা, থানা, জেলা"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>স্থায়ী ঠিকানা (Permanent Address)</label>
+                    <textarea
+                      rows={2}
+                      value={memberForm.permanentAddress}
+                      onChange={(e) => setMemberForm({ ...memberForm, permanentAddress: e.target.value })}
+                      placeholder="গ্রাম/মহল্লা, ডাকঘর, উপজেলা, জেলা"
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>পেশা (Occupation)</label>
+                      <input
+                        type="text"
+                        value={memberForm.occupation}
+                        onChange={(e) => setMemberForm({ ...memberForm, occupation: e.target.value })}
+                        placeholder="যেমন: ব্যবসায়ী, শিক্ষক, প্রকৌশলী"
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>কর্মস্থল / প্রতিষ্ঠান (Organization)</label>
+                      <input
+                        type="text"
+                        value={memberForm.organization}
+                        onChange={(e) => setMemberForm({ ...memberForm, organization: e.target.value })}
+                        placeholder="প্রতিষ্ঠানের নাম"
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: MEMBERSHIP & SUBSCRIPTION POLICY */}
+              {memberFormActiveTab === 'membership' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>মেম্বারশিপ টাইপ / পদবি</label>
+                    <select
+                      value={memberForm.membershipType}
+                      onChange={(e) => setMemberForm({ ...memberForm, membershipType: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    >
+                      {MEMBER_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.labelBn} ({t.labelEn})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সদস্যপদ যোগদানের তারিখ</label>
+                    <input
+                      type="date"
+                      value={memberForm.membershipStartDate}
+                      onChange={(e) => setMemberForm({ ...memberForm, membershipStartDate: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সদস্যপদ সমাপ্তির তারিখ (ঐচ্ছিক)</label>
+                    <input
+                      type="date"
+                      value={memberForm.membershipEndDate}
+                      onChange={(e) => setMemberForm({ ...memberForm, membershipEndDate: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>পেমেন্ট সাইকেল (Payment Cycle)</label>
+                    <select
+                      value={memberForm.paymentCycle}
+                      onChange={(e) => setMemberForm({ ...memberForm, paymentCycle: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    >
+                      {PAYMENT_CYCLES.map(c => (
+                        <option key={c.value} value={c.value}>{c.labelBn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      কাস্টম চাঁদার হার (খালি রাখলে সমিতির ডিফল্ট ৳{currentSamity.monthlySubscription || 500}/-)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder={currentSamity.monthlySubscription || 500}
+                      value={memberForm.customSubscription}
+                      onChange={(e) => setMemberForm({ ...memberForm, customSubscription: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সদস্য স্ট্যাটাস (Member Status)</label>
+                    <select
+                      value={memberForm.status}
+                      onChange={(e) => setMemberForm({ ...memberForm, status: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    >
+                      {MEMBER_STATUSES.map(s => (
+                        <option key={s.value} value={s.value}>{s.labelBn}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: REMARKS & AUDIT */}
+              {memberFormActiveTab === 'remarks' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>মন্তব্য ও বিশেষ নোট (Remarks)</label>
+                    <textarea
+                      rows={3}
+                      value={memberForm.remarks}
+                      onChange={(e) => setMemberForm({ ...memberForm, remarks: e.target.value })}
+                      placeholder="সদস্য সম্পর্কিত যেকোনো প্রশাসনিক বা বিশেষ মন্তব্য..."
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px', borderRadius: '8px', fontSize: '0.72rem', color: 'var(--text-muted)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>তৈরি করেছেন: <strong style={{ color: '#fff' }}>{memberForm.createdBy || 'Admin'}</strong></div>
+                    <div>তৈরির সময়: <strong style={{ color: '#fff' }}>{memberForm.createdAt ? new Date(memberForm.createdAt).toLocaleString('bn-BD') : 'নতুন'}</strong></div>
+                    <div>সর্বশেষ আপডেট: <strong style={{ color: '#fff' }}>{memberForm.updatedBy || 'Admin'}</strong></div>
+                    <div>আপডেটের সময়: <strong style={{ color: '#fff' }}>{memberForm.updatedAt ? new Date(memberForm.updatedAt).toLocaleString('bn-BD') : 'এখনই'}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  * চিহ্নিত ফিল্ডগুলো পূরণ করা আবশ্যক
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMemberModalOpen(false)}
+                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 16px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer' }}
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn"
+                    style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', padding: '8px 22px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    {editingMember ? 'আপডেট সম্পন্ন করুন' : 'সদস্য সংরক্ষণ করুন'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 4.1 MODAL: MEMBER PROFILE & COMPREHENSIVE HISTORY VIEW */}
+      {/* ==================================================================== */}
+      {isProfileModalOpen && selectedMemberProfile && (() => {
+        const pStatus = calculateMemberPaymentStatus(selectedMemberProfile, currentSamity, data.deposits, targetMonth, targetYear);
+        const memberDeposits = (data.deposits || []).filter(d => d.memberId === selectedMemberProfile.id && d.samityId === activeSamityId);
+        const memberReminders = (data.reminders || []).filter(r => r.memberId === selectedMemberProfile.id);
+
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 110,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <div
+              style={{
+                background: '#1e293b',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '850px',
+                maxHeight: '92vh',
+                overflowY: 'auto',
+                padding: '24px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+              }}
+            >
+              {/* Profile Top Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {selectedMemberProfile.photo ? (
+                    <img
+                      src={selectedMemberProfile.photo}
+                      alt={selectedMemberProfile.nameBn}
+                      style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #38bdf8' }}
+                    />
+                  ) : (
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.4rem', fontWeight: '900' }}>
+                      {(selectedMemberProfile.nameBn || selectedMemberProfile.nameEn || 'M').charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: '#fff' }}>
+                        {selectedMemberProfile.nameBn || selectedMemberProfile.nameEn}
+                      </h2>
+                      <span style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800' }}>
+                        {selectedMemberProfile.id}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {selectedMemberProfile.nameEn} • {selectedMemberProfile.membershipType} • <span style={{ color: selectedMemberProfile.status === 'Active' ? '#10b981' : '#f59e0b' }}>{selectedMemberProfile.status || 'Active'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      setIsProfileModalOpen(false);
+                      handleOpenMemberModal(selectedMemberProfile);
+                    }}
+                    title="সম্পাদনা করুন"
+                    style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Edit3 size={13} />
+                    <span>এডিট</span>
+                  </button>
+                  <button
+                    onClick={() => setIsProfileModalOpen(false)}
+                    style={{ background: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
 
+              {/* Direct Quick Contact Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', background: 'rgba(15, 23, 42, 0.6)', padding: '10px 14px', borderRadius: '10px' }}>
+                <a
+                  href={`tel:${selectedMemberProfile.mobile}`}
+                  style={{ textDecoration: 'none', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '5px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Phone size={13} />
+                  <span>কল: {selectedMemberProfile.mobile}</span>
+                </a>
+
+                {selectedMemberProfile.whatsappNumber && (
+                  <a
+                    href={`https://wa.me/${(selectedMemberProfile.whatsappNumber || '').replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ textDecoration: 'none', background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', padding: '5px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <MessageSquare size={13} />
+                    <span>হোয়াটসঅ্যাপ চ্যাট</span>
+                  </a>
+                )}
+
+                {selectedMemberProfile.telegramHandle && (
+                  <a
+                    href={`https://t.me/${(selectedMemberProfile.telegramHandle || '').replace('@', '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ textDecoration: 'none', background: 'rgba(14, 165, 233, 0.15)', color: '#38bdf8', padding: '5px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Send size={13} />
+                    <span>টেলিগ্রাম</span>
+                  </a>
+                )}
+
+                {selectedMemberProfile.email && (
+                  <a
+                    href={`mailto:${selectedMemberProfile.email}`}
+                    style={{ textDecoration: 'none', background: 'rgba(255, 255, 255, 0.08)', color: '#fff', padding: '5px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Mail size={13} />
+                    <span>ইমেইল</span>
+                  </a>
+                )}
+
+                <button
+                  onClick={() => {
+                    setIsProfileModalOpen(false);
+                    handleOpenDepositModal(selectedMemberProfile.id);
+                  }}
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', padding: '5px 14px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', marginLeft: 'auto' }}
+                >
+                  + চাঁদা জমা নিন
+                </button>
+              </div>
+
+              {/* Financial KPI Summary Cards for Member */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>সর্বমোট জমাকৃত চাঁদা</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#10b981' }}>৳ {pStatus.allTimePaid || 0}/-</div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{targetMonth} মাসের বকেয়া</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: pStatus.dueAmount > 0 ? '#ef4444' : '#10b981' }}>
+                    {pStatus.dueAmount > 0 ? `৳ ${pStatus.dueAmount}/-` : 'কোনো বকেয়া নেই'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>নির্ধারিত মাসিক চাঁদা</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#38bdf8' }}>৳ {pStatus.requiredAmount}/-</div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>চলতি পেমেন্ট অবস্থা</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: pStatus.status === 'paid' ? '#10b981' : pStatus.status === 'partially_paid' ? '#f59e0b' : '#ef4444', marginTop: '4px' }}>
+                    {pStatus.status === 'paid' ? '✓ সম্পূর্ণ পরিশোধিত' : pStatus.status === 'partially_paid' ? '⏳ আংশিক পরিশোধ' : '⚠️ বকেয়া রয়েছে'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-Tabs: Overview, Deposit History, Due History, Reminder History */}
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '14px', paddingBottom: '6px' }}>
+                {[
+                  { id: 'overview', label: '📌 জীবনবৃত্তান্ত ও বিবরণ' },
+                  { id: 'deposits', label: `💳 জমার ইতিহাস (${memberDeposits.length})` },
+                  { id: 'dues', label: '📊 বকেয়া খতিয়ান' },
+                  { id: 'reminders', label: `📨 তাগাদা হিস্টোরি (${memberReminders.length})` }
+                ].map(t => {
+                  const isActive = profileActiveTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setProfileActiveTab(t.id)}
+                      style={{
+                        background: isActive ? '#38bdf8' : 'transparent',
+                        color: isActive ? '#0f172a' : '#cbd5e1',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.76rem',
+                        fontWeight: isActive ? '800' : '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* PROFILE TAB 1: FULL BIO & INFORMATION */}
+              {profileActiveTab === 'overview' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', fontSize: '0.8rem' }}>
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>পিতার নাম</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.fatherName || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মাতার নাম</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.motherName || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>জন্ম তারিখ ও লিঙ্গ</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>
+                      {selectedMemberProfile.dateOfBirth || 'দেওয়া হয়নি'} ({selectedMemberProfile.gender || 'Male'})
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>রক্তের গ্রুপ (Blood Group)</div>
+                    <div style={{ fontWeight: '800', color: '#ef4444', marginTop: '2px' }}>{selectedMemberProfile.bloodGroup || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>জাতীয় পরিচয়পত্র (NID)</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.nidNumber || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>পাসপোর্ট নম্বর</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.passportNumber || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>পেশা ও কর্মস্থল</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>
+                      {selectedMemberProfile.occupation || 'দেওয়া হয়নি'} {selectedMemberProfile.organization ? `(${selectedMemberProfile.organization})` : ''}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>বর্তমান ঠিকানা</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.presentAddress || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>স্থায়ী ঠিকানা</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.permanentAddress || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>সদস্যপদ যোগদানের তারিখ</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.membershipStartDate || 'দেওয়া হয়নি'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>পেমেন্ট সাইকেল</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.paymentCycle || 'Monthly'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>প্রশাসনিক মন্তব্য</div>
+                    <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.remarks || 'কোনো মন্তব্য নেই'}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* PROFILE TAB 2: DEPOSIT HISTORY */}
+              {profileActiveTab === 'deposits' && (
+                <div style={{ overflowX: 'auto', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px' }}>রশিদ নং</th>
+                        <th style={{ padding: '10px' }}>তারিখ</th>
+                        <th style={{ padding: '10px' }}>মাস / বছর</th>
+                        <th style={{ padding: '10px' }}>মাধ্যম</th>
+                        <th style={{ padding: '10px' }}>পরিমাণ</th>
+                        <th style={{ padding: '10px' }}>অনুমোদন</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {memberDeposits.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            এখনো কোনো জমার রেকর্ড পাওয়া যায়নি।
+                          </td>
+                        </tr>
+                      ) : (
+                        memberDeposits.map(dep => (
+                          <tr key={dep.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <td style={{ padding: '10px', fontWeight: '800', color: '#38bdf8' }}>{dep.receiptNo || dep.id}</td>
+                            <td style={{ padding: '10px' }}>{dep.date}</td>
+                            <td style={{ padding: '10px' }}>{dep.month} {dep.year}</td>
+                            <td style={{ padding: '10px' }}>{dep.method}</td>
+                            <td style={{ padding: '10px', fontWeight: '900', color: '#10b981' }}>৳ {dep.amount}/-</td>
+                            <td style={{ padding: '10px' }}>
+                              <span style={{ color: dep.approvalStatus === 'approved' ? '#10b981' : '#f59e0b', fontWeight: '700' }}>
+                                {dep.approvalStatus === 'approved' ? '✓ অনুমোদিত' : '⏳ অপেক্ষমাণ'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* PROFILE TAB 3: DUE HISTORY */}
+              {profileActiveTab === 'dues' && (
+                <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px', borderRadius: '10px', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ fontWeight: '800', color: '#fff' }}>চলতি অর্থবছর বকেয়া খতিয়ান হিসাব</div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>সমিতির পলিসি: প্রতি মাসের {currentSamity.subscriptionDueDay || 10} তারিখের মধ্যে প্রদেয়</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.6)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>চলতি মাস ({targetMonth})</div>
+                      <div style={{ fontWeight: '900', fontSize: '1rem', color: pStatus.dueAmount > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
+                        {pStatus.dueAmount > 0 ? `বাকি: ৳ ${pStatus.dueAmount}/-` : 'পরিশোধিত ✓'}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.6)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>বিলম্ব ফি (Late Fee)</div>
+                      <div style={{ fontWeight: '900', fontSize: '1rem', color: pStatus.lateFee > 0 ? '#f59e0b' : '#10b981', marginTop: '2px' }}>
+                        {pStatus.lateFee > 0 ? `৳ ${pStatus.lateFee}/-` : '০ টাকা'}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.6)', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মোট প্রদেয় বকেয়া</div>
+                      <div style={{ fontWeight: '900', fontSize: '1.1rem', color: pStatus.totalPayable > 0 ? '#ef4444' : '#10b981', marginTop: '2px' }}>
+                        ৳ {pStatus.totalPayable}/-
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PROFILE TAB 4: REMINDER HISTORY */}
+              {profileActiveTab === 'reminders' && (
+                <div style={{ overflowX: 'auto', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px' }}>মাধ্যম</th>
+                        <th style={{ padding: '10px' }}>তারিখ</th>
+                        <th style={{ padding: '10px' }}>বার্তা / নোটিশ</th>
+                        <th style={{ padding: '10px' }}>স্ট্যাটাস</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {memberReminders.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            এই সদস্যকে পূর্বে কোনো রিমাইন্ডার পাঠানো হয়নি।
+                          </td>
+                        </tr>
+                      ) : (
+                        memberReminders.map(rem => (
+                          <tr key={rem.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <td style={{ padding: '10px', fontWeight: '800', color: '#25D366' }}>{rem.channel || 'WhatsApp'}</td>
+                            <td style={{ padding: '10px' }}>{rem.date}</td>
+                            <td style={{ padding: '10px', maxWidth: '320px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rem.message}</td>
+                            <td style={{ padding: '10px', color: '#10b981', fontWeight: '700' }}>✓ প্রেরিত</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ==================================================================== */}
+      {/* 4.2 MODAL: BULK CSV IMPORT MEMBERS */}
+      {/* ==================================================================== */}
+      {isBulkImportModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 110,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '800px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>বর্তমান ঠিকানা</label>
-                <textarea
-                  rows={2}
-                  value={memberForm.presentAddress}
-                  onChange={(e) => setMemberForm({ ...memberForm, presentAddress: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Upload size={20} style={{ color: '#38bdf8' }} />
+                  <span>এক্সেল / CSV থেকে বাল্ক সদস্য ইমপোর্ট</span>
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  একটি ক্লিকের মাধ্যমে এক সাথে শত শত সদস্যের তালিকা নিরাপদে যুক্ত করুন
+                </p>
+              </div>
+              <button
+                onClick={() => setIsBulkImportModalOpen(false)}
+                style={{ background: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Template Download Prompt */}
+            <div style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '12px 16px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontWeight: '800', fontSize: '0.82rem', color: '#38bdf8' }}>নমুনা CSV টেমপ্লেট ডাউনলোড করুন</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>টেমপ্লেট অনুযায়ী ডাটা সাজিয়ে আপলোড করলে কোনো ভুল হওয়ার সম্ভাবনা থাকবে না।</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playButtonClick?.();
+                  triggerHaptic();
+                  downloadMembersCsvTemplate(currentSamity);
+                }}
+                style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Download size={14} />
+                <span>টেমপ্লেট ডাউনলোড (.csv)</span>
+              </button>
+            </div>
+
+            {/* File Upload & Paste Area */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
+                  ১. CSV ফাইল নির্বাচন করুন
+                </label>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleBulkImportFileChange}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
+                  অথবা ২. CSV টেক্সট সরাসরি পেস্ট করুন
+                </label>
+                <textarea
+                  rows={4}
+                  value={bulkImportCsvText}
+                  onChange={(e) => handleBulkImportTextChange(e.target.value)}
+                  placeholder={`Bangla Name,English Name,Mobile,Alt Mobile,WhatsApp,Father Name,Occupation,Membership Type\n"জনাব রহিম","Rahim","01711000001","","01711000001","করিম","ব্যবসায়ী","General Member"`}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.75rem', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              {bulkImportError && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '10px', borderRadius: '8px', fontSize: '0.75rem' }}>
+                  ⚠️ {bulkImportError}
+                </div>
+              )}
+            </div>
+
+            {/* Preview Parsed Members */}
+            {bulkImportParsedMembers.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ fontWeight: '800', fontSize: '0.82rem', color: '#10b981' }}>
+                    ✓ যাচাইকৃত সদস্য তালিকা প্রিভিউ ({bulkImportParsedMembers.length} জন)
+                  </div>
+                </div>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', background: 'rgba(15, 23, 42, 0.8)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 10px' }}>আইডি</th>
+                        <th style={{ padding: '8px 10px' }}>নাম (বাংলা/ইংরেজি)</th>
+                        <th style={{ padding: '8px 10px' }}>মোবাইল</th>
+                        <th style={{ padding: '8px 10px' }}>পদবি</th>
+                        <th style={{ padding: '8px 10px' }}>চাঁদা</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkImportParsedMembers.slice(0, 50).map((m, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                          <td style={{ padding: '8px 10px', color: '#38bdf8', fontWeight: '800' }}>{m.id}</td>
+                          <td style={{ padding: '8px 10px' }}>{m.nameBn || m.nameEn}</td>
+                          <td style={{ padding: '8px 10px' }}>{m.mobile}</td>
+                          <td style={{ padding: '8px 10px' }}>{m.membershipType}</td>
+                          <td style={{ padding: '8px 10px', color: '#10b981', fontWeight: '800' }}>৳ {m.customSubscription || currentSamity.monthlySubscription || 500}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Bottom Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <button
+                type="button"
+                onClick={() => setIsBulkImportModalOpen(false)}
+                style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#fff', padding: '8px 16px', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBulkImport}
+                disabled={bulkImportParsedMembers.length === 0}
+                style={{
+                  background: bulkImportParsedMembers.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(255, 255, 255, 0.1)',
+                  color: bulkImportParsedMembers.length > 0 ? '#fff' : 'var(--text-muted)',
+                  border: 'none',
+                  padding: '8px 22px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  cursor: bulkImportParsedMembers.length > 0 ? 'pointer' : 'not-allowed'
+                }}
+              >
+                ইমপোর্ট সম্পন্ন করুন ({bulkImportParsedMembers.length} জন)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 4.3 MODAL: PRINT / PDF MEMBER LIST VIEW */}
+      {/* ==================================================================== */}
+      {isPrintMemberListOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 120,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              color: '#0f172a',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '900px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '30px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            {/* Action Bar for Print / Close */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }} className="no-print">
+              <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b' }}>
+                🖨️ প্রিন্ট ও পিডিএফ প্রিভিউ (ফিল্টারকৃত সদস্য তালিকা: {filteredMembers.length} জন)
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  type="button"
-                  onClick={() => setIsMemberModalOpen(false)}
-                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 16px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer' }}
+                  onClick={() => window.print()}
+                  style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  বাতিল
+                  <Printer size={14} />
+                  <span>এখনই প্রিন্ট করুন</span>
                 </button>
                 <button
-                  type="submit"
-                  className="btn"
-                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer' }}
+                  onClick={() => setIsPrintMemberListOpen(false)}
+                  style={{ background: '#e2e8f0', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}
                 >
-                  {editingMember ? 'আপডেট করুন' : 'সদস্য সংরক্ষণ করুন'}
+                  বন্ধ করুন
                 </button>
               </div>
-            </form>
+            </div>
+
+            {/* Official Samity Letterhead for Print */}
+            <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #0f172a', paddingBottom: '14px' }}>
+              <h1 style={{ margin: '0 0 4px', fontSize: '1.4rem', fontWeight: '900', color: '#0f172a' }}>
+                {currentSamity.nameBn}
+              </h1>
+              <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '700' }}>
+                {currentSamity.nameEn} • {currentSamity.type}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                {currentSamity.address || `${currentSamity.village || ''}, ${currentSamity.upazila || ''}, ${currentSamity.district || ''}`}
+                {currentSamity.mobile ? ` • ফোন: ${currentSamity.mobile}` : ''}
+                {currentSamity.email ? ` • ইমেইল: ${currentSamity.email}` : ''}
+              </div>
+              <div style={{ marginTop: '8px', display: 'inline-block', background: '#0f172a', color: '#fff', padding: '3px 12px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '800' }}>
+                সদস্য তালিকা ও চলতি মাসের অবস্থা প্রতিবেদন ({targetMonth} {targetYear})
+              </div>
+            </div>
+
+            {/* Printable Table */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>ক্র.</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>সদস্য আইডি</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>পূর্ণ নাম</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>পদবি</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>মোবাইল নং</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>রক্তের গ্রুপ</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>মাসিক চাঁদা</th>
+                  <th style={{ padding: '8px', border: '1px solid #cbd5e1' }}>পেমেন্ট অবস্থা</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMembers.map((m, idx) => {
+                  const status = calculateMemberPaymentStatus(m, currentSamity, data.deposits, targetMonth, targetYear);
+                  return (
+                    <tr key={m.id}>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center' }}>{idx + 1}</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: '800' }}>{m.id}</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: '700' }}>{m.nameBn || m.nameEn}</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1' }}>{m.membershipType}</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1' }}>{m.mobile}</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center' }}>{m.bloodGroup || '-'}</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: '800' }}>৳ {m.customSubscription || currentSamity.monthlySubscription || 500}/-</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: '700', color: status.status === 'paid' ? '#16a34a' : '#dc2626' }}>
+                        {status.status === 'paid' ? 'পরিশোধিত' : status.status === 'partially_paid' ? `আংশিক (বাকি ৳${status.dueAmount})` : `বকেয়া ৳${status.dueAmount}`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Print Signatures Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', paddingTop: '20px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: '140px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.75rem', fontWeight: '700' }}>
+                  কোষাধ্যক্ষ
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: '140px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.75rem', fontWeight: '700' }}>
+                  সাধারণ সম্পাদক
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: '140px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.75rem', fontWeight: '700' }}>
+                  সভাপতি
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

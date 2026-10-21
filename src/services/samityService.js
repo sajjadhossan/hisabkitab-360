@@ -93,6 +93,97 @@ export const SAMITY_STATUSES = [
   { value: 'archived', labelBn: 'সংরক্ষিত (Archived)', color: '#94a3b8' }
 ];
 
+// Member Management Module (#2) Specifications & Constants
+export const MEMBER_TYPES = [
+  { value: 'General Member', labelBn: 'সাধারণ সদস্য', labelEn: 'General Member' },
+  { value: 'Life Member', labelBn: 'আজীবন সদস্য', labelEn: 'Life Member' },
+  { value: 'Executive Member', labelBn: 'কার্যনির্বাহী সদস্য', labelEn: 'Executive Member' },
+  { value: 'Advisor', labelBn: 'উপদেষ্টা', labelEn: 'Advisor' },
+  { value: 'President', labelBn: 'সভাপতি', labelEn: 'President' },
+  { value: 'Vice President', labelBn: 'সহ-সভাপতি', labelEn: 'Vice President' },
+  { value: 'General Secretary', labelBn: 'সাধারণ সম্পাদক', labelEn: 'General Secretary' },
+  { value: 'Treasurer', labelBn: 'কোষাধ্যক্ষ', labelEn: 'Treasurer' },
+  { value: 'Other', labelBn: 'অন্যান্য পদবি', labelEn: 'Other' }
+];
+
+export const MEMBER_STATUSES = [
+  { value: 'Active', labelBn: 'সক্রিয় (Active)', color: '#10b981' },
+  { value: 'Inactive', labelBn: 'নিষ্ক্রিয় (Inactive)', color: '#f59e0b' },
+  { value: 'Suspended', labelBn: 'স্থগিত (Suspended)', color: '#ef4444' },
+  { value: 'Cancelled', labelBn: 'বাতিলকৃত (Cancelled)', color: '#dc2626' },
+  { value: 'Left', labelBn: 'অব্যাহতিপ্রাপ্ত (Left)', color: '#64748b' }
+];
+
+export const PAYMENT_CYCLES = [
+  { value: 'Monthly', labelBn: 'মাসিক (Monthly)' },
+  { value: 'Quarterly', labelBn: 'ত্রৈমাসিক (Quarterly)' },
+  { value: 'Half-Yearly', labelBn: 'ষাণ্মাসিক (Half-Yearly)' },
+  { value: 'Yearly', labelBn: 'বার্ষিক (Yearly)' },
+  { value: 'One-Time', labelBn: 'এককালীন (One-Time)' }
+];
+
+export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+export const GENDERS = [
+  { value: 'Male', labelBn: 'পুরুষ (Male)' },
+  { value: 'Female', labelBn: 'মহিলা (Female)' },
+  { value: 'Other', labelBn: 'অন্যান্য (Other)' }
+];
+
+// Helper to create an empty or initialized Member object with all 38 specification fields
+export const createDefaultMemberObject = (samityId = 'SAMITY-001', nextCount = 1, custom = {}) => {
+  const pad = String(nextCount).padStart(4, '0');
+  const memberId = `SM-${pad}`;
+  return {
+    // 1-8: Core Personal
+    id: memberId,
+    memberCode: memberId,
+    nameBn: '',
+    nameEn: '',
+    fatherName: '',
+    motherName: '',
+    dateOfBirth: '',
+    gender: 'Male',
+    // 9-11: ID & Photo
+    nidNumber: '',
+    passportNumber: '',
+    photo: '',
+    // 12-18: Contact & Social
+    mobile: '',
+    altMobile: '',
+    whatsappNumber: '',
+    telegramHandle: '',
+    facebookProfileUrl: '',
+    messengerUsername: '',
+    email: '',
+    // 19-23: Address & Occupation
+    presentAddress: '',
+    permanentAddress: '',
+    occupation: '',
+    organization: '',
+    bloodGroup: '',
+    // 24-30: Membership & Subscription
+    samityId: samityId || 'SAMITY-001',
+    membershipType: 'General Member',
+    membershipStartDate: new Date().toISOString().split('T')[0],
+    membershipEndDate: '',
+    monthlySubscription: 500,
+    customSubscription: '',
+    paymentCycle: 'Monthly',
+    status: 'Active',
+    // 31-34: Financial & Status Details
+    totalPaid: 0,
+    totalDue: 0,
+    currentMonthPaymentStatus: 'unpaid',
+    remarks: '',
+    // 35-38: Audit Tracking
+    createdBy: 'Admin',
+    createdAt: new Date().toISOString(),
+    updatedBy: 'Admin',
+    updatedAt: new Date().toISOString(),
+    ...custom
+  };
+};
+
 // Helper to create an empty or initialized Samity profile with all 38 specification fields
 export const createDefaultSamityObject = (id = 'SAMITY-001', customFields = {}) => {
   const currentYear = new Date().getFullYear();
@@ -643,16 +734,43 @@ export const exportSamityBackupJson = (data) => {
 };
 
 export const exportMembersCsv = (members = [], samity = {}) => {
-  const headers = ['Member ID', 'Member Code', 'Bangla Name', 'English Name', 'Mobile', 'NID', 'Custom Fee', 'Status'];
+  const headers = [
+    'Member ID', 'Member Code', 'Bangla Name', 'English Name', 'Father Name', 'Mother Name',
+    'Gender', 'Date of Birth', 'Mobile', 'Alt Mobile', 'WhatsApp', 'Telegram', 'Facebook URL',
+    'Email', 'NID Number', 'Passport Number', 'Blood Group', 'Present Address', 'Permanent Address',
+    'Occupation', 'Organization', 'Membership Type', 'Start Date', 'End Date', 'Subscription Amount',
+    'Payment Cycle', 'Status', 'Remarks'
+  ];
+
   const rows = members.map(m => [
     m.id || '',
-    m.memberCode || '',
+    m.memberCode || m.id || '',
     `"${(m.nameBn || '').replace(/"/g, '""')}"`,
     `"${(m.nameEn || '').replace(/"/g, '""')}"`,
+    `"${(m.fatherName || '').replace(/"/g, '""')}"`,
+    `"${(m.motherName || '').replace(/"/g, '""')}"`,
+    m.gender || 'Male',
+    m.dateOfBirth || '',
     m.mobile || '',
+    m.altMobile || '',
+    m.whatsappNumber || '',
+    m.telegramHandle || '',
+    `"${(m.facebookProfileUrl || '').replace(/"/g, '""')}"`,
+    m.email || '',
     m.nidNumber || '',
+    m.passportNumber || '',
+    m.bloodGroup || '',
+    `"${(m.presentAddress || '').replace(/"/g, '""')}"`,
+    `"${(m.permanentAddress || '').replace(/"/g, '""')}"`,
+    `"${(m.occupation || '').replace(/"/g, '""')}"`,
+    `"${(m.organization || '').replace(/"/g, '""')}"`,
+    m.membershipType || 'General Member',
+    m.membershipStartDate || '',
+    m.membershipEndDate || '',
     m.customSubscription || samity.monthlySubscription || 500,
-    m.status || 'active'
+    m.paymentCycle || 'Monthly',
+    m.status || 'Active',
+    `"${(m.remarks || '').replace(/"/g, '""')}"`
   ]);
 
   const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -663,6 +781,139 @@ export const exportMembersCsv = (members = [], samity = {}) => {
   document.body.appendChild(link);
   link.click();
   link.remove();
+};
+
+// CSV Template Downloader for Bulk Import
+export const downloadMembersCsvTemplate = (defaultSamity = {}) => {
+  const headers = [
+    'Bangla Name', 'English Name', 'Mobile', 'Alt Mobile', 'WhatsApp', 'Father Name', 'Mother Name',
+    'Gender', 'Date of Birth', 'NID Number', 'Blood Group', 'Present Address', 'Permanent Address',
+    'Occupation', 'Organization', 'Membership Type', 'Subscription Amount', 'Payment Cycle', 'Status', 'Remarks'
+  ];
+
+  const sampleRows = [
+    [
+      '"জনাব মোহাম্মাদ আব্দুর রহিম"', '"Mohammad Abdur Rahim"', '01711000001', '01811000001', '01711000001',
+      '"মোস্তাফিজুর রহমান"', '"রাহেলা বেগম"', 'Male', '1990-05-15', '19901234567890123', 'A+',
+      '"মিরপুর-১০, ঢাকা"', '"চৌদ্দগ্রাম, কুমিল্লা"', '"ব্যবসায়ী"', '"রহিম ট্রেডার্স"',
+      'General Member', defaultSamity.monthlySubscription || '500', 'Monthly', 'Active', '"নিয়মিত সদস্য"'
+    ],
+    [
+      '"বেগম ফাতেমা খাতুন"', '"Fatema Khatun"', '01911000002', '', '01911000002',
+      '"আলী হোসেন"', '"আমেনা খাতুন"', 'Female', '1994-08-20', '19941234567890456', 'O+',
+      '"উত্তরা সেক্টর ৭, ঢাকা"', '"শিবগঞ্জ, বগুড়া"', '"শিক্ষিকা"', '"উত্তরা মডেল স্কুল"',
+      'Executive Member', defaultSamity.monthlySubscription || '500', 'Monthly', 'Active', '"কার্যনির্বাহী সদস্য"'
+    ]
+  ];
+
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...sampleRows.map(e => e.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', 'sample_members_bulk_import_template.csv');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+// Robust CSV Line Splitter handling quotes and commas
+export const parseCsvLine = (text) => {
+  const result = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        cur += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(cur.trim());
+      cur = '';
+    } else {
+      cur += char;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+};
+
+// Parse imported CSV text into standard member objects
+export const parseMembersCsv = (csvText, activeSamityId, existingMembers = []) => {
+  if (!csvText || !csvText.trim()) {
+    return { success: false, error: 'ফাইলটি খালি বা কোনো তথ্য নেই।' };
+  }
+
+  const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 2) {
+    return { success: false, error: 'কমপক্ষে ১টি হেডার লাইন এবং ১টি সদস্যের সারি থাকতে হবে।' };
+  }
+
+  const headers = parseCsvLine(lines[0]).map(h => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+  const parsedMembers = [];
+  let nextCount = existingMembers.length + 1;
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    if (!cols || cols.length === 0 || cols.every(c => !c)) continue;
+
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = (cols[idx] || '').replace(/^["']|["']$/g, '').trim();
+    });
+
+    const nameBn = row['bangla name'] || row['namebn'] || row['নাম (বাংলা)'] || row['name'] || '';
+    const nameEn = row['english name'] || row['nameen'] || row['name (english)'] || '';
+    const mobile = row['mobile'] || row['mobile number'] || row['phone'] || row['মোবাইল'] || '';
+
+    if (!nameBn && !nameEn && !mobile) continue; // skip entirely empty rows
+
+    const memberId = row['member id'] || row['id'] || `SM-${String(nextCount).padStart(4, '0')}`;
+    nextCount++;
+
+    const member = createDefaultMemberObject(activeSamityId, nextCount, {
+      id: memberId,
+      memberCode: row['member code'] || memberId,
+      nameBn: nameBn || nameEn,
+      nameEn: nameEn || nameBn,
+      fatherName: row['father name'] || row['father'] || '',
+      motherName: row['mother name'] || row['mother'] || '',
+      gender: row['gender'] || 'Male',
+      dateOfBirth: row['date of birth'] || row['dob'] || '',
+      mobile: mobile,
+      altMobile: row['alt mobile'] || row['alternative mobile'] || '',
+      whatsappNumber: row['whatsapp'] || row['whatsapp number'] || mobile,
+      telegramHandle: row['telegram'] || '',
+      facebookProfileUrl: row['facebook url'] || row['facebook'] || '',
+      email: row['email'] || '',
+      nidNumber: row['nid number'] || row['nid'] || '',
+      passportNumber: row['passport number'] || row['passport'] || '',
+      bloodGroup: row['blood group'] || '',
+      presentAddress: row['present address'] || row['address'] || '',
+      permanentAddress: row['permanent address'] || '',
+      occupation: row['occupation'] || '',
+      organization: row['organization'] || '',
+      membershipType: row['membership type'] || 'General Member',
+      membershipStartDate: row['start date'] || new Date().toISOString().split('T')[0],
+      membershipEndDate: row['end date'] || '',
+      customSubscription: row['subscription amount'] || row['monthly fee'] || '',
+      paymentCycle: row['payment cycle'] || 'Monthly',
+      status: row['status'] || 'Active',
+      remarks: row['remarks'] || 'Bulk imported via CSV'
+    });
+
+    parsedMembers.push(member);
+  }
+
+  if (parsedMembers.length === 0) {
+    return { success: false, error: 'সঠিক ফরম্যাটের কোনো সদস্য রেকর্ড খুঁজে পাওয়া যায়নি।' };
+  }
+
+  return { success: true, members: parsedMembers };
 };
 
 // Generate System Alerts & Notifications for Module 23
