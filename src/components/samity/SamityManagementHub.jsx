@@ -152,6 +152,89 @@ export const exportMembersToExcel = (xlsx, members = [], samity = {}) => {
   xlsx.writeFile(workbook, filename);
 };
 
+export const exportDueDefaultersToExcel = (xlsx, members = [], samity = {}, deposits = [], targetMonth = '', targetYear = 2026) => {
+  if (!xlsx || !members.length) return;
+  const defaulters = members.map((m, idx) => {
+    const status = calculateMemberPaymentStatus(m, samity, deposits, targetMonth, targetYear);
+    return {
+      'ক্রমিক': idx + 1,
+      'সদস্য আইডি': m.id || m.memberCode || '',
+      'সদস্যের নাম': m.nameBn || m.nameEn || '',
+      'মোবাইল নম্বর': m.mobile || '',
+      'সদস্যপদ শ্রেণি': m.membershipType || 'সাধারণ',
+      'মাসিক চাঁদা (টাকা)': Number(m.customSubscription || samity.monthlySubscription || 500),
+      'জমা দেওয়া হয়েছে': status.paidAmount || 0,
+      'বকেয়া পরিমাণ (টাকা)': status.dueAmount || 0,
+      'বিলম্ব ফি': status.lateFee || 0,
+      'মোট প্রদেয়': status.totalPayable || 0,
+      'পেমেন্ট স্ট্যাটাস': status.status === 'paid' ? 'পরিশোধিত' : status.status === 'partially_paid' ? 'আংশিক পরিশোধ' : 'সম্পূর্ণ বকেয়া',
+      'মাস ও অর্থবছর': `${targetMonth} ${targetYear}`
+    };
+  }).filter(r => r['বকেয়া পরিমাণ (টাকা)'] > 0);
+
+  const worksheet = xlsx.utils.json_to_sheet(defaulters);
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, worksheet, 'বকেয়া ও ডিউ তালিকা');
+  const cleanName = (samity?.nameBn || 'Samity').replace(/[\s/\\?%*:|"<>]/g, '_');
+  const filename = `${cleanName}_DueDefaulters_${targetMonth}_${targetYear}.xlsx`;
+  xlsx.writeFile(workbook, filename);
+};
+
+export const exportDepositsToExcel = (xlsx, deposits = [], samity = {}) => {
+  if (!xlsx || !deposits.length) return;
+  const rows = deposits.map((d, idx) => ({
+    'ক্রমিক': idx + 1,
+    'ভাউচার নম্বর': d.voucherNo || '',
+    'রসিদ নম্বর': d.receiptNo || '',
+    'তারিখ': d.depositDate || '',
+    'সদস্য কোড': d.memberId || '',
+    'আমানতকারীর নাম': d.depositorName || d.memberName || '',
+    'আমানতকারীর মোবাইল': d.depositorPhone || '',
+    'জমার খাত / ধরন': d.depositType || 'মাসিক চাঁদা',
+    'মাধ্যম': d.depositMethod || 'ব্যাংক কাউন্টার',
+    'ব্যাংকের নাম': d.bankName || '',
+    'ব্যাংক শাখা': d.bankBranch || '',
+    'হিসাব নম্বর': d.bankAccountNo || '',
+    'জমার পরিমাণ (টাকা)': Number(d.amount || 0),
+    'অনুমোদন স্ট্যাটাস': d.approvalStatus === 'approved' ? 'অনুমোদিত' : 'অপেক্ষমাণ',
+    'হিসাবের মাস': `${d.paymentMonth || ''} ${d.paymentYear || ''}`
+  }));
+
+  const worksheet = xlsx.utils.json_to_sheet(rows);
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, worksheet, 'জমা ও ডিপোজিট খতিয়ান');
+  const cleanName = (samity?.nameBn || 'Samity').replace(/[\s/\\?%*:|"<>]/g, '_');
+  const filename = `${cleanName}_DepositLedger_${new Date().toISOString().split('T')[0]}.xlsx`;
+  xlsx.writeFile(workbook, filename);
+};
+
+export const exportFinancialSummaryToExcel = (xlsx, metrics = {}, samity = {}) => {
+  if (!xlsx) return;
+  const rows = [
+    { 'বিবরণ': 'সমিতির নাম', 'পরিমাণ / তথ্য': samity.nameBn || '' },
+    { 'বিবরণ': 'সরকারি নিবন্ধন নম্বর', 'পরিমাণ / তথ্য': samity.regNo || '' },
+    { 'বিবরণ': 'মোট নিবন্ধিত সদস্য সংখ্যা', 'পরিমাণ / তথ্য': `${metrics.totalMembers || 0} জন` },
+    { 'বিবরণ': 'সক্রিয় সদস্য সংখ্যা', 'পরিমাণ / তথ্য': `${metrics.activeMembers || 0} জন` },
+    { 'বিবরণ': 'প্রতি সদস্যের মাসিক চাঁদা', 'পরিমাণ / তথ্য': `৳ ${samity.monthlySubscription || 500}/-` },
+    { 'বিবরণ': 'চলতি মাসের মোট আদায়', 'পরিমাণ / তথ্য': `৳ ${metrics.totalCurrentMonthCollected || 0}/-` },
+    { 'বিবরণ': 'চলতি মাসের বকেয়া চাঁদা', 'পরিমাণ / তথ্য': `৳ ${metrics.totalCurrentMonthDue || 0}/-` },
+    { 'বিবরণ': 'মোট অনুমোদিত সঞ্চয় জমা', 'পরিমাণ / তথ্য': `৳ ${metrics.totalApprovedDeposits || 0}/-` },
+    { 'বিবরণ': 'মোট অনুমোদিত ব্যয় ও খরচ', 'পরিমাণ / তথ্য': `৳ ${metrics.totalApprovedExpenses || 0}/-` },
+    { 'বিবরণ': 'সমিতির নীট তহবিল ব্যালেন্স (Fund Balance)', 'পরিমাণ / তথ্য': `৳ ${metrics.availableFund || 0}/-` },
+    { 'বিবরণ': 'ব্যাংক হিসাবের মোট স্থিতি', 'পরিমাণ / তথ্য': `৳ ${metrics.bankBalance || 0}/-` },
+    { 'বিবরণ': 'ক্যাশ ইন হ্যান্ড স্থিতি', 'পরিমাণ / তথ্য': `৳ ${metrics.cashBalance || 0}/-` },
+    { 'বিবরণ': 'মোবাইল ব্যাংকিং স্থিতি', 'পরিমাণ / তথ্য': `৳ ${metrics.mobileBalance || 0}/-` },
+    { 'বিবরণ': 'প্রতিবেদন তৈরির তারিখ', 'পরিমাণ / তথ্য': new Date().toLocaleDateString('bn-BD') }
+  ];
+
+  const worksheet = xlsx.utils.json_to_sheet(rows);
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, worksheet, 'আর্থিক বিবরণী সামারি');
+  const cleanName = (samity?.nameBn || 'Samity').replace(/[\s/\\?%*:|"<>]/g, '_');
+  const filename = `${cleanName}_FinancialSummary_${new Date().toISOString().split('T')[0]}.xlsx`;
+  xlsx.writeFile(workbook, filename);
+};
+
 // Official Circular Rubber Seal/Stamp Generator (প্রফেশনাল ডিজিটাল বৃত্তাকার সিল)
 export const CircularOfficialSeal = ({
   samityName = 'স্বপ্নছোঁয়া সমবায় সমিতি',
@@ -215,7 +298,8 @@ export const CircularOfficialSeal = ({
 };
 
 export const SamityManagementHub = ({ onClose }) => {
-  const { lang = 'bn', showToast = () => { }, businessSettings } = useApp() || {};
+  const { lang = 'bn', setLang, showToast = () => { }, businessSettings } = useApp() || {};
+  const t = (bn, en) => (lang === 'en' ? en : bn);
 
   // Core Data State
   const [data, setData] = useState(() => loadSamityData());
@@ -233,14 +317,131 @@ export const SamityManagementHub = ({ onClose }) => {
     const samity = data.samities.find(s => s.id === activeSamityId) || data.samities[0] || {};
     return {
       ...samity,
-      logo: samity.logo || businessSettings?.companyLogo || '/logo.png'
+      logo: samity.logo || businessSettings?.companyLogo || '/logo.png',
+      status: samity.status || 'Active',
+      isLaunched: samity.isLaunched !== undefined ? samity.isLaunched : (samity.status === 'Active')
     };
   }, [data.samities, activeSamityId, businessSettings?.companyLogo]);
 
-  // Derived Metrics
+  // Derived Metrics with Zero Premature Debt Guard
   const metrics = useMemo(() => {
     return calculateSamityMetrics(activeSamityId, data);
   }, [activeSamityId, data]);
+
+  // If Samity is not launched yet (Draft/Setup mode), do not display premature debt or balances
+  const effectiveMetrics = useMemo(() => {
+    const isOperational = currentSamity.status === 'Active' && currentSamity.isLaunched !== false;
+    if (!isOperational) {
+      return {
+        ...metrics,
+        totalCurrentMonthCollected: 0,
+        totalCurrentMonthDue: 0,
+        unpaidMembersCount: 0,
+        paidMembersCount: 0,
+        collectionPercentage: 0
+      };
+    }
+    return metrics;
+  }, [metrics, currentSamity.status, currentSamity.isLaunched]);
+
+  // Fast Monthly Subscription editing state
+  const [quickSubAmount, setQuickSubAmount] = useState(() => String(currentSamity.monthlySubscription || 500));
+  useEffect(() => {
+    setQuickSubAmount(String(currentSamity.monthlySubscription || 500));
+  }, [currentSamity.monthlySubscription]);
+
+  // Toggle Samity Launch & Operational Status
+  const handleToggleSamityStatus = () => {
+    const newStatus = (currentSamity.status === 'Active' && currentSamity.isLaunched !== false) ? 'Draft' : 'Active';
+    const isLaunched = newStatus === 'Active';
+    const updatedSamities = data.samities.map(s => s.id === activeSamityId ? { ...s, status: newStatus, isLaunched } : s);
+    const updatedData = { ...data, samities: updatedSamities };
+    setData(updatedData);
+    saveSamityData(updatedData);
+    recordAuditLog(updatedData, {
+      action: 'UPDATE_SAMITY_STATUS',
+      module: 'Samity Setup',
+      details: `সমিতি স্ট্যাটাস পরিবর্তিত হয়েছে: ${newStatus}`,
+      samityId: activeSamityId
+    });
+    showToast?.(newStatus === 'Active' ? t('সমিতি সফলভাবে চালু ও সক্রিয় করা হয়েছে!', 'Samity launched & activated successfully!') : t('সমিতি খসড়া/প্রস্তুতিমূলক মোডে রাখা হয়েছে', 'Samity placed in Draft/Setup mode'), 'success');
+  };
+
+  // Quick Monthly Subscription Update
+  const handleSaveQuickSubscription = () => {
+    const val = Number(quickSubAmount) || 0;
+    if (val <= 0) {
+      showToast?.(t('সঠিক চাঁদার পরিমাণ লিখুন', 'Enter a valid subscription amount'), 'error');
+      return;
+    }
+    const updatedSamities = data.samities.map(s => s.id === activeSamityId ? { ...s, monthlySubscription: val } : s);
+    const updatedData = { ...data, samities: updatedSamities };
+    setData(updatedData);
+    saveSamityData(updatedData);
+    recordAuditLog(updatedData, {
+      action: 'UPDATE_SUBSCRIPTION_AMOUNT',
+      module: 'Policy',
+      details: `মাসিক চাঁদা নির্ধারিত হয়েছে: ৳ ${val}/-`,
+      samityId: activeSamityId
+    });
+    showToast?.(t(`মাসিক চাঁদা ৳ ${val}/- নির্ধারণ সম্পন্ন হয়েছে`, `Monthly fee fixed to ৳ ${val}/- successfully`), 'success');
+  };
+
+  // Toggle Individual Member Active / Inactive Status
+  const handleToggleMemberStatus = (memberId) => {
+    const member = data.members.find(m => m.id === memberId);
+    if (!member) return;
+    const newStatus = member.status === 'active' ? 'inactive' : 'active';
+    const updatedMembers = data.members.map(m => m.id === memberId ? { ...m, status: newStatus } : m);
+    const updatedData = { ...data, members: updatedMembers };
+    setData(updatedData);
+    saveSamityData(updatedData);
+    recordAuditLog(updatedData, {
+      action: 'TOGGLE_MEMBER_STATUS',
+      module: 'Members',
+      details: `সদস্য ${member.nameBn || member.nameEn} স্ট্যাটাস: ${newStatus}`,
+      samityId: activeSamityId
+    });
+    showToast?.(newStatus === 'active' ? t(`সদস্য ${member.nameBn || member.nameEn} সক্রিয় করা হয়েছে`, `Member activated: ${member.nameEn || member.nameBn}`) : t(`সদস্য ${member.nameBn || member.nameEn} নিষ্ক্রিয় করা হয়েছে (চাঁদা স্থগিত)`, `Member deactivated: ${member.nameEn || member.nameBn}`), 'info');
+  };
+
+  // Official Document Print Modal State (Letters, Resolutions, Certificates)
+  const [isDocPrintModalOpen, setIsDocPrintModalOpen] = useState(false);
+  const [selectedDocTemplate, setSelectedDocTemplate] = useState(null);
+  const [selectedDocMemberId, setSelectedDocMemberId] = useState('');
+
+  // Central Backup Step Printable Modal State
+  const [isPrintBackupOpen, setIsPrintBackupOpen] = useState(false);
+  const [backupPrintType, setBackupPrintType] = useState('members'); // 'members' | 'dues' | 'deposits' | 'financial'
+
+  // Custom Role-Based Access Control (RBAC) Permissions State
+  const [customRolePermissions, setCustomRolePermissions] = useState(() => {
+    return data.customRolePermissions || {
+      president: { member_manage: true, collect_deposit: true, expense_entry: true, loan_approval: true, reports_view: true, backup_export: true, delete_records: true },
+      secretary: { member_manage: true, collect_deposit: true, expense_entry: true, loan_approval: true, reports_view: true, backup_export: true, delete_records: false },
+      treasurer: { member_manage: true, collect_deposit: true, expense_entry: true, loan_approval: false, reports_view: true, backup_export: true, delete_records: false },
+      field_officer: { member_manage: true, collect_deposit: true, expense_entry: false, loan_approval: false, reports_view: false, backup_export: false, delete_records: false },
+      auditor: { member_manage: false, collect_deposit: false, expense_entry: false, loan_approval: false, reports_view: true, backup_export: true, delete_records: false }
+    };
+  });
+
+  const handleToggleRolePermission = (roleKey, permKey) => {
+    setCustomRolePermissions(prev => {
+      const currentRole = prev[roleKey] || {};
+      const updated = {
+        ...prev,
+        [roleKey]: {
+          ...currentRole,
+          [permKey]: !currentRole[permKey]
+        }
+      };
+      const updatedData = { ...data, customRolePermissions: updated };
+      setData(updatedData);
+      saveSamityData(updatedData);
+      return updated;
+    });
+    showToast?.(t('পারমিশন আপডেট ও সংরক্ষিত হয়েছে', 'Permission updated & saved'), 'info');
+  };
 
   // Derived 6-Master Cluster state based on activeTab
   const activeCluster = useMemo(() => {
@@ -3007,8 +3208,37 @@ export const SamityManagementHub = ({ onClose }) => {
             }}
           >
             <Users size={15} />
-            <span>নতুন সদস্য</span>
+            <span>{t('নতুন সদস্য', 'New Member')}</span>
           </button>
+
+          {setLang && (
+            <button
+              onClick={() => {
+                playButtonClick?.();
+                triggerHaptic();
+                const nextLang = lang === 'en' ? 'bn' : 'en';
+                setLang(nextLang);
+                showToast?.(nextLang === 'en' ? 'Switched to English' : 'বাংলা ভাষায় পরিবর্তিত হয়েছে', 'info');
+              }}
+              style={{
+                background: 'rgba(56, 189, 248, 0.15)',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer'
+              }}
+              title={t('ইংরেজি / বাংলায় পরিবর্তন করুন', 'Switch English / Bengali')}
+            >
+              <Globe size={15} />
+              <span>{lang === 'en' ? 'বাংলা' : 'English'}</span>
+            </button>
+          )}
 
           {onClose && (
             <button
@@ -3049,13 +3279,13 @@ export const SamityManagementHub = ({ onClose }) => {
         }}
       >
         {[
-          { id: 'overview', label: '📊 ওভারভিউ ও ড্যাশবোর্ড', defaultTab: 'dashboard' },
-          { id: 'members_dues', label: '👥 সদস্য ও চাঁদা রেজিস্টার', defaultTab: 'members', count: metrics.totalMembers },
-          { id: 'deposits_receipts', label: '💳 জমা ও ক্যাশ রসিদ', defaultTab: 'deposits', count: data.deposits.length },
-          { id: 'reminders_hub', label: '📢 তাগাদা ও নোটিফিকেশন সেন্টার', defaultTab: 'reminders' },
-          { id: 'finance_reports', label: '⚖️ হিসাব খতিয়ান ও রিপোর্ট', defaultTab: 'expenses', count: data.expenses.length },
-          { id: 'admin_system', label: '⚙️ ব্যবসা ও সমিতি প্রশাসন', defaultTab: 'letterhead' },
-          { id: 'all_modules', label: '📋 সার্ভিস ও ফিচার সূচি', defaultTab: 'all_modules', isDirectory: true }
+          { id: 'overview', label: t('📊 ওভারভিউ ও ড্যাশবোর্ড', '📊 Overview & Dashboard'), defaultTab: 'dashboard' },
+          { id: 'members_dues', label: t('👥 সদস্য ও চাঁদা রেজিস্টার', '👥 Members & Subscription'), defaultTab: 'members', count: effectiveMetrics.totalMembers },
+          { id: 'deposits_receipts', label: t('💳 জমা ও ক্যাশ রসিদ', '💳 Deposits & Receipts'), defaultTab: 'deposits', count: data.deposits.length },
+          { id: 'reminders_hub', label: t('📢 তাগাদা ও নোটিফিকেশন সেন্টার', '📢 Reminders & Notices'), defaultTab: 'reminders' },
+          { id: 'finance_reports', label: t('⚖️ হিসাব খতিয়ান ও রিপোর্ট', '⚖️ Accounts & Reports'), defaultTab: 'expenses', count: data.expenses.length },
+          { id: 'admin_system', label: t('⚙️ প্রশাসন ও সেন্ট্রাল ব্যাকআপ', '⚙️ Admin & Central Backup'), defaultTab: 'backup_restore' },
+          { id: 'all_modules', label: t('📋 সার্ভিস ও ফিচার সূচি', '📋 All Services Directory'), defaultTab: 'all_modules', isDirectory: true }
         ].map(cluster => {
           const isClusterActive = activeCluster === cluster.id;
           return (
@@ -3120,48 +3350,48 @@ export const SamityManagementHub = ({ onClose }) => {
           }}
         >
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', marginRight: '4px' }}>
-            সেকশন:
+            {t('সেকশন:', 'Section:')}
           </span>
           {activeCluster === 'overview' && [
-            { id: 'dashboard', label: '📊 লাইভ ড্যাশবোর্ড' },
-            { id: 'samity_setup', label: '🏛️ সমিতি প্রোফাইল ও শাখা', count: data.samities.length },
-            { id: 'notifications', label: '🔔 নোটিফিকেশন সেন্টার', count: getSamityNotifications(data, activeSamityId).length },
-            { id: 'audit_trail', label: '🔍 অডিট ট্রেইল ও হিস্টোরি' }
+            { id: 'dashboard', label: t('📊 লাইভ ড্যাশবোর্ড', '📊 Live Dashboard') },
+            { id: 'samity_setup', label: t('🏛️ সমিতি প্রোফাইল ও শাখা', '🏛️ Samity Profile & Branch'), count: data.samities.length },
+            { id: 'notifications', label: t('🔔 নোটিফিকেশন সেন্টার', '🔔 Notifications'), count: getSamityNotifications(data, activeSamityId).length },
+            { id: 'audit_trail', label: t('🔍 অডিট ট্রেইল ও হিস্টোরি', '🔍 Audit Trail') }
           ].map(renderSubPill)}
 
           {activeCluster === 'members_dues' && [
-            { id: 'members', label: '👥 সদস্য তালিকা ও খাতা', count: metrics.totalMembers },
-            { id: 'due_mgmt', label: '⏳ বকেয়া ও ডিউ ব্যবস্থাপনা' },
-            { id: 'payment_status', label: '📋 চাঁদা ও পেমেন্ট স্ট্যাটাস' },
-            { id: 'subscription_cfg', label: '⚙️ চাঁদা পলিসি ও অটো-বিলিং' }
+            { id: 'members', label: t('👥 সদস্য তালিকা ও খাতা', '👥 Members Roster'), count: effectiveMetrics.totalMembers },
+            { id: 'due_mgmt', label: t('⏳ বকেয়া ও ডিউ ব্যবস্থাপনা', '⏳ Due Management') },
+            { id: 'payment_status', label: t('📋 চাঁদা ও পেমেন্ট স্ট্যাটাস', '📋 Subscription Status') },
+            { id: 'subscription_cfg', label: t('⚙️ চাঁদা পলিসি ও অটো-বিলিং', '⚙️ Fee Policy & Billing') }
           ].map(renderSubPill)}
 
           {activeCluster === 'deposits_receipts' && [
-            { id: 'deposits', label: '💳 ব্যাংক ও নগদ জমা', count: data.deposits.length },
-            { id: 'bulk_deposit', label: '📑 বাল্ক ব্যাংক জমা' },
-            { id: 'paid_receipt', label: '🧾 পেইড রিসিট ও ভাউচার হাব', count: data.deposits.length }
+            { id: 'deposits', label: t('💳 ব্যাংক ও নগদ জমা', '💳 Bank & Cash Deposits'), count: data.deposits.length },
+            { id: 'bulk_deposit', label: t('📑 বাল্ক ব্যাংক জমা', '📑 Bulk Bank Deposits') },
+            { id: 'paid_receipt', label: t('🧾 পেইড রিসিট ও ভাউচার হাব', '🧾 Receipts & Vouchers'), count: data.deposits.length }
           ].map(renderSubPill)}
 
           {activeCluster === 'reminders_hub' && [
-            { id: 'reminders', label: '📢 স্মার্ট তাগাদা ও নোটিফিকেশন সেন্টার' }
+            { id: 'reminders', label: t('📢 স্মার্ট তাগাদা ও নোটিফিকেশন সেন্টার', '📢 Smart Reminders & Notice') }
           ].map(renderSubPill)}
 
           {activeCluster === 'finance_reports' && [
-            { id: 'expenses', label: '💸 সমিতির খরচ খতিয়ান', count: data.expenses.length },
-            { id: 'fund_balance', label: '⚖️ ফান্ড ও ব্যালেন্স' },
-            { id: 'approvals', label: '🛡️ লেনদেন অনুমোদন', count: (data.deposits.filter(d => d.approvalStatus === 'pending').length + data.expenses.filter(e => e.approvalStatus === 'pending').length) },
-            { id: 'reports', label: '📈 পূর্ণাঙ্গ বিজনেস রিপোর্ট' }
+            { id: 'expenses', label: t('💸 সমিতির খরচ খতিয়ান', '💸 Expense Ledger'), count: data.expenses.length },
+            { id: 'fund_balance', label: t('⚖️ ফান্ড ও ব্যালেন্স', '⚖️ Fund & Balance') },
+            { id: 'approvals', label: t('🛡️ লেনদেন অনুমোদন', '🛡️ Approvals Hub'), count: (data.deposits.filter(d => d.approvalStatus === 'pending').length + data.expenses.filter(e => e.approvalStatus === 'pending').length) },
+            { id: 'reports', label: t('📈 পূর্ণাঙ্গ বিজনেস রিপোর্ট', '📈 Business Reports') }
           ].map(renderSubPill)}
 
           {activeCluster === 'admin_system' && [
-            { id: 'letterhead', label: '📜 অফিসিয়াল প্যাড ও লোগো' },
-            { id: 'samity_setup', label: '🏛️ সমিতি সেটআপ', count: data.samities.length },
-            { id: 'signatures', label: '✍️ স্বাক্ষর ও সিল' },
-            { id: 'documents', label: '📝 অফিসিয়াল চিঠি/দলিল' },
-            { id: 'roles_permissions', label: '👥 রোল ও ক্ষমতা (RBAC)' },
-            { id: 'backup_restore', label: '💾 ব্যাকআপ ও এক্সপোর্ট' },
-            { id: 'api_docs', label: '🔌 সিকিউর REST API' },
-            { id: 'sql_schema', label: '🗄️ SQL ডাটাবেজ স্কিমা' }
+            { id: 'backup_restore', label: t('💾 সেন্ট্রাল ব্যাকআপ ও রিস্টোর', '💾 Central Backup & Restore') },
+            { id: 'letterhead', label: t('📜 অফিসিয়াল প্যাড ও লোগো', '📜 Letterhead & Logo') },
+            { id: 'samity_setup', label: t('🏛️ সমিতি সেটআপ', '🏛️ Samity Setup'), count: data.samities.length },
+            { id: 'signatures', label: t('✍️ স্বাক্ষর ও সিল', '✍️ Signatures & Seal') },
+            { id: 'documents', label: t('📝 অফিসিয়াল চিঠি/দলিল', '📝 Official Docs/Letters') },
+            { id: 'roles_permissions', label: t('👥 রোল ও ক্ষমতা (RBAC)', '👥 User Roles & Permissions (RBAC)') },
+            { id: 'api_docs', label: t('🔌 সিকিউর REST API', '🔌 Secure REST API') },
+            { id: 'sql_schema', label: t('🗄️ SQL ডাটাবেজ স্কিমা', '🗄️ SQL Schema') }
           ].map(renderSubPill)}
         </div>
       )}
@@ -3173,6 +3403,96 @@ export const SamityManagementHub = ({ onClose }) => {
         {/* TAB 1: DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Samity Launch & Monthly Fee Operational Control Bar */}
+            <div
+              style={{
+                background: currentSamity.status === 'Active' && currentSamity.isLaunched !== false
+                  ? 'rgba(16, 185, 129, 0.1)'
+                  : 'rgba(245, 158, 11, 0.1)',
+                border: `1.5px solid ${currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? '#10b981' : '#f59e0b'}`,
+                borderRadius: '14px',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem'
+                  }}
+                >
+                  {currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? '🟢' : '⏸️'}
+                </div>
+                <div>
+                  <div style={{ fontWeight: '800', fontSize: '0.92rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{t('সমিতি পরিচালনার বর্তমান স্ট্যাটাস:', 'Samity Operational Status:')}</span>
+                    <span style={{ color: currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? '#10b981' : '#f59e0b' }}>
+                      {currentSamity.status === 'Active' && currentSamity.isLaunched !== false
+                        ? t('সক্রিয় ও চলমান (Active & Operational)', 'Active & Operational')
+                        : t('খসড়া / এখনও চালু হয়নি (Draft / Not Launched)', 'Draft / Not Launched Yet')}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {currentSamity.status === 'Active' && currentSamity.isLaunched !== false
+                      ? t('সমিতি আনুষ্ঠানিকভাবে চালু রয়েছে। নিয়মিত চাঁদা ও লেনদেন হিসাব কার্যকর।', 'Samity is live. Monthly subscriptions and financial records are operational.')
+                      : t('সমিতি প্রস্তুতিমূলক মোডে রয়েছে। আপনি নিজে "সমিতি চালু করুন" না করা পর্যন্ত কোনো আগাম বা কাল্পনিক বকেয়া হিসাব কার্যকর হবে না।', 'Setup mode. No premature dues will be calculated until you click "Launch Samity".')}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {/* Monthly fee fixation */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.7)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>{t('মাসিক চাঁদা:', 'Monthly Fee:')}</span>
+                  <input
+                    type="number"
+                    value={quickSubAmount}
+                    onChange={(e) => setQuickSubAmount(e.target.value)}
+                    style={{ width: '70px', padding: '4px 8px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.2)', color: '#2dd4bf', fontWeight: '800', fontSize: '0.82rem', textAlign: 'center' }}
+                  />
+                  <button
+                    onClick={handleSaveQuickSubscription}
+                    style={{ background: '#2dd4bf', color: '#0f172a', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    {t('ফিক্স করুন', 'Fix Fee')}
+                  </button>
+                </div>
+
+                {/* Launch / Deactivate Button */}
+                <button
+                  onClick={handleToggleSamityStatus}
+                  style={{
+                    background: currentSamity.status === 'Active' && currentSamity.isLaunched !== false
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? '#ef4444' : '#fff',
+                    border: `1px solid ${currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? 'rgba(239, 68, 68, 0.4)' : '#10b981'}`,
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: currentSamity.status === 'Active' && currentSamity.isLaunched !== false ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  {currentSamity.status === 'Active' && currentSamity.isLaunched !== false
+                    ? t('⏸️ সমিতি সাময়িক স্থগিত / খসড়া করুন', '⏸️ Pause Samity to Draft')
+                    : t('🚀 সমিতি এখনই চালু করুন (Launch Now)', '🚀 Launch Samity Now')}
+                </button>
+              </div>
+            </div>
+
             {/* Top Metric Cards */}
             <div
               style={{
@@ -3190,12 +3510,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   position: 'relative'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: '700' }}>মোট নিবন্ধিত সদস্য</div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: '700' }}>{t('মোট নিবন্ধিত সদস্য', 'Total Registered Members')}</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#fff', marginTop: '4px' }}>
-                  {metrics.totalMembers} <span style={{ fontSize: '0.85rem', color: '#10b981' }}>({metrics.activeMembers} সক্রিয়)</span>
+                  {effectiveMetrics.totalMembers} <span style={{ fontSize: '0.85rem', color: '#10b981' }}>({effectiveMetrics.activeMembers} {t('সক্রিয়', 'active')})</span>
                 </div>
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  প্রতি সদস্য চাঁদা: {currentSamity.monthlySubscription}/-
+                  {t('প্রতি সদস্য চাঁদা:', 'Per Member Fee:')} ৳ {currentSamity.monthlySubscription}/-
                 </div>
               </div>
 
@@ -3207,12 +3527,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   padding: '16px'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: '700' }}>চলতি মাসের মোট আদায়</div>
+                <div style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: '700' }}>{t('চলতি মাসের মোট আদায়', 'Current Month Collections')}</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
-                  ৳ {metrics.totalCurrentMonthCollected.toLocaleString()}
+                  ৳ {effectiveMetrics.totalCurrentMonthCollected.toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#34d399', marginTop: '4px' }}>
-                  পরিশোধিত সদস্য: {metrics.paidMembersCount} জন ({metrics.collectionPercentage}%)
+                  {t('পরিশোধিত সদস্য:', 'Paid Members:')} {effectiveMetrics.paidMembersCount} {t('জন', '')} ({effectiveMetrics.collectionPercentage}%)
                 </div>
               </div>
 
@@ -3224,12 +3544,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   padding: '16px'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#ef4444', fontWeight: '700' }}>বাকি / অনাদায়ী চাঁদা</div>
+                <div style={{ fontSize: '0.76rem', color: '#ef4444', fontWeight: '700' }}>{t('বাকি / অনাদায়ী চাঁদা', 'Dues / Unpaid Fees')}</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#ef4444', marginTop: '4px' }}>
-                  ৳ {metrics.totalCurrentMonthDue.toLocaleString()}
+                  ৳ {effectiveMetrics.totalCurrentMonthDue.toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#f87171', marginTop: '4px' }}>
-                  বাকি সদস্য: {metrics.unpaidMembersCount} জন
+                  {t('বাকি সদস্য:', 'Unpaid Members:')} {effectiveMetrics.unpaidMembersCount} {t('জন', '')}
                 </div>
               </div>
 
@@ -3241,12 +3561,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   padding: '16px'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#2dd4bf', fontWeight: '700' }}>সমিতির নীট জমা তহবিল (Fund)</div>
+                <div style={{ fontSize: '0.76rem', color: '#2dd4bf', fontWeight: '700' }}>{t('সমিতির নীট জমা তহবিল (Fund)', 'Net Samity Fund Balance')}</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#2dd4bf', marginTop: '4px' }}>
-                  ৳ {metrics.availableFund.toLocaleString()}
+                  ৳ {effectiveMetrics.availableFund.toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#5eead4', marginTop: '4px' }}>
-                  মোট জমা: ৳{metrics.totalApprovedDeposits.toLocaleString()} | খরচ: ৳{metrics.totalApprovedExpenses.toLocaleString()}
+                  {t('মোট জমা:', 'Total In:')} ৳{effectiveMetrics.totalApprovedDeposits.toLocaleString()} | {t('খরচ:', 'Out:')} ৳{effectiveMetrics.totalApprovedExpenses.toLocaleString()}
                 </div>
               </div>
 
@@ -3258,12 +3578,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   padding: '16px'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#3b82f6', fontWeight: '700' }}>ব্যাংক ব্যালেন্স</div>
+                <div style={{ fontSize: '0.76rem', color: '#3b82f6', fontWeight: '700' }}>{t('ব্যাংক ব্যালেন্স', 'Bank Balance')}</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#3b82f6', marginTop: '4px' }}>
-                  ৳ {metrics.bankBalance.toLocaleString()}
+                  ৳ {effectiveMetrics.bankBalance.toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#93c5fd', marginTop: '4px' }}>
-                  ক্যাশ: ৳{metrics.cashBalance.toLocaleString()} | মোবাইল: ৳{metrics.mobileBalance.toLocaleString()}
+                  {t('ক্যাশ:', 'Cash:')} ৳{effectiveMetrics.cashBalance.toLocaleString()} | {t('মোবাইল:', 'MFS:')} ৳{effectiveMetrics.mobileBalance.toLocaleString()}
                 </div>
               </div>
             </div>
@@ -4600,15 +4920,26 @@ export const SamityManagementHub = ({ onClose }) => {
                                 {status.status === 'paid' ? '✓ পরিশোধিত' : status.status === 'partially_paid' ? `আংশিক: ৳${status.paidAmount}` : `বকেয়া: ৳${status.dueAmount}`}
                               </span>
 
-                              <span
+                              <button
+                                onClick={() => handleToggleMemberStatus(member.id)}
+                                title={isMemberActive ? t('সদস্য নিষ্ক্রিয় করতে ক্লিক করুন (চাঁদা স্থগিত হবে)', 'Click to deactivate (fees will pause)') : t('সদস্য সক্রিয় করতে ক্লিক করুন', 'Click to activate')}
                                 style={{
-                                  fontSize: '0.66rem',
-                                  color: isMemberActive ? '#10b981' : '#f59e0b',
-                                  fontWeight: '700'
+                                  background: isMemberActive ? 'rgba(16, 185, 129, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+                                  color: isMemberActive ? '#10b981' : '#ef4444',
+                                  border: `1px solid ${isMemberActive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px'
                                 }}
                               >
-                                স্ট্যাটাস: {member.status || 'Active'}
-                              </span>
+                                {isMemberActive ? '🟢 ' + t('সক্রিয়', 'Active') : '🔴 ' + t('নিষ্ক্রিয়', 'Inactive')}
+                              </button>
                             </div>
                           </td>
 
@@ -11753,49 +12084,63 @@ export const SamityManagementHub = ({ onClose }) => {
                 সমিতির নোটিশ, মিটিংয়ের কার্যবিবরণী, সদস্যপদ সনদপত্র ইত্যাদি ১-ক্লিকে লেটারহেডে জেনারেট ও প্রিন্ট করুন।
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
                 {[
-                  { title: 'সদস্যপদ সনদপত্র (Membership Certificate)', desc: 'সদস্যের ছবি ও আইডি সংবলিত সনদ' },
-                  { title: 'মাসিক সাধারণ সভা নোটিশ (AGM/Meeting Notice)', desc: 'এজেন্ডা ও সভার স্থান সংবলিত নোটিশ' },
-                  { title: 'বকেয়া চাঁদা পরিশোধের চুড়ান্ত নোটিশ (Final Notice)', desc: '৭ দিনের আলটিমেটাম নোটিশ' },
-                  { title: 'ব্যাংক হিসাব পরিচালনা রেজুলেশন (Bank Resolution)', desc: 'নতুন অ্যাকাউন্ট খোলার সভার সিদ্ধান্ত' }
+                  { id: 'membership_cert', title: t('সদস্যপদ সনদপত্র (Membership Certificate)', 'Membership Certificate'), desc: t('সদস্যের ছবি, আইডি ও সিল সংবলিত প্রফেশনাল সনদ', 'Official Certificate with Photo, ID & Seal'), icon: '🎖️' },
+                  { id: 'meeting_notice', title: t('মাসিক সাধারণ সভা নোটিশ (AGM/Meeting Notice)', 'AGM / Meeting Notice'), desc: t('এজেন্ডা ও সভার স্থান সংবলিত অফিসিয়াল নোটিশ', 'Formal notice with Agenda & Venue'), icon: '📢' },
+                  { id: 'final_notice', title: t('বকেয়া চাঁদা পরিশোধের চুড়ান্ত নোটিশ (Final Notice)', 'Final Due Payment Notice'), desc: t('বকেয়া পরিশোধের ৭ দিনের আলটিমেটাম চিঠি', '7-day ultimatum warning notice'), icon: '⚠️' },
+                  { id: 'bank_resolution', title: t('ব্যাংক হিসাব পরিচালনা রেজুলেশন (Bank Resolution)', 'Bank Account Resolution'), desc: t('ব্যাংক অ্যাকাউন্ট পরিচালনা সভার রেজুলেশন নথি', 'Official Meeting Resolution for Bank Operation'), icon: '🏛️' }
                 ].map((doc, idx) => (
                   <div
                     key={idx}
                     style={{
                       background: 'rgba(15, 23, 42, 0.8)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '10px',
-                      padding: '14px',
+                      borderRadius: '12px',
+                      padding: '16px',
                       display: 'flex',
                       flexDirection: 'column',
-                      justifyContent: 'space-between'
+                      justifyContent: 'space-between',
+                      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)'
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '0.85rem', color: '#fff', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>{doc.icon}</div>
+                      <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#fff', marginBottom: '4px' }}>
                         {doc.title}
                       </div>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{doc.desc}</div>
                     </div>
                     <button
                       onClick={() => {
-                        showToast?.(`"${doc.title}" টেমপ্লেট লোড হয়েছে!`, 'info');
+                        playButtonClick?.();
+                        triggerHaptic?.();
+                        setSelectedDocTemplate(doc);
+                        if (!selectedDocMemberId && data.members.length > 0) {
+                          setSelectedDocMemberId(data.members[0].id);
+                        }
+                        setIsDocPrintModalOpen(true);
                       }}
                       className="btn"
                       style={{
-                        marginTop: '12px',
-                        background: 'rgba(20, 184, 166, 0.15)',
-                        color: '#2dd4bf',
-                        border: '1px solid rgba(20, 184, 166, 0.3)',
-                        padding: '6px',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        fontWeight: '700',
-                        cursor: 'pointer'
+                        marginTop: '14px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
                       }}
                     >
-                      প্রিন্ট প্রিভিউ
+                      <Printer size={14} />
+                      <span>{t('জেনারেট ও সরাসরি প্রিন্ট করুন', 'Generate & Print Now')}</span>
                     </button>
                   </div>
                 ))}
@@ -12536,59 +12881,115 @@ export const SamityManagementHub = ({ onClose }) => {
         {/* TAB 16: ROLES & PERMISSIONS MODULE (#20) */}
         {activeTab === 'roles_permissions' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ShieldCheck size={20} color="#8b5cf6" />
+                <ShieldCheck size={24} color="#8b5cf6" />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800' }}>
-                    👥 ইউজার, রোল ও পারমিশন ম্যাট্রিক্স (Samity RBAC)
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#fff' }}>
+                    {t('👥 ইউজার, রোল ও পারমিশন কন্ট্রোল হাব (Samity RBAC)', '👥 User Roles & Permissions Control Hub (RBAC)')}
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    সমিতির সভাপতি, সাধারণ সম্পাদক, কোষাধ্যক্ষ, হিসাবরক্ষক ও অডিটরের সুনির্দিষ্ট ক্ষমতা
+                    {t('সমিতির সুপারভাইজার ও অ্যাডমিন কর্তৃক প্রতিটি অফিসারের সুনির্দিষ্ট দায়িত্ব ও ক্ষমতা সক্রিয়/নিষ্ক্রিয় করুন', 'Enable or disable specific operational permissions for each officer')}
                   </p>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.35)', padding: '6px 14px', borderRadius: '10px' }}>
+                <span style={{ fontSize: '0.76rem', fontWeight: '800', color: '#c084fc' }}>
+                  {t('🛡️ সুপারভাইজার পারমিশন কন্ট্রোল:', '🛡️ Supervisor Master Guard:')}
+                </span>
+                <span style={{ fontSize: '0.74rem', background: '#10b981', color: '#0f172a', fontWeight: '900', padding: '2px 8px', borderRadius: '6px' }}>
+                  {t('সক্রিয় (Active)', 'Active')}
+                </span>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-              {SAMITY_RBAC_ROLES.map(role => (
-                <div
-                  key={role.role}
-                  style={{
-                    background: 'rgba(30, 41, 59, 0.7)',
-                    borderRadius: '14px',
-                    padding: '16px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: role.color }} />
-                    <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800' }}>{role.titleBn}</h4>
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>অনুমোদিত ক্ষমতা ও এক্সেস:</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {role.permissions.map((p, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          color: '#e2e8f0',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.7rem',
-                          fontWeight: '700'
-                        }}
-                      >
-                        ✓ {p}
+            {/* Interactive Roles Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+              {[
+                { key: 'president', titleBn: 'সভাপতি (President / Admin)', color: '#ef4444', desc: 'সমিতির শীর্ষ নীতি-নির্ধারক ও প্রধান নিয়ন্ত্রক' },
+                { key: 'secretary', titleBn: 'সাধারণ সম্পাদক (General Secretary)', color: '#3b82f6', desc: 'কার্যনির্বাহী ব্যবস্থাপনা ও সদস্য পরিচালনা' },
+                { key: 'treasurer', titleBn: 'কোষাধ্যক্ষ (Treasurer / Cashier)', color: '#10b981', desc: 'ব্যাংক হিসাব, ক্যাশ ও দৈনিক তহবিল ব্যবস্থাপনা' },
+                { key: 'field_officer', titleBn: 'ফিল্ড অফিসার (Field Officer / Collector)', color: '#f59e0b', desc: 'মাঠপর্যায়ে সদস্য যোগাযোগ ও কিস্তি আদায়' },
+                { key: 'auditor', titleBn: 'হিসাব নিরীক্ষক (Auditor / Inspector)', color: '#a855f7', desc: 'নিরপেক্ষ হিসাব নিরীক্ষা ও স্বচ্ছতা পর্যবেক্ষণ' }
+              ].map(role => {
+                const perms = customRolePermissions[role.key] || {};
+                const permList = [
+                  { key: 'member_manage', labelBn: 'সদস্য নিবন্ধন ও তথ্য আপডেট' },
+                  { key: 'collect_deposit', labelBn: 'চাঁদা ও সঞ্চয় জমা গ্রহণ' },
+                  { key: 'expense_entry', labelBn: 'ব্যয় ও ভাউচার এন্ট্রি' },
+                  { key: 'loan_approval', labelBn: 'ঋণ আবেদন ও অনুমোদন' },
+                  { key: 'reports_view', labelBn: 'সকল আর্থিক খতিয়ান ও রিপোর্ট দেখা' },
+                  { key: 'backup_export', labelBn: 'সেন্ট্রাল ডাটা ব্যাকআপ ও এক্সেল এক্সপোর্ট' },
+                  { key: 'delete_records', labelBn: 'ট্রানজ্যাকশন ও সদস্য মুছে ফেলা' }
+                ];
+
+                return (
+                  <div
+                    key={role.key}
+                    style={{
+                      background: 'rgba(30, 41, 59, 0.75)',
+                      borderRadius: '14px',
+                      padding: '18px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: role.color }} />
+                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: '#fff' }}>{role.titleBn}</h4>
+                      </div>
+                      <span style={{ fontSize: '0.68rem', color: '#2dd4bf', fontWeight: '800' }}>
+                        {Object.values(perms).filter(Boolean).length}/{permList.length} সক্রিয়
                       </span>
-                    ))}
+                    </div>
+
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{role.desc}</div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {permList.map(p => {
+                        const isGranted = perms[p.key] !== false;
+                        return (
+                          <div
+                            key={p.key}
+                            onClick={() => handleToggleRolePermission(role.key, p.key)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              background: isGranted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                              border: `1px solid ${isGranted ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.06)'}`,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span style={{ fontSize: '0.74rem', fontWeight: '700', color: isGranted ? '#e2e8f0' : '#64748b' }}>
+                              {p.labelBn}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.68rem',
+                                fontWeight: '900',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                background: isGranted ? '#10b981' : '#475569',
+                                color: isGranted ? '#0f172a' : '#cbd5e1'
+                              }}
+                            >
+                              {isGranted ? 'অনুমোদিত ✓' : 'নিষ্ক্রিয় ✕'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -13918,83 +14319,426 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 21: BACKUP, EXPORT & IMPORT MODULE (#28) */}
+        {/* TAB 21: CENTRAL BACKUP, EXPORT & DATA RESTORE HUB (#28) */}
         {activeTab === 'backup_restore' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '780px', margin: '0 auto' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <Download size={20} color="#10b981" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '960px', margin: '0 auto' }}>
+            {/* Header Banner */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                padding: '22px 26px',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    border: '1.5px solid rgba(16, 185, 129, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#10b981'
+                  }}
+                >
+                  <Download size={26} />
+                </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#f8fafc' }}>
-                    💾 ব্যাকআপ, এক্সপোর্ট ও ডাটা রিস্টোর হাব
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#f8fafc' }}>
+                    {t('🗄️ সেন্ট্রাল ব্যাকআপ এক্সপোর্ট ও ডাটা রিস্টোর হাব', '🗄️ Central Backup Export & Data Restore Hub')}
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    সমিতির সকল ডাটাবেজ এক ক্লিকে অফলাইন ব্যাকআপ নেওয়া, রিস্টোর করা ও এক্সেল এক্সপোর্ট
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {t('সমিতির প্রতিটি খতিয়ান, সদস্য প্রোফাইল, বকেয়া তালিকা, ডিপোজিট এবং পূর্ণাঙ্গ ডাটাবেজ ধাপ অনুযায়ী Excel ও অফিসিয়াল ৩-কলাম লেটারপ্যাড PDF-এ এক্সপোর্ট করুন।', 'Export all ledgers, member profiles, due defaults, and full database step-by-step in Excel and official 3-column letterpad PDF.')}
                   </p>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <button
-                  onClick={() => {
-                    exportSamityBackupJson(data);
-                    showToast?.('সমিতির সম্পূর্ণ ব্যাকআপ ফাইল ডাউনলোড হয়েছে', 'success');
-                  }}
-                  className="btn"
-                  style={{
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10b981',
-                    border: '1px solid rgba(16, 185, 129, 0.35)',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Download size={24} />
-                  <span style={{ fontSize: '0.84rem', fontWeight: '800' }}>১-ক্লিক সম্পূর্ণ ব্যাকআপ (JSON)</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>সকল সদস্য, জমা, খরচ ও সেটিংস</span>
-                </button>
+              <button
+                onClick={() => {
+                  exportSamityBackupJson(data);
+                  showToast?.(t('সমিতির সম্পূর্ণ JSON ডাটাবেজ ব্যাকআপ ডাউনলোড হয়েছে', 'Full JSON database backup downloaded successfully'), 'success');
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                <Download size={16} />
+                <span>{t('১-ক্লিক সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON)', '1-Click Full Backup (JSON)')}</span>
+              </button>
+            </div>
 
-                <button
-                  onClick={() => {
-                    exportMembersCsv(data.members.filter(m => m.samityId === activeSamityId), currentSamity);
-                    showToast?.('সদস্য তালিকা CSV ফাইল ডাউনলোড হয়েছে', 'success');
-                  }}
-                  className="btn"
-                  style={{
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    color: '#3b82f6',
-                    border: '1px solid rgba(59, 130, 246, 0.35)',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <FileDown size={24} />
-                  <span style={{ fontSize: '0.84rem', fontWeight: '800' }}>সদস্য তালিকা এক্সপোর্ট (Excel/CSV)</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>মোবাইল ও একাউন্ট নম্বরসহ</span>
-                </button>
+            {/* Step-by-Step Modular Export Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {/* STEP 1: MEMBERS ROSTER & PROFILES */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '14px',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', fontWeight: '800', padding: '2px 8px', borderRadius: '6px' }}>
+                      {t('ধাপ ১', 'STEP 1')}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
+                      {data.members.filter(m => m.samityId === activeSamityId).length} {t('জন সদস্য', 'members')}
+                    </span>
+                  </div>
+                  <h4 style={{ margin: '0 0 6px', fontSize: '0.94rem', fontWeight: '800', color: '#fff' }}>
+                    {t('👥 সদস্য সংখ্যা ও পূর্ণাঙ্গ প্রোফাইল ব্যাকআপ', '👥 Member Directory & Profile Backup')}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {t('সকল সদস্যের নাম, পিতা, মোবাইল, এনআইডি, পেশা, ঠিকানা, রক্তের গ্রুপ ও মাসিক কিস্তির তথ্য।', 'Complete details including NID, mobile, address, blood group, and fees.')}
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      exportMembersToExcel(XLSX, data.members.filter(m => m.samityId === activeSamityId), currentSamity);
+                      showToast?.(t('সদস্য তালিকা Excel (.xlsx) ব্যাকআপ ডাউনলোড সম্পন্ন', 'Members Excel (.xlsx) backup downloaded'), 'success');
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <FileSpreadsheet size={13} />
+                    <span>Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBackupPrintType('members');
+                      setIsPrintBackupOpen(true);
+                    }}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Printer size={13} />
+                    <span>{t('লেটারপ্যাড PDF', 'Letterpad PDF')}</span>
+                  </button>
+                </div>
               </div>
 
-              <div style={{ marginTop: '20px', padding: '16px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px dashed rgba(255, 255, 255, 0.2)', textAlign: 'center' }}>
-                <Upload size={22} color="#f59e0b" style={{ margin: '0 auto 6px auto' }} />
-                <div style={{ fontSize: '0.82rem', fontWeight: '800', marginBottom: '4px' }}>ব্যাকআপ ফাইল থেকে রিস্টোর করুন</div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '10px' }}>পূর্বে ডাউনলোডকৃত JSON ব্যাকআপ ফাইল নির্বাচন করুন</div>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleRestoreJsonFile}
-                  style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}
-                />
+              {/* STEP 2: DUES & DEFAULTERS LEDGER */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '14px',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', fontWeight: '800', padding: '2px 8px', borderRadius: '6px' }}>
+                      {t('ধাপ ২', 'STEP 2')}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: '700' }}>
+                      {t('বকেয়া:', 'Due:')} ৳ {effectiveMetrics.totalCurrentMonthDue}
+                    </span>
+                  </div>
+                  <h4 style={{ margin: '0 0 6px', fontSize: '0.94rem', fontWeight: '800', color: '#fff' }}>
+                    {t('⏳ বকেয়া ও অপরিশোধিত খতিয়ান ব্যাকআপ', '⏳ Due Defaulters Ledger Backup')}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {t('কোন সদস্য সম্পূর্ণ টাকা দেয়নি, কার কত টাকা বাকি, বিলম্ব ফি ও মোট প্রদেয় খতিয়ান।', 'Defaulters who have not paid, overdue amounts, late fees, and month-wise breakdown.')}
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      exportDueDefaultersToExcel(XLSX, data.members.filter(m => m.samityId === activeSamityId), currentSamity, data.deposits, targetMonth, targetYear);
+                      showToast?.(t('বকেয়া খতিয়ান Excel (.xlsx) ব্যাকআপ ডাউনলোড সম্পন্ন', 'Due Defaulters Excel backup downloaded'), 'success');
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <FileSpreadsheet size={13} />
+                    <span>Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBackupPrintType('dues');
+                      setIsPrintBackupOpen(true);
+                    }}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      color: '#f87171',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Printer size={13} />
+                    <span>{t('লেটারপ্যাড PDF', 'Letterpad PDF')}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* STEP 3: DEPOSITS & COLLECTIONS LEDGER */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '14px',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: '800', padding: '2px 8px', borderRadius: '6px' }}>
+                      {t('ধাপ ৩', 'STEP 3')}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
+                      {data.deposits.filter(d => d.samityId === activeSamityId).length} {t('টি জমা রেকর্ড', 'records')}
+                    </span>
+                  </div>
+                  <h4 style={{ margin: '0 0 6px', fontSize: '0.94rem', fontWeight: '800', color: '#fff' }}>
+                    {t('💳 আদায়কৃত সঞ্চয় ও ব্যাংক জমা ব্যাকআপ', '💳 Deposit & Banking Ledger Backup')}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {t('কে কত টাকা দিয়েছে, মোট কত টাকা জমা হয়েছে, কোন ব্যাংকে জমা হয়েছে, ডিপোজিটরের ফোন নম্বরসহ।', 'Who deposited, amount, target bank, depositor phone number, and slip details.')}
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      exportDepositsToExcel(XLSX, data.deposits.filter(d => d.samityId === activeSamityId), currentSamity);
+                      showToast?.(t('জমা ও ডিপোজিট খতিয়ান Excel ডাউনলোড সম্পন্ন', 'Deposit ledger Excel downloaded'), 'success');
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <FileSpreadsheet size={13} />
+                    <span>Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBackupPrintType('deposits');
+                      setIsPrintBackupOpen(true);
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#34d399',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Printer size={13} />
+                    <span>{t('লেটারপ্যাড PDF', 'Letterpad PDF')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* STEP 4: FINANCIAL CASH FLOW & SUMMARY */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '14px',
+                  padding: '18px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(20, 184, 166, 0.2)', color: '#2dd4bf', fontWeight: '800', padding: '2px 8px', borderRadius: '6px' }}>
+                      {t('ধাপ ৪', 'STEP 4')}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: '#2dd4bf', fontWeight: '700' }}>
+                      {t('ফান্ড:', 'Fund:')} ৳ {effectiveMetrics.availableFund}
+                    </span>
+                  </div>
+                  <h4 style={{ margin: '0 0 6px', fontSize: '0.94rem', fontWeight: '800', color: '#fff' }}>
+                    {t('⚖️ আর্থিক বিবরণী, ক্যাশ ফ্লো ও উদ্বৃত্ত সামারি', '⚖️ Financial Statement & Cash Flow')}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {t('সমিতির মোট জমা, মোট খরচ, ব্যাংক ব্যালেন্স, ক্যাশ ইন হ্যান্ড এবং নীট আর্থিক স্থিতি।', 'Total collections, expenses, bank balance, cash in hand, and net balance.')}
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      exportFinancialSummaryToExcel(XLSX, effectiveMetrics, currentSamity);
+                      showToast?.(t('আর্থিক বিবরণী Excel ডাউনলোড সম্পন্ন', 'Financial summary Excel downloaded'), 'success');
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <FileSpreadsheet size={13} />
+                    <span>Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBackupPrintType('financial');
+                      setIsPrintBackupOpen(true);
+                    }}
+                    style={{
+                      background: 'rgba(20, 184, 166, 0.15)',
+                      color: '#2dd4bf',
+                      border: '1px solid rgba(20, 184, 166, 0.35)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.74rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Printer size={13} />
+                    <span>{t('লেটারপ্যাড PDF', 'Letterpad PDF')}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 5: CENTRAL DATABASE RESTORE MODULE */}
+            <div
+              style={{
+                marginTop: '10px',
+                padding: '24px',
+                borderRadius: '16px',
+                background: 'rgba(15, 23, 42, 0.85)',
+                border: '1.5px dashed rgba(245, 158, 11, 0.4)',
+                textAlign: 'center'
+              }}
+            >
+              <Upload size={28} color="#f59e0b" style={{ margin: '0 auto 8px auto' }} />
+              <div style={{ fontSize: '0.94rem', fontWeight: '800', color: '#fff', marginBottom: '4px' }}>
+                {t('🔄 সেন্ট্রাল ডাটাবেজ ব্যাকআপ ফাইল থেকে রিস্টোর করুন', '🔄 Restore From Central Database Backup File')}
+              </div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '14px', maxWidth: '520px', margin: '0 auto 14px auto' }}>
+                {t('পূর্বে ডাউনলোডকৃত অফলাইন .JSON ব্যাকআপ ফাইল নির্বাচন করুন। ফাইল লোড করার সাথে সাথে সকল সদস্য, হিসাব ও ভাউচার অক্ষতভাবে পুনরুদ্ধার হবে।', 'Select a previously saved .JSON backup file to completely restore your samity database.')}
+              </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleRestoreJsonFile}
+                style={{ fontSize: '0.8rem', color: '#94a3b8' }}
+              />
             </div>
           </div>
         )}
@@ -15218,6 +15962,543 @@ export const SamityManagementHub = ({ onClose }) => {
                   />
                 </div>
                 <div style={{ width: '140px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.75rem', fontWeight: '700' }}>
+                  সভাপতি
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 4.1 MODAL: OFFICIAL LETTERS, RESOLUTIONS & MEMBERSHIP CERTIFICATE PRINT */}
+      {/* ==================================================================== */}
+      {isDocPrintModalOpen && selectedDocTemplate && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.88)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 130,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              color: '#0f172a',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '860px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '30px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            {/* Action Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }} className="no-print">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.2rem' }}>{selectedDocTemplate.icon || '📝'}</span>
+                <div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>
+                    {selectedDocTemplate.title}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                    {selectedDocTemplate.desc}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {selectedDocTemplate.id === 'membership_cert' && (
+                  <select
+                    value={selectedDocMemberId}
+                    onChange={(e) => setSelectedDocMemberId(e.target.value)}
+                    style={{
+                      background: '#f8fafc',
+                      color: '#0f172a',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    {data.members.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.nameBn || m.nameEn} ({m.id})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <button
+                  onClick={() => window.print()}
+                  style={{
+                    background: '#10b981',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                  }}
+                >
+                  <Printer size={15} />
+                  <span>{t('এখনই প্রিন্ট করুন (Print Now)', 'Print Now')}</span>
+                </button>
+
+                <button
+                  onClick={() => setIsDocPrintModalOpen(false)}
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t('বন্ধ করুন', 'Close')}
+                </button>
+              </div>
+            </div>
+
+            {/* DOCUMENT CONTENT */}
+            {selectedDocTemplate.id === 'membership_cert' ? (() => {
+              const targetMem = data.members.find(m => m.id === selectedDocMemberId) || data.members[0] || {};
+              return (
+                <div
+                  style={{
+                    border: '10px double #d97706',
+                    padding: '36px 30px',
+                    background: 'radial-gradient(circle at center, #ffffff 0%, #fffbeb 100%)',
+                    borderRadius: '8px',
+                    position: 'relative',
+                    textAlign: 'center',
+                    boxShadow: 'inset 0 0 40px rgba(217, 119, 6, 0.08)'
+                  }}
+                >
+                  {/* Watermark in background */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0.04,
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <img src={currentSamity.logo || '/logo.png'} alt="" style={{ width: '380px', height: '380px', objectFit: 'contain' }} />
+                  </div>
+
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                    <img src={currentSamity.logo || '/logo.png'} alt="Logo" style={{ width: '68px', height: '68px', objectFit: 'contain' }} />
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#b45309', fontWeight: '800', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                    গণপ্রজাতন্ত্রী বাংলাদেশ সরকার অনুমোদিত
+                  </div>
+                  <h1 style={{ margin: '4px 0', fontSize: '1.65rem', fontWeight: '900', color: '#1e3a8a' }}>
+                    {currentSamity.nameBn}
+                  </h1>
+                  {currentSamity.nameEn && (
+                    <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: '700', marginBottom: '2px' }}>
+                      {currentSamity.nameEn}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.74rem', color: '#64748b', marginBottom: '14px' }}>
+                    সরকারি নিবন্ধন নং: {currentSamity.regNo || 'রেজি-৮৯৭/২০২৪'} • {currentSamity.address || 'ঢাকা, বাংলাদেশ'}
+                  </div>
+
+                  {/* Certificate Title Badge */}
+                  <div style={{ display: 'inline-block', background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)', color: '#fff', padding: '6px 28px', borderRadius: '30px', fontSize: '1.05rem', fontWeight: '900', letterSpacing: '1px', boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)', marginBottom: '22px' }}>
+                    সদস্যপদ সনদপত্র (MEMBERSHIP CERTIFICATE)
+                  </div>
+
+                  {/* Certificate Body */}
+                  <div style={{ fontSize: '0.94rem', lineHeight: '2.1', color: '#1e293b', textAlign: 'justify', margin: '0 auto', maxWidth: '680px', position: 'relative', zIndex: 1 }}>
+                    প্রত্যয়ন করা যাইতেছে যে, জনাব/জনাবা <strong style={{ color: '#0f172a', borderBottom: '1px dashed #0f172a', padding: '0 6px' }}>{targetMem.nameBn || targetMem.nameEn || '.....................'}</strong>,
+                    পিতা: <strong style={{ color: '#0f172a' }}>{targetMem.fatherName || 'অভিভাবক'}</strong>,
+                    মাতা: <strong style={{ color: '#0f172a' }}>{targetMem.motherName || 'অভিভাবক'}</strong>,
+                    জাতীয় পরিচয়পত্র (NID) নং: <strong style={{ color: '#0f172a' }}>{targetMem.nidNumber || 'প্রযোজ্য নয়'}</strong>,
+                    আমাদের সমিতির একজন সম্মানিত ও নিবন্ধিত <strong style={{ color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '4px' }}>{targetMem.membershipType || 'সাধারণ'}</strong> সদস্য।
+                    তাঁহার সদস্য রেজিস্ট্রেশন কোড নং <strong style={{ color: '#1e3a8a' }}>{targetMem.id || targetMem.memberCode}</strong>।
+                    তিনি সমিতির গঠনতন্ত্র, উদ্দেশ্য ও সকল আর্থিক বিধি-বিধান মানিয়া নিয়মিত সদস্যপদ অক্ষুণ্ণ রাখিয়াছেন।
+                  </div>
+
+                  {/* Additional Member Meta Box */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', margin: '24px auto', padding: '10px 18px', background: 'rgba(217, 119, 6, 0.08)', borderRadius: '10px', maxWidth: '580px', fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>
+                    <div>যোগদানের তারিখ: <span style={{ color: '#0f172a' }}>{targetMem.joiningDate || targetMem.createdAt?.split('T')[0] || '০১-০১-২০২৪'}</span></div>
+                    <div>রক্তের গ্রুপ: <span style={{ color: '#ef4444' }}>{targetMem.bloodGroup || 'O+'}</span></div>
+                    <div>মোবাইল: <span style={{ color: '#0f172a' }}>{targetMem.mobile || '০১৭০০-০০০০০০'}</span></div>
+                  </div>
+
+                  {/* Signatures & Seal */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', padding: '0 30px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ width: '130px', borderTop: '1.5px solid #0f172a', paddingTop: '4px', fontSize: '0.76rem', fontWeight: '800' }}>
+                        সাধারণ সম্পাদক
+                      </div>
+                    </div>
+
+                    <div style={{ position: 'relative', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '-46px', left: '-16px', pointerEvents: 'none', zIndex: 2 }}>
+                        <CircularOfficialSeal samityName={currentSamity.nameBn} designation="অনুমোদিত" size={78} sealColor="#1e3a8a" />
+                      </div>
+                      <div style={{ width: '78px', height: '14px' }}></div>
+                    </div>
+
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ width: '130px', borderTop: '1.5px solid #0f172a', paddingTop: '4px', fontSize: '0.76rem', fontWeight: '800' }}>
+                        সভাপতি
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })() : (
+              /* Formal Letterhead Documents (Notice / Resolution / Final Due Notice) */
+              <div style={{ border: '1px solid #cbd5e1', padding: '30px', borderRadius: '10px', background: '#fff' }}>
+                {/* 3-Column Header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 240px', gap: '14px', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', marginBottom: '20px' }}>
+                  <div>
+                    <img src={currentSamity.logo || '/logo.png'} alt="Logo" style={{ width: '72px', height: '72px', objectFit: 'contain' }} />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    {currentSamity.letterpadImage ? (
+                      <img src={currentSamity.letterpadImage} alt="Letterpad Banner" style={{ maxHeight: '68px', maxWidth: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <div>
+                        <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '900', color: '#1e3a8a' }}>{currentSamity.nameBn}</h2>
+                        {currentSamity.nameEn && <div style={{ fontSize: '0.76rem', color: '#475569', fontWeight: '700' }}>{currentSamity.nameEn}</div>}
+                        <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '800' }}>{currentSamity.sloganBn || 'সততা, ঐক্য ও সমৃদ্ধি'}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: '0.7rem', color: '#334155', lineHeight: '1.5' }}>
+                    <div><strong>রেজিস্ট্রেশন নং:</strong> {currentSamity.regNo || 'রেজি-৮৯৭/২০২৪'}</div>
+                    <div><strong>ঠিকানা:</strong> {currentSamity.address || 'ঢাকা, বাংলাদেশ'}</div>
+                    <div><strong>মোবাইল:</strong> {currentSamity.phone || '০১৭০০-০০০০০০'}</div>
+                  </div>
+                </div>
+
+                {/* Date & Ref */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#475569', fontWeight: '700', marginBottom: '18px' }}>
+                  <div>স্মারক নং: {currentSamity.id || 'SAM'}/{selectedDocTemplate.id.toUpperCase()}/{new Date().getFullYear()}</div>
+                  <div>তারিখ: {new Date().toLocaleDateString('bn-BD')} খ্রি.</div>
+                </div>
+
+                {/* Subject */}
+                <div style={{ background: '#f1f5f9', padding: '10px 14px', borderRadius: '6px', fontSize: '0.9rem', fontWeight: '800', color: '#0f172a', marginBottom: '18px', borderLeft: '4px solid #1e3a8a' }}>
+                  বিষয়: {selectedDocTemplate.title}
+                </div>
+
+                {/* Body Content */}
+                <div style={{ fontSize: '0.86rem', lineHeight: '1.9', color: '#1e293b', minHeight: '260px', textAlign: 'justify' }}>
+                  {selectedDocTemplate.id === 'meeting_notice' && (
+                    <div>
+                      <p>এতদ্বারা <strong>{currentSamity.nameBn}</strong>-এর সকল সম্মানিত সদস্য ও কার্যনির্বাহী কমিটির অবগতির জন্য জানানো যাইতেছে যে, আগামী <strong>১৫ই {targetMonth} {targetYear}</strong> তারিখে সমিতির কার্যালয়ে এক জরুরি মাসিক সাধারণ সভা অনুষ্ঠিত হইবে। উক্ত সভায় সকল সদস্যকে যথাসময়ে উপস্থিত থাকার জন্য বিনীত অনুরোধ করা যাইতেছে।</p>
+                      <h4 style={{ margin: '14px 0 6px', fontSize: '0.86rem', fontWeight: '800' }}>সভার আলোচ্য বিষয়সমূহ (Agenda):</h4>
+                      <ol style={{ paddingLeft: '20px', margin: 0 }}>
+                        <li>বিগত মাসিক সভার কার্যবিবরণী পাঠ ও সর্বসম্মতিক্রমে অনুমোদন।</li>
+                        <li>চলতি মাসের নিয়মিত চাঁদা ও সঞ্চয় আদায়ের অগ্রগতি পর্যালোচনা।</li>
+                        <li>সমিতির ব্যাংক একাউন্টের আর্থিক স্থিতি ও মাসিক খরচ অনুমোদন।</li>
+                        <li>নতুন সদস্যভুক্তি ও বিবিধ বিষয়ের ওপর আলোচনা ও সিদ্ধান্ত গ্রহণ।</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {selectedDocTemplate.id === 'bank_resolution' && (
+                    <div>
+                      <p>অদ্য <strong>{new Date().toLocaleDateString('bn-BD')}</strong> তারিখে <strong>{currentSamity.nameBn}</strong>-এর কার্যালয়ে অনুষ্ঠিত কার্যনির্বাহী কমিটির সভায় সর্বসম্মতিক্রমে নিম্নোক্ত রেজুলেশন গৃহীত হইল:</p>
+                      <p><strong>রেজুলেশন প্রস্তাব:</strong> সমিতির সকল আর্থিক লেনদেন, সদস্য চাঁদা জমা ও সঞ্চয় তহবিল নিরাপদে সংরক্ষণের উদ্দেশ্যে <strong>{currentSamity.bankDetails?.bankName || 'তফসিলি ব্যাংক'}</strong>, <strong>{currentSamity.bankDetails?.branchName || 'মিরপুর শাখা'}</strong>-এ সমিতির নামে একটি নতুন সঞ্চয়ী/চলতি হিসাব খোলার সিদ্ধান্ত গ্রহণ করা হইল।</p>
+                      <p><strong>অ্যাকাউন্ট পরিচালনাকারী যৌথ স্বাক্ষরকারী:</strong> সভাপতি ও সাধারণ সম্পাদক অথবা সভাপতি ও কোষাধ্যক্ষের যৌথ স্বাক্ষরে উক্ত ব্যাংক হিসাব পরিচালিত হইবে।</p>
+                    </div>
+                  )}
+
+                  {selectedDocTemplate.id === 'final_notice' && (
+                    <div>
+                      <p>জনাব/জনাবা,</p>
+                      <p>আপনার অবগতির জন্য জানানো যাইতেছে যে, <strong>{currentSamity.nameBn}</strong>-এর গঠনতন্ত্র অনুযায়ী প্রতি মাসে নিয়মিত চাঁদা পরিশোধ করা সকল সদস্যের জন্য বাধ্যতামূলক। সমিতির নিয়মিত হিসাব নিরীক্ষায় দেখা যাইতেছে যে, আপনার সদস্য কোডে বিগত কয়েক মাসের চাঁদা বকেয়া রহিয়াছে।</p>
+                      <p>এমতাবস্থায়, অত্র নোটিশ জারির আগামী <strong>৭ (সাত) কর্মদিবসের</strong> মধ্যে সমুদয় বকেয়া চাঁদা ও বিলম্ব ফি সমিতির ব্যাংক হিসাবে অথবা দায়িত্বপ্রাপ্ত কর্মকর্তার নিকট পরিশোধ করিয়া সদস্যপদ নিয়মিত করার জন্য চূড়ান্ত অনুরোধ করা যাইতেছে। অন্যথায় গঠনতন্ত্র মোতাবেক পরবর্তী ব্যবস্থা গ্রহণ করা হইবে।</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Signatures & Seal */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '40px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ width: '130px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.74rem', fontWeight: '700' }}>
+                      সাধারণ সম্পাদক
+                    </div>
+                  </div>
+
+                  <div style={{ position: 'relative', textAlign: 'center' }}>
+                    <div style={{ position: 'absolute', top: '-44px', left: '-18px', pointerEvents: 'none' }}>
+                      <CircularOfficialSeal samityName={currentSamity.nameBn} designation="অনুমোদিত" size={76} sealColor="#1e3a8a" />
+                    </div>
+                    <div style={{ width: '76px', height: '14px' }}></div>
+                  </div>
+
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ width: '130px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.74rem', fontWeight: '700' }}>
+                      সভাপতি
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 4.2 MODAL: CENTRAL BACKUP 3-COLUMN LETTERPAD PRINTABLE REPORT */}
+      {/* ==================================================================== */}
+      {isPrintBackupOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.88)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 130,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              color: '#0f172a',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '920px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '30px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            {/* Action Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }} className="no-print">
+              <div style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>
+                🖨️ সেন্ট্রাল ব্যাকআপ লেটারপ্যাড প্রিন্ট ও PDF প্রিভিউ
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => window.print()}
+                  style={{
+                    background: '#10b981',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Printer size={15} />
+                  <span>{t('এখনই প্রিন্ট করুন', 'Print Now')}</span>
+                </button>
+                <button
+                  onClick={() => setIsPrintBackupOpen(false)}
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t('বন্ধ করুন', 'Close')}
+                </button>
+              </div>
+            </div>
+
+            {/* Official 3-Column Header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 240px', gap: '14px', alignItems: 'center', borderBottom: '2.5px solid #0f172a', paddingBottom: '14px', marginBottom: '18px' }}>
+              <div>
+                <img src={currentSamity.logo || '/logo.png'} alt="Logo" style={{ width: '72px', height: '72px', objectFit: 'contain' }} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                {currentSamity.letterpadImage ? (
+                  <img src={currentSamity.letterpadImage} alt="Letterpad Banner" style={{ maxHeight: '68px', maxWidth: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: '#1e3a8a' }}>{currentSamity.nameBn}</h2>
+                    {currentSamity.nameEn && <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: '700' }}>{currentSamity.nameEn}</div>}
+                    <div style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: '800' }}>{currentSamity.sloganBn || 'স্বচ্ছতা ও সমবায়ে সমৃদ্ধি'}</div>
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right', fontSize: '0.72rem', color: '#334155', lineHeight: '1.5' }}>
+                <div><strong>নিবন্ধন নং:</strong> {currentSamity.regNo || 'রেজি-৮৯৭/২০২৪'}</div>
+                <div><strong>ঠিকানা:</strong> {currentSamity.address || 'ঢাকা, বাংলাদেশ'}</div>
+                <div><strong>মোবাইল:</strong> {currentSamity.phone || '০১৭০০-০০০০০০'}</div>
+              </div>
+            </div>
+
+            {/* Report Title */}
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: '#0f172a' }}>
+                {backupPrintType === 'members' && 'সদস্য তালিকা ও পূর্ণাঙ্গ রেজিস্টার খতিয়ান'}
+                {backupPrintType === 'dues' && `বকেয়া ও অপরিশোধিত চাঁদা খতিয়ান (${targetMonth} ${targetYear})`}
+                {backupPrintType === 'deposits' && 'আদায়কৃত সঞ্চয় ও ব্যাংক ডিপোজিট রেজিস্টার'}
+                {backupPrintType === 'financial' && 'সমিতির পূর্ণাঙ্গ আর্থিক বিবরণী ও ফান্ড সামারি'}
+              </h3>
+              <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>
+                প্রতিবেদন তৈরির তারিখ: {new Date().toLocaleDateString('bn-BD')} খ্রি.
+              </div>
+            </div>
+
+            {/* Table Content based on backupPrintType */}
+            {backupPrintType === 'dues' && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', marginBottom: '24px' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ padding: '8px', textAlign: 'center' }}>ক্র.</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>সদস্য আইডি</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>সদস্যের নাম</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>মোবাইল নম্বর</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>মাসিক চাঁদা</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>জমা</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>বকেয়া পরিমাণ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.members.filter(m => m.samityId === activeSamityId).map((m, idx) => {
+                    const st = calculateMemberPaymentStatus(m, currentSamity, data.deposits, targetMonth, targetYear);
+                    if (st.dueAmount <= 0) return null;
+                    return (
+                      <tr key={m.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px', textAlign: 'center' }}>{toBanglaNum(idx + 1)}</td>
+                        <td style={{ padding: '8px', fontWeight: '700' }}>{m.id}</td>
+                        <td style={{ padding: '8px', fontWeight: '700' }}>{m.nameBn || m.nameEn}</td>
+                        <td style={{ padding: '8px' }}>{m.mobile || '---'}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>৳{m.customSubscription || currentSamity.monthlySubscription}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', color: '#10b981' }}>৳{st.paidAmount}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', color: '#ef4444', fontWeight: '800' }}>৳{st.dueAmount}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {backupPrintType === 'deposits' && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem', marginBottom: '24px' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ padding: '8px', textAlign: 'center' }}>ক্র.</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>ভাউচার নং</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>আমানতকারীর নাম</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>মোবাইল</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>ব্যাংক ও মাধ্যম</th>
+                    <th style={{ padding: '8px', textAlign: 'center' }}>তারিখ</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>জমার পরিমাণ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.deposits.filter(d => d.samityId === activeSamityId).map((d, idx) => (
+                    <tr key={d.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>{toBanglaNum(idx + 1)}</td>
+                      <td style={{ padding: '8px', fontWeight: '700' }}>{d.voucherNo || d.id}</td>
+                      <td style={{ padding: '8px', fontWeight: '700' }}>{d.depositorName || d.memberName || 'সদস্য'}</td>
+                      <td style={{ padding: '8px' }}>{d.depositorPhone || '---'}</td>
+                      <td style={{ padding: '8px' }}>{d.bankName || d.depositMethod}</td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>{d.depositDate}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: '800', color: '#10b981' }}>৳{d.amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {backupPrintType === 'financial' && (
+              <div style={{ maxWidth: '620px', margin: '0 auto 24px auto', border: '1px solid #cbd5e1', borderRadius: '10px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <tbody>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700' }}>মোট নিবন্ধিত সদস্য সংখ্যা</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800' }}>{effectiveMetrics.totalMembers} জন</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700' }}>প্রতি সদস্যের মাসিক চাঁদা</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800' }}>৳ {currentSamity.monthlySubscription}/-</td>
+                    </tr>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700', color: '#10b981' }}>মোট অনুমোদিত সঞ্চয় জমা</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#10b981' }}>৳ {effectiveMetrics.totalApprovedDeposits.toLocaleString()}</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700', color: '#ef4444' }}>মোট অনুমোদিত ব্যয় ও খরচ</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#ef4444' }}>৳ {effectiveMetrics.totalApprovedExpenses.toLocaleString()}</td>
+                    </tr>
+                    <tr style={{ background: 'rgba(20, 184, 166, 0.1)', borderBottom: '2px solid #2dd4bf' }}>
+                      <td style={{ padding: '12px 14px', fontWeight: '900', color: '#0f766e', fontSize: '0.9rem' }}>সমিতির নীট তহবিল ব্যালেন্স (Fund)</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#0f766e', fontSize: '1rem' }}>৳ {effectiveMetrics.availableFund.toLocaleString()}</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700' }}>ব্যাংক হিসাবের মোট স্থিতি</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#3b82f6' }}>৳ {effectiveMetrics.bankBalance.toLocaleString()}</td>
+                    </tr>
+                    <tr style={{ background: '#f8fafc' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '700' }}>ক্যাশ ইন হ্যান্ড স্থিতি</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800' }}>৳ {effectiveMetrics.cashBalance.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Print Signatures & QR Code Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '16px', borderTop: '1px solid #0f172a' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {padQrDataUrl && (
+                  <img src={padQrDataUrl} alt="QR" style={{ width: '56px', height: '56px' }} />
+                )}
+                <div style={{ fontSize: '0.66rem', color: '#64748b', lineHeight: '1.3' }}>
+                  <div>ডিজিটাল সিস্টেম ভেরিফাইড</div>
+                  <div>হিসাবকিতাব ৩৬০ • {new Date().toLocaleDateString('bn-BD')}</div>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: '130px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.74rem', fontWeight: '700' }}>
+                  কোষাধ্যক্ষ
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'center', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '-46px', left: '-20px', pointerEvents: 'none' }}>
+                  <CircularOfficialSeal samityName={currentSamity.nameBn} designation="সভাপতি" size={76} sealColor="#1e3a8a" />
+                </div>
+                <div style={{ width: '130px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.74rem', fontWeight: '700' }}>
                   সভাপতি
                 </div>
               </div>
