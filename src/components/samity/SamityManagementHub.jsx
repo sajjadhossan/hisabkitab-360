@@ -112,9 +112,10 @@ import {
 import * as XLSX from 'xlsx';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { hapticFeedback } from '../../services/nativeAppService';
+import { broadcastLiveEvent, subscribeLiveSync } from '../../services/liveSyncService';
 
 export const SamityManagementHub = ({ onClose }) => {
-  const { lang = 'bn', showToast = () => {}, businessSettings } = useApp() || {};
+  const { lang = 'bn', showToast = () => { }, businessSettings } = useApp() || {};
 
   // Core Data State
   const [data, setData] = useState(() => loadSamityData());
@@ -127,10 +128,14 @@ export const SamityManagementHub = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   // 'dashboard' | 'members' | 'deposits' | 'bulk_deposit' | 'payment_status' | 'reminders' | 'expenses' | 'fund_balance' | 'letterhead' | 'signatures' | 'documents' | 'reports' | 'sql_schema' | 'setup'
 
-  // Current active Samity
+  // Current active Samity with Multi-tier Smart Logo Fallback (guarantees logo is visible on APK & PC)
   const currentSamity = useMemo(() => {
-    return data.samities.find(s => s.id === activeSamityId) || data.samities[0] || {};
-  }, [data.samities, activeSamityId]);
+    const samity = data.samities.find(s => s.id === activeSamityId) || data.samities[0] || {};
+    return {
+      ...samity,
+      logo: samity.logo || businessSettings?.companyLogo || '/logo.png'
+    };
+  }, [data.samities, activeSamityId, businessSettings?.companyLogo]);
 
   // Derived Metrics
   const metrics = useMemo(() => {
@@ -504,7 +509,7 @@ export const SamityManagementHub = ({ onClose }) => {
     complianceAgreed: true
   });
 
-  // Persist helper
+  // Persist & Supabase Realtime Live Sync Mesh
   const updateAndSave = (updater, auditMeta = null) => {
     setData(prev => {
       let nextData = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
@@ -512,16 +517,46 @@ export const SamityManagementHub = ({ onClose }) => {
         nextData = recordAuditLog(nextData, auditMeta);
       }
       saveSamityData(nextData);
+
+      // Instant live sync across devices (PC ↔ Mobile APK) via Supabase Realtime WebSocket (<150ms)
+      try {
+        broadcastLiveEvent('SAMITY_STATE_SYNC', {
+          samityData: nextData,
+          action: auditMeta?.action || 'SAMITY_UPDATE',
+          samityId: activeSamityId,
+          timestamp: Date.now()
+        }).catch(() => {});
+      } catch (broadcastErr) {
+        console.debug('[SamityRealtime] Broadcast notice:', broadcastErr);
+      }
+
       return nextData;
     });
   };
+
+  // Real-time Supabase WebSocket Listener: receive live updates from other devices (PC / Mobile)
+  useEffect(() => {
+    const unsubscribe = subscribeLiveSync((evt) => {
+      if (evt.eventType === 'SAMITY_STATE_SYNC' && evt.data?.samityData) {
+        console.debug('[SamityRealtime] Instant live update received from remote terminal');
+        setData(evt.data.samityData);
+        saveSamityData(evt.data.samityData);
+        triggerHaptic();
+        showToast?.('⚡ অন্য ডিভাইস থেকে সমিতির তথ্য ও লোগো লাইভ সিঙ্ক হয়েছে!', 'info');
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [showToast]);
 
   // Safe Haptic Helper
   const triggerHaptic = () => {
     try {
       if (typeof hapticFeedback === 'function') hapticFeedback('light');
       else if (hapticFeedback?.light) hapticFeedback.light();
-    } catch {}
+    } catch { }
   };
 
   // --------------------------------------------------------------------------
@@ -1808,7 +1843,7 @@ export const SamityManagementHub = ({ onClose }) => {
     const targetId = cancelReceiptTarget.id;
     updateAndSave(prev => ({
       ...prev,
-      deposits: (prev.deposits || []).map(d => 
+      deposits: (prev.deposits || []).map(d =>
         d.id === targetId ? {
           ...d,
           approvalStatus: 'cancelled',
@@ -2653,25 +2688,22 @@ export const SamityManagementHub = ({ onClose }) => {
               width: '44px',
               height: '44px',
               borderRadius: '10px',
-              background: currentSamity.logo ? '#ffffff' : 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+              background: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 4px 14px rgba(20, 184, 166, 0.35)',
               overflow: 'hidden',
-              padding: currentSamity.logo ? '3px' : 0,
-              border: currentSamity.logo ? '1.5px solid rgba(45, 212, 191, 0.5)' : 'none'
+              padding: '3px',
+              border: '1.5px solid rgba(45, 212, 191, 0.5)'
             }}
           >
-            {currentSamity.logo ? (
-              <img
-                src={currentSamity.logo}
-                alt={currentSamity.nameBn}
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            ) : (
-              <Users size={24} color="#ffffff" />
-            )}
+            <img
+              src={currentSamity.logo || '/logo.png'}
+              alt={currentSamity.nameBn}
+              onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4886,17 +4918,17 @@ export const SamityManagementHub = ({ onClose }) => {
                                 background: isApproved
                                   ? 'rgba(16, 185, 129, 0.15)'
                                   : isPending
-                                  ? 'rgba(245, 158, 11, 0.15)'
-                                  : isRejected
-                                  ? 'rgba(239, 68, 68, 0.15)'
-                                  : 'rgba(148, 163, 184, 0.15)',
+                                    ? 'rgba(245, 158, 11, 0.15)'
+                                    : isRejected
+                                      ? 'rgba(239, 68, 68, 0.15)'
+                                      : 'rgba(148, 163, 184, 0.15)',
                                 color: isApproved
                                   ? '#10b981'
                                   : isPending
-                                  ? '#f59e0b'
-                                  : isRejected
-                                  ? '#ef4444'
-                                  : '#94a3b8',
+                                    ? '#f59e0b'
+                                    : isRejected
+                                      ? '#ef4444'
+                                      : '#94a3b8',
                                 padding: '3px 8px',
                                 borderRadius: '6px',
                                 fontSize: '0.72rem',
@@ -5689,7 +5721,7 @@ export const SamityManagementHub = ({ onClose }) => {
 
             const matchesMonth = receiptFilterMonth === 'all' || dep.paymentMonth === receiptFilterMonth;
             const matchesMethod = receiptFilterMethod === 'all' || dep.depositMethod === receiptFilterMethod;
-            const matchesStatus = receiptFilterStatus === 'all' || 
+            const matchesStatus = receiptFilterStatus === 'all' ||
               (receiptFilterStatus === 'approved' && dep.approvalStatus === 'approved') ||
               (receiptFilterStatus === 'cancelled' && dep.approvalStatus === 'cancelled');
 
@@ -7840,7 +7872,7 @@ export const SamityManagementHub = ({ onClose }) => {
           };
 
           const toggleSelectMember = (id) => {
-            setReminderSelectedMemberIds(prev => 
+            setReminderSelectedMemberIds(prev =>
               prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
             );
           };
@@ -8516,7 +8548,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     </div>
 
                     <pre style={{ background: 'rgba(15, 23, 42, 0.85)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.06)', color: '#25D366', fontSize: '0.76rem', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-{`প্রিয় {{member_name}},
+                      {`প্রিয় {{member_name}},
 
 আপনার {{payment_month}} মাসের {{samity_name}}-এর মাসিক চাঁদা {{due_amount}} টাকা এখনো জমা হয়নি।
 
@@ -10189,18 +10221,12 @@ export const SamityManagementHub = ({ onClose }) => {
                         flexShrink: 0
                       }}
                     >
-                      {currentSamity.logo ? (
-                        <img
-                          src={currentSamity.logo}
-                          alt={currentSamity.nameBn}
-                          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                        />
-                      ) : (
-                        <div style={{ textAlign: 'center', color: '#64748b', fontSize: '0.65rem' }}>
-                          <ImageIcon size={22} color="#94a3b8" />
-                          <div>নো লোগো</div>
-                        </div>
-                      )}
+                      <img
+                        src={currentSamity.logo || '/logo.png'}
+                        alt={currentSamity.nameBn}
+                        onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
@@ -10771,36 +10797,17 @@ export const SamityManagementHub = ({ onClose }) => {
                   }
 
                   const renderLogoElement = () => (
-                    currentSamity.logo ? (
-                      <img
-                        src={currentSamity.logo}
-                        alt={currentSamity.nameBn}
-                        style={{
-                          height: `${logoHeight}px`,
-                          maxWidth: '180px',
-                          objectFit: 'contain',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: `${logoHeight}px`,
-                          height: `${logoHeight}px`,
-                          borderRadius: '10px',
-                          background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
-                          color: '#fff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: `${Math.round(logoHeight * 0.45)}px`,
-                          fontWeight: '900',
-                          boxShadow: '0 4px 10px rgba(13, 148, 136, 0.3)'
-                        }}
-                      >
-                        {currentSamity.nameBn?.[0] || 'স'}
-                      </div>
-                    )
+                    <img
+                      src={currentSamity.logo || '/logo.png'}
+                      alt={currentSamity.nameBn}
+                      onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                      style={{
+                        height: `${logoHeight}px`,
+                        maxWidth: '180px',
+                        objectFit: 'contain',
+                        borderRadius: '4px'
+                      }}
+                    />
                   );
 
                   if (pos === 'center') {
@@ -12361,8 +12368,8 @@ export const SamityManagementHub = ({ onClose }) => {
                       <li>
                         <strong>বিলম্ব ফি:</strong> {currentSamity.lateFeeEnabled
                           ? (currentSamity.lateFeeType === 'percentage'
-                              ? `${currentSamity.lateFeePercent || 5}% (৳${Math.round(((currentSamity.monthlySubscription || 500) * (currentSamity.lateFeePercent || 5)) / 100)} টাকা)`
-                              : `৳${currentSamity.lateFeeAmount || 50} টাকা ফ্ল্যাট`)
+                            ? `${currentSamity.lateFeePercent || 5}% (৳${Math.round(((currentSamity.monthlySubscription || 500) * (currentSamity.lateFeePercent || 5)) / 100)} টাকা)`
+                            : `৳${currentSamity.lateFeeAmount || 50} টাকা ফ্ল্যাট`)
                           : 'নিষ্ক্রিয় (কোনো জরিমানা নেই)'}
                       </li>
                       <li>
@@ -12586,8 +12593,8 @@ export const SamityManagementHub = ({ onClose }) => {
                                   background: status.status === 'paid'
                                     ? 'rgba(16, 185, 129, 0.03)'
                                     : status.status === 'advance_paid'
-                                    ? 'rgba(16, 185, 129, 0.06)'
-                                    : 'transparent'
+                                      ? 'rgba(16, 185, 129, 0.06)'
+                                      : 'transparent'
                                 }}
                               >
                                 <td style={{ padding: '10px 14px' }}>
@@ -15757,18 +15764,18 @@ export const SamityManagementHub = ({ onClose }) => {
         const receivedBy = dep.receivedBy || dep.collectorName || 'কোষাধ্যক্ষ দপ্তর';
         const isCancelled = dep.approvalStatus === 'cancelled';
 
-        const treasurer = (data.signatures || []).find(s => 
-          s.designationBn?.includes('কোষাধ্যক্ষ') || 
+        const treasurer = (data.signatures || []).find(s =>
+          s.designationBn?.includes('কোষাধ্যক্ষ') ||
           s.designationEn?.toLowerCase().includes('treasurer')
         ) || { name: 'মোঃ আব্দুর রহিম', designationBn: 'কোষাধ্যক্ষ / অর্থ সম্পাদক', designationEn: 'Treasurer' };
 
-        const president = (data.signatures || []).find(s => 
-          s.designationBn?.includes('সভাপতি') || 
+        const president = (data.signatures || []).find(s =>
+          s.designationBn?.includes('সভাপতি') ||
           s.designationEn?.toLowerCase().includes('president')
         ) || { name: 'প্রফেসর কাজী নজরুল ইসলাম', designationBn: 'সভাপতি', designationEn: 'President' };
 
-        const secretary = (data.signatures || []).find(s => 
-          s.designationBn?.includes('সাধারণ সম্পাদক') || 
+        const secretary = (data.signatures || []).find(s =>
+          s.designationBn?.includes('সাধারণ সম্পাদক') ||
           s.designationEn?.toLowerCase().includes('secretary')
         ) || { name: 'মোহাম্মদ আলী', designationBn: 'সাধারণ সম্পাদক', designationEn: 'General Secretary' };
 
@@ -16120,19 +16127,14 @@ export const SamityManagementHub = ({ onClose }) => {
                 ) : (
                   <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', position: 'relative', zIndex: 1 }}>
                     {/* 1. Samity Logo Emblem */}
-                    {currentSamity.logo ? (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                        <img
-                          src={currentSamity.logo}
-                          alt={currentSamity.nameBn}
-                          style={{ maxHeight: '60px', maxWidth: '160px', objectFit: 'contain' }}
-                        />
-                      </div>
-                    ) : (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', color: '#fff', marginBottom: '6px', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}>
-                        <Building2 size={26} />
-                      </div>
-                    )}
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                      <img
+                        src={currentSamity.logo || '/logo.png'}
+                        alt={currentSamity.nameBn}
+                        onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                        style={{ maxHeight: '60px', maxWidth: '160px', objectFit: 'contain' }}
+                      />
+                    </div>
                     {/* 2. Samity Name */}
                     <h1 style={{ margin: '0 0 2px 0', fontSize: '1.45rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.3px' }}>
                       {currentSamity.nameBn}
@@ -16582,8 +16584,8 @@ export const SamityManagementHub = ({ onClose }) => {
         const deadlineDay = currentSamity.subscriptionDueDay || 10;
         const deadlineMonth = status.month || dueMonth || 'চলতি মাস';
         const deadlineYear = status.year || dueYear || '২০২৬';
-        const treasurer = (data.signatures || []).find(s => 
-          s.designationBn?.includes('কোষাধ্যক্ষ') || 
+        const treasurer = (data.signatures || []).find(s =>
+          s.designationBn?.includes('কোষাধ্যক্ষ') ||
           s.designationEn?.toLowerCase().includes('treasurer')
         ) || {
           name: 'কোষাধ্যক্ষ দপ্তর',
@@ -16783,7 +16785,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     </div>
                     <div>{currentSamity.mobileBanking?.provider || 'বিকাশ'} ({currentSamity.mobileBanking?.accountType || 'মার্চেন্ট'}): <strong style={{ color: '#be185d' }}>{currentSamity.mobileBanking?.number || currentSamity.mobile || '০১৭১১-XXXXXX'}</strong></div>
                     <div style={{ fontSize: '0.72rem', color: '#64748b', margin: '2px 0 6px 0' }}>* রেফারেন্স হিসেবে সদস্য আইডি <strong>{member.id}</strong> দিন</div>
-                    
+
                     <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '4px' }}>
                       <div style={{ fontWeight: '700', color: '#0f172a' }}>{treasurer.designationBn || 'কোষাধ্যক্ষ দপ্তর'}:</div>
                       <div>{treasurer.name} | সরাসরি ফোন: <strong style={{ color: '#0f172a' }}>{treasurer.phone || currentSamity.mobile}</strong></div>

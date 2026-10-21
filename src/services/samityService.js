@@ -313,7 +313,7 @@ export const createDefaultSamityObject = (id = 'SAMITY-001', customFields = {}) 
     type: 'Savings Samity',
     regNo: 'REG-2026/DHK-482',
     establishedDate: '2024-01-01',
-    logo: '',
+    logo: '/logo.png',
     letterpadImage: '',
     sloganBn: 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি',
     sloganEn: 'Building Dreams, Securing the Future',
@@ -492,7 +492,10 @@ export const loadSamityData = () => {
       return {
         ...DEFAULT_CLEAN_DATA,
         ...parsed,
-        samities: parsed.samities?.length ? parsed.samities : DEFAULT_CLEAN_DATA.samities,
+        samities: (parsed.samities?.length ? parsed.samities : DEFAULT_CLEAN_DATA.samities).map(s => ({
+          ...s,
+          logo: s.logo || '/logo.png'
+        })),
         signatures: parsed.signatures?.length ? parsed.signatures : DEFAULT_CLEAN_DATA.signatures,
         letterhead: { ...DEFAULT_CLEAN_DATA.letterhead, ...(parsed.letterhead || {}) },
         settings: { ...DEFAULT_CLEAN_DATA.settings, ...(parsed.settings || {}) }

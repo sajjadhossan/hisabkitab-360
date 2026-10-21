@@ -4526,7 +4526,15 @@ export const AppProvider = ({ children }) => {
         },
         data: {
           personal: { personalExpenses, personalIncomes, personalSavings, personalDebts, personalEvents },
-          business: { products, salesHistory, customers, employees, suppliers, businessExpenses, businessSettings, invoices, quotations, damagedGoods, businessDebts }
+          business: { products, salesHistory, customers, employees, suppliers, businessExpenses, businessSettings, invoices, quotations, damagedGoods, businessDebts },
+          samityHub: (() => {
+            try {
+              const raw = localStorage.getItem('hk360_samity_hub_data');
+              return raw ? JSON.parse(raw) : null;
+            } catch {
+              return null;
+            }
+          })()
         }
       };
 
@@ -4649,6 +4657,14 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Samity Hub Event Listener for Auto-Sync Watcher
+  const [samitySyncCounter, setSamitySyncCounter] = useState(0);
+  useEffect(() => {
+    const handleSamityUpdate = () => setSamitySyncCounter(c => c + 1);
+    window.addEventListener('hk360_samity_updated', handleSamityUpdate);
+    return () => window.removeEventListener('hk360_samity_updated', handleSamityUpdate);
+  }, []);
+
   // Configurable Smart Auto-Sync Loop to Google Drive & Telegram (strictly maintains max 30 backups)
   useEffect(() => {
     const getBackupIntervalMs = () => {
@@ -4680,7 +4696,7 @@ export const AppProvider = ({ children }) => {
       const canSyncTelegram = tgConfig.enabled && tgConfig.autoSync && tgConfig.botToken && tgConfig.chatId;
 
       if (autoSyncActive && (canSyncDrive || canSyncTelegram)) {
-        const currentSig = `${salesHistory.length}_${products.length}_${customers.length}_${businessExpenses.length}_${invoices.length}_${personalExpenses.length}_${personalEvents?.length || 0}`;
+        const currentSig = `${salesHistory.length}_${products.length}_${customers.length}_${businessExpenses.length}_${invoices.length}_${personalExpenses.length}_${personalEvents?.length || 0}_samity_${samitySyncCounter}`;
         if (currentSig !== lastSyncSignatureRef.current) {
           if (canSyncDrive && !isSyncingRef.current) {
             syncToGoogleDrive(null, true).then((res) => {
@@ -4709,7 +4725,8 @@ export const AppProvider = ({ children }) => {
     businessExpenses.length,
     invoices.length,
     personalExpenses.length,
-    personalEvents?.length
+    personalEvents?.length,
+    samitySyncCounter
   ]);
 
   // Instant Realtime Event-Driven Backup to Telegram on Every Sale, Expense, Income, or Debt Record
