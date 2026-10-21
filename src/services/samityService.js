@@ -495,6 +495,190 @@ export const getMessengerUrl = (messengerUser) => {
   return `https://m.me/${handle}`;
 };
 
+// Complete 28 Modules List & Specification Index
+export const SAMITY_28_MODULES = [
+  { id: 'samity_setup', num: 1, nameBn: '১. সমিতি সেটআপ মডিউল', nameEn: 'Samity Setup Module', icon: 'Building2', desc: 'একাধিক সমিতি/শাখা তৈরি, প্রোফাইল, লোগো, স্লোগান ও ব্যাংক একাউন্ট কনফিগারেশন' },
+  { id: 'member_mgmt', num: 2, nameBn: '২. সদস্য ব্যবস্থাপনা মডিউল', nameEn: 'Member Management Module', icon: 'Users', desc: 'সদস্য কোড, বাংলা ও ইংরেজি নাম, এনআইডি, ছবি, ঠিকানা, রক্তের গ্রুপ ও পদবি' },
+  { id: 'subscription_cfg', num: 3, nameBn: '৩. সাবস্ক্রিপশন / চাঁদা কনফিগারেশন', nameEn: 'Subscription / চাঁদা Configuration Module', icon: 'Settings', desc: 'মাসিক চাঁদার পরিমাণ, সদস্যভেদে ভিন্ন ফি, সাইকেল, শেষ তারিখ ও গ্রেস পিরিয়ড' },
+  { id: 'bank_deposit', num: 4, nameBn: '৪. ব্যাংক ও নগদ জমা মডিউল', nameEn: 'Bank Deposit Module', icon: 'Landmark', desc: 'কাউন্টার জমা, অনলাইন ব্যাংকিং, চেক, বিকাশ/নগদ ও ব্যাংক স্লিপ ট্র্যাকিং' },
+  { id: 'bulk_deposit', num: 5, nameBn: '৫. বাল্ক ব্যাংক জমা মডিউল', nameEn: 'Bulk Bank Deposit Module', icon: 'Layers', desc: 'এক ক্লিকে একাধিক সদস্যের চাঁদা ও মোট ব্যাংক ডিপোজিট রেকর্ড এন্ট্রি' },
+  { id: 'payment_status', num: 6, nameBn: '৬. পেমেন্ট স্ট্যাটাস ড্যাশবোর্ড', nameEn: 'Payment Status Module', icon: 'CheckCircle2', desc: 'পরিশোধিত, অপরিশোধিত ও আংশিক পরিশোধিত সদস্যদের রিয়েল-টাইম লাইভ ট্র্যাকিং' },
+  { id: 'due_mgmt', num: 7, nameBn: '৭. বকেয়া / ডিউ ব্যবস্থাপনা ও মওকুফ', nameEn: 'Due / বকেয়া Management Module', icon: 'Clock', desc: 'মাসিক বকেয়া গণনা, বিলম্ব ফি, বকেয়া নোটিশ প্রিন্ট ও বিশেষ মওকুফ (Waiver)' },
+  { id: 'paid_receipt', num: 8, nameBn: '৮. পেইড রশিদ ও ভাউচার মডিউল', nameEn: 'Paid Receipt Module', icon: 'Receipt', desc: 'বাংলা ও ইংরেজি কথায় টাকা, কিউআর কোড ভেরিফিকেশন, A4 ও POS থার্মাল প্রিন্ট' },
+  { id: 'reminder_hub', num: 9, nameBn: '৯. সেন্ট্রাল রিমাইন্ডার ইঞ্জিন', nameEn: 'Reminder Module', icon: 'Send', desc: 'বকেয়া নোটিফিকেশন প্রস্তুত, ট্র্যাকিং লগ ও অটো রিমাইন্ডার মেসেজ তৈরি' },
+  { id: 'whatsapp_reminder', num: 10, nameBn: '১০. হোয়াটসঅ্যাপ রিমাইন্ডার মডিউল', nameEn: 'WhatsApp Reminder Module', icon: 'MessageSquare', desc: '১-ক্লিকে বাংলা ফরম্যাটেড বকেয়া তাগাদা ও সরাসরি wa.me সংযোগ' },
+  { id: 'sms_reminder', num: 11, nameBn: '১১. এসএমএস রিমাইন্ডার মডিউল', nameEn: 'SMS Reminder Module', icon: 'Smartphone', desc: 'বাংলা ইউনিকোড ১৬০ ক্যারেক্টার এসএমএস এবং গেটওয়ে রেডি ইন্টিগ্রেশন' },
+  { id: 'telegram_reminder', num: 12, nameBn: '১২. টেলিগ্রাম রিমাইন্ডার মডিউল', nameEn: 'Telegram Reminder Module', icon: 'Send', desc: 'সদস্যের টেলিগ্রাম ইউজারনেমে ডিরেক্ট মেসেজ ও বট নোটিফিকেশন' },
+  { id: 'messenger_reminder', num: 13, nameBn: '১৩. ফেসবুক / মেসেঞ্জার রিমাইন্ডার', nameEn: 'Facebook / Messenger Reminder Module', icon: 'Share2', desc: 'মেসেঞ্জার প্রোফাইল লিংক ও সরাসরি ক্লিপবোর্ড কপি পেস্ট নোটিশ' },
+  { id: 'expense_mgmt', num: 14, nameBn: '১৪. ব্যয় / খরচ ব্যবস্থাপনা মডিউল', nameEn: 'Expense / ব্যয় Management Module', icon: 'Wallet', desc: 'সমিতির পরিচালন ব্যয়, ভাউচার নম্বর, ক্যাটাগরি, প্রাপক ও অনুমোদন' },
+  { id: 'fund_balance', num: 15, nameBn: '১৫. ফান্ড ও একাউন্টস ব্যালেন্স', nameEn: 'Fund & Balance Module', icon: 'DollarSign', desc: 'ব্যাংক ব্যালান্স, নগদ ক্যাশ ইন হ্যান্ড, মোবাইল ব্যাংকিং ও নেট রিজার্ভ ফান্ড' },
+  { id: 'report_module', num: 16, nameBn: '১৬. ২৮টি পূর্ণাঙ্গ রিপোর্ট মডিউল', nameEn: 'Report Module', icon: 'FileSpreadsheet', desc: 'কালেকশন রিপোর্ট, বকেয়া তালিকা, আয়-ব্যয় খতিয়ান ও অডিট স্টেটমেন্ট' },
+  { id: 'letterhead_module', num: 17, nameBn: '১৭. লেটারহেড ও প্রিন্ট টেমপ্লেট', nameEn: 'Letterhead & Print Template Module', icon: 'FileText', desc: 'অফিসিয়াল প্যাড, ওয়াটারমার্ক, হেডার কালার, বর্ডার ও ডায়নামিক ফুটার' },
+  { id: 'signature_module', num: 18, nameBn: '১৮. স্বাক্ষর ও সিল ব্যবস্থাপনা', nameEn: 'Signature & Seal Management Module', icon: 'PenTool', desc: 'সভাপতি, সাধারণ সম্পাদক ও কোষাধ্যক্ষের ডিজিটাল স্বাক্ষর ও অফিসিয়াল সিল' },
+  { id: 'document_generator', num: 19, nameBn: '১৯. ডকুমেন্ট জেনারেটর মডিউল', nameEn: 'Document Generator Module', icon: 'Award', desc: 'সদস্যপদ প্রত্যয়নপত্র, সভার নোটিশ, রেজোলিউশন ও অনাপত্তিপত্র (NOC)' },
+  { id: 'rbac_module', num: 20, nameBn: '২০. ইউজার, রোল ও পারমিশন মডিউল', nameEn: 'User, Role & Permission Module', icon: 'ShieldCheck', desc: 'সভাপতি, কোষাধ্যক্ষ, ক্যাশিয়ার, হিসাবরক্ষক ও অডিটরের সুনির্দিষ্ট ক্ষমতা' },
+  { id: 'approval_module', num: 21, nameBn: '২১. অনুমোদন ওয়ার্কফ্লো মডিউল', nameEn: 'Approval Workflow Module', icon: 'Check', desc: 'পেন্ডিং জমা ও খরচের ভাউচার যাচাই, ১-ক্লিক এপ্রুভ বা রিজেক্ট সিস্টেম' },
+  { id: 'audit_trail', num: 22, nameBn: '২২. অডিট ট্রেইল ও হিস্টোরি লগ', nameEn: 'Audit Trail Module', icon: 'Search', desc: 'কে কখন কোন এন্ট্রি যুক্ত, পরিবর্তন বা মুছে ফেলেছে তার অপরিবর্তনীয় লগ' },
+  { id: 'notification_center', num: 23, nameBn: '২৩. নোটিফিকেশন সেন্টার মডিউল', nameEn: 'Notification Module', icon: 'Bell', desc: 'বকেয়া চাঁদার এলার্ট, ব্যাংকিং তারিখের রিমাইন্ডার ও ফান্ড সতর্কতা' },
+  { id: 'dashboard_module', num: 24, nameBn: '২৪. লাইভ এক্সিকিউটিভ ড্যাশবোর্ড', nameEn: 'Dashboard Module', icon: 'TrendingUp', desc: 'টপ কেপিআই কার্ড, কালেকশন পার্সেন্টেজ, গ্রাফ চার্ট ও সাম্প্রতিক লেনদেন' },
+  { id: 'settings_module', num: 25, nameBn: '২৫. কনফিগারেশন ও সেটিংস মডিউল', nameEn: 'Settings Module', icon: 'Sliders', desc: 'কারেন্সি, ভাউচার প্রিফিক্স, এসএমএস গেটওয়ে ও পেপার সাইজ প্রেফারেন্স' },
+  { id: 'api_module', num: 26, nameBn: '২৬. রেস্ট এপিআই ও ওয়েবহুক মডিউল', nameEn: 'API Module', icon: 'Code', desc: 'নিরাপদ REST API এন্ডপয়েন্ট তালিকা, JSON ডকুমেন্টেশন ও cURL উদাহরণ' },
+  { id: 'multilang_module', num: 27, nameBn: '২৭. মাল্টি-ল্যাঙ্গুয়েজ মডিউল', nameEn: 'Multi-language Module', icon: 'Globe', desc: 'বাংলা ও ইংরেজি সম্পূর্ণ লেবেল, রসিদ ও রিপোর্ট এক ক্লিকে টগল' },
+  { id: 'backup_module', num: 28, nameBn: '২৮. ব্যাকআপ, এক্সপোর্ট ও ইমপোর্ট', nameEn: 'Backup, Export & Import Module', icon: 'Download', desc: '১-ক্লিক সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON), এক্সেল এক্সপোর্ট ও ডাটা রিস্টোর' }
+];
+
+// Samity Specific RBAC Role Definitions
+export const SAMITY_RBAC_ROLES = [
+  {
+    role: 'president',
+    titleBn: 'সভাপতি (President)',
+    titleEn: 'President',
+    permissions: ['all_view', 'approve_expense', 'approve_deposit', 'sign_documents', 'view_reports', 'manage_settings'],
+    color: '#8b5cf6'
+  },
+  {
+    role: 'secretary',
+    titleBn: 'সাধারণ সম্পাদক (General Secretary)',
+    titleEn: 'General Secretary',
+    permissions: ['all_view', 'manage_members', 'create_documents', 'send_reminders', 'view_reports'],
+    color: '#3b82f6'
+  },
+  {
+    role: 'treasurer',
+    titleBn: 'কোষাধ্যক্ষ (Treasurer)',
+    titleEn: 'Treasurer',
+    permissions: ['all_view', 'entry_deposit', 'entry_expense', 'bulk_deposit', 'approve_deposit', 'view_fund', 'sign_receipts'],
+    color: '#10b981'
+  },
+  {
+    role: 'accountant',
+    titleBn: 'হিসাবরক্ষক (Accountant)',
+    titleEn: 'Accountant',
+    permissions: ['entry_deposit', 'entry_expense', 'view_reports', 'view_members', 'print_receipts'],
+    color: '#f59e0b'
+  },
+  {
+    role: 'auditor',
+    titleBn: 'অভ্যন্তরীণ অডিটর (Auditor)',
+    titleEn: 'Auditor',
+    permissions: ['all_view', 'view_audit_trail', 'view_reports', 'verify_transactions'],
+    color: '#06b6d4'
+  },
+  {
+    role: 'general_member',
+    titleBn: 'সাধারণ সদস্য (General Member)',
+    titleEn: 'General Member',
+    permissions: ['view_own_profile', 'view_own_ledger', 'download_receipts'],
+    color: '#64748b'
+  }
+];
+
+// REST API Endpoints Specification
+export const SAMITY_API_SPEC = [
+  { method: 'GET', endpoint: '/api/v1/samity/members', desc: 'Get all registered members with due status' },
+  { method: 'POST', endpoint: '/api/v1/samity/members', desc: 'Register a new member with full contact profile' },
+  { method: 'GET', endpoint: '/api/v1/samity/deposits', desc: 'List all verified bank & cash deposits' },
+  { method: 'POST', endpoint: '/api/v1/samity/deposits/bulk', desc: 'Submit bulk monthly subscription deposits' },
+  { method: 'POST', endpoint: '/api/v1/samity/reminders/send', desc: 'Trigger automated multi-channel payment reminder' },
+  { method: 'GET', endpoint: '/api/v1/samity/fund-summary', desc: 'Retrieve current bank balance, cash reserve and net funds' },
+  { method: 'POST', endpoint: '/api/v1/samity/waivers', desc: 'Record approved subscription or penalty waiver' },
+  { method: 'GET', endpoint: '/api/v1/samity/audit-logs', desc: 'Fetch immutable compliance audit history' }
+];
+
+// Backup & Export Helpers
+export const exportSamityBackupJson = (data) => {
+  const exportPayload = {
+    version: '1.0.0',
+    exportedAt: new Date().toISOString(),
+    system: 'HisabKitab 360 - Samity Management Hub',
+    data: data
+  };
+  const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(exportPayload, null, 2))}`;
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute('href', jsonString);
+  downloadAnchor.setAttribute('download', `samity_backup_${new Date().toISOString().split('T')[0]}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+};
+
+export const exportMembersCsv = (members = [], samity = {}) => {
+  const headers = ['Member ID', 'Member Code', 'Bangla Name', 'English Name', 'Mobile', 'NID', 'Custom Fee', 'Status'];
+  const rows = members.map(m => [
+    m.id || '',
+    m.memberCode || '',
+    `"${(m.nameBn || '').replace(/"/g, '""')}"`,
+    `"${(m.nameEn || '').replace(/"/g, '""')}"`,
+    m.mobile || '',
+    m.nidNumber || '',
+    m.customSubscription || samity.monthlySubscription || 500,
+    m.status || 'active'
+  ]);
+
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `samity_members_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+// Generate System Alerts & Notifications for Module 23
+export const getSamityNotifications = (data, activeSamityId) => {
+  const notifications = [];
+  const samity = data.samities?.find(s => s.id === activeSamityId) || data.samities?.[0] || {};
+  const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
+  const currentYear = new Date().getFullYear();
+
+  // 1. Pending Approvals Alert
+  const pendingDeposits = (data.deposits || []).filter(d => d.samityId === activeSamityId && d.approvalStatus === 'pending');
+  const pendingExpenses = (data.expenses || []).filter(e => e.samityId === activeSamityId && e.approvalStatus === 'pending');
+  const totalPending = pendingDeposits.length + pendingExpenses.length;
+  if (totalPending > 0) {
+    notifications.push({
+      id: 'notif_pending',
+      type: 'warning',
+      title: 'অনুমোদনের জন্য অপেক্ষমাণ লেনদেন',
+      message: `${totalPending}টি জমা ও খরচের ভাউচার কোষাধ্যক্ষ/সভাপতির অনুমোদনের অপেক্ষায় রয়েছে।`,
+      timestamp: 'এখনই করণীয়'
+    });
+  }
+
+  // 2. Overdue Dues Alert
+  const members = (data.members || []).filter(m => m.samityId === activeSamityId && m.status === 'active');
+  let overdueCount = 0;
+  members.forEach(m => {
+    const status = calculateMemberPaymentStatus(m, samity, data.deposits || [], currentMonth, currentYear);
+    if (status.status === 'unpaid' || status.status === 'partially_paid') overdueCount++;
+  });
+
+  if (overdueCount > 0) {
+    notifications.push({
+      id: 'notif_due',
+      type: 'info',
+      title: `${currentMonth} মাসের বকেয়া তাগাদা`,
+      message: `${overdueCount} জন সদস্যের চলতি মাসের চাঁদা এখনো সম্পূর্ণ পরিশোধিত হয়নি। তাগাদা রিমাইন্ডার প্রেরণ করুন।`,
+      timestamp: 'চলতি মাস'
+    });
+  }
+
+  // 3. Fund Health Alert
+  const metrics = calculateSamityMetrics(activeSamityId, data);
+  if (metrics.availableFund < 5000 && metrics.totalMembers > 5) {
+    notifications.push({
+      id: 'notif_fund',
+      type: 'critical',
+      title: 'ফান্ড রিজার্ভ সতর্কতা',
+      message: 'সমিতির মোট রিজার্ভ ফান্ড তুলনামূলক কম রয়েছে। জরুরি পরিচালন ব্যয়ের জন্য জমা নিশ্চিত করুন।',
+      timestamp: 'জরুরি'
+    });
+  }
+
+  return notifications;
+};
+
 // Complete Section 32 SQL Migration Schema for PostgreSQL / Supabase
 export const SAMITY_SQL_MIGRATION_SCHEMA = `-- ============================================================================
 -- HISABKITAB 360 - SAMITY / CLUB / ASSOCIATION COMPLETE DATABASE SCHEMA
