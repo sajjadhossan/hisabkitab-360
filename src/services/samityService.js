@@ -525,6 +525,18 @@ export const recordAuditLog = (currentData, { action, module, recordId, details,
   };
 };
 
+// Payment Status Types with Bengali labels and standard colors
+export const PAYMENT_STATUS_TYPES = [
+  { value: 'all', labelBn: 'সকল সদস্য (All)', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)' },
+  { value: 'paid', labelBn: 'পরিশোধিত (Paid)', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' },
+  { value: 'unpaid', labelBn: 'বাকি (Unpaid)', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+  { value: 'partially_paid', labelBn: 'আংশিক পরিশোধিত (Partially Paid)', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+  { value: 'advance_paid', labelBn: 'অগ্রিম পরিশোধিত (Advance Paid)', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
+  { value: 'waived', labelBn: 'মওকুফ (Waived)', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)' },
+  { value: 'cancelled', labelBn: 'বাতিলকৃত (Cancelled)', color: '#e11d48', bg: 'rgba(225, 29, 72, 0.15)' },
+  { value: 'due', labelBn: 'বকেয়া সদস্য (Due Members)', color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.15)' }
+];
+
 // Monthly Due and Payment Status Engine (with Advance, Partial, Waivers/Discounts, and Late Fees)
 export const calculateMemberPaymentStatus = (member, samity, deposits = [], targetMonth = null, targetYear = null, waivers = []) => {
   const now = new Date();
@@ -536,37 +548,47 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
     : Number(samity?.monthlySubscription || 500);
 
   // Find approved deposits for this member and target month/year
-  const memberDeposits = deposits.filter(d => 
-    d.memberId === member.id &&
-    d.samityId === member.samityId &&
-    d.approvalStatus === 'approved' &&
-    (!d.month || d.month.toLowerCase() === currentMonth.toLowerCase()) &&
-    (!d.year || Number(d.year) === Number(currentYear))
-  );
+  const memberDeposits = (deposits || []).filter(d => {
+    if (d.memberId !== member.id) return false;
+    if (d.samityId && member.samityId && d.samityId !== member.samityId) return false;
+    const isApproved = (d.approvalStatus || 'approved').toLowerCase() === 'approved';
+    if (!isApproved) return false;
+
+    const dMonth = (d.paymentMonth || d.month || '').toLowerCase();
+    const dYear = Number(d.paymentYear || d.year || 0);
+    const monthMatches = !dMonth || dMonth === currentMonth.toLowerCase();
+    const yearMatches = !dYear || dYear === Number(currentYear);
+    return monthMatches && yearMatches;
+  });
 
   const totalPaidForMonth = memberDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const latestDeposit = memberDeposits[memberDeposits.length - 1] || memberDeposits[0] || null;
 
   // Find authorized waivers/discounts for this member and target month/year
   const memberWaivers = (waivers || []).filter(w =>
     w.memberId === member.id &&
-    w.samityId === member.samityId &&
+    (!w.samityId || !member.samityId || w.samityId === member.samityId) &&
     (!w.month || w.month.toLowerCase() === currentMonth.toLowerCase()) &&
     (!w.year || Number(w.year) === Number(currentYear))
   );
   const totalWaiver = memberWaivers.reduce((sum, w) => sum + Number(w.amount || 0), 0);
 
   // All time total paid
-  const allTimePaid = deposits
-    .filter(d => d.memberId === member.id && d.samityId === member.samityId && d.approvalStatus === 'approved')
+  const allTimePaid = (deposits || [])
+    .filter(d => d.memberId === member.id && (!d.samityId || !member.samityId || d.samityId === member.samityId) && (d.approvalStatus || 'approved').toLowerCase() === 'approved')
     .reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
   let status = 'unpaid';
   let dueAmount = monthlyRequired;
   let advanceAmount = 0;
 
+  const isMemberCancelled = (member.status || '').toLowerCase() === 'cancelled' || (member.membershipStatus || '').toLowerCase() === 'cancelled';
   const effectiveCredit = totalPaidForMonth + totalWaiver;
 
-  if (effectiveCredit >= monthlyRequired) {
+  if (isMemberCancelled) {
+    status = 'cancelled';
+    dueAmount = 0;
+  } else if (effectiveCredit >= monthlyRequired) {
     if (totalPaidForMonth > monthlyRequired) {
       status = 'advance_paid';
       dueAmount = 0;
@@ -597,16 +619,17 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
   if (targetMonthIndex > 0) {
     for (let i = 0; i < targetMonthIndex; i++) {
       const prevM = MONTH_NAMES[i];
-      const prevDeposits = deposits.filter(d =>
-        d.memberId === member.id &&
-        d.samityId === member.samityId &&
-        d.approvalStatus === 'approved' &&
-        d.month && d.month.toLowerCase() === prevM.toLowerCase() &&
-        (!d.year || Number(d.year) === Number(currentYear))
-      );
+      const prevDeposits = (deposits || []).filter(d => {
+        if (d.memberId !== member.id) return false;
+        if (d.samityId && member.samityId && d.samityId !== member.samityId) return false;
+        if ((d.approvalStatus || 'approved').toLowerCase() !== 'approved') return false;
+        const dMonth = (d.paymentMonth || d.month || '').toLowerCase();
+        const dYear = Number(d.paymentYear || d.year || 0);
+        return dMonth === prevM.toLowerCase() && (!dYear || dYear === Number(currentYear));
+      });
       const prevWaivers = (waivers || []).filter(w =>
         w.memberId === member.id &&
-        w.samityId === member.samityId &&
+        (!w.samityId || !member.samityId || w.samityId === member.samityId) &&
         w.month && w.month.toLowerCase() === prevM.toLowerCase() &&
         (!w.year || Number(w.year) === Number(currentYear))
       );
@@ -627,7 +650,7 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
   let lateFee = 0;
 
   const lateFeeAuto = samity?.lateFeeAutoApply !== false;
-  if (status !== 'paid' && status !== 'advance_paid' && status !== 'waived' && samity?.lateFeeEnabled && lateFeeAuto && now.getDate() > cutoffDay) {
+  if (!isMemberCancelled && status !== 'paid' && status !== 'advance_paid' && status !== 'waived' && samity?.lateFeeEnabled && lateFeeAuto && now.getDate() > cutoffDay) {
     if (samity?.lateFeeType === 'percentage') {
       const pct = Number(samity?.lateFeePercent || 5);
       lateFee = Math.round((monthlyRequired * pct) / 100);
@@ -640,7 +663,11 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
 
   return {
     memberId: member.id,
-    memberName: member.nameBn || member.nameEn,
+    memberName: member.nameBn || member.nameEn || 'সদস্য',
+    mobile: member.mobile || member.phone || '',
+    whatsappNumber: member.whatsappNumber || member.whatsapp || member.mobile || '',
+    telegramHandle: member.telegramHandle || member.telegramUsername || member.telegram || '',
+    facebookProfileUrl: member.facebookProfileUrl || member.facebookProfile || member.facebookUrl || '',
     month: currentMonth,
     year: currentYear,
     requiredAmount: monthlyRequired,
@@ -653,9 +680,17 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
     lateFee: lateFee,
     totalPayable: dueAmount + lateFee,
     totalCumulativeDue: totalCumulativeDue,
-    status: status, // 'paid' | 'unpaid' | 'partially_paid' | 'advance_paid' | 'waived'
+    status: status, // 'paid' | 'unpaid' | 'partially_paid' | 'advance_paid' | 'waived' | 'cancelled'
     allTimePaid,
-    lastDepositDate: memberDeposits[0]?.date || null
+    depositDate: latestDeposit?.depositDate || latestDeposit?.date || '',
+    bankReceiptNo: latestDeposit?.bankReceiptNo || '',
+    paymentMethod: latestDeposit?.depositMethod || latestDeposit?.method || '',
+    bankName: latestDeposit?.bankName || '',
+    voucherNo: latestDeposit?.voucherNo || '',
+    receiptNo: latestDeposit?.receiptNo || '',
+    depositSlipNo: latestDeposit?.depositSlipNo || '',
+    latestDeposit: latestDeposit,
+    allMonthDeposits: memberDeposits
   };
 };
 

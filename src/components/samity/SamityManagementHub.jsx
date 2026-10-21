@@ -78,6 +78,7 @@ import {
   MOBILE_BANKING_PROVIDERS,
   MOBILE_BANKING_ACCOUNT_TYPES,
   SAMITY_STATUSES,
+  PAYMENT_STATUS_TYPES,
   MEMBER_TYPES,
   MEMBER_STATUSES,
   PAYMENT_CYCLES,
@@ -359,6 +360,15 @@ export const SamityManagementHub = ({ onClose }) => {
   const [editingBulkDeposit, setEditingBulkDeposit] = useState(null);
   const [activeConsolidatedReport, setActiveConsolidatedReport] = useState(null);
   const [bulkSubView, setBulkSubView] = useState('new'); // 'new' | 'history'
+
+  // Payment Status Dashboard Module (#6) Specific Filter States
+  const [psStatusFilter, setPsStatusFilter] = useState('all'); // 'all' | 'paid' | 'unpaid' | 'partially_paid' | 'advance_paid' | 'due' | 'waived' | 'cancelled'
+  const [psMonth, setPsMonth] = useState(() => new Date().toLocaleString('en-US', { month: 'long' }));
+  const [psYear, setPsYear] = useState(() => new Date().getFullYear());
+  const [psSamityId, setPsSamityId] = useState('all');
+  const [psMemberQuery, setPsMemberQuery] = useState('');
+  const [psBankFilter, setPsBankFilter] = useState('all');
+  const [psMethodFilter, setPsMethodFilter] = useState('all');
 
   // Persist helper
   const updateAndSave = (updater, auditMeta = null) => {
@@ -1719,6 +1729,225 @@ export const SamityManagementHub = ({ onClose }) => {
       totalCount: list.length
     };
   }, [data.deposits, activeSamityId, targetMonth, targetYear]);
+
+  // Distinct Banks for Payment Status Filter Dropdown
+  const availableBanks = useMemo(() => {
+    const set = new Set();
+    (data.samities || []).forEach(s => {
+      if (s?.bankDetails?.bankName) set.add(s.bankDetails.bankName.trim());
+      if (s?.bankName) set.add(s.bankName.trim());
+    });
+    (data.deposits || []).forEach(d => {
+      if (d?.bankName) set.add(d.bankName.trim());
+    });
+    if (set.size === 0) {
+      set.add('ডাচ্-বাংলা ব্যাংক');
+      set.add('ইসলামী ব্যাংক বাংলাদেশ');
+      set.add('সোনালী ব্যাংক');
+      set.add('ব্র্যাক ব্যাংক');
+    }
+    return Array.from(set).filter(Boolean);
+  }, [data.samities, data.deposits]);
+
+  // Payment Status Module (#6) - 11 Metrics Calculation
+  const paymentStatusSummary = useMemo(() => {
+    const samity = currentSamity;
+    const relevantMembers = (data.members || []).filter(m => {
+      if (psSamityId !== 'all' && m.samityId !== psSamityId) return false;
+      return true;
+    });
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentYear = Number(psYear || now.getFullYear());
+    const currentMonth = psMonth || now.toLocaleString('en-US', { month: 'long' });
+
+    let totalMembers = relevantMembers.length;
+    let totalPaidMembers = 0;
+    let totalUnpaidMembers = 0;
+    let totalPartiallyPaidMembers = 0;
+    let totalAdvanceMembers = 0;
+    let totalWaivedMembers = 0;
+    let totalCancelledMembers = 0;
+    let totalDueMembers = 0;
+    let totalExpectedCollection = 0;
+    let totalCollectedAmount = 0;
+    let totalDueAmount = 0;
+
+    relevantMembers.forEach(m => {
+      const st = calculateMemberPaymentStatus(m, samity, data.deposits, currentMonth, currentYear, data.waivers);
+      totalExpectedCollection += Number(st.requiredAmount || 0);
+      totalCollectedAmount += Number(st.paidAmount || 0);
+      totalDueAmount += Number(st.dueAmount || 0);
+
+      if (st.status === 'paid') totalPaidMembers++;
+      else if (st.status === 'unpaid') totalUnpaidMembers++;
+      else if (st.status === 'partially_paid') totalPartiallyPaidMembers++;
+      else if (st.status === 'advance_paid') {
+        totalAdvanceMembers++;
+        totalPaidMembers++; // Advance counts as paid
+      } else if (st.status === 'waived') totalWaivedMembers++;
+      else if (st.status === 'cancelled') totalCancelledMembers++;
+
+      if (st.dueAmount > 0) totalDueMembers++;
+    });
+
+    const collectionPercentage = totalExpectedCollection > 0
+      ? Math.min(100, Math.round((totalCollectedAmount / totalExpectedCollection) * 100))
+      : 0;
+
+    // Approved deposits
+    const approvedDeposits = (data.deposits || []).filter(d => {
+      if (psSamityId !== 'all' && d.samityId && d.samityId !== psSamityId) return false;
+      return (d.approvalStatus || 'approved').toLowerCase() === 'approved';
+    });
+
+    // Today's Collection
+    const todayCollection = approvedDeposits
+      .filter(d => (d.depositDate === todayStr || d.date === todayStr))
+      .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+    // This Month's Collection
+    const thisMonthCollection = approvedDeposits
+      .filter(d => {
+        const dMonth = (d.paymentMonth || d.month || '').toLowerCase();
+        const dYear = Number(d.paymentYear || d.year || 0);
+        return (!dMonth || dMonth === currentMonth.toLowerCase()) && (!dYear || dYear === currentYear);
+      })
+      .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+    // This Year's Collection
+    const thisYearCollection = approvedDeposits
+      .filter(d => {
+        const dYear = Number(d.paymentYear || d.year || 0);
+        return !dYear || dYear === currentYear;
+      })
+      .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+    return {
+      totalMembers,
+      totalPaidMembers,
+      totalUnpaidMembers,
+      totalPartiallyPaidMembers,
+      totalAdvanceMembers,
+      totalWaivedMembers,
+      totalCancelledMembers,
+      totalDueMembers,
+      totalExpectedCollection,
+      totalCollectedAmount,
+      totalDueAmount,
+      collectionPercentage,
+      todayCollection,
+      thisMonthCollection,
+      thisYearCollection
+    };
+  }, [data.members, data.deposits, data.waivers, currentSamity, psSamityId, psMonth, psYear]);
+
+  // Filtered Payment Status Member Rows
+  const filteredPaymentStatusList = useMemo(() => {
+    const samity = currentSamity;
+    const currentYear = Number(psYear || new Date().getFullYear());
+    const currentMonth = psMonth || new Date().toLocaleString('en-US', { month: 'long' });
+
+    return (data.members || [])
+      .filter(m => {
+        if (psSamityId !== 'all' && m.samityId !== psSamityId) return false;
+        if (psMemberQuery.trim()) {
+          const q = psMemberQuery.toLowerCase();
+          const matchId = (m.id || '').toLowerCase().includes(q);
+          const matchCode = (m.memberCode || '').toLowerCase().includes(q);
+          const matchName = ((m.nameBn || '') + ' ' + (m.nameEn || '')).toLowerCase().includes(q);
+          const matchPhone = (m.mobile || '').includes(q) || (m.whatsappNumber || '').includes(q);
+          if (!matchId && !matchCode && !matchName && !matchPhone) return false;
+        }
+        return true;
+      })
+      .map(m => {
+        const st = calculateMemberPaymentStatus(m, samity, data.deposits, currentMonth, currentYear, data.waivers);
+        return {
+          member: m,
+          status: st
+        };
+      })
+      .filter(({ member, status }) => {
+        // Status filter:
+        if (psStatusFilter === 'paid') {
+          if (status.status !== 'paid' && status.status !== 'advance_paid') return false;
+        } else if (psStatusFilter === 'unpaid') {
+          if (status.status !== 'unpaid') return false;
+        } else if (psStatusFilter === 'partially_paid') {
+          if (status.status !== 'partially_paid') return false;
+        } else if (psStatusFilter === 'advance_paid') {
+          if (status.status !== 'advance_paid') return false;
+        } else if (psStatusFilter === 'waived') {
+          if (status.status !== 'waived') return false;
+        } else if (psStatusFilter === 'cancelled') {
+          if (status.status !== 'cancelled') return false;
+        } else if (psStatusFilter === 'due') {
+          if (status.dueAmount <= 0) return false;
+        }
+
+        // Bank filter
+        if (psBankFilter !== 'all') {
+          const bankName = (status.bankName || '').toLowerCase();
+          if (!bankName.includes(psBankFilter.toLowerCase())) return false;
+        }
+
+        // Payment Method filter
+        if (psMethodFilter !== 'all') {
+          const method = (status.paymentMethod || '').toLowerCase();
+          if (method !== psMethodFilter.toLowerCase()) return false;
+        }
+
+        return true;
+      });
+  }, [data.members, data.deposits, data.waivers, currentSamity, psSamityId, psMonth, psYear, psMemberQuery, psStatusFilter, psBankFilter, psMethodFilter]);
+
+  // Handler: Print Paid Receipt for Member
+  const handlePrintMemberReceipt = (member, st) => {
+    playButtonClick?.();
+    triggerHaptic();
+    const receiptObj = st.latestDeposit || {
+      id: `RCPT-${member.id}-${st.month}-${st.year}`,
+      voucherNo: st.voucherNo || `DEP-${st.year}-${member.id}`,
+      receiptNo: st.receiptNo || st.bankReceiptNo || `MR-${st.year}-${member.id}`,
+      depositDate: st.depositDate || new Date().toISOString().split('T')[0],
+      depositTime: '12:00',
+      samityName: currentSamity?.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি',
+      bankName: st.bankName || currentSamity?.bankDetails?.bankName || 'ডাচ্-বাংলা ব্যাংক',
+      bankBranch: currentSamity?.bankDetails?.branchName || 'প্রধান শাখা',
+      bankAccountNo: currentSamity?.bankDetails?.accNo || '123456789',
+      bankReceiptNo: st.bankReceiptNo || 'N/A',
+      depositType: 'Monthly Subscription',
+      depositMethod: st.paymentMethod || 'Bank Counter',
+      amount: st.paidAmount || st.requiredAmount,
+      memberId: member.id,
+      memberName: member.nameBn || member.nameEn,
+      depositorName: member.nameBn || member.nameEn,
+      depositorPhone: member.mobile || '',
+      depositorWhatsApp: member.whatsappNumber || '',
+      paymentMonth: st.month,
+      paymentYear: st.year,
+      approvalStatus: 'approved',
+      approvedBy: 'কোষাধ্যক্ষ ও সভাপতি',
+      approvedAt: new Date().toISOString()
+    };
+    setActivePrintReceipt(receiptObj);
+  };
+
+  // Handler: Reset Payment Status Filters
+  const handleResetPaymentStatusFilters = () => {
+    playButtonClick?.();
+    triggerHaptic();
+    setPsStatusFilter('all');
+    setPsMonth(new Date().toLocaleString('en-US', { month: 'long' }));
+    setPsYear(new Date().getFullYear());
+    setPsSamityId('all');
+    setPsMemberQuery('');
+    setPsBankFilter('all');
+    setPsMethodFilter('all');
+    showToast?.('পেমেন্ট ফিল্টার রিসেট করা হয়েছে', 'info');
+  };
 
   return (
     <div
@@ -4774,22 +5003,45 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 5: PAYMENT STATUS & DUES */}
+        {/* TAB 5: PAYMENT STATUS & DUES MODULE (#6) */}
         {activeTab === 'payment_status' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* 1. Header Toolbar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>📋 মাসভিত্তিক সদস্য চাঁদা ও বকেয়া খাতা</h3>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {targetMonth} {targetYear}-এর সকল সদস্যের পেমেন্ট স্ট্যাটাস এবং বকেয়া নোটিশ জেনারেটর
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '10px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CheckCircle2 size={20} color="#38bdf8" />
+                  </div>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>পেমেন্ট স্ট্যাটাস ও চাঁদা ট্র্যাকিং ড্যাশবোর্ড</span>
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                        MODULE #6
+                      </span>
+                    </h2>
+                    <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      প্রতিটি সদস্যের মাসভিত্তিক চাঁদা, জমার রেকর্ড, ব্যাংক রসিদ নম্বর এবং সোশ্যাল কন্টাক্ট লাইভ মনিটরিং
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Month/Year & Action Bar */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <select
-                  value={targetMonth}
-                  onChange={(e) => setTargetMonth(e.target.value)}
-                  style={{ background: 'rgba(15, 23, 42, 0.9)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', padding: '6px 10px', fontSize: '0.8rem', fontWeight: '700' }}
+                  value={psMonth}
+                  onChange={(e) => setPsMonth(e.target.value)}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: '8px',
+                    padding: '7px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
                 >
                   {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
                     <option key={m} value={m}>{m}</option>
@@ -4798,149 +5050,907 @@ export const SamityManagementHub = ({ onClose }) => {
 
                 <input
                   type="number"
-                  value={targetYear}
-                  onChange={(e) => setTargetYear(Number(e.target.value))}
-                  style={{ width: '80px', background: 'rgba(15, 23, 42, 0.9)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', padding: '6px 10px', fontSize: '0.8rem', fontWeight: '700' }}
+                  value={psYear}
+                  onChange={(e) => setPsYear(Number(e.target.value))}
+                  style={{
+                    width: '85px',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: '8px',
+                    padding: '7px 10px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800'
+                  }}
                 />
+
+                <button
+                  onClick={() => handlePrintElement('payment-status-printable-container')}
+                  style={{
+                    background: '#10b981',
+                    color: '#0f172a',
+                    border: 'none',
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                  }}
+                >
+                  <Printer size={15} />
+                  <span>রিপোর্ট প্রিন্ট</span>
+                </button>
+
+                <button
+                  onClick={handleResetPaymentStatusFilters}
+                  title="ফিল্টার রিসেট করুন"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#cbd5e1',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '7px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  <span>রিসেট</span>
+                </button>
               </div>
             </div>
 
-            {/* Payment Status Grid */}
+            {/* 2. 11 Dashboard Summary Cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: '12px'
+              }}
+            >
+              {/* Card 1: Total Members */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>১. মোট সদস্য</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>
+                      {paymentStatusSummary.totalMembers} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8' }}>জন</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(56, 189, 248, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Users size={18} color="#38bdf8" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '6px' }}>নিবন্ধিত সক্রিয় সদস্য</div>
+              </div>
+
+              {/* Card 2: Total Paid Members */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>২. পরিশোধিত সদস্য</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
+                      {paymentStatusSummary.totalPaidMembers} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8' }}>জন</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <CheckCircle2 size={18} color="#10b981" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#10b981', marginTop: '6px' }}>চাঁদা সম্পূর্ণ ক্লিয়ার</div>
+              </div>
+
+              {/* Card 3: Total Unpaid Members */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৩. অপরিশোধিত সদস্য</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#ef4444', marginTop: '4px' }}>
+                      {paymentStatusSummary.totalUnpaidMembers} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8' }}>জন</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <AlertTriangle size={18} color="#ef4444" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#ef4444', marginTop: '6px' }}>বকেয়া তাগাদা প্রযোজ্য</div>
+              </div>
+
+              {/* Card 4: Total Partially Paid */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৪. আংশিক পরিশোধিত</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#f59e0b', marginTop: '4px' }}>
+                      {paymentStatusSummary.totalPartiallyPaidMembers} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8' }}>জন</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Clock size={18} color="#f59e0b" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#f59e0b', marginTop: '6px' }}>আংশিক চাঁদা জমা</div>
+              </div>
+
+              {/* Card 5: Total Expected Collection */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(168, 85, 247, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৫. প্রত্যাশিত মোট চাঁদা</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#c084fc', marginTop: '4px' }}>
+                      ৳ {paymentStatusSummary.totalExpectedCollection.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(168, 85, 247, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Wallet size={18} color="#c084fc" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#a855f7', marginTop: '6px' }}>ধার্যকৃত মোট চাঁদার পরিমাণ</div>
+              </div>
+
+              {/* Card 6: Total Collected Amount */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৬. মোট সংগৃহীত চাঁদা</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#34d399', marginTop: '4px' }}>
+                      ৳ {paymentStatusSummary.totalCollectedAmount.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <DollarSign size={18} color="#34d399" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#10b981', marginTop: '6px' }}>অনুমোদিত মোট জমা</div>
+              </div>
+
+              {/* Card 7: Total Due Amount */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(244, 63, 94, 0.35)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৭. মোট বকেয়া চাঁদা</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#fb7185', marginTop: '4px' }}>
+                      ৳ {paymentStatusSummary.totalDueAmount.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(244, 63, 94, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <AlertTriangle size={18} color="#fb7185" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#f43f5e', marginTop: '6px' }}>অনাদায়ী ব্যালেন্স</div>
+              </div>
+
+              {/* Card 8: Collection Percentage */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৮. আদায়ের শতকরা হার</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#22d3ee', marginTop: '4px' }}>
+                      {paymentStatusSummary.collectionPercentage}%
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(6, 182, 212, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <TrendingUp size={18} color="#22d3ee" />
+                  </div>
+                </div>
+                {/* Progress bar */}
+                <div style={{ height: '5px', width: '100%', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${paymentStatusSummary.collectionPercentage}%`, background: '#22d3ee', borderRadius: '3px' }} />
+                </div>
+              </div>
+
+              {/* Card 9: Today's Collection */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৯. আজকের মোট আদায়</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#fbbf24', marginTop: '4px' }}>
+                      ৳ {paymentStatusSummary.todayCollection.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Sparkles size={18} color="#fbbf24" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#d97706', marginTop: '6px' }}>আজকের দিনের এন্ট্রি</div>
+              </div>
+
+              {/* Card 10: This Month's Collection */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>১০. চলতি মাসের মোট আদায়</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#60a5fa', marginTop: '4px' }}>
+                      ৳ {paymentStatusSummary.thisMonthCollection.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Landmark size={18} color="#60a5fa" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#3b82f6', marginTop: '6px' }}>{psMonth} {psYear} আদায়</div>
+              </div>
+
+              {/* Card 11: This Year's Collection */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(45, 212, 191, 0.25)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>১১. চলতি বছরের মোট আদায়</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#2dd4bf', marginTop: '4px' }}>
+                      ৳ {paymentStatusSummary.thisYearCollection.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(45, 212, 191, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Award size={18} color="#2dd4bf" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#14b8a6', marginTop: '6px' }}>{psYear} অর্থবছরের সঞ্চয়</div>
+              </div>
+            </div>
+
+            {/* 3. Dashboard Multi-Filter Control Center */}
             <div
               style={{
                 background: 'rgba(30, 41, 59, 0.7)',
                 borderRadius: '14px',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                overflowX: 'auto'
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px'
               }}
             >
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              {/* Filter Row 1: Status Filter Chips */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.76rem', color: '#94a3b8', fontWeight: '800', marginRight: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Filter size={14} color="#38bdf8" /> স্ট্যাটাস ফিল্টার:
+                </span>
+
+                {[
+                  { id: 'all', label: 'সকল সদস্য (All)', count: paymentStatusSummary.totalMembers, color: '#38bdf8' },
+                  { id: 'paid', label: 'পরিশোধিত (Paid)', count: paymentStatusSummary.totalPaidMembers, color: '#10b981' },
+                  { id: 'unpaid', label: 'বাকি (Unpaid)', count: paymentStatusSummary.totalUnpaidMembers, color: '#ef4444' },
+                  { id: 'partially_paid', label: 'আংশিক পরিশোধিত (Partial)', count: paymentStatusSummary.totalPartiallyPaidMembers, color: '#f59e0b' },
+                  { id: 'advance_paid', label: 'অগ্রিম পরিশোধিত (Advance)', count: paymentStatusSummary.totalAdvanceMembers, color: '#3b82f6' },
+                  { id: 'due', label: 'বকেয়া সদস্য (Due)', count: paymentStatusSummary.totalDueMembers, color: '#fb7185' },
+                  { id: 'waived', label: 'মওকুফ (Waived)', count: paymentStatusSummary.totalWaivedMembers, color: '#94a3b8' },
+                  { id: 'cancelled', label: 'বাতিলকৃত (Cancelled)', count: paymentStatusSummary.totalCancelledMembers, color: '#e11d48' }
+                ].map(chip => {
+                  const isActive = psStatusFilter === chip.id;
+                  return (
+                    <button
+                      key={chip.id}
+                      onClick={() => {
+                        playButtonClick?.();
+                        triggerHaptic();
+                        setPsStatusFilter(chip.id);
+                      }}
+                      style={{
+                        background: isActive ? chip.color : 'rgba(255, 255, 255, 0.06)',
+                        color: isActive ? '#0f172a' : '#f8fafc',
+                        border: '1px solid ' + (isActive ? chip.color : 'rgba(255, 255, 255, 0.12)'),
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.74rem',
+                        fontWeight: isActive ? '900' : '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{chip.label}</span>
+                      <span
+                        style={{
+                          background: isActive ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255, 255, 255, 0.12)',
+                          color: isActive ? '#0f172a' : chip.color,
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          fontSize: '0.65rem',
+                          fontWeight: '900'
+                        }}
+                      >
+                        {chip.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Filter Row 2: Search by Member, Samity, Bank & Payment Method */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '10px',
+                  alignItems: 'center'
+                }}
+              >
+                {/* Specific Samity Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', marginBottom: '4px' }}>
+                    🏢 নির্দিষ্ট সমিতি (Specific Samity)
+                  </label>
+                  <select
+                    value={psSamityId}
+                    onChange={(e) => setPsSamityId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    <option value="all">সকল সমিতি (All Samities)</option>
+                    {(data.samities || []).map(s => (
+                      <option key={s.id} value={s.id}>{s.nameBn || s.nameEn || s.id}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Specific Member Search */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', marginBottom: '4px' }}>
+                    🔍 নির্দিষ্ট সদস্য সার্চ (ID / নাম / মোবাইল)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="SM-001 বা সদস্যের নাম লিখুন..."
+                      value={psMemberQuery}
+                      onChange={(e) => setPsMemberQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(15, 23, 42, 0.9)',
+                        color: '#fff',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        borderRadius: '8px',
+                        padding: '7px 10px 7px 32px',
+                        fontSize: '0.78rem',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  </div>
+                </div>
+
+                {/* Specific Bank Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', marginBottom: '4px' }}>
+                    🏦 নির্দিষ্ট ব্যাংক (Specific Bank)
+                  </label>
+                  <select
+                    value={psBankFilter}
+                    onChange={(e) => setPsBankFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    <option value="all">সকল ব্যাংক (All Banks)</option>
+                    {availableBanks.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Specific Payment Method Filter */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', marginBottom: '4px' }}>
+                    💳 পেমেন্ট মাধ্যম (Payment Method)
+                  </label>
+                  <select
+                    value={psMethodFilter}
+                    onChange={(e) => setPsMethodFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    <option value="all">সকল মাধ্যম (All Methods)</option>
+                    {DEPOSIT_METHODS.map(m => (
+                      <option key={m.value} value={m.value}>{m.labelBn}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Payment Status Data Grid Table Container */}
+            <div
+              id="payment-status-printable-container"
+              style={{
+                background: 'rgba(30, 41, 59, 0.7)',
+                borderRadius: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                overflowX: 'auto',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <table style={{ width: '100%', minWidth: '1280px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                 <thead>
-                  <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>সদস্য আইডি</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>নাম ও পদবি</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>মোবাইল / WA</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>চাঁদার হার</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>জমা টাকা</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>বকেয়া টাকা</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>পেমেন্ট স্ট্যাটাস</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>অ্যাকশন</th>
+                  <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '2px solid rgba(255, 255, 255, 0.12)' }}>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>সদস্য আইডি</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>সদস্যের নাম</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>মোবাইল নম্বর</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>WhatsApp</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>Telegram</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>Facebook</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>চাঁদার মাস</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>বছর</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>ধার্যকৃত চাঁদা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>জমা টাকা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>বকেয়া টাকা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>পেমেন্ট স্ট্যাটাস</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>জমার তারিখ</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>ব্যাংক রসিদ নং</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>পেমেন্ট মাধ্যম</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>রসিদ প্রিন্ট</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>তাগাদা / রিমাইন্ডার</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMembers.length === 0 ? (
+                  {filteredPaymentStatusList.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        কোনো সদস্য পাওয়া যায়নি।
+                      <td colSpan={17} style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                          <CheckCircle2 size={36} color="#38bdf8" />
+                          <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#f8fafc' }}>
+                            কোনো সদস্যের পেমেন্ট তথ্য পাওয়া যায়নি
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.78rem' }}>
+                            ফিল্টার পরিবর্তনের চেষ্টা করুন অথবা নতুন সদস্য বা ব্যাংক ডিপোজিট রেকর্ড এন্ট্রি করুন।
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   ) : (
-                    filteredMembers.map(member => {
-                      const st = calculateMemberPaymentStatus(member, currentSamity, data.deposits, targetMonth, targetYear);
+                    filteredPaymentStatusList.map(({ member, status: st }) => {
+                      // Color coding according to rules:
+                      // Paid: Green, Unpaid: Red, Partially Paid: Yellow/Orange, Advance Paid: Blue, Waived: Grey, Cancelled: Slate/Dark Red
+                      let statusBadgeStyle = {
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#ef4444',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        labelBn: 'বাকি (Unpaid)'
+                      };
+
+                      if (st.status === 'paid') {
+                        statusBadgeStyle = {
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          labelBn: 'পরিশোধিত (Paid)'
+                        };
+                      } else if (st.status === 'advance_paid') {
+                        statusBadgeStyle = {
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          color: '#3b82f6',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          labelBn: 'অগ্রিম পরিশোধিত (Advance)'
+                        };
+                      } else if (st.status === 'partially_paid') {
+                        statusBadgeStyle = {
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: '#f59e0b',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          labelBn: 'আংশিক পরিশোধিত (Partial)'
+                        };
+                      } else if (st.status === 'waived') {
+                        statusBadgeStyle = {
+                          background: 'rgba(148, 163, 184, 0.15)',
+                          color: '#94a3b8',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          labelBn: 'মওকুফ (Waived)'
+                        };
+                      } else if (st.status === 'cancelled') {
+                        statusBadgeStyle = {
+                          background: 'rgba(225, 29, 72, 0.15)',
+                          color: '#e11d48',
+                          border: '1px solid rgba(225, 29, 72, 0.3)',
+                          labelBn: 'বাতিলকৃত (Cancelled)'
+                        };
+                      }
+
+                      const cleanPhone = (member.mobile || '').replace(/[^0-9]/g, '');
+                      const cleanWa = (member.whatsappNumber || member.mobile || '').replace(/[^0-9]/g, '');
+                      const formattedWaNumber = cleanWa.startsWith('880') ? cleanWa : cleanWa.startsWith('0') ? `88${cleanWa}` : cleanWa ? `880${cleanWa}` : '';
+
                       return (
-                        <tr key={member.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                          <td style={{ padding: '12px 14px', fontWeight: '900', color: '#38bdf8' }}>{member.id}</td>
+                        <tr
+                          key={member.id}
+                          style={{
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                            transition: 'background 0.1s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          {/* 1. Member ID */}
+                          <td style={{ padding: '12px 14px', fontWeight: '900', color: '#38bdf8', whiteSpace: 'nowrap' }}>
+                            {member.id}
+                          </td>
+
+                          {/* 2. Member Name */}
                           <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: '800' }}>{member.nameBn || member.nameEn}</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{member.membershipType}</div>
+                            <div style={{ fontWeight: '800', color: '#f8fafc' }}>
+                              {member.nameBn || member.nameEn}
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                              {member.membershipType || 'সদস্য'}
+                            </div>
                           </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div>{member.mobile}</div>
-                            {member.whatsappNumber && <div style={{ fontSize: '0.7rem', color: '#10b981' }}>WA: {member.whatsappNumber}</div>}
+
+                          {/* 3. Mobile Number */}
+                          <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                            {member.mobile ? (
+                              <a
+                                href={`tel:${member.mobile}`}
+                                style={{ color: '#cbd5e1', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Phone size={12} color="#94a3b8" />
+                                <span>{member.mobile}</span>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#64748b' }}>—</span>
+                            )}
                           </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>
-                            ৳ {st.requiredAmount}
+
+                          {/* 4. WhatsApp Number */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {formattedWaNumber ? (
+                              <a
+                                href={`https://wa.me/${formattedWaNumber}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={`WhatsApp খুলুন: ${member.whatsappNumber || member.mobile}`}
+                                style={{
+                                  background: 'rgba(37, 211, 102, 0.15)',
+                                  color: '#25D366',
+                                  border: '1px solid rgba(37, 211, 102, 0.3)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '800',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Share2 size={11} />
+                                <span>{member.whatsappNumber || member.mobile}</span>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#64748b' }}>—</span>
+                            )}
                           </td>
+
+                          {/* 5. Telegram Number/Username */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {member.telegramHandle ? (
+                              <a
+                                href={`https://t.me/${member.telegramHandle.replace('@', '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={`Telegram খুলুন: ${member.telegramHandle}`}
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  color: '#38bdf8',
+                                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '800',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Send size={11} />
+                                <span>{member.telegramHandle}</span>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#64748b' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* 6. Facebook Profile URL */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {member.facebookProfileUrl ? (
+                              <a
+                                href={member.facebookProfileUrl.startsWith('http') ? member.facebookProfileUrl : `https://${member.facebookProfileUrl}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="ফেসবুক প্রোফাইল দেখুন"
+                                style={{
+                                  background: 'rgba(59, 130, 246, 0.15)',
+                                  color: '#60a5fa',
+                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '800',
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <ExternalLink size={11} />
+                                <span>ফেসবুক</span>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#64748b' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* 7. Payment Month */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '700', color: '#cbd5e1' }}>
+                            {st.month}
+                          </td>
+
+                          {/* 8. Payment Year */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '700', color: '#cbd5e1' }}>
+                            {st.year}
+                          </td>
+
+                          {/* 9. Required Amount */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#cbd5e1' }}>
+                            ৳ {st.requiredAmount.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* 10. Paid Amount */}
                           <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#10b981' }}>
-                            ৳ {st.paidAmount}
+                            ৳ {st.paidAmount.toLocaleString('en-IN')}
                           </td>
+
+                          {/* 11. Due Amount */}
                           <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: st.dueAmount > 0 ? '#ef4444' : '#10b981' }}>
-                            ৳ {st.dueAmount}
-                            {st.lateFee > 0 && <span style={{ fontSize: '0.68rem', color: '#f59e0b', display: 'block' }}>+জরিমানা: {st.lateFee}</span>}
+                            ৳ {st.dueAmount.toLocaleString('en-IN')}
+                            {st.lateFee > 0 && (
+                              <span style={{ display: 'block', fontSize: '0.66rem', color: '#f59e0b', fontWeight: '800' }}>
+                                +বিলম্ব ফি: ৳{st.lateFee}
+                              </span>
+                            )}
                           </td>
+
+                          {/* 12. Payment Status Badge */}
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                             <span
                               style={{
-                                background: st.status === 'paid' ? 'rgba(16, 185, 129, 0.2)' : st.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                                color: st.status === 'paid' ? '#10b981' : st.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
-                                padding: '3px 8px',
+                                background: statusBadgeStyle.background,
+                                color: statusBadgeStyle.color,
+                                border: statusBadgeStyle.border,
+                                padding: '4px 10px',
                                 borderRadius: '6px',
                                 fontSize: '0.72rem',
-                                fontWeight: '800'
+                                fontWeight: '900',
+                                whiteSpace: 'nowrap'
                               }}
                             >
-                              {st.status === 'paid' ? 'পরিশোধিত' : st.status === 'partially_paid' ? 'আংশিক পরিশোধ' : 'বাকি'}
+                              {statusBadgeStyle.labelBn}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                              {st.dueAmount > 0 ? (
-                                <>
-                                  <button
-                                    onClick={() => handleSendReminder(member, 'whatsapp')}
-                                    title="WhatsApp তাগাদা"
-                                    style={{
-                                      background: 'rgba(37, 211, 102, 0.15)',
-                                      color: '#25D366',
-                                      border: 'none',
-                                      padding: '4px 8px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: '800',
-                                      cursor: 'pointer',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px'
-                                    }}
-                                  >
-                                    <Send size={11} />
-                                    <span>রিমাইন্ডার</span>
-                                  </button>
-                                  <button
-                                    onClick={() => setActivePrintNotice({ member, status: st })}
-                                    title="বকেয়া নোটিশ প্রিন্ট"
-                                    style={{
-                                      background: 'rgba(239, 68, 68, 0.15)',
-                                      color: '#ef4444',
-                                      border: 'none',
-                                      padding: '4px 8px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: '800',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    নোটিশ
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setWaiverTargetMember({ member, status: st });
-                                      setWaiverForm({
-                                        amount: st.dueAmount,
-                                        reason: 'বিশেষ আর্থিক অসচ্ছলতা বিবেচনায় মওকুফ',
-                                        approvedBy: 'সভাপতি ও কোষাধ্যক্ষ'
-                                      });
-                                      setIsWaiverModalOpen(true);
-                                    }}
-                                    title="বকেয়া মওকুফ (Waiver)"
-                                    style={{
-                                      background: 'rgba(168, 85, 247, 0.15)',
-                                      color: '#c084fc',
-                                      border: 'none',
-                                      padding: '4px 8px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.72rem',
-                                      fontWeight: '800',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    মওকুফ
-                                  </button>
-                                </>
-                              ) : (
-                                <span style={{ color: '#10b981', fontSize: '0.74rem', fontWeight: '800' }}>✓ পরিশোধিত</span>
-                              )}
-                            </div>
+
+                          {/* 13. Deposit Date */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                            {st.depositDate || '—'}
+                          </td>
+
+                          {/* 14. Bank Receipt Number */}
+                          <td style={{ padding: '12px 14px', color: st.bankReceiptNo ? '#38bdf8' : '#64748b', fontWeight: st.bankReceiptNo ? '800' : '400', whiteSpace: 'nowrap' }}>
+                            {st.bankReceiptNo || '—'}
+                          </td>
+
+                          {/* 15. Payment Method */}
+                          <td style={{ padding: '12px 14px', color: '#cbd5e1', whiteSpace: 'nowrap' }}>
+                            {st.paymentMethod ? (
+                              <span style={{ background: 'rgba(255, 255, 255, 0.08)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '700' }}>
+                                {st.paymentMethod}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+
+                          {/* 16. Receipt Print Button */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <button
+                              onClick={() => handlePrintMemberReceipt(member, st)}
+                              title={st.paidAmount > 0 ? "পেইড মানি রসিদ প্রিন্ট করুন" : "মানি রসিদ জেনারেট করুন"}
+                              style={{
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                color: '#10b981',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Printer size={12} />
+                              <span>রসিদ প্রিন্ট</span>
+                            </button>
+                          </td>
+
+                          {/* 17. Reminder Send Button */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {st.dueAmount > 0 ? (
+                              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                <button
+                                  onClick={() => handleSendReminder(member, 'whatsapp')}
+                                  title="হোয়াটসঅ্যাপে তাগাদা পাঠান"
+                                  style={{
+                                    background: 'rgba(37, 211, 102, 0.15)',
+                                    color: '#25D366',
+                                    border: '1px solid rgba(37, 211, 102, 0.3)',
+                                    padding: '5px 9px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Send size={11} />
+                                  <span>তাগাদা</span>
+                                </button>
+
+                                <button
+                                  onClick={() => setActivePrintNotice({ member, status: st })}
+                                  title="বকেয়া নোটিশ প্রিন্ট"
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '800',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  নোটিশ
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#10b981', fontSize: '0.74rem', fontWeight: '900', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Check size={13} />
+                                <span>ক্লিয়ার</span>
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -4948,6 +5958,32 @@ export const SamityManagementHub = ({ onClose }) => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Table Footer Summary Row */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+                padding: '10px 14px',
+                background: 'rgba(15, 23, 42, 0.8)',
+                borderRadius: '10px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                fontSize: '0.76rem',
+                color: '#94a3b8'
+              }}
+            >
+              <div>
+                প্রদর্শিত সদস্য: <strong style={{ color: '#38bdf8' }}>{filteredPaymentStatusList.length}</strong> জন (মোট {paymentStatusSummary.totalMembers} জনের মধ্যে)
+              </div>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div>মোট জমা: <strong style={{ color: '#10b981' }}>৳ {paymentStatusSummary.totalCollectedAmount.toLocaleString('en-IN')}</strong></div>
+                <div>মোট বকেয়া: <strong style={{ color: '#ef4444' }}>৳ {paymentStatusSummary.totalDueAmount.toLocaleString('en-IN')}</strong></div>
+                <div>আদায় হার: <strong style={{ color: '#22d3ee' }}>{paymentStatusSummary.collectionPercentage}%</strong></div>
+              </div>
             </div>
           </div>
         )}
