@@ -812,48 +812,63 @@ export const calculateSamityMetrics = (samityId, data) => {
 };
 
 // Reminder Message Formatter (WhatsApp, SMS, Telegram, Messenger)
-export const formatReminderMessage = ({ member, samity, dueInfo, channel = 'whatsapp', lang = 'bn' }) => {
+export const formatReminderMessage = ({ member, samity, dueInfo, channel = 'whatsapp', templateType = 'standard', lang = 'bn' }) => {
   const samityName = lang === 'bn' ? samity.nameBn : samity.nameEn;
   const memberName = lang === 'bn' ? member.nameBn || member.nameEn : member.nameEn || member.nameBn;
-  const month = dueInfo.month;
-  const dueAmount = dueInfo.dueAmount;
-  const deadline = `${samity.subscriptionDueDay || 10} ${dueInfo.month} ${dueInfo.year}`;
+  const month = dueInfo.month || 'চলতি মাস';
+  const dueAmount = dueInfo.dueAmount || 0;
+  const deadline = `${samity.subscriptionDueDay || 10} ${dueInfo.month || ''} ${dueInfo.year || ''}`;
 
-  const treasurer = samity.bankDetails?.accName || samity.phone || 'অফিস';
   const bkashNo = samity.mobileBanking?.number || samity.mobile || '01XXXXXXXXX';
   const bankNo = samity.bankDetails?.accNo || '';
   const bankName = samity.bankDetails?.bankName || '';
 
   if (lang === 'bn') {
-    return `প্রিয় ${memberName},
+    let headerIntro = `আপনার ${month} মাসের "${samityName}"-এর মাসিক চাঁদা ৳${dueAmount}/- এখনো জমা হয়নি।`;
+    if (templateType === 'pre_due_7') {
+      headerIntro = `আসন্ন ${month} মাসের নিয়মিত মাসিক চাঁদা ৳${dueAmount}/- আগামী ৭ দিনের মধ্যে (${deadline}) জমা দেওয়ার জন্য অগ্রিম অনুরোধ করা হলো।`;
+    } else if (templateType === 'pre_due_3') {
+      headerIntro = `স্মরণ করিয়ে দিচ্ছি যে, ${month} মাসের চাঁদা ৳${dueAmount}/- পরিশোধের আর মাত্র ৩ দিন বাকি আছে (শেষ তারিখ: ${deadline})।`;
+    } else if (templateType === 'due_date') {
+      headerIntro = `আজকে ${month} মাসের নিয়মিত মাসিক চাঁদা ৳${dueAmount}/- জমা প্রদানের নির্ধারিত শেষ দিন (${deadline})। বিলম্ব ফি এড়াতে আজই জমা দিন।`;
+    } else if (templateType === 'post_due_3') {
+      headerIntro = `আপনার ${month} মাসের মাসিক চাঁদা ৳${dueAmount}/- নির্ধারিত সময়সীমা (${deadline}) অতিক্রান্ত হয়েছে। পরবর্তী জরিমানা এড়াতে অবিলম্বে পরিশোধ করুন।`;
+    } else if (templateType === 'post_due_7') {
+      headerIntro = `জরুরি নোটিশ: আপনার ${month} মাসের বকেয়া চাঁদা ৳${dueAmount}/- নির্ধারিত শেষ তারিখের ৭ দিন পরেও অপরিশোধিত রয়েছে।`;
+    } else if (templateType === 'final_warning') {
+      headerIntro = `⚠️ চূড়ান্ত সতর্কবার্তা / FINAL NOTICE: সমিতির বিধিমালা অনুযায়ী বারবার তাগাদা সত্ত্বেও আপনার বকেয়া ৳${dueAmount}/- পরিশোধ করা হয়নি। আগামী ৩ কার্যদিবসের মধ্যে পরিশোধ না করলে সদস্যপদ স্থগিতের প্রক্রিয়া শুরু হতে পারে।`;
+    }
 
-আপনার ${month} মাসের "${samityName}"-এর মাসিক চাঁদা ${dueAmount}/- টাকা এখনো জমা হয়নি।
+    return `সম্মানিত ${memberName},
+আইডি: ${member.id}
 
-🗓️ জমার শেষ তারিখ: ${deadline}
-💳 জমার মাধ্যম:
+${headerIntro}
+
+🗓️ জমার শেষ সময়সীমা: ${deadline}
+💳 জমার হিসাব বিবরণ:
 • ব্যাংক: ${bankName} (হিসাব নং: ${bankNo})
-• বিকাশ/নগদ: ${bkashNo} (${samity.mobileBanking?.accountType || 'মার্চেন্ট'})
+• বিকাশ/নগদ: ${bkashNo} (${samity.mobileBanking?.accountType || 'মার্চেন্ট'}, Ref: ${member.id})
 
-টাকা জমা দেওয়ার পর দয়া করে ট্রানজ্যাকশন আইডি অথবা ব্যাংক রিসিটের ছবি পাঠিয়ে কনফার্ম করবেন।
+টাকা জমা দেওয়ার পর অনুগ্রহ করে ট্রানজ্যাকশন আইডি বা ব্যাংক রিসিটের ছবি পাঠিয়ে নিশ্চিত করুন।
 
 ধন্যবাদান্তে,
 ${samityName}
-যোগাযোগ: ${samity.mobile || samity.phone}`;
+হেল্পলাইন: ${samity.mobile || samity.phone}`;
   } else {
-    return `Dear ${memberName},
+    return `Dear ${memberName} (ID: ${member.id}),
 
 Your monthly subscription for ${month} of "${samityName}" amounting to BDT ${dueAmount}/- is currently due.
 
 🗓️ Deadline: ${deadline}
 💳 Payment Methods:
 • Bank: ${bankName} (A/C: ${bankNo})
-• bKash/Nagad: ${bkashNo}
+• bKash/Nagad: ${bkashNo} (Ref: ${member.id})
 
-Please share the deposit slip or transaction ID after payment.
+Please share deposit slip or transaction ID after payment.
 
 Best regards,
 ${samityName}
-Contact: ${samity.mobile || samity.phone}`;
+Helpline: ${samity.mobile || samity.phone}`;
   }
 };
 

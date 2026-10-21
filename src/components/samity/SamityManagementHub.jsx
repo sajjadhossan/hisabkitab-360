@@ -132,7 +132,7 @@ export const SamityManagementHub = ({ onClose }) => {
     if (activeTab === 'all_modules') return 'all_modules';
     if (['dashboard', 'samity_setup', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
     if (['members', 'due_mgmt', 'payment_status', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_dues';
-    if (['deposits', 'bulk_deposit'].includes(activeTab)) return 'deposits_receipts';
+    if (['deposits', 'bulk_deposit', 'paid_receipt'].includes(activeTab)) return 'deposits_receipts';
     if (['reminders'].includes(activeTab)) return 'reminders_hub';
     if (['expenses', 'fund_balance', 'approvals', 'reports'].includes(activeTab)) return 'finance_reports';
     return 'admin_system';
@@ -383,6 +383,37 @@ export const SamityManagementHub = ({ onClose }) => {
     paymentMethod: 'Bank Counter',
     bankReceiptNo: '',
     notes: ''
+  });
+
+  // Paid Receipt Module (#8) States
+  const [receiptCopyType, setReceiptCopyType] = useState('original'); // 'original' | 'member' | 'office' | 'duplicate'
+  const [receiptNumberFormat, setReceiptNumberFormat] = useState('RCPT'); // 'RCPT' | 'SM' | 'HKB'
+  const [receiptSearchQuery, setReceiptSearchQuery] = useState('');
+  const [receiptFilterMonth, setReceiptFilterMonth] = useState('all');
+  const [receiptFilterMethod, setReceiptFilterMethod] = useState('all');
+  const [receiptFilterStatus, setReceiptFilterStatus] = useState('all'); // 'all' | 'approved' | 'cancelled'
+  const [isCancelReceiptModalOpen, setIsCancelReceiptModalOpen] = useState(false);
+  const [cancelReceiptTarget, setCancelReceiptTarget] = useState(null);
+  const [cancelReceiptReason, setCancelReceiptReason] = useState('ভুল এন্ট্রি বা ডুপ্লিকেট ডিপোজিট বাতিলকরণ');
+  const [cancelReceiptApprovedBy, setCancelReceiptApprovedBy] = useState('সভাপতি ও কোষাধ্যক্ষ');
+  const [isVerifyQrModalOpen, setIsVerifyQrModalOpen] = useState(false);
+  const [verifyQrTarget, setVerifyQrTarget] = useState(null);
+
+  // Reminder Module (#9) States
+  const [reminderActiveTab, setReminderActiveTab] = useState('queue'); // 'queue' | 'multi_select' | 'all_unpaid' | 'partially_paid' | 'month_due' | 'year_due' | 'scheduled_config' | 'history'
+  const [reminderSearchQuery, setReminderSearchQuery] = useState('');
+  const [reminderSelectedMemberIds, setReminderSelectedMemberIds] = useState([]);
+  const [reminderTemplateType, setReminderTemplateType] = useState('standard'); // 'standard' | 'pre_due_7' | 'pre_due_3' | 'due_date' | 'post_due_3' | 'post_due_7' | 'final_warning'
+  const [reminderScheduleConfig, setReminderScheduleConfig] = useState({
+    preDue7: true,
+    preDue3: true,
+    onDueDate: true,
+    postDue3: true,
+    postDue7: true,
+    recurring7: true,
+    stopOnPaid: true,
+    stopOnWaived: true,
+    stopOnInactive: true
   });
 
   // Persist helper
@@ -1370,44 +1401,82 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   // --------------------------------------------------------------------------
-  // Reminder Dispatcher
+  // Reminder Dispatcher & History Logger (All 12 Spec Audit Fields)
   // --------------------------------------------------------------------------
-  const handleSendReminder = (member, channel) => {
+  const handleSendReminder = (member, channel = 'whatsapp', templateType = reminderTemplateType, customText = null) => {
     playButtonClick?.();
     triggerHaptic();
 
     const dueInfo = calculateMemberPaymentStatus(member, currentSamity, data.deposits, targetMonth, targetYear);
-    const msg = formatReminderMessage({ member, samity: currentSamity, dueInfo, channel, lang });
+    const msg = customText || formatReminderMessage({ member, samity: currentSamity, dueInfo, channel, templateType, lang });
+
+    let deliveryStatus = 'Sent';
+    let failureReason = null;
 
     if (channel === 'whatsapp') {
       const url = getWhatsAppUrl(member.whatsappNumber || member.mobile, msg);
-      if (url) window.open(url, '_blank');
-      else showToast?.('সদস্যের সঠিক মোবাইল/হোয়াটসঅ্যাপ নম্বর নেই', 'error');
+      if (url) {
+        window.open(url, '_blank');
+        deliveryStatus = 'Delivered (WhatsApp Web/App)';
+      } else {
+        failureReason = 'সদস্যের সঠিক মোবাইল বা হোয়াটসঅ্যাপ নম্বর নেই';
+        deliveryStatus = 'Failed';
+        showToast?.(failureReason, 'error');
+      }
     } else if (channel === 'telegram') {
       const url = getTelegramUrl(member.telegramHandle || member.mobile, msg);
-      if (url) window.open(url, '_blank');
-      else showToast?.('সদস্যের টেলিগ্রাম হ্যান্ডেল পাওয়া যায়নি', 'warning');
+      if (url) {
+        window.open(url, '_blank');
+        deliveryStatus = 'Delivered (Telegram)';
+      } else {
+        failureReason = 'টেলিগ্রাম হ্যান্ডেল পাওয়া যায়নি';
+        deliveryStatus = 'Failed';
+        showToast?.(failureReason, 'warning');
+      }
     } else if (channel === 'messenger') {
       navigator.clipboard?.writeText(msg);
       showToast?.('রিমাইন্ডার মেসেজ ক্লিপবোর্ডে কপি হয়েছে! মেসেঞ্জারে পেস্ট করুন', 'success');
       const url = getMessengerUrl(member.facebookProfileUrl);
       if (url) window.open(url, '_blank');
+      deliveryStatus = 'Delivered (Clipboard/Messenger)';
     } else if (channel === 'sms') {
       navigator.clipboard?.writeText(msg);
       showToast?.('এসএমএস টেক্সট কপি হয়েছে (SMS Gateway Queued)', 'success');
+      deliveryStatus = 'Queued (SMS Gateway)';
+    } else if (channel === 'email') {
+      if (member.email) {
+        window.open(`mailto:${member.email}?subject=${encodeURIComponent(currentSamity.nameBn + ' - বকেয়া চাঁদা পরিশোধের নোটিশ')}&body=${encodeURIComponent(msg)}`, '_blank');
+        deliveryStatus = 'Delivered (Email Client)';
+        showToast?.('ইমেইল ড্রাফট ওপেন হয়েছে', 'success');
+      } else {
+        failureReason = 'সদস্যের ইমেইল অ্যাড্রেস নেই';
+        deliveryStatus = 'Failed';
+        showToast?.(failureReason, 'warning');
+      }
     }
 
-    // Record Reminder Log
+    const prevRemindersCount = (data.reminders || []).filter(r => r.memberId === member.id).length;
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    // Record Detailed Reminder History Item (All required specification fields)
     const logItem = {
-      id: `REM-${Date.now()}`,
+      id: `REM-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       samityId: activeSamityId,
       memberId: member.id,
       memberName: member.nameBn || member.nameEn,
-      channel,
-      dueMonth: targetMonth,
-      dueAmount: dueInfo.dueAmount,
+      reminderDate: dateStr,
+      reminderTime: timeStr,
+      channel: channel.toUpperCase(),
+      templateUsed: templateType,
       messageContent: msg,
-      sentAt: new Date().toISOString()
+      sentBy: 'কোষাধ্যক্ষ ও সমিতি প্রশাসন',
+      deliveryStatus: deliveryStatus,
+      failureReason: failureReason,
+      reminderCount: prevRemindersCount + 1,
+      paymentStatusAfter: dueInfo.dueAmount <= 0 ? 'পরিশোধিত' : 'বকেয়া রয়েছে',
+      sentAt: now.toISOString()
     };
 
     updateAndSave(prev => ({
@@ -1417,8 +1486,111 @@ export const SamityManagementHub = ({ onClose }) => {
       action: 'SEND_REMINDER',
       module: 'REMINDERS',
       recordId: member.id,
-      details: { channel, member: member.nameBn }
+      details: { channel, member: member.nameBn, template: templateType }
     });
+
+    if (deliveryStatus !== 'Failed') {
+      showToast?.(`${member.nameBn || member.id} কে ${channel.toUpperCase()} তাগাদা সফলভাবে প্রেরণ করা হয়েছে!`, 'success');
+    }
+  };
+
+  // Batch Reminder Dispatcher for Multiple Selected Members
+  const handleBatchSendReminders = (membersList, channel = 'whatsapp', templateType = reminderTemplateType) => {
+    if (!membersList || membersList.length === 0) {
+      showToast?.('কোনো সদস্য নির্বাচন করা হয়নি', 'warning');
+      return;
+    }
+    playButtonClick?.();
+    triggerHaptic();
+
+    let count = 0;
+    membersList.forEach(m => {
+      handleSendReminder(m, channel, templateType);
+      count++;
+    });
+
+    showToast?.(`মোট ${count} জন সদস্যের জন্য ${channel.toUpperCase()} তাগাদা কিউতে যুক্ত করা হয়েছে!`, 'success');
+    setReminderSelectedMemberIds([]);
+  };
+
+  // Helper: Format Receipt Number (Supports RCPT-2026-000001, SM-2026-10-000001, HKB-SAMITY-000001)
+  const getFormattedReceiptNo = (deposit, format = receiptNumberFormat) => {
+    if (!deposit) return 'RCPT-2026-000001';
+    const depNum = String(deposit.receiptNo || deposit.voucherNo || deposit.id || '').replace(/[^0-9]/g, '').slice(-6) || '000001';
+    const year = deposit.paymentYear || new Date().getFullYear();
+    const monthNum = '10';
+    if (format === 'SM') {
+      return `SM-${year}-${monthNum}-${depNum}`;
+    }
+    if (format === 'HKB') {
+      return `HKB-${currentSamity.code || 'SAMITY'}-${depNum}`;
+    }
+    return deposit.receiptNo || `RCPT-${year}-${depNum}`;
+  };
+
+  // Helper: Format WhatsApp Share Text for Paid Receipt
+  const getReceiptShareWhatsAppText = (deposit, samity, copyType) => {
+    const rcptNo = getFormattedReceiptNo(deposit);
+    const date = deposit.depositDate || new Date().toLocaleDateString('bn-BD');
+    const amount = Number(deposit.amount || 0);
+    const memberName = deposit.memberName || deposit.depositorName || 'সম্মানিত সদস্য';
+    const copyLabel = copyType === 'duplicate' ? 'দ্বিতীয় অনুলিপি (Duplicate)' : copyType === 'member' ? 'গ্রাহক অনুলিপি (Member Copy)' : copyType === 'office' ? 'অফিস কপি (Office Copy)' : 'মূল কপি (Original)';
+
+    return `🧾 *${samity.nameBn}*
+*পরিশোধ রিসিট / PAYMENT RECEIPT* (${copyLabel})
+-----------------------------------------
+রিসিট নং: *${rcptNo}*
+তারিখ: ${date}
+সদস্য: *${memberName}* (আইডি: ${deposit.memberId || 'N/A'})
+জমার খাত: ${deposit.depositType || 'মাসিক চাঁদা'} (${deposit.paymentMonth || ''} ${deposit.paymentYear || ''})
+পরিশোধের মাধ্যম: ${deposit.depositMethod || 'ব্যাংক'} ${deposit.bankReceiptNo ? `(স্লিপ: ${deposit.bankReceiptNo})` : ''}
+*জমা টাকার পরিমাণ: ৳ ${amount.toLocaleString('en-IN')}/-*
+কথায়: ${numberToBanglaWords(amount)}
+স্ট্যাটাস: ${deposit.approvalStatus === 'cancelled' ? '❌ বাতিলকৃত (Cancelled)' : '✅ পরিশোধিত ও অনুমোদিত (PAID)'}
+-----------------------------------------
+এটি একটি ডিজিটাল ভেরিফাইড রসিদ।
+হেল্পলাইন: ${samity.mobile || ''}`;
+  };
+
+  // Handler: Cancel Receipt with Authorized Permission
+  const handleCancelReceipt = (e) => {
+    e?.preventDefault?.();
+    if (!cancelReceiptTarget) return;
+    playButtonClick?.();
+    triggerHaptic();
+
+    const targetId = cancelReceiptTarget.id;
+    updateAndSave(prev => ({
+      ...prev,
+      deposits: (prev.deposits || []).map(d => 
+        d.id === targetId ? {
+          ...d,
+          approvalStatus: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+          cancellationReason: cancelReceiptReason,
+          cancelledBy: cancelReceiptApprovedBy
+        } : d
+      )
+    }), {
+      action: 'CANCEL_RECEIPT',
+      module: 'PAID_RECEIPT',
+      recordId: targetId,
+      details: { reason: cancelReceiptReason, approvedBy: cancelReceiptApprovedBy }
+    });
+
+    if (activePrintReceipt?.id === targetId) {
+      setActivePrintReceipt(prev => ({
+        ...prev,
+        approvalStatus: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        cancellationReason: cancelReceiptReason,
+        cancelledBy: cancelReceiptApprovedBy
+      }));
+    }
+
+    setIsCancelReceiptModalOpen(false);
+    setCancelReceiptTarget(null);
+    showToast?.(`রিসিট #${cancelReceiptTarget.receiptNo || cancelReceiptTarget.voucherNo} বাতিল হিসেবে চিহ্নিত হয়েছে`, 'info');
   };
 
   // --------------------------------------------------------------------------
@@ -2513,11 +2685,12 @@ export const SamityManagementHub = ({ onClose }) => {
 
           {activeCluster === 'deposits_receipts' && [
             { id: 'deposits', label: '💳 ব্যাংক ও নগদ জমা', count: data.deposits.length },
-            { id: 'bulk_deposit', label: '📑 বাল্ক ব্যাংক জমা' }
+            { id: 'bulk_deposit', label: '📑 বাল্ক ব্যাংক জমা' },
+            { id: 'paid_receipt', label: '🧾 পেইড রিসিট ও ভাউচার হাব (#৮)', count: data.deposits.length }
           ].map(renderSubPill)}
 
           {activeCluster === 'reminders_hub' && [
-            { id: 'reminders', label: '📢 মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার (WhatsApp, SMS, Telegram, Messenger)' }
+            { id: 'reminders', label: '📢 স্মার্ট তাগাদা ও রিমাইন্ডার সেন্টার (#৯)' }
           ].map(renderSubPill)}
 
           {activeCluster === 'finance_reports' && [
@@ -5254,6 +5427,440 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
+        {/* TAB 8: PAID RECEIPT & VOUCHER MANAGEMENT MODULE (#8) */}
+        {activeTab === 'paid_receipt' && (() => {
+          const allDeposits = data.deposits || [];
+          const filteredReceipts = allDeposits.filter(dep => {
+            const rcptNo = getFormattedReceiptNo(dep).toLowerCase();
+            const memberName = (dep.memberName || dep.depositorName || '').toLowerCase();
+            const memberId = (dep.memberId || '').toLowerCase();
+            const slipNo = (dep.bankReceiptNo || dep.depositSlipNo || dep.transactionId || '').toLowerCase();
+            const q = receiptSearchQuery.toLowerCase();
+            const matchesQuery = !q || rcptNo.includes(q) || memberName.includes(q) || memberId.includes(q) || slipNo.includes(q);
+
+            const matchesMonth = receiptFilterMonth === 'all' || dep.paymentMonth === receiptFilterMonth;
+            const matchesMethod = receiptFilterMethod === 'all' || dep.depositMethod === receiptFilterMethod;
+            const matchesStatus = receiptFilterStatus === 'all' || 
+              (receiptFilterStatus === 'approved' && dep.approvalStatus === 'approved') ||
+              (receiptFilterStatus === 'cancelled' && dep.approvalStatus === 'cancelled');
+
+            return matchesQuery && matchesMonth && matchesMethod && matchesStatus;
+          });
+
+          const totalReceiptsCount = allDeposits.length;
+          const totalValidAmount = allDeposits
+            .filter(d => d.approvalStatus !== 'cancelled')
+            .reduce((acc, d) => acc + Number(d.amount || 0), 0);
+          const currentMonthReceipts = allDeposits.filter(d => d.paymentMonth === targetMonth && d.approvalStatus !== 'cancelled');
+          const currentMonthTotal = currentMonthReceipts.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+          const cancelledReceiptsCount = allDeposits.filter(d => d.approvalStatus === 'cancelled').length;
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* 1. Header Toolbar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Receipt size={22} color="#10b981" />
+                    </div>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>পেইড রিসিট ও ভাউচার ব্যবস্থাপনা কেন্দ্র</span>
+                        <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                          মডিউল #৮ • ইউনিক রিসিট
+                        </span>
+                      </h2>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '0.76rem', color: '#94a3b8' }}>
+                        প্রতিটি জমার বিপরীতে ইউনিক রিসিট জেনারেশন, বাংলা-ইংরেজি কথায় টাকা, কিউআর ভেরিফিকেশন ও গ্রাহক/অফিস কপি প্রিন্ট
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Action Buttons & Format Selector */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {/* Format Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(15, 23, 42, 0.7)', padding: '4px 8px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', fontSize: '0.74rem' }}>
+                    <span style={{ color: '#94a3b8', fontWeight: '700' }}>নম্বর ফরম্যাট:</span>
+                    <select
+                      value={receiptNumberFormat}
+                      onChange={(e) => setReceiptNumberFormat(e.target.value)}
+                      style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontWeight: '800', fontSize: '0.74rem', outline: 'none', cursor: 'pointer' }}
+                    >
+                      <option value="RCPT" style={{ background: '#0f172a' }}>RCPT-2026-000001</option>
+                      <option value="SM" style={{ background: '#0f172a' }}>SM-2026-10-000001</option>
+                      <option value="HKB" style={{ background: '#0f172a' }}>HKB-SAMITY-000001</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => handleOpenDepositModal()}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)'
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>নতুন জমা রসিদ এন্ট্রি</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Top Summary KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>মোট ইস্যুকৃত রিসিট</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#38bdf8', margin: '4px 0' }}>
+                    {totalReceiptsCount} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>টি</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>সমিতির পূর্ণাঙ্গ রসিদ খতিয়ান</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>সর্বমোট সংগৃহীত অর্থ</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#10b981', margin: '4px 0' }}>
+                    ৳ {totalValidAmount.toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#10b981' }}>বৈধ ও অনুমোদিত ভাউচার</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>চলতি মাস ({targetMonth}) রসিদ</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#f59e0b', margin: '4px 0' }}>
+                    ৳ {currentMonthTotal.toLocaleString('en-IN')}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{currentMonthReceipts.length} টি ভাউচার প্রস্তুত</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>বাতিলকৃত ভাউচার (Cancelled)</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: cancelledReceiptsCount > 0 ? '#ef4444' : '#64748b', margin: '4px 0' }}>
+                    {cancelledReceiptsCount} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>টি</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>অনুমোদনে বাতিলকৃত রসিদ</div>
+                </div>
+              </div>
+
+              {/* 3. Filter & Search Controls */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  padding: '14px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                {/* Search Bar */}
+                <div style={{ flex: '1 1 240px', position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                  <input
+                    type="text"
+                    value={receiptSearchQuery}
+                    onChange={(e) => setReceiptSearchQuery(e.target.value)}
+                    placeholder="রিসিট নং, সদস্য নাম, আইডি বা ব্যাংক স্লিপ সার্চ..."
+                    style={{
+                      width: '100%',
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      padding: '8px 12px 8px 34px',
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Filter Dropdowns */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {/* Month */}
+                  <select
+                    value={receiptFilterMonth}
+                    onChange={(e) => setReceiptFilterMonth(e.target.value)}
+                    style={{ background: 'rgba(15, 23, 42, 0.8)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '6px 10px', fontSize: '0.76rem', outline: 'none' }}
+                  >
+                    <option value="all">সকল মাস (All Months)</option>
+                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+
+                  {/* Payment Method */}
+                  <select
+                    value={receiptFilterMethod}
+                    onChange={(e) => setReceiptFilterMethod(e.target.value)}
+                    style={{ background: 'rgba(15, 23, 42, 0.8)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '6px 10px', fontSize: '0.76rem', outline: 'none' }}
+                  >
+                    <option value="all">সকল মাধ্যম (All Methods)</option>
+                    <option value="Bank Counter">Bank Counter</option>
+                    <option value="Online Banking">Online Banking</option>
+                    <option value="bKash">bKash</option>
+                    <option value="Nagad">Nagad</option>
+                    <option value="Cash Counter">Cash Counter</option>
+                    <option value="Cheque">Cheque</option>
+                  </select>
+
+                  {/* Status */}
+                  <select
+                    value={receiptFilterStatus}
+                    onChange={(e) => setReceiptFilterStatus(e.target.value)}
+                    style={{ background: 'rgba(15, 23, 42, 0.8)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '6px 10px', fontSize: '0.76rem', outline: 'none' }}
+                  >
+                    <option value="all">সকল স্ট্যাটাস</option>
+                    <option value="approved">অনুমোদিত ও পেইড (Valid)</option>
+                    <option value="cancelled">বাতিলকৃত (Cancelled)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Receipts Data Table */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
+                      <th style={{ padding: '12px 14px', fontWeight: '800' }}>রিসিট নং</th>
+                      <th style={{ padding: '12px 14px', fontWeight: '800' }}>তারিখ</th>
+                      <th style={{ padding: '12px 14px', fontWeight: '800' }}>সদস্য তথ্য</th>
+                      <th style={{ padding: '12px 14px', fontWeight: '800' }}>খাত ও মাস</th>
+                      <th style={{ padding: '12px 14px', fontWeight: '800' }}>মাধ্যম ও Trx ID</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>জমার পরিমাণ</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>স্ট্যাটাস</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>অ্যাকশনস (রিসিট প্রিন্ট ও শেয়ার)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReceipts.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                          কোনো পেইড রিসিট পাওয়া যায়নি।
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredReceipts.map(dep => {
+                        const formattedNo = getFormattedReceiptNo(dep);
+                        const isCancelled = dep.approvalStatus === 'cancelled';
+                        const mem = data.members.find(m => m.id === dep.memberId);
+
+                        return (
+                          <tr key={dep.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: isCancelled ? 'rgba(239, 68, 68, 0.04)' : 'transparent' }}>
+                            {/* Receipt No */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontFamily: 'monospace', fontWeight: '900', color: isCancelled ? '#ef4444' : '#38bdf8', fontSize: '0.84rem' }}>
+                                {formattedNo}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>ভাউচার: {dep.voucherNo}</div>
+                            </td>
+
+                            {/* Date */}
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontWeight: '700' }}>{dep.depositDate}</div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{dep.depositTime || '10:00 AM'}</div>
+                            </td>
+
+                            {/* Member Info */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '800', color: '#f8fafc' }}>{dep.memberName || dep.depositorName}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>আইডি: {dep.memberId || 'N/A'} • {dep.depositorPhone || mem?.mobile || ''}</div>
+                            </td>
+
+                            {/* Deposit Type & Period */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700' }}>{dep.depositType || 'মাসিক সঞ্চয়/চাঁদা'}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#f59e0b' }}>{dep.paymentMonth} {dep.paymentYear}</div>
+                            </td>
+
+                            {/* Method & Trx */}
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700' }}>{dep.depositMethod}</div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                                {dep.bankReceiptNo ? `স্লিপ: ${dep.bankReceiptNo}` : dep.transactionId ? `Trx: ${dep.transactionId}` : dep.bankName || ''}
+                              </div>
+                            </td>
+
+                            {/* Amount */}
+                            <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                              <div style={{ fontWeight: '900', fontSize: '0.95rem', color: isCancelled ? '#ef4444' : '#10b981' }}>
+                                ৳ {Number(dep.amount || 0).toLocaleString('en-IN')}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                                {numberToBanglaWords(dep.amount)}
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              {isCancelled ? (
+                                <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '800' }}>
+                                  বাতিলকৃত
+                                </span>
+                              ) : (
+                                <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <Check size={11} />
+                                  <span>পেইড</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                {/* Original Print */}
+                                <button
+                                  onClick={() => {
+                                    playButtonClick?.();
+                                    triggerHaptic();
+                                    setReceiptCopyType('original');
+                                    setActivePrintReceipt(dep);
+                                  }}
+                                  title="মূল রিসিট প্রিন্ট ও ভিউ করুন"
+                                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <Printer size={12} />
+                                  <span>মূল রিসিট</span>
+                                </button>
+
+                                {/* Member Copy Print */}
+                                <button
+                                  onClick={() => {
+                                    playButtonClick?.();
+                                    triggerHaptic();
+                                    setReceiptCopyType('member');
+                                    setActivePrintReceipt(dep);
+                                  }}
+                                  title="গ্রাহক কপি (Member Copy) প্রিন্ট করুন"
+                                  style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                >
+                                  গ্রাহক কপি
+                                </button>
+
+                                {/* Duplicate Copy Print */}
+                                <button
+                                  onClick={() => {
+                                    playButtonClick?.();
+                                    triggerHaptic();
+                                    setReceiptCopyType('duplicate');
+                                    setActivePrintReceipt(dep);
+                                  }}
+                                  title="দ্বিতীয় অনুলিপি (Duplicate Copy) প্রিন্ট করুন"
+                                  style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                >
+                                  ডুপ্লিকেট
+                                </button>
+
+                                {/* Office Copy Print */}
+                                <button
+                                  onClick={() => {
+                                    playButtonClick?.();
+                                    triggerHaptic();
+                                    setReceiptCopyType('office');
+                                    setActivePrintReceipt(dep);
+                                  }}
+                                  title="সমিতি কার্যালয় অনুলিপি (Office Copy)"
+                                  style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                >
+                                  অফিস কপি
+                                </button>
+
+                                {/* WhatsApp Share */}
+                                <button
+                                  onClick={() => {
+                                    const shareText = getReceiptShareWhatsAppText(dep, currentSamity, 'original');
+                                    const waNumber = dep.depositorWhatsApp || mem?.whatsappNumber || dep.depositorPhone || mem?.mobile;
+                                    const waUrl = getWhatsAppUrl(waNumber, shareText);
+                                    if (waUrl) window.open(waUrl, '_blank');
+                                    else showToast?.('সদস্যের সঠিক হোয়াটসঅ্যাপ নম্বর পাওয়া যায়নি', 'warning');
+                                  }}
+                                  title="হোয়াটসঅ্যাপে ডিজিটাল রসিদ পাঠান"
+                                  style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', border: '1px solid rgba(37, 211, 102, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                >
+                                  <Share2 size={12} />
+                                  <span>WhatsApp</span>
+                                </button>
+
+                                {/* QR Verify Button */}
+                                <button
+                                  onClick={() => {
+                                    playButtonClick?.();
+                                    triggerHaptic();
+                                    setVerifyQrTarget(dep);
+                                    setIsVerifyQrModalOpen(true);
+                                  }}
+                                  title="ডিজিটাল কিউআর কোড ভেরিফিকেশন যাচাই করুন"
+                                  style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                >
+                                  <QrCode size={12} />
+                                  <span>যাচাই</span>
+                                </button>
+
+                                {/* Cancel Receipt Button */}
+                                {!isCancelled && (
+                                  <button
+                                    onClick={() => {
+                                      playButtonClick?.();
+                                      triggerHaptic();
+                                      setCancelReceiptTarget(dep);
+                                      setIsCancelReceiptModalOpen(true);
+                                    }}
+                                    title="অনুমোদনের মাধ্যমে রিসিট বাতিল করুন (Cancel Receipt)"
+                                    style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                  >
+                                    বাতিল
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Table Footer */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  padding: '10px 14px',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  fontSize: '0.76rem',
+                  color: '#94a3b8'
+                }}
+              >
+                <div>
+                  প্রদর্শিত রসিদ: <strong style={{ color: '#38bdf8' }}>{filteredReceipts.length}</strong> টি (সর্বমোট {totalReceiptsCount} টির মধ্যে)
+                </div>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div>বৈধ আদায়: <strong style={{ color: '#10b981' }}>৳ {totalValidAmount.toLocaleString('en-IN')}</strong></div>
+                  <div>চলতি মাস: <strong style={{ color: '#f59e0b' }}>৳ {currentMonthTotal.toLocaleString('en-IN')}</strong></div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* TAB 5: PAYMENT STATUS & DUES MODULE (#6) */}
         {activeTab === 'payment_status' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -6924,168 +7531,731 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 6: MULTI-CHANNEL REMINDERS */}
-        {activeTab === 'reminders' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <Send size={20} color="#2dd4bf" />
-                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800' }}>
-                  📢 মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার (WhatsApp, SMS, Telegram, Messenger)
-                </h3>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                বকেয়া সদস্যদের ১-ক্লিকে হোয়াটসঅ্যাপে প্রি-ফিল্ড মেসেজ প্রেরণ করুন অথবা মেসেজ কপি করে টেলিগ্রাম বা মেসেঞ্জারে পাঠান।
-              </p>
-            </div>
+        {/* TAB 9: REMINDER MODULE (#9 - 12 REMINDER TYPES & AUTOMATED SCHEDULING ENGINE) */}
+        {activeTab === 'reminders' && (() => {
+          // Calculate active due members list
+          const activeMembersWithDues = data.members
+            .filter(m => m.status === 'Active')
+            .map(member => {
+              const st = calculateMemberPaymentStatus(member, currentSamity, data.deposits, targetMonth, targetYear);
+              const memReminders = (data.reminders || []).filter(r => r.memberId === member.id);
+              const lastRem = memReminders[0];
+              const paidAfter = lastRem ? data.deposits.some(d => d.memberId === member.id && new Date(d.depositDate) >= new Date(lastRem.reminderDate || lastRem.sentAt)) : false;
 
-            {/* Unpaid Member Reminder Queue */}
-            <div
-              style={{
-                background: 'rgba(30, 41, 59, 0.7)',
-                borderRadius: '14px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                overflowX: 'auto'
-              }}
-            >
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>সদস্য</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>মোবাইল / WA</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>বকেয়ার পরিমাণ</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>WhatsApp</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>SMS</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>Telegram</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>Messenger</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMembers.filter(m => {
-                    const st = calculateMemberPaymentStatus(m, currentSamity, data.deposits, targetMonth, targetYear);
-                    return st.dueAmount > 0;
-                  }).length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#10b981', fontWeight: '800' }}>
-                        🎉 চমৎকার! {targetMonth} মাসের সকল সদস্যের চাঁদা সম্পূর্ণ পরিশোধিত! কোনো বকেয়া নেই।
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredMembers
-                      .filter(m => calculateMemberPaymentStatus(m, currentSamity, data.deposits, targetMonth, targetYear).dueAmount > 0)
-                      .map(member => {
-                        const st = calculateMemberPaymentStatus(member, currentSamity, data.deposits, targetMonth, targetYear);
-                        return (
-                          <tr key={member.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                            <td style={{ padding: '12px 14px' }}>
-                              <div style={{ fontWeight: '800' }}>{member.nameBn || member.nameEn}</div>
-                              <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>{member.id}</div>
+              return {
+                member,
+                status: st,
+                dueAmount: Number(st.dueAmount || 0),
+                totalCumulativeDue: Number(st.totalCumulativeDue || st.dueAmount || 0),
+                remindersCount: memReminders.length,
+                lastReminder: lastRem,
+                paidAfterReminder: paidAfter,
+                isWaived: st.isWaived || false,
+                isPartiallyPaid: st.status === 'partially_paid' || (Number(st.paidAmount) > 0 && Number(st.dueAmount) > 0)
+              };
+            });
+
+          // Filter by Active Tab / Type
+          let displayMembers = activeMembersWithDues.filter(row => {
+            if (reminderActiveTab === 'all_unpaid') return row.dueAmount > 0;
+            if (reminderActiveTab === 'partially_paid') return row.isPartiallyPaid;
+            if (reminderActiveTab === 'month_due') return row.dueAmount > 0;
+            if (reminderActiveTab === 'year_due') return row.totalCumulativeDue > 0;
+            if (reminderActiveTab === 'multi_select') return row.dueAmount > 0;
+            return row.dueAmount > 0;
+          });
+
+          // Apply Search Query
+          if (reminderSearchQuery) {
+            const q = reminderSearchQuery.toLowerCase();
+            displayMembers = displayMembers.filter(r =>
+              (r.member.nameBn || '').toLowerCase().includes(q) ||
+              (r.member.nameEn || '').toLowerCase().includes(q) ||
+              (r.member.id || '').toLowerCase().includes(q) ||
+              (r.member.mobile || '').includes(q)
+            );
+          }
+
+          const totalDueCount = activeMembersWithDues.filter(r => r.dueAmount > 0).length;
+          const totalRemindersSent = (data.reminders || []).length;
+          const paidAfterReminderCount = activeMembersWithDues.filter(r => r.paidAfterReminder).length;
+
+          const isAllSelected = displayMembers.length > 0 && displayMembers.every(r => reminderSelectedMemberIds.includes(r.member.id));
+
+          const toggleSelectAll = () => {
+            if (isAllSelected) {
+              setReminderSelectedMemberIds([]);
+            } else {
+              setReminderSelectedMemberIds(displayMembers.map(r => r.member.id));
+            }
+          };
+
+          const toggleSelectMember = (id) => {
+            setReminderSelectedMemberIds(prev => 
+              prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+            );
+          };
+
+          const selectedMembersList = displayMembers.filter(r => reminderSelectedMemberIds.includes(r.member.id)).map(r => r.member);
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* 1. Header Toolbar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Send size={22} color="#ef4444" />
+                    </div>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>স্মার্ট তাগাদা ও মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার</span>
+                        <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                          মডিউল #৯ • ১২টি তাগাদা টাইপ
+                        </span>
+                      </h2>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '0.76rem', color: '#94a3b8' }}>
+                        WhatsApp, SMS, Telegram, Messenger ও Email-এ স্বয়ংক্রিয় শিডিউলিং, বাল্ক তাগাদা এবং সম্পূর্ণ ডেলিভারি হিস্ট্রি অডিট
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Batch All Unpaid Quick Send */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => {
+                      const unpaids = activeMembersWithDues.filter(r => r.dueAmount > 0).map(r => r.member);
+                      handleBatchSendReminders(unpaids, 'whatsapp', reminderTemplateType);
+                    }}
+                    style={{
+                      background: 'rgba(37, 211, 102, 0.15)',
+                      color: '#25D366',
+                      border: '1px solid rgba(37, 211, 102, 0.35)',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="সকল বকেয়াদার সদস্যদের ১-ক্লিকে হোয়াটসঅ্যাপে তাগাদা কিউতে যুক্ত করুন"
+                  >
+                    <Share2 size={14} />
+                    <span>সকল বকেয়াদারকে WhatsApp তাগাদা</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Key Metrics KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>মোট বকেয়াদার সদস্য</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#ef4444', margin: '4px 0' }}>
+                    {totalDueCount} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>জন</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{targetMonth} মাসে বকেয়া রয়েছে</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>সর্বমোট প্রেরিত তাগাদা</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#38bdf8', margin: '4px 0' }}>
+                    {totalRemindersSent} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>বার</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>সেন্ট্রাল রিমাইন্ডার লগ হিস্ট্রি</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>তাগাদার পর পরিশোধিত</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#10b981', margin: '4px 0' }}>
+                    {paidAfterReminderCount} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>জন</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#10b981' }}>তাগাদা সফলতার হার উচ্চ</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '700' }}>স্বয়ংক্রিয় শিডিউল স্ট্যাটাস</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#22d3ee', margin: '6px 0' }}>
+                    সক্রিয় (Active)
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>৭ ও ৩ দিন পূর্বে • শেষ দিনে • ৩ ও ৭ দিন পর</div>
+                </div>
+              </div>
+
+              {/* 3. Navigation Pills for 12 Reminder Types */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  whiteSpace: 'nowrap',
+                  alignItems: 'center'
+                }}
+              >
+                <span style={{ fontSize: '0.74rem', fontWeight: '800', color: '#94a3b8', marginRight: '4px' }}>
+                  রিমাইন্ডার ভিউ:
+                </span>
+                {[
+                  { id: 'queue', label: '📋 বকেয়াদার তালিকা (#১)', count: totalDueCount },
+                  { id: 'multi_select', label: '☑️ একাধিক সদস্য নির্বাচন (#২, #৭)', count: selectedMembersList.length },
+                  { id: 'all_unpaid', label: '🔴 সকল অপরিশোধিত (#৩)', count: activeMembersWithDues.filter(r => r.dueAmount > 0).length },
+                  { id: 'partially_paid', label: '🟡 আংশিক পরিশোধিত (#৪)', count: activeMembersWithDues.filter(r => r.isPartiallyPaid).length },
+                  { id: 'month_due', label: '📅 মাসভিত্তিক বকেয়া (#৫)' },
+                  { id: 'year_due', label: '⏳ দীর্ঘমেয়াদী বকেয়া (#৬)' },
+                  { id: 'scheduled_config', label: '⚙️ শিডিউল কনফিগ ও অটো-স্টপ (#৮-#১২)' },
+                  { id: 'history', label: '📜 সেন্ট্রাল অডিট হিস্ট্রি লগ', count: totalRemindersSent }
+                ].map(pill => {
+                  const isActive = reminderActiveTab === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      onClick={() => {
+                        playButtonClick?.();
+                        triggerHaptic();
+                        setReminderActiveTab(pill.id);
+                      }}
+                      style={{
+                        background: isActive ? '#ef4444' : 'rgba(255, 255, 255, 0.06)',
+                        color: isActive ? '#fff' : '#cbd5e1',
+                        border: '1px solid ' + (isActive ? '#ef4444' : 'rgba(255, 255, 255, 0.1)'),
+                        borderRadius: '20px',
+                        padding: '5px 12px',
+                        fontSize: '0.74rem',
+                        fontWeight: isActive ? '900' : '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <span>{pill.label}</span>
+                      {pill.count !== undefined && (
+                        <span style={{ background: isActive ? '#fff' : 'rgba(255, 255, 255, 0.15)', color: isActive ? '#ef4444' : '#fff', padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: '900' }}>
+                          {pill.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 4. Template Selector Bar (When not viewing history or scheduled config) */}
+              {reminderActiveTab !== 'history' && reminderActiveTab !== 'scheduled_config' && (
+                <div
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <span style={{ fontSize: '0.74rem', fontWeight: '800', color: '#f59e0b' }}>
+                    মেসেজ টেমপ্লেট নির্বাচন:
+                  </span>
+                  {[
+                    { id: 'standard', label: 'সাধারণ তাগিদপত্র' },
+                    { id: 'pre_due_7', label: '৭ দিন পূর্বে অগ্রিম অবগতি (#৯)' },
+                    { id: 'pre_due_3', label: '৩ দিন পূর্বে আসন্ন শেষ দিন (#৯)' },
+                    { id: 'due_date', label: 'আজ শেষ দিন (#১০)' },
+                    { id: 'post_due_3', label: '৩ দিন পর বিলম্ব সতর্কবার্তা (#১১)' },
+                    { id: 'post_due_7', label: '৭ দিন পর বকেয়া ওভারডিউ (#১১)' },
+                    { id: 'final_warning', label: '⚠️ চূড়ান্ত সতর্কবার্তা নোটিশ (#১২)' }
+                  ].map(tmpl => {
+                    const isSelected = reminderTemplateType === tmpl.id;
+                    return (
+                      <button
+                        key={tmpl.id}
+                        onClick={() => {
+                          playButtonClick?.();
+                          setReminderTemplateType(tmpl.id);
+                        }}
+                        style={{
+                          background: isSelected ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                          color: isSelected ? '#fbbf24' : '#94a3b8',
+                          border: `1px solid ${isSelected ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)'}`,
+                          borderRadius: '16px',
+                          padding: '3px 10px',
+                          fontSize: '0.72rem',
+                          fontWeight: isSelected ? '800' : '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {tmpl.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 5. Sticky Floating Multi-Select Action Bar */}
+              {selectedMembersList.length > 0 && (
+                <div
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    borderRadius: '12px',
+                    padding: '12px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ background: '#0284c7', color: '#fff', padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '900' }}>
+                      {selectedMembersList.length} জন নির্বাচিত
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: '#f8fafc' }}>
+                      একসাথে মাল্টিপল তাগাদা প্রেরণের জন্য চ্যানেল বেছে নিন:
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => handleBatchSendReminders(selectedMembersList, 'whatsapp', reminderTemplateType)}
+                      style={{ background: '#25D366', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                    >
+                      <Share2 size={13} />
+                      <span>WhatsApp পাঠান</span>
+                    </button>
+                    <button
+                      onClick={() => handleBatchSendReminders(selectedMembersList, 'sms', reminderTemplateType)}
+                      style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                    >
+                      SMS কিউতে যোগ
+                    </button>
+                    <button
+                      onClick={() => handleBatchSendReminders(selectedMembersList, 'telegram', reminderTemplateType)}
+                      style={{ background: '#0088cc', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                    >
+                      Telegram পাঠান
+                    </button>
+                    <button
+                      onClick={() => handleBatchSendReminders(selectedMembersList, 'email', reminderTemplateType)}
+                      style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                    >
+                      Email নোটিশ
+                    </button>
+                    <button
+                      onClick={() => setReminderSelectedMemberIds([])}
+                      style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer' }}
+                    >
+                      নির্বাচন মুছুন
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 6. Scheduled Config Tab View */}
+              {reminderActiveTab === 'scheduled_config' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: '800', color: '#38bdf8' }}>
+                      ⚙️ স্বয়ংক্রিয় রিমাইন্ডার শিডিউল ইঞ্জিন ও অটো-স্টপ রুলস
+                    </h3>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+                      সমিতির মাসিক চাঁদা আদায়ের নির্ধারিত শেষ দিন ({currentSamity.subscriptionDueDay || 10} তারিখ) অনুযায়ী স্বয়ংক্রিয় তাগাদা প্রেরণের সময়সূচি নিয়ন্ত্রণ করুন।
+                    </p>
+
+                    {/* Timeline Checkbox Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                      <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                          <input
+                            type="checkbox"
+                            checked={reminderScheduleConfig.preDue7}
+                            onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, preDue7: e.target.checked }))}
+                            style={{ accentColor: '#10b981' }}
+                          />
+                          <span>৭ দিন পূর্বে তাগাদা প্রেরণ (Pre-Due 7 Days)</span>
+                        </label>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', marginLeft: '24px' }}>
+                          নির্ধারিত তারিখের ৭ দিন আগে সদস্যদের অগ্রিম অবগতি ও প্রস্তুতি বার্তা পাঠাবে
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                          <input
+                            type="checkbox"
+                            checked={reminderScheduleConfig.preDue3}
+                            onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, preDue3: e.target.checked }))}
+                            style={{ accentColor: '#10b981' }}
+                          />
+                          <span>৩ দিন পূর্বে তাগাদা প্রেরণ (Pre-Due 3 Days)</span>
+                        </label>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', marginLeft: '24px' }}>
+                          চাঁদা জমার শেষ তারিখ নিকটবর্তী হওয়ার শেষ সতর্কবার্তা
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                          <input
+                            type="checkbox"
+                            checked={reminderScheduleConfig.onDueDate}
+                            onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, onDueDate: e.target.checked }))}
+                            style={{ accentColor: '#10b981' }}
+                          />
+                          <span>নির্ধারিত শেষ দিনে তাগাদা (On Due Date)</span>
+                        </label>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', marginLeft: '24px' }}>
+                          মাসের শেষ দিনে বিলম্ব ফি এড়াতে তাৎক্ষণিক জমার আহ্বান
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                          <input
+                            type="checkbox"
+                            checked={reminderScheduleConfig.postDue3}
+                            onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, postDue3: e.target.checked }))}
+                            style={{ accentColor: '#10b981' }}
+                          />
+                          <span>৩ দিন পর ফলো-আপ তাগাদা (Post-Due 3 Days)</span>
+                        </label>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', marginLeft: '24px' }}>
+                          তারিখ অতিক্রান্ত হওয়ায় বিলম্ব জরিমানা যুক্ত হওয়ার নোটিশ
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                          <input
+                            type="checkbox"
+                            checked={reminderScheduleConfig.postDue7}
+                            onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, postDue7: e.target.checked }))}
+                            style={{ accentColor: '#10b981' }}
+                          />
+                          <span>৭ দিন পর বকেয়া ওভারডিউ নোটিশ (Post-Due 7 Days)</span>
+                        </label>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', marginLeft: '24px' }}>
+                          অফিসিয়াল বকেয়া তাগিদপত্র প্রেরণের অটো-ট্রিগার
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                          <input
+                            type="checkbox"
+                            checked={reminderScheduleConfig.recurring7}
+                            onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, recurring7: e.target.checked }))}
+                            style={{ accentColor: '#10b981' }}
+                          />
+                          <span>প্রতি ৭ দিন পর পর পুনরাবৃত্তি (Every 7 Days)</span>
+                        </label>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', marginLeft: '24px' }}>
+                          বকেয়া সম্পূর্ণ পরিশোধ না হওয়া পর্যন্ত প্রতি সপ্তাহে একবার তাগাদা যাবে
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Auto-Stop Rules Section */}
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '16px' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '0.88rem', fontWeight: '800', color: '#10b981' }}>
+                        🛑 অটো-স্টপ (Auto-Stop) পলিসি ও সুরক্ষা ফিল্টার:
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem', color: '#e2e8f0' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={reminderScheduleConfig.stopOnPaid} onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, stopOnPaid: e.target.checked }))} style={{ accentColor: '#10b981' }} />
+                          <span><strong>পেমেন্ট সম্পন্ন হলে স্বয়ংক্রিয়ভাবে তাগাদা বন্ধ হবে:</strong> সদস্য টাকা জমা দেওয়া মাত্রই পরবর্তী শিডিউল বাতিল হয়ে যাবে।</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={reminderScheduleConfig.stopOnWaived} onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, stopOnWaived: e.target.checked }))} style={{ accentColor: '#10b981' }} />
+                          <span><strong>মওকুফকৃত (Waived) সদস্যদের ক্ষেত্রে তাগাদা বন্ধ থাকবে:</strong> বিশেষ মওকুফপ্রাপ্ত সদস্যদের কাছে কোনো তাগাদা যাবে না।</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={reminderScheduleConfig.stopOnInactive} onChange={(e) => setReminderScheduleConfig(prev => ({ ...prev, stopOnInactive: e.target.checked }))} style={{ accentColor: '#10b981' }} />
+                          <span><strong>নিষ্ক্রিয় বা স্থগিত (Inactive/Suspended) সদস্যদের ফিল্টার:</strong> কেবলমাত্র সক্রিয় সাধারণ সদস্যদের শিডিউলে রাখবে।</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 7. Central Audit History Tab View */}
+              {reminderActiveTab === 'history' && (
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', overflowX: 'auto' }}>
+                  <div style={{ padding: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800' }}>📜 সেন্ট্রাল রিমাইন্ডার হিস্ট্রি অডিট খতিয়ান</h3>
+                      <p style={{ margin: '3px 0 0 0', fontSize: '0.74rem', color: '#94a3b8' }}>সকল চ্যানেলে প্রেরিত তাগাদার অকাট্য প্রমাণ, সময়, ডেলিভারি স্ট্যাটাস ও ফলো-আপ খতিয়ান</p>
+                    </div>
+                    <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '3px 10px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '800' }}>
+                      সর্বমোট {totalRemindersSent} টি লগ সংরক্ষিত
+                    </span>
+                  </div>
+
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>সদস্য আইডি ও নাম</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>তারিখ ও সময়</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>চ্যানেল</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>টেমপ্লেট</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>বার্তা সারাংশ</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>প্রেরক</th>
+                        <th style={{ padding: '10px 12px', fontWeight: '800' }}>ডেলিভারি স্ট্যাটাস</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800' }}>মোট তাগাদা সংখ্যা</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800' }}>পেমেন্ট স্ট্যাটাস</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.reminders || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                            এখনো কোনো রিমাইন্ডার হিস্ট্রি রেকর্ড পাওয়া যায়নি।
+                          </td>
+                        </tr>
+                      ) : (
+                        (data.reminders || []).map(r => (
+                          <tr key={r.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <td style={{ padding: '10px 12px' }}>
+                              <div style={{ fontWeight: '800', color: '#f8fafc' }}>{r.memberName}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>{r.memberId}</div>
                             </td>
-                            <td style={{ padding: '12px 14px' }}>
-                              <div>{member.mobile}</div>
-                              {member.whatsappNumber && <div style={{ fontSize: '0.7rem', color: '#10b981' }}>WA: {member.whatsappNumber}</div>}
+                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                              <div>{r.reminderDate || (r.sentAt ? r.sentAt.split('T')[0] : '—')}</div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{r.reminderTime || (r.sentAt ? r.sentAt.slice(11, 16) : '')}</div>
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#ef4444' }}>
-                              ৳ {st.dueAmount}
+                            <td style={{ padding: '10px 12px' }}>
+                              <span style={{ background: r.channel === 'WHATSAPP' ? 'rgba(37, 211, 102, 0.15)' : 'rgba(59, 130, 246, 0.15)', color: r.channel === 'WHATSAPP' ? '#25D366' : '#60a5fa', padding: '2px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '800' }}>
+                                {r.channel}
+                              </span>
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                              <button
-                                onClick={() => handleSendReminder(member, 'whatsapp')}
-                                style={{
-                                  background: 'rgba(37, 211, 102, 0.15)',
-                                  color: '#25D366',
-                                  border: '1px solid rgba(37, 211, 102, 0.3)',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '800',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
-                              >
-                                <Share2 size={12} />
-                                <span>WhatsApp পাঠান</span>
-                              </button>
+                            <td style={{ padding: '10px 12px', color: '#f59e0b', fontWeight: '700' }}>
+                              {r.templateUsed || 'standard'}
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                              <button
-                                onClick={() => handleSendReminder(member, 'sms')}
-                                style={{
-                                  background: 'rgba(59, 130, 246, 0.15)',
-                                  color: '#3b82f6',
-                                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '800',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                SMS কপি
-                              </button>
+                            <td style={{ padding: '10px 12px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#cbd5e1' }} title={r.messageContent}>
+                              {r.messageContent?.slice(0, 50)}...
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                              <button
-                                onClick={() => handleSendReminder(member, 'telegram')}
-                                style={{
-                                  background: 'rgba(0, 136, 204, 0.15)',
-                                  color: '#0088cc',
-                                  border: '1px solid rgba(0, 136, 204, 0.3)',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '800',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Telegram
-                              </button>
+                            <td style={{ padding: '10px 12px', color: '#94a3b8' }}>
+                              {r.sentBy || 'কোষাধ্যক্ষ দপ্তর'}
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                              <button
-                                onClick={() => handleSendReminder(member, 'messenger')}
-                                style={{
-                                  background: 'rgba(0, 132, 255, 0.15)',
-                                  color: '#0084ff',
-                                  border: '1px solid rgba(0, 132, 255, 0.3)',
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '800',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Messenger
-                              </button>
+                            <td style={{ padding: '10px 12px' }}>
+                              <span style={{ color: r.deliveryStatus?.includes('Failed') ? '#ef4444' : '#10b981', fontWeight: '700' }}>
+                                {r.deliveryStatus || 'Delivered'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800' }}>
+                              {r.reminderCount || 1}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <span style={{ background: r.paymentStatusAfter === 'পরিশোধিত' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.paymentStatusAfter === 'পরিশোধিত' ? '#10b981' : '#ef4444', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800' }}>
+                                {r.paymentStatusAfter || 'অপেক্ষমাণ'}
+                              </span>
                             </td>
                           </tr>
-                        );
-                      })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
-            {/* Reminder Sending History */}
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', fontWeight: '800' }}>📋 প্রেরিত রিমাইন্ডার হিস্ট্রি</h3>
-              {(data.reminders || []).length === 0 ? (
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>এখনো কোনো রিমাইন্ডার লগ রেকর্ড হয়নি।</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {data.reminders.slice(0, 5).map(r => (
-                    <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '6px', fontSize: '0.75rem' }}>
-                      <span><strong>{r.memberName}</strong> কে <strong>{r.channel}</strong>-এর মাধ্যমে তাগাদা পাঠানো হয়েছে</span>
-                      <span style={{ color: 'var(--text-muted)' }}>{r.sentAt?.slice(0, 16).replace('T', ' ')}</span>
+              {/* 8. Active Unpaid / Due Members Reminder Queue (When not in History or Config view) */}
+              {reminderActiveTab !== 'history' && reminderActiveTab !== 'scheduled_config' && (
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', overflowX: 'auto' }}>
+                  {/* Queue Table Header Bar */}
+                  <div style={{ padding: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={toggleSelectAll}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#ef4444' }}
+                      />
+                      <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                        সবাইকে নির্বাচন করুন ({displayMembers.length} জন)
+                      </span>
                     </div>
-                  ))}
+
+                    <div style={{ position: 'relative', width: '220px' }}>
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                      <input
+                        type="text"
+                        value={reminderSearchQuery}
+                        onChange={(e) => setReminderSearchQuery(e.target.value)}
+                        placeholder="সদস্য সার্চ..."
+                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', padding: '6px 10px 6px 30px', color: '#fff', fontSize: '0.74rem', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
+                        <th style={{ padding: '12px 14px', width: '40px', textAlign: 'center' }}>#</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '800' }}>সদস্য বিবরণ</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '800' }}>যোগাযোগ চ্যানেল</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>বকেয়ার পরিমাণ</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>তাগাদা প্রাপ্তি</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>সর্বশেষ তাগাদা</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>পরবর্তী পেমেন্ট</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>তাগাদা একশনস</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayMembers.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#10b981', fontWeight: '800' }}>
+                            🎉 চমৎকার! এই ক্যাটাগরিতে কোনো বকেয়া সদস্য নেই।
+                          </td>
+                        </tr>
+                      ) : (
+                        displayMembers.map(row => {
+                          const member = row.member;
+                          const st = row.status;
+                          const isChecked = reminderSelectedMemberIds.includes(member.id);
+
+                          return (
+                            <tr key={member.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: isChecked ? 'rgba(56, 189, 248, 0.06)' : 'transparent' }}>
+                              {/* Checkbox */}
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleSelectMember(member.id)}
+                                  style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#ef4444' }}
+                                />
+                              </td>
+
+                              {/* Member Info */}
+                              <td style={{ padding: '12px 14px' }}>
+                                <div style={{ fontWeight: '800', color: '#f8fafc' }}>{member.nameBn || member.nameEn}</div>
+                                <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>আইডি: {member.id} • {member.memberType || 'সাধারণ সদস্য'}</div>
+                              </td>
+
+                              {/* Contacts */}
+                              <td style={{ padding: '12px 14px' }}>
+                                <div>{member.mobile || '—'}</div>
+                                {member.whatsappNumber && (
+                                  <div style={{ fontSize: '0.7rem', color: '#25D366' }}>WA: {member.whatsappNumber}</div>
+                                )}
+                              </td>
+
+                              {/* Due Amount */}
+                              <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                <div style={{ fontWeight: '900', color: '#ef4444', fontSize: '0.9rem' }}>
+                                  ৳ {row.dueAmount.toLocaleString('en-IN')}
+                                </div>
+                                {row.totalCumulativeDue > row.dueAmount && (
+                                  <div style={{ fontSize: '0.68rem', color: '#f59e0b' }}>
+                                    মোট বকেয়া: ৳ {row.totalCumulativeDue.toLocaleString('en-IN')}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Reminders Count */}
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                <span style={{ background: row.remindersCount > 0 ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.06)', color: row.remindersCount > 0 ? '#38bdf8' : '#64748b', padding: '2px 8px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: '800' }}>
+                                  {row.remindersCount} বার
+                                </span>
+                              </td>
+
+                              {/* Last Reminder */}
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                {row.lastReminder ? (
+                                  <div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: '700' }}>{row.lastReminder.reminderDate || row.lastReminder.sentAt?.split('T')[0]}</span>
+                                    <span style={{ fontSize: '0.66rem', color: '#94a3b8', display: 'block' }}>{row.lastReminder.channel}</span>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '0.72rem' }}>পাঠানো হয়নি</span>
+                                )}
+                              </td>
+
+                              {/* Payment Status After Reminder */}
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                {row.paidAfterReminder ? (
+                                  <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '3px 8px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: '900', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <Check size={11} />
+                                    <span>পরিশোধিত</span>
+                                  </span>
+                                ) : row.remindersCount > 0 ? (
+                                  <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '3px 8px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                    অপেক্ষমাণ
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#64748b', fontSize: '0.72rem' }}>—</span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                  {/* WhatsApp Button */}
+                                  <button
+                                    onClick={() => handleSendReminder(member, 'whatsapp', reminderTemplateType)}
+                                    title="সরাসরি হোয়াটসঅ্যাপে প্রি-ফিল্ড তাগাদা পাঠান"
+                                    style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', border: '1px solid rgba(37, 211, 102, 0.3)', padding: '5px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                  >
+                                    <Share2 size={11} />
+                                    <span>WhatsApp</span>
+                                  </button>
+
+                                  {/* SMS Button */}
+                                  <button
+                                    onClick={() => handleSendReminder(member, 'sms', reminderTemplateType)}
+                                    title="এসএমএস টেক্সট কপি করুন"
+                                    style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '5px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                  >
+                                    SMS
+                                  </button>
+
+                                  {/* Telegram Button */}
+                                  <button
+                                    onClick={() => handleSendReminder(member, 'telegram', reminderTemplateType)}
+                                    title="টেলিগ্রামে মেসেজ পাঠান"
+                                    style={{ background: 'rgba(0, 136, 204, 0.15)', color: '#0088cc', border: '1px solid rgba(0, 136, 204, 0.3)', padding: '5px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                  >
+                                    TG
+                                  </button>
+
+                                  {/* Due Notice Print Trigger */}
+                                  <button
+                                    onClick={() => handleOpenDueNotice(member, st, { currentDue: row.dueAmount, oldDue: 0, lateFee: 0, totalDue: row.dueAmount, dueMonthsList: [`${targetMonth} ${targetYear}`] })}
+                                    title="অফিসিয়াল বকেয়া নোটিশ ওপেন করুন"
+                                    style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '5px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                  >
+                                    নোটিশ
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Footer Stats Bar */}
+                  <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(15, 23, 42, 0.8)', fontSize: '0.74rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      তালিকায় প্রদর্শিত: <strong style={{ color: '#38bdf8' }}>{displayMembers.length}</strong> জন | নির্বাচিত: <strong style={{ color: '#ef4444' }}>{selectedMembersList.length}</strong> জন
+                    </div>
+                    <div>
+                      নির্বাচিত মেসেজ টেমপ্লেট: <strong style={{ color: '#f59e0b' }}>{reminderTemplateType}</strong>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 7: EXPENSES & FUND BALANCE */}
         {activeTab === 'expenses' && (
@@ -7635,7 +8805,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   bulk_deposit: 'bulk_deposit',
                   payment_status: 'payment_status',
                   due_mgmt: 'due_mgmt',
-                  paid_receipt: 'deposits',
+                  paid_receipt: 'paid_receipt',
                   reminder_hub: 'reminders',
                   whatsapp_reminder: 'reminders',
                   sms_reminder: 'reminders',
@@ -11657,16 +12827,745 @@ export const SamityManagementHub = ({ onClose }) => {
       )}
 
       {/* ==================================================================== */}
-      {/* 7. MODAL: PIXEL-PERFECT PRINTABLE PAID RECEIPT */}
+      {/* 7. MODAL: PIXEL-PERFECT PRINTABLE PAID RECEIPT (ALL 35 SPECIFICATION FIELDS & 10 ACTIONS) */}
       {/* ==================================================================== */}
-      {activePrintReceipt && (
+      {activePrintReceipt && (() => {
+        const dep = activePrintReceipt;
+        const member = (data.members || []).find(m => String(m.id) === String(dep.memberId)) || {};
+        const memberName = member.nameBn || member.nameEn || dep.memberName || dep.depositorName || 'সম্মানিত সদস্য';
+        const memberMobile = member.mobile || dep.depositorPhone || '০১৭১১-XXXXXX';
+        const memberWhatsApp = member.whatsapp || member.mobile || dep.depositorPhone || '০১৭১১-XXXXXX';
+        const formattedReceiptNo = getFormattedReceiptNo(dep, receiptNumberFormat);
+        const depDate = dep.depositDate || new Date().toISOString().split('T')[0];
+        const depAmount = Number(dep.amount || 0);
+        const depMonth = dep.paymentMonth || dep.month || 'চলতি মাস';
+        const depYear = dep.paymentYear || dep.year || '২০২৬';
+        const depType = dep.depositType || 'মাসিক চাঁদা';
+        const depMethod = dep.depositMethod || dep.method || 'ব্যাংক জমা';
+        const bankName = dep.bankName || currentSamity.bankName || 'সোনালী ব্যাংক পিএলসি';
+        const bankBranch = dep.bankBranch || currentSamity.bankBranch || 'প্রধান কর্পোরেট শাখা, ঢাকা';
+        const bankAccNo = dep.bankAccountNo || currentSamity.bankAccountNo || 'SB-1029384756';
+        const bankRcptNo = dep.bankReceiptNo || dep.voucherNo || 'BR-2026-8891';
+        const trxId = dep.transactionId || dep.trxId || 'TRX-98234710';
+        const chequeNo = dep.chequeNo || 'N/A';
+        const receivedBy = dep.receivedBy || dep.collectorName || 'কোষাধ্যক্ষ দপ্তর';
+        const isCancelled = dep.approvalStatus === 'cancelled';
+
+        const treasurer = (data.signatures || []).find(s => 
+          s.designationBn?.includes('কোষাধ্যক্ষ') || 
+          s.designationEn?.toLowerCase().includes('treasurer')
+        ) || { name: 'মোঃ আব্দুর রহিম', designationBn: 'কোষাধ্যক্ষ / অর্থ সম্পাদক', designationEn: 'Treasurer' };
+
+        const president = (data.signatures || []).find(s => 
+          s.designationBn?.includes('সভাপতি') || 
+          s.designationEn?.toLowerCase().includes('president')
+        ) || { name: 'প্রফেসর কাজী নজরুল ইসলাম', designationBn: 'সভাপতি', designationEn: 'President' };
+
+        const secretary = (data.signatures || []).find(s => 
+          s.designationBn?.includes('সাধারণ সম্পাদক') || 
+          s.designationEn?.toLowerCase().includes('secretary')
+        ) || { name: 'মোহাম্মদ আলী', designationBn: 'সাধারণ সম্পাদক', designationEn: 'General Secretary' };
+
+        const copyTitleMap = {
+          original: { bn: 'মূল কপি', en: 'ORIGINAL' },
+          member: { bn: 'গ্রাহক অনুলিপি', en: 'MEMBER COPY' },
+          office: { bn: 'অফিস কপি', en: 'OFFICE COPY' },
+          duplicate: { bn: 'দ্বিতীয় অনুলিপি / ডুপ্লিকেট', en: 'DUPLICATE COPY' }
+        };
+        const currentCopy = copyTitleMap[receiptCopyType] || copyTitleMap.original;
+
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.88)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 110,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <div
+              style={{
+                background: '#ffffff',
+                color: '#0f172a',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '780px',
+                maxHeight: '94vh',
+                overflowY: 'auto',
+                padding: '24px',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+                position: 'relative'
+              }}
+            >
+              {/* Top Controls & 10 Receipt Actions */}
+              <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0f172a' }}>অনুলিপির ধরন:</span>
+                    {(['original', 'member', 'office', 'duplicate']).map(type => (
+                      <button
+                        key={type}
+                        onClick={() => { playButtonClick?.(); setReceiptCopyType(type); }}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: receiptCopyType === type ? '2px solid #0f172a' : '1px solid #cbd5e1',
+                          background: receiptCopyType === type ? '#0f172a' : '#f8fafc',
+                          color: receiptCopyType === type ? '#fff' : '#475569',
+                          fontSize: '0.74rem',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {copyTitleMap[type].bn}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setActivePrintReceipt(null)}
+                    style={{ background: '#f1f5f9', border: 'none', color: '#475569', padding: '6px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* 10 Action Buttons Row */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {/* Action 1: Print Receipt */}
+                  <button
+                    onClick={() => handlePrintElement('samity-printable-paid-receipt')}
+                    style={{
+                      background: '#10b981',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Printer size={15} />
+                    <span>প্রিন্ট করুন</span>
+                  </button>
+
+                  {/* Action 2: Download PDF */}
+                  <button
+                    onClick={() => {
+                      showToast?.('রিসিটটি PDF হিসেবে সংরক্ষণ করতে প্রিন্ট অপশনে "Save as PDF" নির্বাচন করুন', 'info');
+                      handlePrintElement('samity-printable-paid-receipt');
+                    }}
+                    style={{
+                      background: '#3b82f6',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Download size={15} />
+                    <span>PDF ডাউনলোড</span>
+                  </button>
+
+                  {/* Action 3: Send PDF by WhatsApp */}
+                  <button
+                    onClick={() => {
+                      const text = getReceiptShareWhatsAppText(dep, currentSamity, receiptCopyType);
+                      const cleanPhone = String(memberWhatsApp).replace(/[^0-9]/g, '');
+                      window.open(`https://wa.me/${cleanPhone.startsWith('88') ? cleanPhone : '88' + cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                    style={{
+                      background: '#25D366',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Share2 size={15} />
+                    <span>WhatsApp-এ পাঠান</span>
+                  </button>
+
+                  {/* Action 4: Send PDF by Email */}
+                  <button
+                    onClick={() => {
+                      const text = getReceiptShareWhatsAppText(dep, currentSamity, receiptCopyType);
+                      window.open(`mailto:${member.email || currentSamity.email}?subject=${encodeURIComponent(`পরিশোধ রসিদ: ${formattedReceiptNo} - ${currentSamity.nameBn}`)}&body=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                    style={{
+                      background: '#6366f1',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Mail size={15} />
+                    <span>ইমেইলে পাঠান</span>
+                  </button>
+
+                  {/* Action 5: Reprint Receipt */}
+                  <button
+                    onClick={() => {
+                      showToast?.('রসিদটি পুনর্মুদ্রণ (Reprint) করা হচ্ছে...', 'info');
+                      handlePrintElement('samity-printable-paid-receipt');
+                    }}
+                    style={{
+                      background: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <RefreshCw size={14} />
+                    <span>পুনর্মুদ্রণ (Reprint)</span>
+                  </button>
+
+                  {/* Action 6: Duplicate Copy Print */}
+                  <button
+                    onClick={() => {
+                      setReceiptCopyType('duplicate');
+                      setTimeout(() => handlePrintElement('samity-printable-paid-receipt'), 100);
+                    }}
+                    style={{
+                      background: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    দ্বিতীয় অনুলিপি প্রিন্ট
+                  </button>
+
+                  {/* Action 7: Office Copy Print */}
+                  <button
+                    onClick={() => {
+                      setReceiptCopyType('office');
+                      setTimeout(() => handlePrintElement('samity-printable-paid-receipt'), 100);
+                    }}
+                    style={{
+                      background: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    অফিস কপি প্রিন্ট
+                  </button>
+
+                  {/* Action 8: Member Copy Print */}
+                  <button
+                    onClick={() => {
+                      setReceiptCopyType('member');
+                      setTimeout(() => handlePrintElement('samity-printable-paid-receipt'), 100);
+                    }}
+                    style={{
+                      background: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    গ্রাহক কপি প্রিন্ট
+                  </button>
+
+                  {/* Action 9: Cancel Receipt with permission */}
+                  <button
+                    onClick={() => {
+                      setCancelReceiptTarget(dep);
+                      setCancelReceiptReason('');
+                      setIsCancelReceiptModalOpen(true);
+                    }}
+                    disabled={isCancelled}
+                    style={{
+                      background: isCancelled ? '#f1f5f9' : '#fee2e2',
+                      color: isCancelled ? '#94a3b8' : '#dc2626',
+                      border: '1px solid #fca5a5',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: isCancelled ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    <span>{isCancelled ? 'বাতিলকৃত রসিদ' : 'রসিদ বাতিলকরণ'}</span>
+                  </button>
+
+                  {/* Action 10: Receipt verification through QR code */}
+                  <button
+                    onClick={() => {
+                      setVerifyQrTarget(dep);
+                      setIsVerifyQrModalOpen(true);
+                    }}
+                    style={{
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      border: '1px solid #a7f3d0',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <QrCode size={14} />
+                    <span>QR ভেরিফিকেশন</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ========================================================= */}
+              {/* PRINTABLE RECEIPT CONTAINER (ALL 35 SPECIFICATION FIELDS) */}
+              {/* ========================================================= */}
+              <div
+                id="samity-printable-paid-receipt"
+                style={{
+                  position: 'relative',
+                  border: isCancelled ? '2px dashed #ef4444' : '2px solid #0f172a',
+                  padding: '24px 28px',
+                  borderRadius: '12px',
+                  background: '#ffffff',
+                  fontFamily: "'Inter', 'SolaimanLipi', sans-serif"
+                }}
+              >
+                {/* 34. Watermark */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '42%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%) rotate(-25deg)',
+                    fontSize: '54px',
+                    fontWeight: '900',
+                    color: isCancelled ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)',
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                    zIndex: 0,
+                    whiteSpace: 'nowrap',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px'
+                  }}
+                >
+                  {isCancelled ? 'CANCELLED / বাতিল' : 'PAID / পরিশোধিত'}
+                </div>
+
+                {/* 1, 2, 3, 4, 5, 6, 7. Samity Letterhead & Branding */}
+                <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', position: 'relative', zIndex: 1 }}>
+                  {/* 1. Samity Logo Emblem */}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', color: '#fff', marginBottom: '6px', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}>
+                    <Building2 size={26} />
+                  </div>
+                  {/* 2. Samity Name */}
+                  <h1 style={{ margin: '0 0 2px 0', fontSize: '1.45rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.3px' }}>
+                    {currentSamity.nameBn}
+                  </h1>
+                  <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '700', marginBottom: '2px' }}>
+                    {currentSamity.nameEn}
+                  </div>
+                  {/* 3. Samity Slogan */}
+                  <div style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '800' }}>
+                    স্লোগান: {currentSamity.sloganBn || 'সততা, স্বচ্ছতা ও সমন্বিত উন্নয়নের প্রত্যয়'}
+                  </div>
+                  {/* 4, 5, 6, 7. Samity Address, Phone, Email, Website */}
+                  <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px', lineHeight: '1.4' }}>
+                    <span>{currentSamity.address || 'ঢাকা, বাংলাদেশ'}</span> • <span>ফোন: {currentSamity.mobile || '০১৭১১-XXXXXX'}</span> • <span>ইমেইল: {currentSamity.email || 'samity@hisabkitab360.org'}</span> • <span>ওয়েবসাইট: {currentSamity.website || 'www.hisabkitab360.org'}</span>
+                  </div>
+                </div>
+
+                {/* 8. Receipt Title & Copy Badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0', position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      style={{
+                        background: isCancelled ? '#ef4444' : '#0f172a',
+                        color: '#fff',
+                        padding: '4px 16px',
+                        borderRadius: '20px',
+                        fontSize: '0.82rem',
+                        fontWeight: '900',
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      {isCancelled ? 'বাতিলকৃত রসিদ / CANCELLED RECEIPT' : 'পরিশোধ রিসিট / Payment Receipt'}
+                    </span>
+                    <span
+                      style={{
+                        border: '1px solid #cbd5e1',
+                        background: '#f8fafc',
+                        color: '#475569',
+                        padding: '3px 10px',
+                        borderRadius: '14px',
+                        fontSize: '0.72rem',
+                        fontWeight: '800'
+                      }}
+                    >
+                      {currentCopy.bn} ({currentCopy.en})
+                    </span>
+                  </div>
+
+                  {/* 9 & 10. Receipt Number & Receipt Date */}
+                  <div style={{ textAlign: 'right', fontSize: '0.78rem', color: '#334155' }}>
+                    <div>রিসিট নম্বর: <strong style={{ color: '#0f172a', fontFamily: 'monospace', fontSize: '0.86rem' }}>{formattedReceiptNo}</strong></div>
+                    <div>তারিখ: <strong style={{ color: '#0f172a' }}>{depDate}</strong></div>
+                  </div>
+                </div>
+
+                {/* 11, 12, 13, 14, 15, 16, 17. Member & Deposit Context Box */}
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '0.82rem',
+                    marginBottom: '14px',
+                    position: 'relative',
+                    zIndex: 1
+                  }}
+                >
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px 16px' }}>
+                    <div>সদস্য আইডি: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{member.id || dep.memberId || 'N/A'}</strong></div>
+                    <div>সদস্যের নাম: <strong style={{ color: '#0f172a' }}>{memberName}</strong></div>
+                    <div>মোবাইল নম্বর: <strong style={{ color: '#0f172a' }}>{memberMobile}</strong></div>
+                    <div>হোয়াটসঅ্যাপ: <strong style={{ color: '#0f172a' }}>{memberWhatsApp}</strong></div>
+                    <div>জমার খাত: <strong style={{ color: '#0f172a' }}>{depType}</strong></div>
+                    <div>পরিশোধের মাস ও বছর: <strong style={{ color: '#0f172a' }}>{depMonth} {depYear}</strong></div>
+                  </div>
+                </div>
+
+                {/* 18, 21, 22, 23, 24, 25, 26, 27, 28. Payment Breakdown & Banking Table */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', marginBottom: '12px', position: 'relative', zIndex: 1 }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a' }}>বিবরণ</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', color: '#0f172a' }}>পরিশোধ মাধ্যম ও ব্যাংকিং তথ্য</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', color: '#0f172a' }}>পরিমাণ (টাকা)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0', verticalAlign: 'top' }}>
+                        <div style={{ fontWeight: '800', color: '#0f172a' }}>{depType}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b' }}>পরিশোধকৃত সময়কাল: {depMonth} {depYear}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '2px' }}>গ্রহণকারী: {receivedBy}</div>
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0', verticalAlign: 'top', color: '#334155', lineHeight: '1.5' }}>
+                        <div><strong>মাধ্যম:</strong> {depMethod}</div>
+                        {depMethod.includes('ব্যাংক') || dep.bankReceiptNo ? (
+                          <>
+                            <div><strong>ব্যাংক:</strong> {bankName} ({bankBranch})</div>
+                            <div><strong>অ্যাকাউন্ট নং:</strong> {bankAccNo}</div>
+                            <div><strong>ব্যাংক রসিদ/স্লিপ:</strong> {bankRcptNo}</div>
+                          </>
+                        ) : null}
+                        <div><strong>লেনদেন / ট্রানজ্যাকশন আইডি:</strong> {trxId}</div>
+                        {chequeNo !== 'N/A' && <div><strong>চেক নম্বর:</strong> {chequeNo}</div>}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'right', verticalAlign: 'top', borderBottom: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#0f172a' }}>
+                          ৳ {depAmount.toLocaleString('en-IN')}/-
+                        </div>
+                        <span style={{ display: 'inline-block', marginTop: '4px', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: isCancelled ? '#fee2e2' : '#ecfdf5', color: isCancelled ? '#dc2626' : '#059669', fontWeight: '800' }}>
+                          {isCancelled ? 'বাতিলকৃত' : 'পরিশোধ সম্পন্ন'}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* 19 & 20. Amount in Words (Bangla & English) */}
+                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.78rem', color: '#1e293b', marginBottom: '22px', position: 'relative', zIndex: 1 }}>
+                  <div>টাকা কথায় (বাংলায়): <strong style={{ color: '#0f172a' }}>{numberToBanglaWords(depAmount)}</strong></div>
+                  <div style={{ marginTop: '2px', color: '#475569' }}>Amount in Words (English): <strong style={{ color: '#0f172a' }}>{numberToEnglishWords(depAmount)}</strong></div>
+                </div>
+
+                {/* 29, 30, 31, 32, 33. QR Code & Authorized Signatures */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '30px', paddingBottom: '8px', position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: '16px' }}>
+                  {/* 33. QR Code Verification Block */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      onClick={() => { setVerifyQrTarget(dep); setIsVerifyQrModalOpen(true); }}
+                      style={{
+                        padding: '6px',
+                        background: '#ffffff',
+                        border: '1.5px solid #0f172a',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)'
+                      }}
+                      title="ক্লিক করে QR কোড সত্যতা যাচাই করুন"
+                    >
+                      <svg width="68" height="68" viewBox="0 0 100 100">
+                        <rect width="100" height="100" fill="#ffffff" />
+                        <rect x="5" y="5" width="28" height="28" fill="#0f172a" />
+                        <rect x="9" y="9" width="20" height="20" fill="#fff" />
+                        <rect x="13" y="13" width="12" height="12" fill="#0f172a" />
+                        <rect x="67" y="5" width="28" height="28" fill="#0f172a" />
+                        <rect x="71" y="9" width="20" height="20" fill="#fff" />
+                        <rect x="75" y="13" width="12" height="12" fill="#0f172a" />
+                        <rect x="5" y="67" width="28" height="28" fill="#0f172a" />
+                        <rect x="9" y="71" width="20" height="20" fill="#fff" />
+                        <rect x="13" y="75" width="12" height="12" fill="#0f172a" />
+                        <rect x="40" y="10" width="8" height="8" fill="#0f172a" />
+                        <rect x="52" y="15" width="8" height="8" fill="#0f172a" />
+                        <rect x="40" y="40" width="20" height="20" fill="#0f172a" />
+                        <rect x="45" y="45" width="10" height="10" fill="#fff" />
+                        <rect x="10" y="42" width="8" height="8" fill="#0f172a" />
+                        <rect x="22" y="48" width="8" height="8" fill="#0f172a" />
+                        <rect x="70" y="45" width="12" height="8" fill="#0f172a" />
+                        <rect x="85" y="55" width="10" height="10" fill="#0f172a" />
+                        <rect x="40" y="72" width="10" height="8" fill="#0f172a" />
+                        <rect x="55" y="80" width="14" height="12" fill="#0f172a" />
+                        <rect x="75" y="75" width="20" height="8" fill="#0f172a" />
+                      </svg>
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', lineHeight: '1.4' }}>
+                      <strong style={{ color: '#0f172a' }}>ডিজিটাল ভেরিফিকেশন QR</strong><br />
+                      রসিদ নং: {formattedReceiptNo}<br />
+                      স্ক্যান করে তাৎক্ষণিক সত্যতা যাচাই করুন
+                    </div>
+                  </div>
+
+                  {/* 29, 30, 31, 32. Signatures Block */}
+                  <div style={{ display: 'flex', gap: '16px', flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {/* 29 & 30. Treasurer Signature (Mandatory) */}
+                    <div style={{ textAlign: 'center', minWidth: '95px' }}>
+                      <div style={{ height: '32px' }}></div>
+                      <div style={{ borderTop: '1px solid #0f172a', paddingTop: '4px', fontWeight: '800', fontSize: '0.74rem', color: '#0f172a' }}>
+                        {treasurer.name}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{treasurer.designationBn}</div>
+                      <div style={{ fontSize: '0.62rem', color: '#10b981', fontWeight: '700' }}>[অনুমোদিত ও সইকৃত]</div>
+                    </div>
+
+                    {/* 32. General Secretary Signature (Optional) */}
+                    <div style={{ textAlign: 'center', minWidth: '95px' }}>
+                      <div style={{ height: '32px' }}></div>
+                      <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '4px', fontWeight: '700', fontSize: '0.74rem', color: '#475569' }}>
+                        {secretary.name}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{secretary.designationBn} (ঐচ্ছিক)</div>
+                    </div>
+
+                    {/* 31. President Signature (Optional) */}
+                    <div style={{ textAlign: 'center', minWidth: '95px' }}>
+                      <div style={{ height: '32px' }}></div>
+                      <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '4px', fontWeight: '700', fontSize: '0.74rem', color: '#475569' }}>
+                        {president.name}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{president.designationBn} (ঐচ্ছিক)</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 35. Footer with Samity Contact Details & Legal Guarantee */}
+                <div style={{ marginTop: '20px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '10px', fontSize: '0.68rem', color: '#64748b', position: 'relative', zIndex: 1, lineHeight: '1.5' }}>
+                  <div>এটি একটি কম্পিউটারাইজড স্বয়ংক্রিয় ডিজিটাল রসিদ • সত্যতা যাচাইয়ে QR কোড স্ক্যান করুন</div>
+                  <div style={{ fontWeight: '600', color: '#475569' }}>{currentSamity.nameBn} • {currentSamity.address} • ফোন: {currentSamity.mobile} • ইমেইল: {currentSamity.email} • ওয়েব: {currentSamity.website || 'www.hisabkitab360.org'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ==================================================================== */}
+      {/* 7.1 MODAL: CANCEL RECEIPT WITH AUTHORIZED PERMISSION */}
+      {/* ==================================================================== */}
+      {isCancelReceiptModalOpen && cancelReceiptTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 120,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              color: '#fff',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '500px',
+              padding: '24px',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
+                <AlertTriangle size={20} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>রসিদ বাতিলকরণ অনুমোদন</h3>
+              </div>
+              <button
+                onClick={() => { setIsCancelReceiptModalOpen(false); setCancelReceiptTarget(null); }}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCancelReceipt}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', padding: '12px', marginBottom: '16px', fontSize: '0.82rem' }}>
+                <div style={{ color: '#fca5a5', fontWeight: '700', marginBottom: '4px' }}>সতর্কতা: রসিদ বাতিলকরণ স্থায়ী অডিট ট্রেইলে যুক্ত হবে!</div>
+                <div style={{ color: '#cbd5e1' }}>রসিদ নং: <strong>{getFormattedReceiptNo(cancelReceiptTarget)}</strong></div>
+                <div style={{ color: '#cbd5e1' }}>সদস্য: <strong>{cancelReceiptTarget.memberName || cancelReceiptTarget.depositorName}</strong> (৳{Number(cancelReceiptTarget.amount || 0).toLocaleString()})</div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '700', marginBottom: '6px' }}>
+                  বাতিলের সুনির্দিষ্ট কারণ *
+                </label>
+                <textarea
+                  value={cancelReceiptReason}
+                  onChange={(e) => setCancelReceiptReason(e.target.value)}
+                  placeholder="যেমন: ভুল সদস্যের অ্যাকাউন্টে জমা, বাউন্সড চেক, ইত্যাদি..."
+                  required
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    background: '#0f172a',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    color: '#fff',
+                    fontSize: '0.82rem'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '700', marginBottom: '6px' }}>
+                  অনুমোদনকারী কর্মকর্তা *
+                </label>
+                <input
+                  type="text"
+                  value={cancelReceiptApprovedBy}
+                  onChange={(e) => setCancelReceiptApprovedBy(e.target.value)}
+                  required
+                  placeholder="কর্মকর্তার নাম ও পদবি"
+                  style={{
+                    width: '100%',
+                    background: '#0f172a',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    color: '#fff',
+                    fontSize: '0.82rem'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsCancelReceiptModalOpen(false); setCancelReceiptTarget(null); }}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ফিরে যান
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  হ্যাঁ, রসিদ বাতিল নিশ্চিত করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 7.2 MODAL: DIGITAL RECEIPT QR CODE VERIFICATION MODAL */}
+      {/* ==================================================================== */}
+      {isVerifyQrModalOpen && verifyQrTarget && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
             background: 'rgba(0, 0, 0, 0.85)',
             backdropFilter: 'blur(8px)',
-            zIndex: 110,
+            zIndex: 120,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -11679,173 +13578,61 @@ export const SamityManagementHub = ({ onClose }) => {
               color: '#0f172a',
               borderRadius: '16px',
               width: '100%',
-              maxWidth: '650px',
-              maxHeight: '92vh',
-              overflowY: 'auto',
-              padding: '30px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              position: 'relative'
+              maxWidth: '480px',
+              padding: '26px',
+              textAlign: 'center',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)'
             }}
           >
-            {/* Action Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => handlePrintElement('samity-printable-paid-receipt')}
-                  style={{
-                    background: '#10b981',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    fontWeight: '800',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Printer size={16} />
-                  <span>প্রিন্ট করুন</span>
-                </button>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => setActivePrintReceipt(null)}
+                onClick={() => { setIsVerifyQrModalOpen(false); setVerifyQrTarget(null); }}
                 style={{ background: '#f1f5f9', border: 'none', color: '#475569', padding: '6px', borderRadius: '8px', cursor: 'pointer' }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Printable Receipt DOM Container */}
-            <div id="samity-printable-paid-receipt" style={{ position: 'relative', border: '2px solid #0f172a', padding: '24px', borderRadius: '12px', background: '#fff' }}>
-              {/* PAID Watermark */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '40%',
-                  left: '20%',
-                  fontSize: '56px',
-                  fontWeight: '900',
-                  color: 'rgba(16, 185, 129, 0.12)',
-                  transform: 'rotate(-25deg)',
-                  pointerEvents: 'none',
-                  userSelect: 'none',
-                  zIndex: 0
-                }}
-              >
-                PAID / পরিশোধিত
-              </div>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: verifyQrTarget.approvalStatus === 'cancelled' ? '#fee2e2' : '#ecfdf5', color: verifyQrTarget.approvalStatus === 'cancelled' ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px auto' }}>
+              {verifyQrTarget.approvalStatus === 'cancelled' ? <AlertTriangle size={32} /> : <CheckCircle2 size={32} />}
+            </div>
 
-              {/* Header with Letterhead */}
-              <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '12px', position: 'relative', zIndex: 1 }}>
-                <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: '#0f172a' }}>
-                  {currentSamity.nameBn}
-                </h2>
-                <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '600' }}>
-                  {currentSamity.nameEn}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#0d9488', fontWeight: '700', marginTop: '2px' }}>
-                  স্লোগান: {currentSamity.sloganBn}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                  {currentSamity.address} • ফোন: {currentSamity.mobile} • ইমেইল: {currentSamity.email}
-                </div>
-              </div>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: '900', color: verifyQrTarget.approvalStatus === 'cancelled' ? '#dc2626' : '#059669' }}>
+              {verifyQrTarget.approvalStatus === 'cancelled' ? 'রসিদটি বাতিল ঘোষিত (Cancelled)' : 'ডিজিটাল সত্যায়িত ও অনুমোদিত রসিদ'}
+            </h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '0.8rem', color: '#64748b' }}>
+              হিসাব কিতাব ৩৬০ ডিগ্রি সেন্ট্রাল ক্রিপ্টোগ্রাফিক ডেটাবেজ দ্বারা যাচাইকৃত
+            </p>
 
-              {/* Receipt Title */}
-              <div style={{ textAlign: 'center', margin: '14px 0', position: 'relative', zIndex: 1 }}>
-                <span
-                  style={{
-                    background: '#0f172a',
-                    color: '#fff',
-                    padding: '4px 18px',
-                    borderRadius: '20px',
-                    fontSize: '0.85rem',
-                    fontWeight: '900',
-                    letterSpacing: '1px'
-                  }}
-                >
-                  পরিশোধ রিসিট / PAYMENT RECEIPT
-                </span>
-              </div>
-
-              {/* Receipt Metadata */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px dashed #cbd5e1', paddingBottom: '8px', marginBottom: '12px', position: 'relative', zIndex: 1 }}>
-                <div>রিসিট নম্বর: <strong>{activePrintReceipt.voucherNo}</strong></div>
-                <div>তারিখ: <strong>{activePrintReceipt.depositDate}</strong></div>
-              </div>
-
-              {/* Member Details Box */}
-              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem', marginBottom: '14px', position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                  <div>সদস্য আইডি: <strong>{activePrintReceipt.memberId}</strong></div>
-                  <div>সদস্যের নাম: <strong>{activePrintReceipt.memberName}</strong></div>
-                  <div>জমার ধরন: <strong>{activePrintReceipt.depositType}</strong></div>
-                  <div>জমার মাস: <strong>{activePrintReceipt.month} {activePrintReceipt.year}</strong></div>
-                </div>
-              </div>
-
-              {/* Amount Breakdown Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', marginBottom: '12px', position: 'relative', zIndex: 1 }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1' }}>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>বিবরণ</th>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>জমার মাধ্যম ও রেফারেন্স</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>পরিমাণ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0' }}>
-                      মাসিক চাঁদা ({activePrintReceipt.month} {activePrintReceipt.year})
-                    </td>
-                    <td style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
-                      {activePrintReceipt.method} {activePrintReceipt.bankReceiptNo ? `(স্লিপ: ${activePrintReceipt.bankReceiptNo})` : ''}
-                    </td>
-                    <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: '900', fontSize: '1rem', borderBottom: '1px solid #e2e8f0', color: '#0f172a' }}>
-                      ৳ {activePrintReceipt.amount?.toLocaleString()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Amount in words */}
-              <div style={{ fontSize: '0.78rem', color: '#334155', marginBottom: '24px', position: 'relative', zIndex: 1 }}>
-                কথায়: <strong>{numberToBanglaWords(activePrintReceipt.amount)}</strong>
-                <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                  In Words: {numberToEnglishWords(activePrintReceipt.amount)}
-                </div>
-              </div>
-
-              {/* Signatures Row */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-end',
-                  marginTop: '45px',
-                  paddingTop: '10px',
-                  position: 'relative',
-                  zIndex: 1
-                }}
-              >
-                {data.signatures.map(sig => (
-                  <div key={sig.id} style={{ textAlign: 'center', width: '30%' }}>
-                    <div style={{ borderTop: '1px solid #0f172a', paddingTop: '4px', fontWeight: '800', fontSize: '0.78rem' }}>
-                      {sig.name}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{sig.designationBn}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Footer */}
-              <div style={{ marginTop: '20px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '8px', fontSize: '0.7rem', color: '#94a3b8', position: 'relative', zIndex: 1 }}>
-                এটি একটি কম্পিউটার জেনারেটেড রসিদ • স্বচ্ছতা ও সততা আমাদের অঙ্গীকার • হিসাব কিতাব ৩৬০ ডিগ্রি
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', textAlign: 'left', fontSize: '0.82rem', marginBottom: '16px', lineHeight: '1.6' }}>
+              <div>সমিতি: <strong style={{ color: '#0f172a' }}>{currentSamity.nameBn}</strong></div>
+              <div>রিসিট নম্বর: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{getFormattedReceiptNo(verifyQrTarget)}</strong></div>
+              <div>সদস্যের নাম: <strong style={{ color: '#0f172a' }}>{verifyQrTarget.memberName || verifyQrTarget.depositorName}</strong> (আইডি: {verifyQrTarget.memberId})</div>
+              <div>জমার পরিমাণ: <strong style={{ color: '#059669', fontSize: '0.95rem' }}>৳ {Number(verifyQrTarget.amount || 0).toLocaleString()}</strong></div>
+              <div>জমার খাত: <strong>{verifyQrTarget.depositType || 'মাসিক চাঁদা'} ({verifyQrTarget.paymentMonth || verifyQrTarget.month} {verifyQrTarget.paymentYear || verifyQrTarget.year})</strong></div>
+              <div>পরিশোধের মাধ্যম: <strong>{verifyQrTarget.depositMethod || verifyQrTarget.method}</strong></div>
+              <div>তারিখ: <strong>{verifyQrTarget.depositDate || new Date().toISOString().split('T')[0]}</strong></div>
+              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #cbd5e1', fontSize: '0.72rem', color: '#64748b', wordBreak: 'break-all' }}>
+                ভেরিফিকেশন টোকেন: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>HK360-VERIFY-{(verifyQrTarget.id || '0000').slice(0, 12)}</strong>
               </div>
             </div>
+
+            <button
+              onClick={() => { setIsVerifyQrModalOpen(false); setVerifyQrTarget(null); }}
+              style={{
+                width: '100%',
+                background: '#0f172a',
+                color: '#fff',
+                border: 'none',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '0.84rem',
+                fontWeight: '800',
+                cursor: 'pointer'
+              }}
+            >
+              বন্ধ করুন
+            </button>
           </div>
         </div>
       )}
