@@ -129,6 +129,92 @@ export const GENDERS = [
   { value: 'Other', labelBn: 'অন্যান্য (Other)' }
 ];
 
+// Bank Deposit Module Specifications & Constants
+export const DEPOSIT_TYPES = [
+  { value: 'Monthly Subscription', labelBn: 'মাসিক চাঁদা (Monthly Subscription)', color: '#10b981' },
+  { value: 'Special Subscription', labelBn: 'বিশেষ চাঁদা (Special Subscription)', color: '#3b82f6' },
+  { value: 'Donation', labelBn: 'দান / অনুদান (Donation)', color: '#8b5cf6' },
+  { value: 'Fine', labelBn: 'জরিমানা / বিলম্ব ফি (Fine)', color: '#f59e0b' },
+  { value: 'Event Collection', labelBn: 'অনুষ্ঠান কালেকশন (Event Collection)', color: '#06b6d4' },
+  { value: 'Loan Repayment', labelBn: 'ঋণ পরিশোধ (Loan Repayment)', color: '#ec4899' },
+  { value: 'Other Income', labelBn: 'অন্যান্য আয় (Other Income)', color: '#64748b' }
+];
+
+export const DEPOSIT_METHODS = [
+  { value: 'Bank Counter', labelBn: 'ব্যাংক কাউন্টার (Bank Counter)', icon: 'Landmark' },
+  { value: 'Online Banking', labelBn: 'অনলাইন ব্যাংকিং (Online Banking / EFT / NPSB)', icon: 'Globe' },
+  { value: 'ATM', labelBn: 'এটিএম বুথ জমা (ATM Deposit)', icon: 'CreditCard' },
+  { value: 'Cheque', labelBn: 'ব্যাংক চেক (Cheque)', icon: 'FileText' },
+  { value: 'bKash', labelBn: 'বিকাশ (bKash)', icon: 'Smartphone' },
+  { value: 'Nagad', labelBn: 'নগদ (Nagad)', icon: 'Smartphone' },
+  { value: 'Rocket', labelBn: 'রকেট (Rocket)', icon: 'Smartphone' },
+  { value: 'Upay', labelBn: 'উপায় (Upay)', icon: 'Smartphone' },
+  { value: 'Cash', labelBn: 'নগদ ক্যাশ (Cash)', icon: 'Wallet' }
+];
+
+export const DEPOSIT_APPROVAL_STATUSES = [
+  { value: 'approved', labelBn: 'অনুমোদিত (Approved)', color: '#10b981' },
+  { value: 'pending', labelBn: 'অপেক্ষমাণ (Pending)', color: '#f59e0b' },
+  { value: 'rejected', labelBn: 'বাতিলকৃত (Rejected)', color: '#ef4444' },
+  { value: 'cancelled', labelBn: 'স্থগিত (Cancelled)', color: '#64748b' }
+];
+
+// Helper to create an initialized Bank Deposit object with all 35 user-requested fields
+export const createDefaultDepositObject = (samity = {}, nextCount = 1, custom = {}) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthName = now.toLocaleString('en-US', { month: 'long' });
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().slice(0, 5);
+  const pad = String(nextCount).padStart(5, '0');
+  const voucherNo = `DEP-${year}-${pad}`;
+  const receiptNo = `RCPT-${year}-${pad}`;
+
+  return {
+    id: `DEP-${Date.now()}`,
+    voucherNo: voucherNo,
+    receiptNo: receiptNo,
+    depositDate: dateStr,
+    depositTime: timeStr,
+    samityId: samity?.id || 'SAMITY-001',
+    samityName: samity?.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি',
+    bankName: samity?.bankDetails?.bankName || 'ডাচ্-বাংলা ব্যাংক',
+    bankBranch: samity?.bankDetails?.branchName || 'মিরপুর শাখা',
+    bankAccountNo: samity?.bankDetails?.accNo || '123.120.98765',
+    bankAccountName: samity?.bankDetails?.accName || samity?.nameBn || '',
+    depositType: 'Monthly Subscription',
+    depositMethod: 'Bank Counter',
+    amount: Number(samity?.monthlySubscription || 500),
+    bankReceiptNo: '',
+    bankReceiptDate: dateStr,
+    depositSlipNo: '',
+    transactionId: '',
+    chequeNo: '',
+    chequeDate: '',
+    depositorName: '',
+    depositorPhone: '',
+    depositorWhatsApp: '',
+    memberId: '',
+    memberName: '',
+    paymentMonth: monthName,
+    paymentYear: year,
+    paymentPeriod: 'Monthly',
+    remarks: '',
+    bankReceiptImage: '',
+    depositSlipImage: '',
+    transactionScreenshot: '',
+    entryBy: 'Admin / Treasurer',
+    entryDate: now.toISOString(),
+    approvalStatus: 'approved',
+    approvedBy: 'Admin / Treasurer',
+    approvedAt: now.toISOString(),
+    approvalRemarks: 'স্বয়ংক্রিয়ভাবে যাচাইকৃত ও অনুমোদিত',
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    ...custom
+  };
+};
+
 // Helper to create an empty or initialized Member object with all 38 specification fields
 export const createDefaultMemberObject = (samityId = 'SAMITY-001', nextCount = 1, custom = {}) => {
   const pad = String(nextCount).padStart(4, '0');

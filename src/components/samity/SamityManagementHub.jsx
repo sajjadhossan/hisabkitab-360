@@ -83,6 +83,10 @@ import {
   PAYMENT_CYCLES,
   BLOOD_GROUPS,
   GENDERS,
+  DEPOSIT_TYPES,
+  DEPOSIT_METHODS,
+  DEPOSIT_APPROVAL_STATUSES,
+  createDefaultDepositObject,
   createDefaultMemberObject,
   downloadMembersCsvTemplate,
   parseMembersCsv,
@@ -309,20 +313,15 @@ export const SamityManagementHub = ({ onClose }) => {
     updatedAt: new Date().toISOString()
   }));
 
-  const [depositForm, setDepositForm] = useState({
-    memberId: '',
-    amount: '',
-    depositDate: new Date().toISOString().split('T')[0],
-    depositType: 'Monthly Subscription',
-    method: 'bank_counter',
-    bankName: '',
-    bankBranch: '',
-    bankReceiptNo: '',
-    transactionId: '',
-    month: targetMonth,
-    year: targetYear,
-    remarks: ''
-  });
+  // Bank Deposit Module (#4) States
+  const [depositFormActiveTab, setDepositFormActiveTab] = useState('basic'); // 'basic' | 'bank' | 'period' | 'slips'
+  const [editingDeposit, setEditingDeposit] = useState(null);
+  const [depositSearchQuery, setDepositSearchQuery] = useState('');
+  const [depositTypeFilter, setDepositTypeFilter] = useState('all');
+  const [depositMethodFilter, setDepositMethodFilter] = useState('all');
+  const [depositApprovalFilter, setDepositApprovalFilter] = useState('all');
+  const [depositForm, setDepositForm] = useState(() => createDefaultDepositObject());
+  const [depositPreviewImage, setDepositPreviewImage] = useState(null); // { url, title }
 
   const [expenseForm, setExpenseForm] = useState({
     category: 'office_rent',
@@ -820,27 +819,88 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   // --------------------------------------------------------------------------
-  // Handlers: Single Bank & Cash Deposit
+  // Handlers: Single Bank & Cash Deposit (Module #4)
   // --------------------------------------------------------------------------
-  const handleOpenDepositModal = (prefillMemberId = '') => {
+  const handleOpenDepositModal = (depositOrMemberId = null) => {
     playButtonClick?.();
-    triggerHaptic();
+    triggerHaptic?.();
+    setDepositFormActiveTab('basic');
+
+    if (depositOrMemberId && typeof depositOrMemberId === 'object' && depositOrMemberId.id) {
+      // Editing existing deposit
+      setEditingDeposit(depositOrMemberId);
+      setDepositForm({ ...depositOrMemberId });
+      setIsDepositModalOpen(true);
+      return;
+    }
+
+    setEditingDeposit(null);
+    const prefillMemberId = typeof depositOrMemberId === 'string' ? depositOrMemberId : '';
     const targetMember = data.members.find(m => m.id === prefillMemberId);
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().slice(0, 5);
+    const voucherNo = generateVoucherNumber(data.deposits, 'DEP-');
+    const receiptNo = generateReceiptNumber(data.deposits, 'RCPT-');
+
     setDepositForm({
-      memberId: prefillMemberId,
-      amount: targetMember?.customSubscription || currentSamity.monthlySubscription || '500',
-      depositDate: new Date().toISOString().split('T')[0],
+      id: `DEP-${Date.now()}`,
+      voucherNo: voucherNo,
+      receiptNo: receiptNo,
+      depositDate: dateStr,
+      depositTime: timeStr,
+      samityId: activeSamityId,
+      samityName: currentSamity?.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি',
+      bankName: currentSamity?.bankDetails?.bankName || 'ডাচ্-বাংলা ব্যাংক',
+      bankBranch: currentSamity?.bankDetails?.branchName || 'মিরপুর শাখা',
+      bankAccountNo: currentSamity?.bankDetails?.accNo || '123.120.98765',
+      bankAccountName: currentSamity?.bankDetails?.accName || currentSamity?.nameBn || '',
       depositType: 'Monthly Subscription',
-      method: 'bank_counter',
-      bankName: currentSamity.bankDetails?.bankName || '',
-      bankBranch: currentSamity.bankDetails?.branchName || '',
+      depositMethod: 'Bank Counter',
+      amount: targetMember?.customSubscription || currentSamity?.monthlySubscription || '500',
       bankReceiptNo: '',
+      bankReceiptDate: dateStr,
+      depositSlipNo: '',
       transactionId: '',
-      month: targetMonth,
-      year: targetYear,
-      remarks: ''
+      chequeNo: '',
+      chequeDate: '',
+      depositorName: targetMember ? (targetMember.nameBn || targetMember.nameEn) : '',
+      depositorPhone: targetMember?.mobile || '',
+      depositorWhatsApp: targetMember?.whatsappNumber || targetMember?.mobile || '',
+      memberId: prefillMemberId,
+      memberName: targetMember ? (targetMember.nameBn || targetMember.nameEn) : '',
+      paymentMonth: targetMonth,
+      paymentYear: targetYear,
+      paymentPeriod: targetMember?.paymentCycle || 'Monthly',
+      remarks: '',
+      bankReceiptImage: '',
+      depositSlipImage: '',
+      transactionScreenshot: '',
+      entryBy: 'Admin / Treasurer',
+      entryDate: now.toISOString(),
+      approvalStatus: 'approved',
+      approvedBy: 'Admin / Treasurer',
+      approvedAt: now.toISOString(),
+      approvalRemarks: 'স্বয়ংক্রিয়ভাবে যাচাইকৃত ও অনুমোদিত',
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
     });
     setIsDepositModalOpen(true);
+  };
+
+  const handleDepositImageUpload = (field, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      showToast?.('ছবির সর্বোচ্চ সাইজ ৩ মেগাবাইট হতে হবে', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setDepositForm(prev => ({ ...prev, [field]: event.target.result }));
+      showToast?.('ছবি সফলভাবে আপলোড হয়েছে', 'success');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveDeposit = (e) => {
@@ -851,39 +911,73 @@ export const SamityManagementHub = ({ onClose }) => {
     }
 
     playSuccessChime?.();
-    triggerHaptic();
+    triggerHaptic?.();
 
-    const voucherNo = generateVoucherNumber(data.deposits, 'DEP-');
     const targetMember = data.members.find(m => m.id === depositForm.memberId);
+    const memberName = targetMember ? (targetMember.nameBn || targetMember.nameEn) : (depositForm.depositorName || 'সাধারণ আমানতকারী');
+    const depositorName = depositForm.depositorName || memberName;
 
-    const newDeposit = {
+    const formattedDeposit = {
       ...depositForm,
-      id: `DEP-${Date.now()}`,
-      voucherNo,
-      samityId: activeSamityId,
-      memberName: targetMember ? (targetMember.nameBn || targetMember.nameEn) : 'সাধারণ আমানতকারী',
       amount: Number(depositForm.amount),
-      approvalStatus: 'approved',
-      approvedBy: 'Admin',
-      approvedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString()
+      memberName,
+      depositorName,
+      samityId: activeSamityId,
+      samityName: currentSamity?.nameBn || depositForm.samityName,
+      month: depositForm.paymentMonth, // backward compat for calculateMemberPaymentStatus
+      year: depositForm.paymentYear,   // backward compat
+      date: depositForm.depositDate,   // backward compat
+      method: depositForm.depositMethod, // backward compat
+      updatedAt: new Date().toISOString()
     };
 
+    if (editingDeposit) {
+      updateAndSave(prev => ({
+        ...prev,
+        deposits: prev.deposits.map(d => d.id === editingDeposit.id ? formattedDeposit : d)
+      }), {
+        action: 'UPDATE_DEPOSIT',
+        module: 'DEPOSITS',
+        recordId: formattedDeposit.voucherNo || formattedDeposit.id,
+        details: { amount: formattedDeposit.amount, memberId: formattedDeposit.memberId }
+      });
+      showToast?.(`জমা ভাউচার ${formattedDeposit.voucherNo} সফলভাবে আপডেট হয়েছে!`, 'success');
+    } else {
+      updateAndSave(prev => ({
+        ...prev,
+        deposits: [formattedDeposit, ...prev.deposits]
+      }), {
+        action: 'CREATE_DEPOSIT',
+        module: 'DEPOSITS',
+        recordId: formattedDeposit.voucherNo,
+        details: { amount: formattedDeposit.amount, memberId: formattedDeposit.memberId, type: formattedDeposit.depositType }
+      });
+      showToast?.(`৳${formattedDeposit.amount} টাকা জমা সফলভাবে সম্পন্ন হয়েছে! ভাউচার নং: ${formattedDeposit.voucherNo}`, 'success');
+      setActivePrintReceipt(formattedDeposit);
+    }
+
+    setIsDepositModalOpen(false);
+    setEditingDeposit(null);
+  };
+
+  const handleDeleteDeposit = (depositId) => {
+    const target = data.deposits.find(d => d.id === depositId);
+    if (!target) return;
+    if (!window.confirm(`আপনি কি নিশ্চিত যে ভাউচার "${target.voucherNo}" মুছে ফেলতে চান?`)) {
+      return;
+    }
+    playButtonClick?.();
+    triggerHaptic?.();
     updateAndSave(prev => ({
       ...prev,
-      deposits: [newDeposit, ...prev.deposits]
+      deposits: prev.deposits.filter(d => d.id !== depositId)
     }), {
-      action: 'CREATE_DEPOSIT',
+      action: 'DELETE_DEPOSIT',
       module: 'DEPOSITS',
-      recordId: voucherNo,
-      details: { amount: newDeposit.amount, memberId: newDeposit.memberId }
+      recordId: target.voucherNo,
+      details: { amount: target.amount, member: target.memberName }
     });
-
-    showToast?.(`জমা সফলভাবে লিপিবদ্ধ হয়েছে (ভাউচার: ${voucherNo})`, 'success');
-    setIsDepositModalOpen(false);
-
-    // Prompt user to preview receipt
-    setActivePrintReceipt(newDeposit);
+    showToast?.(`ভাউচার ${target.voucherNo} মুছে ফেলা হয়েছে`, 'info');
   };
 
   // --------------------------------------------------------------------------
@@ -1344,6 +1438,60 @@ export const SamityManagementHub = ({ onClose }) => {
       return true;
     });
   }, [data.members, data.deposits, activeSamityId, searchQuery, memberFilterType, memberFilterStatus, memberFilterPaymentStatus, targetMonth, targetYear, currentSamity]);
+
+  // Filtered Deposit List (#4 Bank Deposit Module)
+  const filteredDeposits = useMemo(() => {
+    return (data.deposits || []).filter(dep => {
+      if (dep.samityId && activeSamityId && dep.samityId !== activeSamityId) return false;
+      if (depositSearchQuery.trim()) {
+        const q = depositSearchQuery.toLowerCase();
+        const match =
+          (dep.voucherNo || '').toLowerCase().includes(q) ||
+          (dep.receiptNo || '').toLowerCase().includes(q) ||
+          (dep.bankReceiptNo || '').toLowerCase().includes(q) ||
+          (dep.depositSlipNo || '').toLowerCase().includes(q) ||
+          (dep.transactionId || '').toLowerCase().includes(q) ||
+          (dep.chequeNo || '').toLowerCase().includes(q) ||
+          (dep.memberName || '').toLowerCase().includes(q) ||
+          (dep.depositorName || '').toLowerCase().includes(q) ||
+          (dep.depositorPhone || '').includes(q) ||
+          (dep.depositorWhatsApp || '').includes(q) ||
+          (dep.bankName || '').toLowerCase().includes(q) ||
+          (dep.bankAccountNo || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (depositTypeFilter !== 'all' && dep.depositType !== depositTypeFilter) {
+        return false;
+      }
+      if (depositMethodFilter !== 'all') {
+        const m = dep.depositMethod || dep.method;
+        if (m !== depositMethodFilter) return false;
+      }
+      if (depositApprovalFilter !== 'all') {
+        const status = (dep.approvalStatus || 'approved').toLowerCase();
+        if (status !== depositApprovalFilter.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }, [data.deposits, activeSamityId, depositSearchQuery, depositTypeFilter, depositMethodFilter, depositApprovalFilter]);
+
+  // Deposit Metrics (#4 Bank Deposit Module)
+  const depositMetrics = useMemo(() => {
+    const list = (data.deposits || []).filter(d => !d.samityId || d.samityId === activeSamityId);
+    const totalAmount = list.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const currentMonthAmount = list
+      .filter(d => (d.paymentMonth === targetMonth || d.month === targetMonth) && Number(d.paymentYear || d.year) === Number(targetYear))
+      .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const approvedCount = list.filter(d => (d.approvalStatus || 'approved') === 'approved').length;
+    const pendingCount = list.filter(d => d.approvalStatus === 'pending').length;
+    return {
+      totalAmount,
+      currentMonthAmount,
+      approvedCount,
+      pendingCount,
+      totalCount: list.length
+    };
+  }, [data.deposits, activeSamityId, targetMonth, targetYear]);
 
   return (
     <div
@@ -3202,17 +3350,21 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 3: BANK & CASH DEPOSITS */}
+        {/* TAB 3: BANK & CASH DEPOSITS (#4 BANK DEPOSIT MODULE) */}
         {activeTab === 'deposits' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            {/* Header & Main Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>💳 ব্যাংক ও নগদ জমা তালিকা</h3>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  ব্যাংক কাউন্টার, অনলাইন ট্রান্সফার, এটিএম বা মোবাইল ব্যাংকিংয়ের মাধ্যমে জমাকৃত প্রতিটি আমানতের রেকর্ড
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Landmark size={20} color="#10b981" />
+                  <span>ব্যাংক ও নগদ জমা এন্ট্রি মডিউল (Bank Deposit Entry Module)</span>
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  ভাউচার নম্বর, ব্যাংক রসিদ, চেক, অনলাইন TrxID, স্লিপ ইমেজ ও অনুমোদনসহ পূর্ণাঙ্গ আমানত ব্যবস্থাপনা
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => setActiveTab('bulk_deposit')}
                   className="btn"
@@ -3224,10 +3376,14 @@ export const SamityManagementHub = ({ onClose }) => {
                     borderRadius: '8px',
                     fontSize: '0.8rem',
                     fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     cursor: 'pointer'
                   }}
                 >
-                  📑 বাল্ক জমা এন্ট্রি
+                  <Layers size={15} />
+                  <span>📑 বাল্ক জমা এন্ট্রি</span>
                 </button>
                 <button
                   onClick={() => handleOpenDepositModal()}
@@ -3243,12 +3399,169 @@ export const SamityManagementHub = ({ onClose }) => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
                   }}
                 >
                   <Plus size={16} />
                   <span>+ নতুন জমা এন্ট্রি</span>
                 </button>
+              </div>
+            </div>
+
+            {/* 4 Summary Metric Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Landmark size={20} color="#10b981" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>মোট সংগৃহীত জমা</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#10b981' }}>
+                    ৳ {depositMetrics.totalAmount.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <TrendingUp size={20} color="#38bdf8" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>চলতি মাসের জমা ({targetMonth})</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#38bdf8' }}>
+                    ৳ {depositMetrics.currentMonthAmount.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircle2 size={20} color="#a78bfa" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>অনুমোদিত ভাউচার</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#a78bfa' }}>
+                    {depositMetrics.approvedCount} টি
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileCheck size={20} color="#fbbf24" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>অপেক্ষমাণ / রিভিউ</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900', color: depositMetrics.pendingCount > 0 ? '#f59e0b' : '#94a3b8' }}>
+                    {depositMetrics.pendingCount} টি
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Multi-Filter & Search Toolbar */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.7)',
+                padding: '14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '10px',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              {/* Search Field */}
+              <div style={{ flex: '1 1 260px', position: 'relative' }}>
+                <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="ভাউচার, রশিদ নং, নাম, ফোন, ব্যাংক, TrxID খুঁজুন..."
+                  value={depositSearchQuery}
+                  onChange={(e) => setDepositSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 30px 8px 32px',
+                    borderRadius: '8px',
+                    background: '#0f172a',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#fff',
+                    fontSize: '0.8rem'
+                  }}
+                />
+                {depositSearchQuery && (
+                  <button
+                    onClick={() => setDepositSearchQuery('')}
+                    style={{ position: 'absolute', right: '8px', top: '7px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Deposit Type Filter */}
+              <div style={{ flex: '0 1 180px' }}>
+                <select
+                  value={depositTypeFilter}
+                  onChange={(e) => setDepositTypeFilter(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
+                >
+                  <option value="all">সব জমার ধরন (All Types)</option>
+                  {DEPOSIT_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.labelBn}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Deposit Method Filter */}
+              <div style={{ flex: '0 1 160px' }}>
+                <select
+                  value={depositMethodFilter}
+                  onChange={(e) => setDepositMethodFilter(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
+                >
+                  <option value="all">সব মাধ্যম (All Methods)</option>
+                  {DEPOSIT_METHODS.map(m => (
+                    <option key={m.value} value={m.value}>{m.labelBn}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Approval Status Filter */}
+              <div style={{ flex: '0 1 150px' }}>
+                <select
+                  value={depositApprovalFilter}
+                  onChange={(e) => setDepositApprovalFilter(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
+                >
+                  <option value="all">সব স্ট্যাটাস</option>
+                  {DEPOSIT_APPROVAL_STATUSES.map(s => (
+                    <option key={s.value} value={s.value}>{s.labelBn}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Reset Filters & Results Badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {(depositSearchQuery || depositTypeFilter !== 'all' || depositMethodFilter !== 'all' || depositApprovalFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setDepositSearchQuery('');
+                      setDepositTypeFilter('all');
+                      setDepositMethodFilter('all');
+                      setDepositApprovalFilter('all');
+                    }}
+                    style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    রিসেট ফিল্টার
+                  </button>
+                )}
+                <span style={{ fontSize: '0.74rem', color: '#94a3b8', background: 'rgba(15, 23, 42, 0.8)', padding: '6px 10px', borderRadius: '6px' }}>
+                  ফিল্টারকৃত: <strong style={{ color: '#fff' }}>{filteredDeposits.length}</strong> টি
+                </span>
               </div>
             </div>
 
@@ -3261,89 +3574,283 @@ export const SamityManagementHub = ({ onClose }) => {
                 overflowX: 'auto'
               }}
             >
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.81rem' }}>
                 <thead>
                   <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার / রিসিট নং</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>তারিখ ও মাস</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>সদস্যের নাম</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>জমার মাধ্যম ও ব্যাংক</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>টাকার পরিমাণ</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার ও রসিদ নং</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>তারিখ ও সময়</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>আমানতকারী / সদস্য</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ধরন ও মাধ্যম</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ব্যাংক ও হিসাব / TrxID</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>পরিশোধিত সময়কাল</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>পরিমাণ (টাকা)</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>ডকুমেন্ট / স্লিপ</th>
                     <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>স্ট্যাটাস</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>রিসিট</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>অ্যাকশন</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.deposits.length === 0 ? (
+                  {filteredDeposits.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        এখনো কোনো জমার রেকর্ড নেই। "+ নতুন জমা এন্ট্রি" বাটনে ক্লিক করে টাকা জমা রেকর্ড করুন।
+                      <td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                          <Landmark size={32} color="#64748b" />
+                          <span>কোনো জমার রেকর্ড পাওয়া যায়নি। "+ নতুন জমা এন্ট্রি" বাটনে ক্লিক করে প্রথম জমা রেকর্ড করুন।</span>
+                        </div>
                       </td>
                     </tr>
                   ) : (
-                    data.deposits.map(dep => (
-                      <tr key={dep.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                        <td style={{ padding: '12px 14px', fontWeight: '800', color: '#38bdf8' }}>
-                          {dep.voucherNo}
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div>{dep.depositDate}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            মাস: {dep.month} {dep.year}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ fontWeight: '800' }}>{dep.memberName}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            সদস্য আইডি: {dep.memberId || 'N/A'}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ fontWeight: '700' }}>{dep.method}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            {dep.bankName} {dep.bankReceiptNo ? `(রশিদ: ${dep.bankReceiptNo})` : ''}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#10b981', fontSize: '0.95rem' }}>
-                          ৳ {dep.amount?.toLocaleString()}
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <span
-                            style={{
-                              background: 'rgba(16, 185, 129, 0.15)',
-                              color: '#10b981',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              fontSize: '0.72rem',
-                              fontWeight: '800'
-                            }}
-                          >
-                            ✓ Approved
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => setActivePrintReceipt(dep)}
-                            style={{
-                              background: 'rgba(59, 130, 246, 0.15)',
-                              color: '#3b82f6',
-                              border: '1px solid rgba(59, 130, 246, 0.3)',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              fontSize: '0.72rem',
-                              fontWeight: '800',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            <Printer size={12} />
-                            <span>রিসিট</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    filteredDeposits.map(dep => {
+                      const typeObj = DEPOSIT_TYPES.find(t => t.value === dep.depositType);
+                      const methodObj = DEPOSIT_METHODS.find(m => m.value === (dep.depositMethod || dep.method));
+                      const isApproved = (dep.approvalStatus || 'approved') === 'approved';
+                      const isPending = dep.approvalStatus === 'pending';
+                      const isRejected = dep.approvalStatus === 'rejected';
+
+                      return (
+                        <tr key={dep.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                          {/* Voucher & Receipt */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: '800', color: '#38bdf8' }}>{dep.voucherNo}</div>
+                            {dep.receiptNo && (
+                              <div style={{ fontSize: '0.71rem', color: '#94a3b8' }}>
+                                রসিদ: {dep.receiptNo}
+                              </div>
+                            )}
+                            {dep.bankReceiptNo && (
+                              <div style={{ fontSize: '0.7rem', color: '#10b981' }}>
+                                ব্যাংক রসিদ: {dep.bankReceiptNo}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Date & Time */}
+                          <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontWeight: '700' }}>{dep.depositDate || dep.date}</div>
+                            {dep.depositTime && (
+                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                                ⏰ {dep.depositTime}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Member / Depositor */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: '800', color: '#fff' }}>
+                              {dep.memberName || dep.depositorName || 'সাধারণ আমানতকারী'}
+                            </div>
+                            {dep.memberId ? (
+                              <div style={{ fontSize: '0.71rem', color: '#38bdf8' }}>
+                                সদস্য আইডি: {dep.memberId}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.71rem', color: '#94a3b8' }}>
+                                সাধারণ জমাদানকারী
+                              </div>
+                            )}
+                            {(dep.depositorPhone || dep.depositorWhatsApp) && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                📞 {dep.depositorPhone || dep.depositorWhatsApp}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Deposit Type & Method */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                background: 'rgba(56, 189, 248, 0.15)',
+                                color: '#38bdf8',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: '700',
+                                marginBottom: '3px'
+                              }}
+                            >
+                              {typeObj?.labelBn || dep.depositType || 'মাসিক চাঁদা'}
+                            </span>
+                            <div style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '600' }}>
+                              {methodObj?.labelBn || dep.depositMethod || dep.method || 'ব্যাংক কাউন্টার'}
+                            </div>
+                          </td>
+
+                          {/* Bank & Account / TrxID */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: '700' }}>{dep.bankName || 'ব্যাংক তথ্য নেই'}</div>
+                            {dep.bankAccountNo && (
+                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                                হিসাব: {dep.bankAccountNo}
+                              </div>
+                            )}
+                            {dep.transactionId && (
+                              <div style={{ fontSize: '0.71rem', color: '#38bdf8' }}>
+                                TrxID: {dep.transactionId}
+                              </div>
+                            )}
+                            {dep.chequeNo && (
+                              <div style={{ fontSize: '0.71rem', color: '#fbbf24' }}>
+                                চেক: {dep.chequeNo} ({dep.chequeDate || ''})
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Payment Period */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: '700' }}>
+                              {dep.paymentMonth || dep.month} {dep.paymentYear || dep.year}
+                            </div>
+                            <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                              চক্র: {dep.paymentPeriod || 'Monthly'}
+                            </div>
+                          </td>
+
+                          {/* Amount */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#10b981', fontSize: '0.98rem', whiteSpace: 'nowrap' }}>
+                            ৳ {Number(dep.amount || 0).toLocaleString()}
+                          </td>
+
+                          {/* Documents / Slips */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                              {dep.bankReceiptImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDepositPreviewImage({ url: dep.bankReceiptImage, title: `ব্যাংক রসিদ - ভাউচার: ${dep.voucherNo}` })}
+                                  title="ব্যাংক রসিদ দেখুন"
+                                  style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '6px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                >
+                                  <ImageIcon size={14} color="#10b981" />
+                                </button>
+                              )}
+                              {dep.depositSlipImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDepositPreviewImage({ url: dep.depositSlipImage, title: `ডিপোজিট স্লিপ - ভাউচার: ${dep.voucherNo}` })}
+                                  title="ডিপোজিট স্লিপ দেখুন"
+                                  style={{ background: 'rgba(56, 189, 248, 0.2)', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '6px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                >
+                                  <ImageIcon size={14} color="#38bdf8" />
+                                </button>
+                              )}
+                              {dep.transactionScreenshot && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDepositPreviewImage({ url: dep.transactionScreenshot, title: `অনলাইন ট্রানজ্যাকশন স্ক্রিনশট - ভাউচার: ${dep.voucherNo}` })}
+                                  title="স্ক্রিনশট দেখুন"
+                                  style={{ background: 'rgba(168, 85, 247, 0.2)', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: '6px', padding: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                >
+                                  <ImageIcon size={14} color="#a855f7" />
+                                </button>
+                              )}
+                              {!dep.bankReceiptImage && !dep.depositSlipImage && !dep.transactionScreenshot && (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Approval Status */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <span
+                              style={{
+                                background: isApproved
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : isPending
+                                  ? 'rgba(245, 158, 11, 0.15)'
+                                  : isRejected
+                                  ? 'rgba(239, 68, 68, 0.15)'
+                                  : 'rgba(148, 163, 184, 0.15)',
+                                color: isApproved
+                                  ? '#10b981'
+                                  : isPending
+                                  ? '#f59e0b'
+                                  : isRejected
+                                  ? '#ef4444'
+                                  : '#94a3b8',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '800'
+                              }}
+                            >
+                              {isApproved ? '✓ Approved' : isPending ? '⏳ Pending' : isRejected ? '✕ Rejected' : 'Cancelled'}
+                            </span>
+                            {dep.approvedBy && (
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {dep.approvedBy}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Action Buttons */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button
+                                onClick={() => setActivePrintReceipt(dep)}
+                                title="রসিদ প্রিন্ট করুন"
+                                style={{
+                                  background: 'rgba(59, 130, 246, 0.15)',
+                                  color: '#3b82f6',
+                                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Printer size={12} />
+                                <span>রসিদ</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleOpenDepositModal(dep)}
+                                title="সম্পাদনা করুন"
+                                style={{
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#f59e0b',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Edit3 size={12} />
+                                <span>এডিট</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteDeposit(dep.id)}
+                                title="মুছে ফেলুন"
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -7308,16 +7815,16 @@ export const SamityManagementHub = ({ onClose }) => {
       )}
 
       {/* ==================================================================== */}
-      {/* 5. MODAL: DEPOSIT ENTRY */}
+      {/* 5. MODAL: BANK DEPOSIT ENTRY MODULE (35 SPECIFICATION FIELDS) */}
       {/* ==================================================================== */}
       {isDepositModalOpen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 100,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 110,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -7328,117 +7835,759 @@ export const SamityManagementHub = ({ onClose }) => {
             style={{
               background: '#1e293b',
               border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '16px',
+              borderRadius: '18px',
               width: '100%',
-              maxWidth: '550px',
-              maxHeight: '90vh',
+              maxWidth: '840px',
+              maxHeight: '92vh',
               overflowY: 'auto',
-              padding: '24px'
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
             }}
           >
+            {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>
-                💳 নতুন জমা ভাউচার এন্ট্রি
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+                  }}
+                >
+                  <Landmark size={22} color="#ffffff" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#fff' }}>
+                    {editingDeposit ? 'জমা ভাউচার ও ব্যাংক রেকর্ড সম্পাদনা' : '💳 নতুন ব্যাংক ও নগদ জমা এন্ট্রি'}
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    সদস্য, ব্যাংক একাউন্ট, রশিদ নম্বর, খতিয়ান লেজার ও আর্থিক রিপোর্টের সাথে স্বয়ংক্রিয়ভাবে সংযুক্ত
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={() => setIsDepositModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
+                type="button"
+                onClick={() => {
+                  setIsDepositModalOpen(false);
+                  setEditingDeposit(null);
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: '#fff',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDeposit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সদস্য নির্বাচন করুন *</label>
-                <select
-                  required
-                  value={depositForm.memberId}
-                  onChange={(e) => {
-                    const mId = e.target.value;
-                    const m = data.members.find(mem => mem.id === mId);
-                    setDepositForm({
-                      ...depositForm,
-                      memberId: mId,
-                      amount: m?.customSubscription || currentSamity.monthlySubscription || '500'
-                    });
-                  }}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                >
-                  <option value="">-- সদস্য সিলেক্ট করুন --</option>
-                  {data.members.map(m => (
-                    <option key={m.id} value={m.id}>{m.id} - {m.nameBn || m.nameEn} ({m.mobile})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: '#10b981', fontWeight: '800', marginBottom: '4px' }}>জমার পরিমাণ (টাকা) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={depositForm.amount}
-                    onChange={(e) => setDepositForm({ ...depositForm, amount: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1.5px solid #10b981', color: '#10b981', fontSize: '0.9rem', fontWeight: '900' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>জমার মাধ্যম</label>
-                  <select
-                    value={depositForm.method}
-                    onChange={(e) => setDepositForm({ ...depositForm, method: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+            {/* 4 Modal Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '6px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                paddingBottom: '10px',
+                marginBottom: '16px',
+                overflowX: 'auto',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {[
+                { id: 'basic', label: '📌 ১. মূল তথ্য ও সদস্য/আমানতকারী' },
+                { id: 'bank', label: '🏦 ২. ব্যাংক ও মাধ্যম বিবরণ' },
+                { id: 'period', label: '📅 ৩. হিসাবের মাস ও সময়কাল' },
+                { id: 'slips', label: '📎 ৪. ভাউচার স্লিপ আপলোড ও অনুমোদন' }
+              ].map(tab => {
+                const isActive = depositFormActiveTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      playButtonClick?.();
+                      setDepositFormActiveTab(tab.id);
+                    }}
+                    style={{
+                      background: isActive ? '#10b981' : 'rgba(255, 255, 255, 0.05)',
+                      color: isActive ? '#0f172a' : '#94a3b8',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
+                      fontSize: '0.78rem',
+                      fontWeight: isActive ? '800' : '600',
+                      cursor: 'pointer'
+                    }}
                   >
-                    <option value="bank_counter">ব্যাংক কাউন্টার (Bank)</option>
-                    <option value="online_banking">অনলাইন ব্যাংকিং</option>
-                    <option value="bkash">বিকাশ (bKash)</option>
-                    <option value="nagad">নগদ (Nagad)</option>
-                    <option value="cash">নগদ ক্যাশ (Cash)</option>
-                    <option value="cheque">চেক (Cheque)</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>জমার মাস</label>
-                  <select
-                    value={depositForm.month}
-                    onChange={(e) => setDepositForm({ ...depositForm, month: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  >
-                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ব্যাংক রসিদ / TrxID নং</label>
-                  <input
-                    type="text"
-                    value={depositForm.bankReceiptNo}
-                    onChange={(e) => setDepositForm({ ...depositForm, bankReceiptNo: e.target.value })}
-                    placeholder="যেমন: DBBL-123456"
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                  />
-                </div>
-              </div>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsDepositModalOpen(false)}
-                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 16px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer' }}
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="btn"
-                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer' }}
-                >
-                  ✓ জমা সম্পন্ন ও রিসিট তৈরি করুন
-                </button>
+            <form onSubmit={handleSaveDeposit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* TAB 1: CORE DETAILS & DEPOSITOR */}
+              {depositFormActiveTab === 'basic' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                  {/* Voucher No */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ভাউচার নম্বর (Voucher No) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={depositForm.voucherNo}
+                      onChange={(e) => setDepositForm({ ...depositForm, voucherNo: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#38bdf8', fontSize: '0.84rem', fontWeight: '800' }}
+                    />
+                  </div>
+
+                  {/* Deposit Date */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      জমার তারিখ (Deposit Date) *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={depositForm.depositDate}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositDate: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    />
+                  </div>
+
+                  {/* Deposit Time */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      জমার সময় (Deposit Time)
+                    </label>
+                    <input
+                      type="time"
+                      value={depositForm.depositTime}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositTime: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Samity Name */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      সমিতির নাম (Samity Name)
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={currentSamity?.nameBn || depositForm.samityName}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Member Selector */}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      সদস্য নির্বাচন করুন (যদি সদস্যের জমা হয়)
+                    </label>
+                    <select
+                      value={depositForm.memberId}
+                      onChange={(e) => {
+                        const mId = e.target.value;
+                        const m = data.members.find(mem => mem.id === mId);
+                        if (m) {
+                          setDepositForm({
+                            ...depositForm,
+                            memberId: m.id,
+                            memberName: m.nameBn || m.nameEn,
+                            depositorName: m.nameBn || m.nameEn,
+                            depositorPhone: m.mobile || '',
+                            depositorWhatsApp: m.whatsappNumber || m.mobile || '',
+                            amount: m.customSubscription || currentSamity?.monthlySubscription || depositForm.amount,
+                            paymentPeriod: m.paymentCycle || depositForm.paymentPeriod
+                          });
+                        } else {
+                          setDepositForm({
+                            ...depositForm,
+                            memberId: '',
+                            memberName: ''
+                          });
+                        }
+                      }}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    >
+                      <option value="">-- সাধারণ আমানতকারী (সদস্য বহির্ভূত / অন্যান্য) --</option>
+                      {data.members.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.memberCode || m.id} - {m.nameBn || m.nameEn} ({m.membershipType} • {m.mobile})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Depositor Name */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      আমানতকারীর নাম (Depositor Name) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যিনি টাকা জমা দিয়েছেন"
+                      value={depositForm.depositorName}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositorName: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Depositor Phone */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      আমানতকারীর মোবাইল নম্বর *
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="01700000000"
+                      value={depositForm.depositorPhone}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositorPhone: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Depositor WhatsApp */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      হোয়াটসঅ্যাপ নম্বর (WhatsApp)
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="01700000000"
+                      value={depositForm.depositorWhatsApp}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositorWhatsApp: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Deposit Type */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      জমার ধরন (Deposit Type) *
+                    </label>
+                    <select
+                      value={depositForm.depositType}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositType: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    >
+                      {DEPOSIT_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.labelBn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Amount (Prominent) */}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '800', color: '#10b981', marginBottom: '4px' }}>
+                      জমার পরিমাণ (টাকা) - Deposit Amount *
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '14px', top: '10px', fontSize: '1.1rem', color: '#10b981', fontWeight: '900' }}>৳</span>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={depositForm.amount}
+                        onChange={(e) => setDepositForm({ ...depositForm, amount: e.target.value })}
+                        placeholder="500"
+                        style={{ width: '100%', padding: '10px 14px 10px 32px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '2px solid #10b981', color: '#34d399', fontSize: '1.15rem', fontWeight: '900' }}
+                      />
+                    </div>
+                    {Number(depositForm.amount) > 0 && (
+                      <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '4px' }}>
+                        কথায়: {numberToBanglaWords(depositForm.amount)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: BANK & PAYMENT METHOD */}
+              {depositFormActiveTab === 'bank' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                  {/* Bank Name */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ব্যাংকের নাম (Bank Name) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: ডাচ্-বাংলা ব্যাংক, সোনালী ব্যাংক"
+                      value={depositForm.bankName}
+                      onChange={(e) => setDepositForm({ ...depositForm, bankName: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Bank Branch */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ব্যাংক শাখার নাম (Bank Branch)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: মিরপুর শাখা"
+                      value={depositForm.bankBranch}
+                      onChange={(e) => setDepositForm({ ...depositForm, bankBranch: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Bank Account Number */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ব্যাংক হিসাব নম্বর (Account Number) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="123.120.98765"
+                      value={depositForm.bankAccountNo}
+                      onChange={(e) => setDepositForm({ ...depositForm, bankAccountNo: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    />
+                  </div>
+
+                  {/* Bank Account Name */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ব্যাংক একাউন্ট নাম (Account Name)
+                    </label>
+                    <input
+                      type="text"
+                      value={depositForm.bankAccountName}
+                      onChange={(e) => setDepositForm({ ...depositForm, bankAccountName: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Deposit Method */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      জমার মাধ্যম (Deposit Method) *
+                    </label>
+                    <select
+                      value={depositForm.depositMethod}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositMethod: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    >
+                      {DEPOSIT_METHODS.map(m => (
+                        <option key={m.value} value={m.value}>{m.labelBn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Bank Receipt Number */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ব্যাংক রসিদ নম্বর (Bank Receipt Number)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: DBBL-RCP-4821"
+                      value={depositForm.bankReceiptNo}
+                      onChange={(e) => setDepositForm({ ...depositForm, bankReceiptNo: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Bank Receipt Date */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ব্যাংক রসিদের তারিখ (Receipt Date)
+                    </label>
+                    <input
+                      type="date"
+                      value={depositForm.bankReceiptDate}
+                      onChange={(e) => setDepositForm({ ...depositForm, bankReceiptDate: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Deposit Slip Number */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ডিপোজিট স্লিপ নম্বর (Deposit Slip No)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="স্লিপে মুদ্রিত নম্বর"
+                      value={depositForm.depositSlipNo}
+                      onChange={(e) => setDepositForm({ ...depositForm, depositSlipNo: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Transaction ID */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      ট্রানজ্যাকশন আইডি (Transaction ID / TrxID)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="bKash/Nagad/EFT TrxID"
+                      value={depositForm.transactionId}
+                      onChange={(e) => setDepositForm({ ...depositForm, transactionId: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#38bdf8', fontSize: '0.84rem', fontWeight: '700' }}
+                    />
+                  </div>
+
+                  {/* Cheque Number */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      চেক নম্বর (Cheque No - প্রযোজ্য ক্ষেত্রে)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: CHQ-981245"
+                      value={depositForm.chequeNo}
+                      onChange={(e) => setDepositForm({ ...depositForm, chequeNo: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+
+                  {/* Cheque Date */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      চেকের তারিখ (Cheque Date - প্রযোজ্য ক্ষেত্রে)
+                    </label>
+                    <input
+                      type="date"
+                      value={depositForm.chequeDate}
+                      onChange={(e) => setDepositForm({ ...depositForm, chequeDate: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: ACCOUNTING MONTH & PERIOD */}
+              {depositFormActiveTab === 'period' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                  {/* Payment Month */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      পরিশোধিত মাস (Payment Month) *
+                    </label>
+                    <select
+                      value={depositForm.paymentMonth}
+                      onChange={(e) => setDepositForm({ ...depositForm, paymentMonth: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    >
+                      {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Payment Year */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      পরিশোধিত বছর (Payment Year) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={depositForm.paymentYear}
+                      onChange={(e) => setDepositForm({ ...depositForm, paymentYear: Number(e.target.value) })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                    />
+                  </div>
+
+                  {/* Payment Period */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      পেমেন্ট চক্র (Payment Period)
+                    </label>
+                    <select
+                      value={depositForm.paymentPeriod}
+                      onChange={(e) => setDepositForm({ ...depositForm, paymentPeriod: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.84rem' }}
+                    >
+                      {PAYMENT_CYCLES.map(c => (
+                        <option key={c.value} value={c.value}>{c.labelBn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Remarks */}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                      মন্তব্য ও লেনদেনের অতিরিক্ত বিবরণ (Remarks)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={depositForm.remarks}
+                      onChange={(e) => setDepositForm({ ...depositForm, remarks: e.target.value })}
+                      placeholder="জমা সংক্রান্ত যেকোনো বিশেষ নোট..."
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: SLIPS UPLOAD & APPROVAL */}
+              {depositFormActiveTab === 'slips' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Upload 3 Images */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                    {/* Bank Receipt Image */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
+                        ১. ব্যাংক রসিদের ছবি (Bank Receipt)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleDepositImageUpload('bankReceiptImage', e)}
+                        style={{ width: '100%', fontSize: '0.74rem', color: '#94a3b8' }}
+                      />
+                      {depositForm.bankReceiptImage && (
+                        <div style={{ marginTop: '8px', position: 'relative' }}>
+                          <img
+                            src={depositForm.bankReceiptImage}
+                            alt="Bank Receipt Preview"
+                            style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDepositForm({ ...depositForm, bankReceiptImage: '' })}
+                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Deposit Slip Image */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
+                        ২. ডিপোজিট স্লিপের ছবি (Deposit Slip)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleDepositImageUpload('depositSlipImage', e)}
+                        style={{ width: '100%', fontSize: '0.74rem', color: '#94a3b8' }}
+                      />
+                      {depositForm.depositSlipImage && (
+                        <div style={{ marginTop: '8px', position: 'relative' }}>
+                          <img
+                            src={depositForm.depositSlipImage}
+                            alt="Deposit Slip Preview"
+                            style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDepositForm({ ...depositForm, depositSlipImage: '' })}
+                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Transaction Screenshot */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.7)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
+                        ৩. অনলাইন ট্রানজ্যাকশন স্ক্রিনশট
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleDepositImageUpload('transactionScreenshot', e)}
+                        style={{ width: '100%', fontSize: '0.74rem', color: '#94a3b8' }}
+                      />
+                      {depositForm.transactionScreenshot && (
+                        <div style={{ marginTop: '8px', position: 'relative' }}>
+                          <img
+                            src={depositForm.transactionScreenshot}
+                            alt="Screenshot Preview"
+                            style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDepositForm({ ...depositForm, transactionScreenshot: '' })}
+                            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Entry & Approval Details */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', background: 'rgba(15, 23, 42, 0.5)', padding: '14px', borderRadius: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        এন্ট্রি প্রদানকারী (Entry By)
+                      </label>
+                      <input
+                        type="text"
+                        value={depositForm.entryBy}
+                        onChange={(e) => setDepositForm({ ...depositForm, entryBy: e.target.value })}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        অনুমোদন অবস্থা (Approval Status)
+                      </label>
+                      <select
+                        value={depositForm.approvalStatus}
+                        onChange={(e) => setDepositForm({ ...depositForm, approvalStatus: e.target.value })}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem', fontWeight: '800' }}
+                      >
+                        {DEPOSIT_APPROVAL_STATUSES.map(s => (
+                          <option key={s.value} value={s.value}>{s.labelBn}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        অনুমোদনকারী কর্মকর্তা (Approved By)
+                      </label>
+                      <input
+                        type="text"
+                        value={depositForm.approvedBy}
+                        onChange={(e) => setDepositForm({ ...depositForm, approvedBy: e.target.value })}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        অনুমোদনের মন্তব্য (Approval Remarks)
+                      </label>
+                      <input
+                        type="text"
+                        value={depositForm.approvalRemarks}
+                        onChange={(e) => setDepositForm({ ...depositForm, approvalRemarks: e.target.value })}
+                        placeholder="অনুমোদন সংক্রান্ত নোট"
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Footer Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '14px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  * চিহ্নিত তথ্য পূরণ বাধ্যতামূলক • রসিদ স্বয়ংক্রিয়ভাবে জেনারেট হবে
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDepositModalOpen(false);
+                      setEditingDeposit(null);
+                    }}
+                    style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 16px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer' }}
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn"
+                    style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', padding: '8px 22px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Check size={16} />
+                    <span>{editingDeposit ? 'আপডেট সম্পন্ন করুন' : '✓ জমা সম্পন্ন ও রিসিট তৈরি করুন'}</span>
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* MODAL: DEPOSIT DOCUMENT & SLIP IMAGE PREVIEW */}
+      {/* ==================================================================== */}
+      {depositPreviewImage && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.88)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 160,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setDepositPreviewImage(null)}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '16px',
+              maxWidth: '92vw',
+              maxHeight: '90vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', background: '#0f172a' }}>
+              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: '#fff' }}>
+                📎 {depositPreviewImage.title || 'সংযুক্ত স্লিপ / রসিদ প্রিভিউ'}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setDepositPreviewImage(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: '#fff',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#090d16', overflow: 'auto' }}>
+              <img
+                src={depositPreviewImage.url}
+                alt="Document Preview"
+                style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '8px' }}
+              />
+            </div>
           </div>
         </div>
       )}
