@@ -114,6 +114,68 @@ import { playButtonClick, playSuccessChime } from '../../services/soundFeedback'
 import { hapticFeedback } from '../../services/nativeAppService';
 import { broadcastLiveEvent, subscribeLiveSync } from '../../services/liveSyncService';
 
+// Official Circular Rubber Seal/Stamp Generator (প্রফেশনাল ডিজিটাল বৃত্তাকার সিল)
+export const CircularOfficialSeal = ({
+  samityName = 'স্বপ্নছোঁয়া সমবায় সমিতি',
+  designation = 'সভাপতি',
+  officerName = '',
+  sealColor = '#1e3a8a',
+  size = 86
+}) => {
+  const arcId = useMemo(() => `seal-arc-${Math.random().toString(36).substring(2, 7)}`, []);
+  return (
+    <div
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        position: 'relative',
+        display: 'inline-block',
+        transform: 'rotate(-4deg)',
+        opacity: 0.92,
+        userSelect: 'none',
+        flexShrink: 0
+      }}
+    >
+      <svg width={size} height={size} viewBox="0 0 100 100" style={{ overflow: 'visible' }}>
+        <defs>
+          <path id={`${arcId}-top`} d="M 12,50 A 38,38 0 1,1 88,50" fill="none" />
+          <path id={`${arcId}-bottom`} d="M 88,50 A 38,38 0 1,1 12,50" fill="none" />
+        </defs>
+        {/* Outer Ring */}
+        <circle cx="50" cy="50" r="48" fill="none" stroke={sealColor} strokeWidth="2.4" />
+        {/* Dotted Inner Ring */}
+        <circle cx="50" cy="50" r="43.5" fill="none" stroke={sealColor} strokeWidth="1" strokeDasharray="3,2" />
+        {/* Center Ring */}
+        <circle cx="50" cy="50" r="29" fill="none" stroke={sealColor} strokeWidth="1.2" />
+
+        {/* Curved Samity Name */}
+        <text fill={sealColor} fontSize="6.8" fontWeight="bold" letterSpacing="0.4">
+          <textPath href={`#${arcId}-top`} startOffset="50%" textAnchor="middle">
+            {samityName.length > 24 ? samityName.substring(0, 24) : samityName}
+          </textPath>
+        </text>
+
+        {/* Lower Arc Text */}
+        <text fill={sealColor} fontSize="5.5" fontWeight="bold" letterSpacing="0.6">
+          <textPath href={`#${arcId}-bottom`} startOffset="50%" textAnchor="middle">
+            ★ অনুমোদিত সিল ★
+          </textPath>
+        </text>
+
+        {/* Center Designation */}
+        <text x="50" y="47" fill={sealColor} fontSize="7.8" fontWeight="900" textAnchor="middle">
+          {designation}
+        </text>
+        {officerName && (
+          <text x="50" y="56" fill={sealColor} fontSize="5.2" fontWeight="bold" textAnchor="middle">
+            {officerName.length > 15 ? officerName.substring(0, 15) : officerName}
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+};
+
 export const SamityManagementHub = ({ onClose }) => {
   const { lang = 'bn', showToast = () => { }, businessSettings } = useApp() || {};
 
@@ -558,6 +620,30 @@ export const SamityManagementHub = ({ onClose }) => {
       else if (hapticFeedback?.light) hapticFeedback.light();
     } catch { }
   };
+
+  // Official Letterpad Document Writer State (নোটিশ, পত্র ও রেজুলেশন কম্পোজার)
+  const [padDocTitle, setPadDocTitle] = useState('জরুরি সাধারণ সভার নোটিশ');
+  const [padDocRefNo, setPadDocRefNo] = useState('স্মারক নং: সছস/২০২৬/০১');
+  const [padDocDate, setPadDocDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [padDocBody, setPadDocBody] = useState(
+    'এতদ্বারা স্বপ্নছোঁয়া সমবায় সমিতির সকল সম্মানিত সাধারণ সদস্যদের অবগতির জন্য জানানো যাচ্ছে যে, আগামী ২৫শে অক্টোবর ২০২৬ তারিখ রোজ শুক্রবার সকাল ১০:০০ ঘটিকায় সমিতির প্রধান কার্যালয়ে এক জরুরি সাধারণ সভা অনুষ্ঠিত হবে।\n\nউক্ত সভায় সমিতির বাৎসরিক অডিট রিপোর্ট উপস্থাপন, নতুন সঞ্চয় স্কিম অনুমোদন এবং কল্যাণ তহবিল পরিচালনা সংক্রান্ত গুরুত্বপূর্ণ সিদ্ধান্ত গ্রহণ করা হবে। সকল সম্মানিত সদস্যকে যথাসময়ে উপস্থিত থাকার জন্য বিনীত অনুরোধ করা হচ্ছে।\n\nধন্যবাদান্তে,\nপরিচালনা পর্ষদ'
+  );
+  const [padSelectedSignatures, setPadSelectedSignatures] = useState(['sig_president', 'sig_secretary', 'sig_treasurer']);
+  const [padWatermarkOpacity, setPadWatermarkOpacity] = useState(0.14);
+
+  // New Officer Signature & Seal Modal State
+  const [isOfficerModalOpen, setIsOfficerModalOpen] = useState(false);
+  const [newOfficerForm, setNewOfficerForm] = useState({
+    name: '',
+    designationBn: '',
+    designationEn: '',
+    phone: '',
+    signatureImage: '',
+    sealColor: '#1e3a8a',
+    showSignature: true,
+    showSeal: true,
+    showDate: true
+  });
 
   // --------------------------------------------------------------------------
   // Handlers: Member Management (#2 Module - 38 Fields Standard)
@@ -2104,16 +2190,18 @@ export const SamityManagementHub = ({ onClose }) => {
         <head>
           <title>${currentSamity.nameBn} - Printout</title>
           <style>
-            @page { size: A4; margin: 15mm; }
-            body { font-family: 'SolaimanLipi', 'Kalpurush', sans-serif; color: #111; margin: 0; padding: 0; background: #fff; }
-            .watermark { position: fixed; top: 40%; left: 25%; font-size: 64px; color: rgba(16, 185, 129, 0.12); transform: rotate(-30deg); font-weight: 900; z-index: 0; pointer-events: none; }
+            @page { size: A4; margin: 10mm 12mm; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+            body { font-family: 'SolaimanLipi', 'Kalpurush', 'Inter', sans-serif; color: #111; margin: 0; padding: 0; background: #fff; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             th, td { border: 1px solid #ccc; padding: 8px 12px; font-size: 13px; text-align: left; }
             th { background: #f1f5f9; }
           </style>
         </head>
         <body>
-          ${el.innerHTML}
+          <div style="position: relative; width: 100%; min-height: 100%;">
+            ${el.innerHTML}
+          </div>
           <script>window.onload = function() { window.print(); window.close(); }</script>
         </body>
       </html>
@@ -10682,6 +10770,149 @@ export const SamityManagementHub = ({ onClose }) => {
                     </div>
                   </div>
                 </div>
+
+                {/* 4. Official Business Pad Live Writer & Composer (টাইটেল, লেখার খোপ, জলছাপ ও সিল নির্বাচন) */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1.5px solid rgba(45, 212, 191, 0.4)', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+                    <PenTool size={16} color="#2dd4bf" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>প্যাড রাইটার (টাইটেল ও লেখার খোপ)</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: '#2dd4bf', fontWeight: '800', marginBottom: '3px' }}>
+                        ডকুমেন্টের টাইটেল / বিষয় *
+                      </label>
+                      <input
+                        type="text"
+                        value={padDocTitle}
+                        onChange={(e) => setPadDocTitle(e.target.value)}
+                        placeholder="যেমন: জরুরি সাধারণ সভার নোটিশ"
+                        style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(45, 212, 191, 0.4)', color: '#fff', fontSize: '0.82rem', fontWeight: '800' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                          স্মারক নং (Ref No)
+                        </label>
+                        <input
+                          type="text"
+                          value={padDocRefNo}
+                          onChange={(e) => setPadDocRefNo(e.target.value)}
+                          placeholder="স্মারক নং: সছস/২০২৬/০১"
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.76rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                          তারিখ (Date)
+                        </label>
+                        <input
+                          type="date"
+                          value={padDocDate}
+                          onChange={(e) => setPadDocDate(e.target.value)}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.76rem' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: '#2dd4bf', fontWeight: '800', marginBottom: '3px' }}>
+                        প্যাডের মূল চিঠি / বক্তব্য লেখার খোপ *
+                      </label>
+                      <textarea
+                        rows={7}
+                        value={padDocBody}
+                        onChange={(e) => setPadDocBody(e.target.value)}
+                        placeholder="এখানে আপনার চিঠির বক্তব্য বা নোটিশ লিখুন। এটি প্যাডের বডিতে স্বয়ংক্রিয়ভাবে মার্জিন মেনে ফিট হয়ে বসবে..."
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem', lineHeight: '1.6', resize: 'vertical' }}
+                      />
+                    </div>
+
+                    {/* Watermark Opacity Slider with Quick Presets */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          💧 মাঝখানে লোগো জলছাপের ঘনত্ব (Watermark):
+                        </label>
+                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#2dd4bf' }}>
+                          {Math.round(padWatermarkOpacity * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.04"
+                        max="0.32"
+                        step="0.01"
+                        value={padWatermarkOpacity}
+                        onChange={(e) => setPadWatermarkOpacity(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: '#2dd4bf', cursor: 'pointer', marginBottom: '6px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {[
+                          { label: 'হালকা (৮%)', val: 0.08 },
+                          { label: 'স্ট্যান্ডার্ড (১৪%)', val: 0.14 },
+                          { label: 'স্পষ্ট জলছাপ (২২%)', val: 0.22 }
+                        ].map(preset => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={() => setPadWatermarkOpacity(preset.val)}
+                            style={{
+                              flex: 1,
+                              padding: '3px 4px',
+                              borderRadius: '5px',
+                              background: Math.abs(padWatermarkOpacity - preset.val) < 0.015 ? 'rgba(45, 212, 191, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid ' + (Math.abs(padWatermarkOpacity - preset.val) < 0.015 ? '#2dd4bf' : 'rgba(255, 255, 255, 0.1)'),
+                              color: Math.abs(padWatermarkOpacity - preset.val) < 0.015 ? '#2dd4bf' : '#94a3b8',
+                              fontSize: '0.67rem',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Selected Officers for this Pad */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                        প্যাডের নিচে কোন কোন স্বাক্ষর ও সিল বসবে:
+                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(30, 41, 59, 0.5)', padding: '8px', borderRadius: '8px' }}>
+                        {data.signatures.map(sig => {
+                          const isChecked = padSelectedSignatures.includes(sig.id);
+                          return (
+                            <label
+                              key={sig.id}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: isChecked ? '#fff' : '#94a3b8', cursor: 'pointer' }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setPadSelectedSignatures(prev => [...prev, sig.id]);
+                                  } else {
+                                    setPadSelectedSignatures(prev => prev.filter(id => id !== sig.id));
+                                  }
+                                }}
+                                style={{ accentColor: '#2dd4bf' }}
+                              />
+                              <span style={{ fontWeight: isChecked ? '800' : '500' }}>
+                                {sig.designationBn} — {sig.name}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -10748,39 +10979,45 @@ export const SamityManagementHub = ({ onClose }) => {
                 style={{
                   background: '#ffffff',
                   color: '#0f172a',
-                  padding: '32px 36px',
+                  padding: '36px 40px',
                   borderRadius: '12px',
                   border: `2px ${data.letterhead?.borderStyle || 'solid'} ${data.letterhead?.borderColor || '#0f172a'}`,
                   boxShadow: '0 12px 35px rgba(0,0,0,0.3)',
-                  minHeight: '380px',
+                  minHeight: '620px',
                   position: 'relative',
                   fontFamily: "'Inter', 'SolaimanLipi', sans-serif"
                 }}
               >
-                {/* Pad Watermark */}
+                {/* 1. Official Samity Logo Watermark (পিডিএফের মাঝখানে সমিতির লোগোর স্পষ্ট জলছাপ) */}
                 <div
                   style={{
                     position: 'absolute',
                     top: '50%',
                     left: '50%',
-                    transform: 'translate(-50%, -50%) rotate(-25deg)',
-                    fontSize: '44px',
-                    fontWeight: '900',
-                    color: 'rgba(15, 23, 42, 0.04)',
+                    transform: 'translate(-50%, -50%)',
+                    width: '380px',
+                    height: '380px',
+                    maxWidth: '85%',
+                    maxHeight: '65%',
                     pointerEvents: 'none',
                     userSelect: 'none',
                     zIndex: 0,
-                    whiteSpace: 'nowrap',
-                    textTransform: 'uppercase',
-                    letterSpacing: '2px'
+                    opacity: padWatermarkOpacity,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
-                  {currentSamity.nameEn || 'HISABKITAB 360'}
+                  <img
+                    src={currentSamity.logo || '/logo.png'}
+                    alt="Samity Logo Watermark"
+                    onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'contrast(106%)' }}
+                  />
                 </div>
 
-                {/* Header Container based on Logo Placement or Custom Letterpad Banner */}
+                {/* 2. Top 3-Column Header Layout */}
                 {(() => {
-                  const pos = data.letterhead?.logoPosition || 'left';
                   const logoHeight = data.letterhead?.logoSize || 64;
                   const themeBorder = data.letterhead?.borderColor || '#0f172a';
 
@@ -10805,87 +11042,34 @@ export const SamityManagementHub = ({ onClose }) => {
                         height: `${logoHeight}px`,
                         maxWidth: '180px',
                         objectFit: 'contain',
-                        borderRadius: '4px'
+                        borderRadius: '6px'
                       }}
                     />
                   );
 
-                  if (pos === 'center') {
-                    return (
-                      <div style={{ textAlign: 'center', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '16px', position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
-                          {renderLogoElement()}
-                        </div>
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '16px', position: 'relative', zIndex: 1, gap: '16px' }}>
+                      {/* Left Column: Samity Logo */}
+                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                        {renderLogoElement()}
+                      </div>
+
+                      {/* Center Column: Samity Name & Slogan */}
+                      <div style={{ textAlign: 'center', flex: 1, padding: '0 8px' }}>
                         <h2 style={{ margin: '0 0 2px 0', fontSize: '1.5rem', fontWeight: '900', color: themeBorder, letterSpacing: '-0.3px' }}>
-                          {currentSamity.nameBn}
+                          {currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
                         </h2>
                         <div style={{ fontSize: '0.86rem', color: '#475569', fontWeight: '700' }}>
-                          {currentSamity.nameEn}
+                          {currentSamity.nameEn || 'Shopnochoa Co-operative Samity'}
                         </div>
                         {currentSamity.sloganBn && (
                           <div style={{ fontSize: '0.8rem', color: '#0d9488', fontWeight: '800', marginTop: '2px' }}>
                             স্লোগান: {currentSamity.sloganBn}
                           </div>
                         )}
-                        <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '6px', lineHeight: '1.4' }}>
-                          <span>নিবন্ধন নং: <strong>{currentSamity.regNo || 'প্রযোজ্য নয়'}</strong></span> • <span>ঠিকানা: {currentSamity.address}</span> • <span>মোবাইল: {currentSamity.mobile}</span> {currentSamity.email && <span>• ইমেইল: {currentSamity.email}</span>}
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  if (pos === 'right') {
-                    return (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '16px', position: 'relative', zIndex: 1, gap: '16px' }}>
-                        <div style={{ flex: 1 }}>
-                          <h2 style={{ margin: '0 0 2px 0', fontSize: '1.5rem', fontWeight: '900', color: themeBorder, letterSpacing: '-0.3px' }}>
-                            {currentSamity.nameBn}
-                          </h2>
-                          <div style={{ fontSize: '0.86rem', color: '#475569', fontWeight: '700' }}>
-                            {currentSamity.nameEn}
-                          </div>
-                          {currentSamity.sloganBn && (
-                            <div style={{ fontSize: '0.8rem', color: '#0d9488', fontWeight: '800', marginTop: '2px' }}>
-                              স্লোগান: {currentSamity.sloganBn}
-                            </div>
-                          )}
-                          <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px' }}>
-                            ঠিকানা: {currentSamity.address} | মোবাইল: {currentSamity.mobile}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
-                          {renderLogoElement()}
-                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700', marginTop: '2px' }}>
-                            নিবন্ধন নং: <strong>{currentSamity.regNo || 'প্রযোজ্য নয়'}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Default: pos === 'left'
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '16px', position: 'relative', zIndex: 1, gap: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ flexShrink: 0 }}>
-                          {renderLogoElement()}
-                        </div>
-                        <div>
-                          <h2 style={{ margin: '0 0 2px 0', fontSize: '1.5rem', fontWeight: '900', color: themeBorder, letterSpacing: '-0.3px' }}>
-                            {currentSamity.nameBn}
-                          </h2>
-                          <div style={{ fontSize: '0.86rem', color: '#475569', fontWeight: '700' }}>
-                            {currentSamity.nameEn}
-                          </div>
-                          {currentSamity.sloganBn && (
-                            <div style={{ fontSize: '0.8rem', color: '#0d9488', fontWeight: '800', marginTop: '2px' }}>
-                              স্লোগান: {currentSamity.sloganBn}
-                            </div>
-                          )}
-                        </div>
                       </div>
 
+                      {/* Right Column: Reg No, Address, Phone, Email */}
                       <div style={{ fontSize: '0.74rem', color: '#64748b', textAlign: 'right', flexShrink: 0, lineHeight: '1.5' }}>
                         <div>নিবন্ধন নং: <strong style={{ color: '#0f172a' }}>{currentSamity.regNo || 'প্রযোজ্য নয়'}</strong></div>
                         <div>ঠিকানা: {currentSamity.address}</div>
@@ -10896,16 +11080,68 @@ export const SamityManagementHub = ({ onClose }) => {
                   );
                 })()}
 
-                {/* Official Pad Body Demo Placeholder */}
-                <div style={{ padding: '36px 8px', fontSize: '0.86rem', color: '#334155', lineHeight: '1.8', minHeight: '160px', position: 'relative', zIndex: 1 }}>
-                  <p style={{ margin: '0 0 10px 0' }}>তারিখ: {new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                  <p style={{ margin: 0, fontWeight: '700', color: '#0f172a' }}>বিষয়: অফিসিয়াল নোটিশ ও মেমোরেন্ডাম</p>
-                  <p style={{ marginTop: '12px', color: '#475569' }}>
-                    এই অফিসিয়াল বিজনেস প্যাডের ওপর সমিতির সকল পরিশোধ রসিদ, বকেয়া তাগাদা নোটিশ, সাধারণ সভার কার্যবিবরণী, রেজুলেশন ও সদস্যপদ সনদপত্র স্বয়ংক্রিয়ভাবে প্রস্তুত ও মুদ্রিত হবে।
-                  </p>
+                {/* 3. Document Reference No & Date */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#475569', fontWeight: '700', marginTop: '14px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
+                  <span>{padDocRefNo}</span>
+                  <span>তারিখ: {padDocDate ? new Date(padDocDate).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</span>
                 </div>
 
-                {/* Pad Footer */}
+                {/* 4. Document Title */}
+                {padDocTitle && (
+                  <h3 style={{ textAlign: 'center', margin: '14px 0 16px 0', fontSize: '1.25rem', fontWeight: '900', color: data.letterhead?.borderColor || '#0f172a', textDecoration: 'underline', textUnderlineOffset: '5px', letterSpacing: '-0.3px', position: 'relative', zIndex: 1 }}>
+                    {padDocTitle}
+                  </h3>
+                )}
+
+                {/* 5. Document Body Content (খোপের লেখা প্যাডে ফিট) */}
+                <div style={{ padding: '6px 2px', fontSize: '0.92rem', color: '#1e293b', lineHeight: '1.9', minHeight: '180px', position: 'relative', zIndex: 1, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>
+                  {padDocBody}
+                </div>
+
+                {/* 6. Signatures and Official Circular Seals (প্যাডের নিচের অংশে সাইন ও সিল) */}
+                {data.signatures.filter(s => padSelectedSignatures.includes(s.id)).length > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', marginTop: '46px', marginBottom: '16px', position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: '24px' }}>
+                    {data.signatures
+                      .filter(s => padSelectedSignatures.includes(s.id))
+                      .map(sig => (
+                        <div key={sig.id} style={{ textAlign: 'center', minWidth: '150px', position: 'relative' }}>
+                          {/* Official Circular Rubber Stamp */}
+                          {sig.showSeal !== false && (
+                            <div style={{ position: 'absolute', top: '-46px', right: '-18px', zIndex: 2, pointerEvents: 'none' }}>
+                              <CircularOfficialSeal
+                                samityName={currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
+                                designation={sig.designationBn}
+                                officerName={sig.name}
+                                sealColor={sig.sealColor || '#1e3a8a'}
+                              />
+                            </div>
+                          )}
+
+                          {/* Signature Image */}
+                          <div style={{ height: '44px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                            {sig.signatureImage ? (
+                              <img
+                                src={sig.signatureImage}
+                                alt={sig.name}
+                                style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }}
+                              />
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>[স্বাক্ষর]</span>
+                            )}
+                          </div>
+
+                          {/* Name & Designation line */}
+                          <div style={{ borderTop: `1.5px solid ${data.letterhead?.borderColor || '#0f172a'}`, paddingTop: '4px', marginTop: '4px' }}>
+                            <div style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0f172a' }}>{sig.name}</div>
+                            <div style={{ fontSize: '0.74rem', color: '#475569', fontWeight: '700' }}>{sig.designationBn}</div>
+                            {sig.phone && <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{sig.phone}</div>}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* 7. Pad Footer */}
                 <div
                   style={{
                     borderTop: '1px solid #cbd5e1',
@@ -10927,62 +11163,293 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 10: SIGNATURES & SEALS */}
+        {/* TAB 10: SIGNATURES & SEALS (অনুমোদিত কর্মকর্তা, সিল ও ডিজিটাল স্বাক্ষর) */}
         {activeTab === 'signatures' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '850px', margin: '0 auto' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <PenTool size={20} color="#10b981" />
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>
-                  ✍️ অনুমোদিত স্বাক্ষর ও অফিশিয়াল সিল কনফিগারেশন
-                </h3>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                সভাপতি, সাধারণ সম্পাদক ও কোষাধ্যক্ষের নাম ও পদবি সেট করুন। প্রিন্ট আউটে স্বয়ংক্রিয়ভাবে তিনটি স্বাক্ষর লাইন যুক্ত হবে।
-              </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '22px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <PenTool size={22} color="#10b981" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: '#f8fafc' }}>
+                      ✍️ কর্মকর্তা, ডিজিটাল সিল ও স্বাক্ষর ব্যবস্থাপনা
+                    </h3>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      সমিতির সভাপতি, সাধারণ সম্পাদক, কোষাধ্যক্ষ ও অন্যান্য কর্মকর্তার ডিজিটাল সিল ও হাতে লেখা স্বাক্ষর ম্যানেজ করুন।
+                    </p>
+                  </div>
+                </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                <button
+                  onClick={() => setIsOfficerModalOpen(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                  }}
+                >
+                  <Plus size={16} />
+                  <span>নতুন কর্মকর্তা ও সিল যোগ করুন</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                 {data.signatures.map((sig, idx) => (
                   <div
                     key={sig.id}
                     style={{
-                      background: 'rgba(15, 23, 42, 0.8)',
+                      background: 'rgba(15, 23, 42, 0.85)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       borderRadius: '12px',
-                      padding: '16px'
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      position: 'relative'
                     }}
                   >
-                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#10b981', marginBottom: '8px' }}>
-                      {sig.designationBn} ({sig.designationEn})
-                    </div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>কর্মকর্তার নাম:</label>
-                    <input
-                      type="text"
-                      value={sig.name}
-                      onChange={(e) => {
-                        const newName = e.target.value;
-                        updateAndSave(prev => ({
-                          ...prev,
-                          signatures: prev.signatures.map((s, i) => i === idx ? { ...s, name: newName } : s)
-                        }));
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        background: 'rgba(30, 41, 59, 0.9)',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        color: '#fff',
-                        fontSize: '0.8rem',
-                        fontWeight: '700'
-                      }}
-                    />
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#2dd4bf' }}>
+                            {sig.designationBn}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{sig.designationEn}</div>
+                        </div>
 
-                    <div style={{ marginTop: '12px', borderTop: '1px dashed #64748b', paddingTop: '8px', textAlign: 'center', color: '#94a3b8', fontSize: '0.72rem' }}>
-                      স্বাক্ষর লাইন প্রিভিউ:
-                      <div style={{ marginTop: '20px', fontWeight: '800', color: '#fff' }}>______________________</div>
-                      <div style={{ fontWeight: '800', color: '#fff' }}>{sig.name}</div>
-                      <div>{sig.designationBn}</div>
+                        {/* Circular Seal Live Preview */}
+                        <div title="ডিজিটাল অফিশিয়াল রাবার স্ট্যাম্প">
+                          <CircularOfficialSeal
+                            samityName={currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
+                            designation={sig.designationBn}
+                            officerName={sig.name}
+                            sealColor={sig.sealColor || '#1e3a8a'}
+                            size={72}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>কর্মকর্তার নাম:</label>
+                          <input
+                            type="text"
+                            value={sig.name}
+                            onChange={(e) => {
+                              const newName = e.target.value;
+                              updateAndSave(prev => ({
+                                ...prev,
+                                signatures: prev.signatures.map((s, i) => i === idx ? { ...s, name: newName } : s)
+                              }));
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(30, 41, 59, 0.9)',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              color: '#fff',
+                              fontSize: '0.8rem',
+                              fontWeight: '700'
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>মোবাইল নম্বর:</label>
+                          <input
+                            type="text"
+                            value={sig.phone || ''}
+                            onChange={(e) => {
+                              const newPhone = e.target.value;
+                              updateAndSave(prev => ({
+                                ...prev,
+                                signatures: prev.signatures.map((s, i) => i === idx ? { ...s, phone: newPhone } : s)
+                              }));
+                            }}
+                            placeholder="০১৭১১-XXXXXX"
+                            style={{
+                              width: '100%',
+                              padding: '5px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(30, 41, 59, 0.9)',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              color: '#fff',
+                              fontSize: '0.76rem'
+                            }}
+                          />
+                        </div>
+
+                        {/* Seal Ink Color Chooser */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>সিলের কালার (Seal Ink):</label>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {[
+                              { color: '#1e3a8a', label: 'রয়েল ব্লু' },
+                              { color: '#4338ca', label: 'পার্পল' },
+                              { color: '#065f46', label: 'গ্রিন' },
+                              { color: '#991b1b', label: 'মেরুন' }
+                            ].map(sc => (
+                              <button
+                                key={sc.color}
+                                onClick={() => {
+                                  updateAndSave(prev => ({
+                                    ...prev,
+                                    signatures: prev.signatures.map((s, i) => i === idx ? { ...s, sealColor: sc.color } : s)
+                                  }));
+                                }}
+                                style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  background: sc.color,
+                                  border: (sig.sealColor || '#1e3a8a') === sc.color ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                                  cursor: 'pointer'
+                                }}
+                                title={sc.label}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Signature Upload & Preview Box */}
+                      <div style={{ background: 'rgba(30, 41, 59, 0.6)', padding: '10px', borderRadius: '8px', border: '1px dashed rgba(255, 255, 255, 0.15)', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#94a3b8' }}>ডিজিটাল স্বাক্ষর (ছবি):</span>
+                          {sig.signatureImage && (
+                            <button
+                              onClick={() => {
+                                updateAndSave(prev => ({
+                                  ...prev,
+                                  signatures: prev.signatures.map((s, i) => i === idx ? { ...s, signatureImage: '' } : s)
+                                }));
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.68rem', cursor: 'pointer', fontWeight: '700' }}
+                            >
+                              রিমুভ
+                            </button>
+                          )}
+                        </div>
+
+                        {sig.signatureImage ? (
+                          <div style={{ height: '42px', background: '#fff', borderRadius: '4px', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img src={sig.signatureImage} alt={sig.name} style={{ maxHeight: '38px', maxWidth: '130px', objectFit: 'contain' }} />
+                          </div>
+                        ) : (
+                          <div style={{ textAlign: 'center', color: '#64748b', fontSize: '0.7rem', padding: '6px 0' }}>
+                            কোনো স্বাক্ষর ছবি আপলোড করা হয়নি
+                          </div>
+                        )}
+
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id={`sig-upload-${sig.id}`}
+                          style={{ display: 'none' }}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              showToast?.('স্বাক্ষর অপটিমাইজ করা হচ্ছে...', 'info');
+                              const compressed = await compressImageFile(file, { maxWidth: 500, maxHeight: 200, quality: 0.9 });
+                              updateAndSave(prev => ({
+                                ...prev,
+                                signatures: prev.signatures.map((s, i) => i === idx ? { ...s, signatureImage: compressed } : s)
+                              }), {
+                                action: 'UPLOAD_OFFICER_SIGNATURE',
+                                module: 'SIGNATURES',
+                                details: { officer: sig.name }
+                              });
+                              showToast?.('ডিজিটাল স্বাক্ষর সফলভাবে যুক্ত হয়েছে!', 'success');
+                            } catch {
+                              showToast?.('স্বাক্ষর আপলোড ব্যর্থ হয়েছে', 'error');
+                            }
+                          }}
+                        />
+
+                        <button
+                          onClick={() => document.getElementById(`sig-upload-${sig.id}`)?.click()}
+                          style={{
+                            width: '100%',
+                            marginTop: '6px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            color: '#2dd4bf',
+                            border: '1px solid rgba(45, 212, 191, 0.3)',
+                            padding: '4px',
+                            borderRadius: '5px',
+                            fontSize: '0.7rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Upload size={11} />
+                          <span>{sig.signatureImage ? 'স্বাক্ষর পরিবর্তন' : 'স্বাক্ষরের ছবি দিন'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '10px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={sig.showSeal !== false}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            updateAndSave(prev => ({
+                              ...prev,
+                              signatures: prev.signatures.map((s, i) => i === idx ? { ...s, showSeal: checked } : s)
+                            }));
+                          }}
+                          style={{ accentColor: '#10b981' }}
+                        />
+                        <span>সিল সক্রিয়</span>
+                      </label>
+
+                      {idx > 2 && (
+                        <button
+                          onClick={() => {
+                            updateAndSave(prev => ({
+                              ...prev,
+                              signatures: prev.signatures.filter((_, i) => i !== idx)
+                            }), {
+                              action: 'DELETE_OFFICER_SIGNATURE',
+                              module: 'SIGNATURES',
+                              details: { officer: sig.name }
+                            });
+                            setPadSelectedSignatures(prev => prev.filter(id => id !== sig.id));
+                            showToast?.('কর্মকর্তা মুছে ফেলা হয়েছে', 'info');
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            color: '#f87171',
+                            border: 'none',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.68rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}
+                        >
+                          <Trash2 size={11} />
+                          <span>মুছুন</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -17863,6 +18330,337 @@ export const SamityManagementHub = ({ onClose }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 11. Modal: Add New Officer, Seal & Signature (নতুন কর্মকর্তা, সিল ও স্বাক্ষর যুক্ত করার মডাল) */}
+      {isOfficerModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsOfficerModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              border: '1.5px solid rgba(45, 212, 191, 0.4)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '560px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: '24px',
+              color: '#fff'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '14px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '8px', borderRadius: '10px', color: '#10b981' }}>
+                  <PenTool size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#f8fafc' }}>
+                    নতুন কর্মকর্তা ও সিল যোগ করুন
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: '#94a3b8' }}>
+                    সমিতির নোটিশ ও রেজুলেশন প্যাডে স্বাক্ষরের জন্য কর্মকর্তা ও সিল সেট করুন
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOfficerModalOpen(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: '#94a3b8',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Live SVG Seal Preview inside modal */}
+            <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px dashed rgba(45, 212, 191, 0.3)', borderRadius: '12px', padding: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '0.76rem', fontWeight: '800', color: '#2dd4bf', marginBottom: '4px' }}>
+                  সিল লাইভ প্রিভিউ (300 DPI রাবার স্ট্যাম্প)
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#94a3b8', lineHeight: '1.4' }}>
+                  পদবি ও নাম টাইপ করার সাথে সাথে এই ডিজিটাল সিলটি তাৎক্ষণিকভাবে তৈরি হবে।
+                </div>
+              </div>
+              <div style={{ background: '#ffffff', padding: '6px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', flexShrink: 0 }}>
+                <CircularOfficialSeal
+                  samityName={currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
+                  designation={newOfficerForm.designationBn || 'অফিসার'}
+                  officerName={newOfficerForm.name || 'কর্মকর্তা'}
+                  sealColor={newOfficerForm.sealColor || '#1e3a8a'}
+                  size={84}
+                />
+              </div>
+            </div>
+
+            {/* Form Fields */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                  কর্মকর্তার পূর্ণ নাম *
+                </label>
+                <input
+                  type="text"
+                  value={newOfficerForm.name}
+                  onChange={(e) => setNewOfficerForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="যেমন: মোঃ কামরুল হাসান"
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.84rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                    পদবি (বাংলায়) *
+                  </label>
+                  <input
+                    type="text"
+                    value={newOfficerForm.designationBn}
+                    onChange={(e) => setNewOfficerForm(prev => ({ ...prev, designationBn: e.target.value }))}
+                    placeholder="যেমন: অডিটর / সহ-সভাপতি"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.84rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                    পদবি (ইংরেজিতে)
+                  </label>
+                  <input
+                    type="text"
+                    value={newOfficerForm.designationEn}
+                    onChange={(e) => setNewOfficerForm(prev => ({ ...prev, designationEn: e.target.value }))}
+                    placeholder="যেমন: Auditor / Vice President"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.84rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                  মোবাইল নম্বর
+                </label>
+                <input
+                  type="text"
+                  value={newOfficerForm.phone}
+                  onChange={(e) => setNewOfficerForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="যেমন: ০১৭১১-XXXXXX"
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.84rem' }}
+                />
+              </div>
+
+              {/* Seal Ink Color Picker */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
+                  সিলের অফিশিয়াল কালার (স্ট্যাম্প ইংক):
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[
+                    { color: '#1e3a8a', label: 'রয়েল ব্লু' },
+                    { color: '#4338ca', label: 'পার্পল / বেগুনি' },
+                    { color: '#065f46', label: 'গ্রিন / সবুজ' },
+                    { color: '#991b1b', label: 'মেরুন / লাল' }
+                  ].map(sc => (
+                    <button
+                      key={sc.color}
+                      type="button"
+                      onClick={() => setNewOfficerForm(prev => ({ ...prev, sealColor: sc.color }))}
+                      style={{
+                        flex: 1,
+                        padding: '8px',
+                        borderRadius: '8px',
+                        background: sc.color,
+                        border: newOfficerForm.sealColor === sc.color ? '2.5px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                        color: '#fff',
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        boxShadow: newOfficerForm.sealColor === sc.color ? '0 0 10px ' + sc.color : 'none'
+                      }}
+                    >
+                      {sc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Hand Signature Image Upload */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                    হাতে লেখা স্বাক্ষর ছবি (মোবাইল ক্যামেরা বা গ্যালারি):
+                  </label>
+                  {newOfficerForm.signatureImage && (
+                    <button
+                      type="button"
+                      onClick={() => setNewOfficerForm(prev => ({ ...prev, signatureImage: '' }))}
+                      style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer', fontWeight: '700' }}
+                    >
+                      মুছুন
+                    </button>
+                  )}
+                </div>
+
+                {newOfficerForm.signatureImage ? (
+                  <div style={{ height: '50px', background: '#ffffff', borderRadius: '6px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={newOfficerForm.signatureImage} alt="Signature Preview" style={{ maxHeight: '44px', maxWidth: '160px', objectFit: 'contain' }} />
+                  </div>
+                ) : (
+                  <label
+                    style={{
+                      border: '1.5px dashed rgba(45, 212, 191, 0.4)',
+                      borderRadius: '8px',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      gap: '4px',
+                      background: 'rgba(30, 41, 59, 0.4)'
+                    }}
+                  >
+                    <Upload size={18} color="#2dd4bf" />
+                    <span style={{ fontSize: '0.74rem', color: '#2dd4bf', fontWeight: '700' }}>স্বাক্ষরের ছবি আপলোড করুন</span>
+                    <span style={{ fontSize: '0.66rem', color: '#64748b' }}>সাদা কাগজে সাইন করে ক্যামেরা দিয়ে ছবি তুলুন (স্বয়ংক্রিয় অপটিমাইজ হবে)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          showToast?.('স্বাক্ষর অপটিমাইজ করা হচ্ছে...', 'info');
+                          const compressed = await compressImageFile(file, { maxWidth: 500, maxHeight: 200, quality: 0.9 });
+                          setNewOfficerForm(prev => ({ ...prev, signatureImage: compressed }));
+                          showToast?.('স্বাক্ষর প্রস্তুত হয়েছে', 'success');
+                        } catch {
+                          showToast?.('স্বাক্ষর আপলোড ব্যর্থ হয়েছে', 'error');
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setIsOfficerModalOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#cbd5e1',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newOfficerForm.name.trim()) {
+                    showToast?.('অনুগ্রহ করে কর্মকর্তার নাম লিখুন', 'warning');
+                    return;
+                  }
+                  if (!newOfficerForm.designationBn.trim()) {
+                    showToast?.('অনুগ্রহ করে বাংলায় পদবি লিখুন', 'warning');
+                    return;
+                  }
+                  const newOfficerId = `sig_${Date.now()}`;
+                  const createdOfficer = {
+                    id: newOfficerId,
+                    name: newOfficerForm.name.trim(),
+                    designationBn: newOfficerForm.designationBn.trim(),
+                    designationEn: newOfficerForm.designationEn.trim() || newOfficerForm.designationBn.trim(),
+                    phone: newOfficerForm.phone.trim(),
+                    signatureImage: newOfficerForm.signatureImage || '',
+                    sealColor: newOfficerForm.sealColor || '#1e3a8a',
+                    showSignature: true,
+                    showSeal: true,
+                    showDate: true
+                  };
+
+                  updateAndSave(prev => ({
+                    ...prev,
+                    signatures: [...(prev.signatures || []), createdOfficer]
+                  }), {
+                    action: 'CREATE_OFFICER_SIGNATURE',
+                    module: 'SIGNATURES',
+                    details: { name: createdOfficer.name, designation: createdOfficer.designationBn }
+                  });
+
+                  setPadSelectedSignatures(prev => [...prev, newOfficerId]);
+                  setIsOfficerModalOpen(false);
+                  setNewOfficerForm({
+                    name: '',
+                    designationBn: '',
+                    designationEn: '',
+                    phone: '',
+                    signatureImage: '',
+                    sealColor: '#1e3a8a',
+                    showSignature: true,
+                    showSeal: true,
+                    showDate: true
+                  });
+                  showToast?.(`কর্মকর্তা "${createdOfficer.name}" ও সিল সফলভাবে যোগ করা হয়েছে!`, 'success');
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '9px 22px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                <Check size={16} />
+                <span>কর্মকর্তা ও সিল সংরক্ষণ করুন</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
