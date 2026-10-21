@@ -102,6 +102,11 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
   const [handoverAmount, setHandoverAmount] = useState('');
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null);
 
+  // Multiple Delete & Selection States (লং-প্রেস ও একাধিক মেসেজ ডিলিট)
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedMsgIds, setSelectedMsgIds] = useState([]);
+  const longPressTimerRef = useRef(null);
+
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -346,6 +351,52 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     await deleteMessage(msgId, true);
     setDeleteConfirmModal(null);
     if (showToast) showToast(lang === 'bn' ? 'মেসেজটি সবার জন্য মুছে ফেলা হয়েছে' : 'Message deleted', 'info');
+  };
+
+  const handleToggleSelectMsg = (msgId) => {
+    setSelectedMsgIds((prev) =>
+      prev.includes(msgId) ? prev.filter((id) => id !== msgId) : [...prev, msgId]
+    );
+  };
+
+  const handleSelectAllInView = () => {
+    if (selectedMsgIds.length === currentMessages.length) {
+      setSelectedMsgIds([]);
+    } else {
+      setSelectedMsgIds(currentMessages.map((m) => m.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedMsgIds.length) return;
+    try {
+      await Promise.all(selectedMsgIds.map((id) => deleteMessage(id, true)));
+      setMessages(getStoredMessages());
+      const count = selectedMsgIds.length;
+      setSelectedMsgIds([]);
+      setIsMultiSelectMode(false);
+      if (showToast) showToast(lang === 'bn' ? `${count} টি বার্তা সবার জন্য সফলভাবে মুছে ফেলা হয়েছে` : `${count} messages deleted`, 'success');
+    } catch {
+      if (showToast) showToast('মেসেজ মুছতে সমস্যা হয়েছে', 'error');
+    }
+  };
+
+  const handleStartLongPress = (msgId) => {
+    if (isMultiSelectMode) return;
+    longPressTimerRef.current = setTimeout(() => {
+      setIsMultiSelectMode(true);
+      setSelectedMsgIds([msgId]);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 450);
+  };
+
+  const handleCancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   const handlePurgeDeletedPlaceholder = (msgId) => {
@@ -1146,6 +1197,115 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                     <Trash2 size={16} />
                   </button>
                 )}
+
+                {/* Multi-Select Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMultiSelectMode(prev => !prev);
+                    setSelectedMsgIds([]);
+                  }}
+                  title={isMultiSelectMode ? 'সিলেকশন মোড বন্ধ করুন' : 'একাধিক মেসেজ একসাথে ডিলিট করতে সিলেক্ট করুন'}
+                  style={{
+                    background: isMultiSelectMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                    color: isMultiSelectMode ? '#ef4444' : 'var(--text-muted)',
+                    border: '1px solid ' + (isMultiSelectMode ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.1)'),
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <CheckCheck size={13} />
+                  <span>{isMultiSelectMode ? 'সিলেকশন বন্ধ' : 'মাল্টি-ডিলিট'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Floating Multi-Select Action Bar (সবার উপরে দৃশ্যমান) */}
+            {isMultiSelectMode && (
+              <div
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                  borderBottom: '1.5px solid #ef4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                  zIndex: 20,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.4)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
+                    ✓ {selectedMsgIds.length} টি বার্তা নির্বাচিত
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllInView}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      color: '#cbd5e1',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      padding: '3px 8px',
+                      borderRadius: '5px',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                      fontWeight: '700'
+                    }}
+                  >
+                    {selectedMsgIds.length === currentMessages.length ? 'সব বাতিল' : 'সব নির্বাচন'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    disabled={selectedMsgIds.length === 0}
+                    onClick={handleBulkDelete}
+                    style={{
+                      background: selectedMsgIds.length > 0 ? '#ef4444' : 'rgba(239, 68, 68, 0.3)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      fontSize: '0.76rem',
+                      fontWeight: '800',
+                      cursor: selectedMsgIds.length > 0 ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      boxShadow: selectedMsgIds.length > 0 ? '0 2px 10px rgba(239, 68, 68, 0.4)' : 'none'
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    <span>নির্বাচিত বার্তা মুছুন ({selectedMsgIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMultiSelectMode(false);
+                      setSelectedMsgIds([]);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      color: '#94a3b8',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      padding: '4px 9px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✕ বন্ধ
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1254,19 +1414,61 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                     );
                   }
 
+                  const isMsgSelected = selectedMsgIds.includes(m.id);
+
                   return (
                     <div
                       key={m.id}
+                      onMouseDown={() => handleStartLongPress(m.id)}
+                      onMouseUp={handleCancelLongPress}
+                      onTouchStart={() => handleStartLongPress(m.id)}
+                      onTouchEnd={handleCancelLongPress}
+                      onClick={() => {
+                        if (isMultiSelectMode) {
+                          handleToggleSelectMsg(m.id);
+                        }
+                      }}
                       style={{
                         display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: isMe ? 'flex-end' : 'flex-start',
-                        maxWidth: isMobile ? '88%' : '76%',
+                        alignItems: 'center',
+                        gap: '8px',
+                        maxWidth: isMobile ? '92%' : '80%',
                         alignSelf: isMe ? 'flex-end' : 'flex-start',
                         marginLeft: isMe ? 'auto' : '0',
-                        marginRight: isMe ? '0' : 'auto'
+                        marginRight: isMe ? '0' : 'auto',
+                        cursor: isMultiSelectMode ? 'pointer' : 'default',
+                        userSelect: 'none',
+                        transition: 'all 0.15s ease'
                       }}
                     >
+                      {/* Multi-Select Checkbox */}
+                      {isMultiSelectMode && (
+                        <div
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '5px',
+                            border: isMsgSelected ? '2px solid #ef4444' : '2px solid rgba(255, 255, 255, 0.3)',
+                            background: isMsgSelected ? '#ef4444' : 'rgba(15, 23, 42, 0.6)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isMsgSelected && <Check size={14} color="#fff" strokeWidth={3} />}
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: isMe ? 'flex-end' : 'flex-start',
+                          width: '100%'
+                        }}
+                      >
                       {/* Compact Sender Tag for received messages */}
                       {!isMe && (
                         <div
@@ -1553,7 +1755,8 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                         )}
                       </div>
                     </div>
-                  );
+                  </div>
+                );
                 })
               )}
               <div ref={chatEndRef} />

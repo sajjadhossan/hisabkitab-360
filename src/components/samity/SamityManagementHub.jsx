@@ -110,9 +110,47 @@ import {
   exportReportToExcel
 } from '../../services/samityService';
 import * as XLSX from 'xlsx';
+import { generateQrDataUrl } from '../../services/qrService';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { broadcastLiveEvent, subscribeLiveSync } from '../../services/liveSyncService';
+
+// Bengali Numeral Converter
+export const toBanglaNum = (num) => {
+  const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return String(num ?? '').replace(/[0-9]/g, (d) => bn[d]);
+};
+
+// Member List Excel (.xlsx) Exporter with Unicode Support
+export const exportMembersToExcel = (xlsx, members = [], samity = {}) => {
+  if (!xlsx || !members.length) return;
+  const rows = members.map((m, idx) => ({
+    'ক্রমিক': idx + 1,
+    'সদস্য কোড / আইডি': m.id || m.memberCode || '',
+    'নাম (বাংলা)': m.nameBn || '',
+    'নাম (ইংরেজি)': m.nameEn || '',
+    'মোবাইল নম্বর': m.mobile || '',
+    'বিকল্প মোবাইল': m.altMobile || '',
+    'সদস্যপদ শ্রেণি': m.membershipType || 'General',
+    'মাসিক সঞ্চয় কিস্তি (টাকা)': Number(m.monthlySubscription) || 500,
+    'এনআইডি নম্বর (NID)': m.nidNumber || '',
+    'পেশা': m.profession || '',
+    'পিতার নাম': m.fatherName || '',
+    'বর্তমান ঠিকানা': m.presentAddress || '',
+    'স্থায়ী ঠিকানা': m.permanentAddress || '',
+    'নমিনীর নাম': m.nomineeName || '',
+    'নমিনীর সাথে সম্পর্ক': m.nomineeRelation || '',
+    'স্ট্যাটাস': m.status || 'Active',
+    'যোগদানের তারিখ': m.joiningDate || ''
+  }));
+
+  const worksheet = xlsx.utils.json_to_sheet(rows);
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, worksheet, 'সদস্য তালিকা');
+  const cleanName = (samity?.nameBn || 'Samity').replace(/[\s/\\?%*:|"<>]/g, '_');
+  const filename = `${cleanName}_MemberList_${new Date().toISOString().split('T')[0]}.xlsx`;
+  xlsx.writeFile(workbook, filename);
+};
 
 // Official Circular Rubber Seal/Stamp Generator (প্রফেশনাল ডিজিটাল বৃত্তাকার সিল)
 export const CircularOfficialSeal = ({
@@ -630,6 +668,52 @@ export const SamityManagementHub = ({ onClose }) => {
   );
   const [padSelectedSignatures, setPadSelectedSignatures] = useState(['sig_president', 'sig_secretary', 'sig_treasurer']);
   const [padWatermarkOpacity, setPadWatermarkOpacity] = useState(0.14);
+
+  // Movable Seal Position state (সিল ড্র্যাগ ও পজিশন কন্ট্রোল)
+  const [sealOffset, setSealOffset] = useState({ x: -16, y: -44 });
+  const [sealPresetPosition, setSealPresetPosition] = useState('on_sign'); // 'on_sign', 'right', 'left', 'custom'
+
+  // Multi-page splitting logic for A4 letterpad (দীর্ঘ লেখা স্বয়ংক্রিয়ভাবে একাধিক পৃষ্ঠায় ভাগ)
+  const padPages = useMemo(() => {
+    if (!padDocBody) return [''];
+    const paragraphs = padDocBody.split('\n');
+    const resultPages = [];
+    let currentPage = '';
+    const MAX_PAGE_CHARS = 900; // Optimal length per A4 page
+
+    paragraphs.forEach((p) => {
+      if ((currentPage + '\n' + p).length > MAX_PAGE_CHARS && currentPage.length > 200) {
+        resultPages.push(currentPage.trim());
+        currentPage = p;
+      } else {
+        currentPage = currentPage ? `${currentPage}\n${p}` : p;
+      }
+    });
+    if (currentPage.trim()) {
+      resultPages.push(currentPage.trim());
+    }
+    return resultPages.length > 0 ? resultPages : [''];
+  }, [padDocBody]);
+
+  // QR Verification Data URL for Letterpad (স্ক্যানযোগ্য কিউআর কোড)
+  const [padQrDataUrl, setPadQrDataUrl] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    const payload = [
+      `📋 ${currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}`,
+      `নিবন্ধন নং: ${currentSamity.regNo || 'সছস-২০২৪/০৯'}`,
+      `স্মারক নং: ${padDocRefNo || 'সছস/২০২৬/০১'}`,
+      `ডকুমেন্ট: ${padDocTitle || 'অফিসিয়াল নোটিশ'}`,
+      `তারিখ: ${padDocDate || new Date().toISOString().split('T')[0]}`,
+      `স্ট্যাটাস: ✓ ভেরিফাইড ডিজিটাল ডকুমেন্ট`
+    ].join('\n');
+
+    generateQrDataUrl(payload, { width: 140, margin: 1 }).then(url => {
+      if (isMounted && url) setPadQrDataUrl(url);
+    });
+    return () => { isMounted = false; };
+  }, [currentSamity.nameBn, currentSamity.regNo, padDocRefNo, padDocTitle, padDocDate]);
 
   // New Officer Signature & Seal Modal State
   const [isOfficerModalOpen, setIsOfficerModalOpen] = useState(false);
@@ -4246,7 +4330,33 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Download size={14} />
-                  <span>এক্সপোর্ট ({filteredMembers.length})</span>
+                  <span>CSV এক্সপোর্ট ({filteredMembers.length})</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    playButtonClick?.();
+                    triggerHaptic();
+                    exportMembersToExcel(XLSX, filteredMembers, currentSamity);
+                    showToast?.('সদস্য তালিকা Excel (.xlsx) স্প্রেডশিট ডাউনলোড শুরু হয়েছে', 'success');
+                  }}
+                  title="ফিল্টারকৃত সদস্যদের প্রফেশনাল Excel (.xlsx) স্প্রেডশিট ফাইল ডাউনলোড করুন"
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <FileSpreadsheet size={14} color="#10b981" />
+                  <span>Excel (.xlsx) এক্সপোর্ট</span>
                 </button>
 
                 <button
@@ -10819,14 +10929,19 @@ export const SamityManagementHub = ({ onClose }) => {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', color: '#2dd4bf', fontWeight: '800', marginBottom: '3px' }}>
-                        প্যাডের মূল চিঠি / বক্তব্য লেখার খোপ *
-                      </label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '0.72rem', color: '#2dd4bf', fontWeight: '800' }}>
+                          প্যাডের মূল চিঠি / বক্তব্য লেখার খোপ *
+                        </label>
+                        <span style={{ fontSize: '0.68rem', fontWeight: '800', background: 'rgba(45, 212, 191, 0.2)', color: '#2dd4bf', padding: '1px 6px', borderRadius: '4px' }}>
+                          📄 মোট পৃষ্ঠা: {toBanglaNum(padPages.length)} টি
+                        </span>
+                      </div>
                       <textarea
                         rows={7}
                         value={padDocBody}
                         onChange={(e) => setPadDocBody(e.target.value)}
-                        placeholder="এখানে আপনার চিঠির বক্তব্য বা নোটিশ লিখুন। এটি প্যাডের বডিতে স্বয়ংক্রিয়ভাবে মার্জিন মেনে ফিট হয়ে বসবে..."
+                        placeholder="এখানে আপনার চিঠির বক্তব্য বা নোটিশ লিখুন। লেখা বড় হলে এটি স্বয়ংক্রিয়ভাবে একাধিক পৃষ্ঠা (Page 1, 2, 3...) তৈরি করবে..."
                         style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem', lineHeight: '1.6', resize: 'vertical' }}
                       />
                     </div>
@@ -10875,6 +10990,79 @@ export const SamityManagementHub = ({ onClose }) => {
                             {preset.label}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Movable Seal Position Controller (সিল মুভ ও ড্র্যাগ কন্ট্রোল) */}
+                    <div style={{ background: 'rgba(30, 41, 59, 0.6)', border: '1px solid rgba(45, 212, 191, 0.3)', borderRadius: '8px', padding: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label style={{ fontSize: '0.72rem', fontWeight: '800', color: '#2dd4bf' }}>
+                          📍 সিলের অবস্থান পরিবর্তন (Movable Seal):
+                        </label>
+                        <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+                          X: {sealOffset.x}px | Y: {sealOffset.y}px
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+                        {[
+                          { label: 'স্বাক্ষরের ওপর', x: -16, y: -44, key: 'on_sign' },
+                          { label: 'স্বাক্ষরের ডানে', x: 40, y: -44, key: 'right' },
+                          { label: 'স্বাক্ষরের বামে', x: -70, y: -44, key: 'left' }
+                        ].map(pos => (
+                          <button
+                            key={pos.key}
+                            type="button"
+                            onClick={() => {
+                              setSealOffset({ x: pos.x, y: pos.y });
+                              setSealPresetPosition(pos.key);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '4px 6px',
+                              borderRadius: '5px',
+                              background: sealPresetPosition === pos.key ? 'rgba(45, 212, 191, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid ' + (sealPresetPosition === pos.key ? '#2dd4bf' : 'rgba(255, 255, 255, 0.1)'),
+                              color: sealPresetPosition === pos.key ? '#2dd4bf' : '#94a3b8',
+                              fontSize: '0.66rem',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {pos.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <span style={{ fontSize: '0.64rem', color: '#94a3b8' }}>ডানে/বামে (X):</span>
+                          <input
+                            type="range"
+                            min="-120"
+                            max="120"
+                            value={sealOffset.x}
+                            onChange={(e) => {
+                              setSealOffset(prev => ({ ...prev, x: Number(e.target.value) }));
+                              setSealPresetPosition('custom');
+                            }}
+                            style={{ width: '100%', accentColor: '#2dd4bf' }}
+                          />
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '0.64rem', color: '#94a3b8' }}>উপরে/নিচে (Y):</span>
+                          <input
+                            type="range"
+                            min="-90"
+                            max="40"
+                            value={sealOffset.y}
+                            onChange={(e) => {
+                              setSealOffset(prev => ({ ...prev, y: Number(e.target.value) }));
+                              setSealPresetPosition('custom');
+                            }}
+                            style={{ width: '100%', accentColor: '#2dd4bf' }}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -10973,191 +11161,284 @@ export const SamityManagementHub = ({ onClose }) => {
                 </div>
               </div>
 
-              {/* Printable Letterhead Paper Preview */}
+              {/* Printable Multi-Page Letterhead Paper Preview */}
               <div
                 id="samity-official-letterhead-preview"
                 style={{
-                  background: '#ffffff',
-                  color: '#0f172a',
-                  padding: '36px 40px',
-                  borderRadius: '12px',
-                  border: `2px ${data.letterhead?.borderStyle || 'solid'} ${data.letterhead?.borderColor || '#0f172a'}`,
-                  boxShadow: '0 12px 35px rgba(0,0,0,0.3)',
-                  minHeight: '620px',
-                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '28px',
                   fontFamily: "'Inter', 'SolaimanLipi', sans-serif"
                 }}
               >
-                {/* 1. Official Samity Logo Watermark (পিডিএফের মাঝখানে সমিতির লোগোর স্পষ্ট জলছাপ) */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '380px',
-                    height: '380px',
-                    maxWidth: '85%',
-                    maxHeight: '65%',
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                    zIndex: 0,
-                    opacity: padWatermarkOpacity,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <img
-                    src={currentSamity.logo || '/logo.png'}
-                    alt="Samity Logo Watermark"
-                    onError={(e) => { e.currentTarget.src = '/logo.png'; }}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'contrast(106%)' }}
-                  />
-                </div>
-
-                {/* 2. Top 3-Column Header Layout */}
-                {(() => {
-                  const logoHeight = data.letterhead?.logoSize || 64;
-                  const themeBorder = data.letterhead?.borderColor || '#0f172a';
-
-                  if (currentSamity.letterpadImage) {
-                    return (
-                      <div style={{ textAlign: 'center', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '12px', marginBottom: '16px', position: 'relative', zIndex: 1 }}>
-                        <img
-                          src={currentSamity.letterpadImage}
-                          alt="Official Samity Letterpad"
-                          style={{ width: '100%', maxHeight: '160px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
-                        />
-                      </div>
-                    );
-                  }
-
-                  const renderLogoElement = () => (
-                    <img
-                      src={currentSamity.logo || '/logo.png'}
-                      alt={currentSamity.nameBn}
-                      onError={(e) => { e.currentTarget.src = '/logo.png'; }}
-                      style={{
-                        height: `${logoHeight}px`,
-                        maxWidth: '180px',
-                        objectFit: 'contain',
-                        borderRadius: '6px'
-                      }}
-                    />
-                  );
+                {padPages.map((pageText, pageIdx) => {
+                  const isFirstPage = pageIdx === 0;
+                  const isLastPage = pageIdx === padPages.length - 1;
+                  const pageNumberBn = toBanglaNum(pageIdx + 1);
+                  const totalPagesBn = toBanglaNum(padPages.length);
 
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '16px', position: 'relative', zIndex: 1, gap: '16px' }}>
-                      {/* Left Column: Samity Logo */}
-                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                        {renderLogoElement()}
+                    <div
+                      key={pageIdx}
+                      className="samity-a4-page"
+                      style={{
+                        background: '#ffffff',
+                        color: '#0f172a',
+                        padding: '36px 40px',
+                        borderRadius: '12px',
+                        border: `2px ${data.letterhead?.borderStyle || 'solid'} ${data.letterhead?.borderColor || '#0f172a'}`,
+                        boxShadow: '0 12px 35px rgba(0,0,0,0.25)',
+                        minHeight: '740px',
+                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        pageBreakAfter: isLastPage ? 'auto' : 'always'
+                      }}
+                    >
+                      {/* 1. Official Samity Logo Watermark (প্রতিটি পৃষ্ঠার মাঝখানে সমিতির লোগোর স্পষ্ট জলছাপ) */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          width: '380px',
+                          height: '380px',
+                          maxWidth: '85%',
+                          maxHeight: '65%',
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                          zIndex: 0,
+                          opacity: padWatermarkOpacity,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <img
+                          src={currentSamity.logo || '/logo.png'}
+                          alt="Samity Logo Watermark"
+                          onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'contrast(106%)' }}
+                        />
                       </div>
 
-                      {/* Center Column: Samity Name & Slogan */}
-                      <div style={{ textAlign: 'center', flex: 1, padding: '0 8px' }}>
-                        <h2 style={{ margin: '0 0 2px 0', fontSize: '1.5rem', fontWeight: '900', color: themeBorder, letterSpacing: '-0.3px' }}>
-                          {currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
-                        </h2>
-                        <div style={{ fontSize: '0.86rem', color: '#475569', fontWeight: '700' }}>
-                          {currentSamity.nameEn || 'Shopnochoa Co-operative Samity'}
+                      {/* Top Content Area */}
+                      <div>
+                        {/* 2. Top 3-Column Header Layout (প্রতিটি পেজের শীর্ষে) */}
+                        {(() => {
+                          const logoHeight = data.letterhead?.logoSize || 64;
+                          const themeBorder = data.letterhead?.borderColor || '#0f172a';
+
+                          return (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                borderBottom: `2.5px solid ${themeBorder}`,
+                                paddingBottom: '14px',
+                                marginBottom: '14px',
+                                position: 'relative',
+                                zIndex: 1,
+                                gap: '16px'
+                              }}
+                            >
+                              {/* Left Column: Samity Logo */}
+                              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                                <img
+                                  src={currentSamity.logo || '/logo.png'}
+                                  alt={currentSamity.nameBn}
+                                  onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                                  style={{
+                                    height: `${logoHeight}px`,
+                                    maxWidth: '140px',
+                                    objectFit: 'contain',
+                                    borderRadius: '6px'
+                                  }}
+                                />
+                              </div>
+
+                              {/* Center Column: Custom Letterpad Banner */}
+                              <div style={{ textAlign: 'center', flex: 1, padding: '0 10px' }}>
+                                {currentSamity.letterpadImage ? (
+                                  <img
+                                    src={currentSamity.letterpadImage}
+                                    alt="Letterpad Banner"
+                                    style={{ maxHeight: '76px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                                  />
+                                ) : (
+                                  <div style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.04)', border: `1px dashed ${themeBorder}40` }}>
+                                    <div style={{ fontSize: '0.94rem', fontWeight: '900', color: themeBorder, letterSpacing: '0.3px' }}>
+                                      ★ {currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'} ★
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: '700' }}>
+                                      {currentSamity.nameEn || 'Shopnochoa Co-operative Samity'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Right Column: Address, Phone, Reg, Slogan, Bangla & English Name */}
+                              <div style={{ fontSize: '0.72rem', color: '#475569', textAlign: 'right', flexShrink: 0, lineHeight: '1.45' }}>
+                                <div style={{ fontWeight: '900', color: themeBorder, fontSize: '0.84rem' }}>
+                                  {currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600' }}>
+                                  {currentSamity.nameEn || 'Shopnochoa Co-operative Samity'}
+                                </div>
+                                {currentSamity.sloganBn && (
+                                  <div style={{ fontSize: '0.68rem', color: '#0d9488', fontWeight: '800' }}>
+                                    স্লোগান: {currentSamity.sloganBn}
+                                  </div>
+                                )}
+                                <div style={{ marginTop: '2px' }}>
+                                  সরকারি নিবন্ধন: <strong style={{ color: '#0f172a' }}>{currentSamity.regNo || 'প্রযোজ্য নয়'}</strong>
+                                </div>
+                                <div>ঠিকানা: {currentSamity.address}</div>
+                                <div>মোবাইল: {currentSamity.mobile}</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Document Reference No & Date */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#475569', fontWeight: '700', marginTop: '6px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
+                          <span>{padDocRefNo}</span>
+                          <span>তারিখ: {padDocDate ? new Date(padDocDate).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</span>
                         </div>
-                        {currentSamity.sloganBn && (
-                          <div style={{ fontSize: '0.8rem', color: '#0d9488', fontWeight: '800', marginTop: '2px' }}>
-                            স্লোগান: {currentSamity.sloganBn}
+
+                        {/* Document Title (Page 1 gets primary title, subsequent pages get continuation marker) */}
+                        {padDocTitle && (
+                          <h3 style={{ textAlign: 'center', margin: '10px 0 14px 0', fontSize: '1.2rem', fontWeight: '900', color: data.letterhead?.borderColor || '#0f172a', textDecoration: isFirstPage ? 'underline' : 'none', textUnderlineOffset: '5px', letterSpacing: '-0.3px', position: 'relative', zIndex: 1 }}>
+                            {padDocTitle} {!isFirstPage && <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '700' }}>(চলমান পাতা - {pageNumberBn})</span>}
+                          </h3>
+                        )}
+
+                        {/* Document Body Content for this Page */}
+                        <div style={{ padding: '6px 2px', fontSize: '0.92rem', color: '#1e293b', lineHeight: '1.9', minHeight: '160px', position: 'relative', zIndex: 1, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>
+                          {pageText}
+                        </div>
+                      </div>
+
+                      {/* Bottom Section: Signatures on Last Page + Footer with QR on Every Page */}
+                      <div>
+                        {/* Signatures and Movable Official Circular Seals (অনলি শেষ পৃষ্ঠায়) */}
+                        {isLastPage && data.signatures.filter(s => padSelectedSignatures.includes(s.id)).length > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', marginTop: '36px', marginBottom: '18px', position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: '24px' }}>
+                            {data.signatures
+                              .filter(s => padSelectedSignatures.includes(s.id))
+                              .map(sig => (
+                                <div key={sig.id} style={{ textAlign: 'center', minWidth: '150px', position: 'relative' }}>
+                                  {/* Official Circular Rubber Stamp with Movable Position */}
+                                  {sig.showSeal !== false && (
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        top: '0px',
+                                        right: '0px',
+                                        transform: `translate(${sealOffset.x}px, ${sealOffset.y}px)`,
+                                        zIndex: 3,
+                                        pointerEvents: 'none',
+                                        transition: 'transform 0.15s ease'
+                                      }}
+                                      title="মুভেবল ডিজিটাল সিল"
+                                    >
+                                      <CircularOfficialSeal
+                                        samityName={currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
+                                        designation={sig.designationBn}
+                                        officerName={sig.name}
+                                        sealColor={sig.sealColor || '#1e3a8a'}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Signature Image */}
+                                  <div style={{ height: '44px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                    {sig.signatureImage ? (
+                                      <img
+                                        src={sig.signatureImage}
+                                        alt={sig.name}
+                                        style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }}
+                                      />
+                                    ) : (
+                                      <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>[স্বাক্ষর]</span>
+                                    )}
+                                  </div>
+
+                                  {/* Name & Designation line */}
+                                  <div style={{ borderTop: `1.5px solid ${data.letterhead?.borderColor || '#0f172a'}`, paddingTop: '4px', marginTop: '4px' }}>
+                                    <div style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0f172a' }}>{sig.name}</div>
+                                    <div style={{ fontSize: '0.74rem', color: '#475569', fontWeight: '700' }}>{sig.designationBn}</div>
+                                    {sig.phone && <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{sig.phone}</div>}
+                                  </div>
+                                </div>
+                              ))}
                           </div>
                         )}
-                      </div>
 
-                      {/* Right Column: Reg No, Address, Phone, Email */}
-                      <div style={{ fontSize: '0.74rem', color: '#64748b', textAlign: 'right', flexShrink: 0, lineHeight: '1.5' }}>
-                        <div>নিবন্ধন নং: <strong style={{ color: '#0f172a' }}>{currentSamity.regNo || 'প্রযোজ্য নয়'}</strong></div>
-                        <div>ঠিকানা: {currentSamity.address}</div>
-                        <div>মোবাইল: {currentSamity.mobile}</div>
-                        {currentSamity.email && <div>ইমেইল: {currentSamity.email}</div>}
+                        {/* Pad Footer on EVERY Page: Page Number (পৃষ্ঠা ১/৩) & Scannable QR Code */}
+                        <div
+                          style={{
+                            borderTop: '1px solid #cbd5e1',
+                            paddingTop: '10px',
+                            fontSize: '0.74rem',
+                            color: '#64748b',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            position: 'relative',
+                            zIndex: 1
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: '700', color: '#334155' }}>
+                              {data.letterhead?.footerText || 'স্বচ্ছতা ও সমবায় আমাদের অঙ্গীকার • সততাই সমিতির শক্তি'}
+                            </div>
+                            <div style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+                              হিসাব-কিতাব ৩৬০ ডিজিটাল পোর্টাল • স্বপ্নছোঁয়া সমবায় সমিতি
+                            </div>
+                          </div>
+
+                          {/* Center: Dynamic Page Numbering */}
+                          <div
+                            style={{
+                              fontWeight: '900',
+                              color: '#0f172a',
+                              fontSize: '0.82rem',
+                              background: 'rgba(15, 23, 42, 0.06)',
+                              padding: '4px 12px',
+                              borderRadius: '6px'
+                            }}
+                          >
+                            পৃষ্ঠা {pageNumberBn} / {totalPagesBn}
+                          </div>
+
+                          {/* Right: Digital Verification QR Code */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
+                              <div style={{ fontSize: '0.66rem', fontWeight: '800', color: '#0f172a' }}>ডিজিটাল ভেরিফিকেশন</div>
+                              <div style={{ fontSize: '0.6rem', color: '#10b981', fontWeight: '700' }}>✓ অফিসিয়ালি ভেরিফাইড</div>
+                            </div>
+                            {padQrDataUrl ? (
+                              <img
+                                src={padQrDataUrl}
+                                alt="Verification QR Code"
+                                style={{ width: '42px', height: '42px', objectFit: 'contain', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff' }}
+                                title="মোবাইলে স্ক্যান করে ভেরিফাই করুন"
+                              />
+                            ) : (
+                              <div style={{ width: '42px', height: '42px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}>
+                                <QrCode size={20} color="#64748b" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
-                })()}
-
-                {/* 3. Document Reference No & Date */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#475569', fontWeight: '700', marginTop: '14px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
-                  <span>{padDocRefNo}</span>
-                  <span>তারিখ: {padDocDate ? new Date(padDocDate).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</span>
-                </div>
-
-                {/* 4. Document Title */}
-                {padDocTitle && (
-                  <h3 style={{ textAlign: 'center', margin: '14px 0 16px 0', fontSize: '1.25rem', fontWeight: '900', color: data.letterhead?.borderColor || '#0f172a', textDecoration: 'underline', textUnderlineOffset: '5px', letterSpacing: '-0.3px', position: 'relative', zIndex: 1 }}>
-                    {padDocTitle}
-                  </h3>
-                )}
-
-                {/* 5. Document Body Content (খোপের লেখা প্যাডে ফিট) */}
-                <div style={{ padding: '6px 2px', fontSize: '0.92rem', color: '#1e293b', lineHeight: '1.9', minHeight: '180px', position: 'relative', zIndex: 1, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>
-                  {padDocBody}
-                </div>
-
-                {/* 6. Signatures and Official Circular Seals (প্যাডের নিচের অংশে সাইন ও সিল) */}
-                {data.signatures.filter(s => padSelectedSignatures.includes(s.id)).length > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', marginTop: '46px', marginBottom: '16px', position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: '24px' }}>
-                    {data.signatures
-                      .filter(s => padSelectedSignatures.includes(s.id))
-                      .map(sig => (
-                        <div key={sig.id} style={{ textAlign: 'center', minWidth: '150px', position: 'relative' }}>
-                          {/* Official Circular Rubber Stamp */}
-                          {sig.showSeal !== false && (
-                            <div style={{ position: 'absolute', top: '-46px', right: '-18px', zIndex: 2, pointerEvents: 'none' }}>
-                              <CircularOfficialSeal
-                                samityName={currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
-                                designation={sig.designationBn}
-                                officerName={sig.name}
-                                sealColor={sig.sealColor || '#1e3a8a'}
-                              />
-                            </div>
-                          )}
-
-                          {/* Signature Image */}
-                          <div style={{ height: '44px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                            {sig.signatureImage ? (
-                              <img
-                                src={sig.signatureImage}
-                                alt={sig.name}
-                                style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }}
-                              />
-                            ) : (
-                              <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>[স্বাক্ষর]</span>
-                            )}
-                          </div>
-
-                          {/* Name & Designation line */}
-                          <div style={{ borderTop: `1.5px solid ${data.letterhead?.borderColor || '#0f172a'}`, paddingTop: '4px', marginTop: '4px' }}>
-                            <div style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0f172a' }}>{sig.name}</div>
-                            <div style={{ fontSize: '0.74rem', color: '#475569', fontWeight: '700' }}>{sig.designationBn}</div>
-                            {sig.phone && <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{sig.phone}</div>}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* 7. Pad Footer */}
-                <div
-                  style={{
-                    borderTop: '1px solid #cbd5e1',
-                    paddingTop: '12px',
-                    fontSize: '0.74rem',
-                    color: '#64748b',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    position: 'relative',
-                    zIndex: 1
-                  }}
-                >
-                  <span>{data.letterhead?.footerText || 'স্বচ্ছতা ও সমবায় আমাদের অঙ্গীকার • সততাই সমিতির শক্তি'}</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a' }}>পৃষ্ঠা ১/১ • ডিজিটাল কিউআর ভেরিফাইড</span>
-                </div>
+                })}
               </div>
             </div>
           </div>
@@ -11968,6 +12249,7 @@ export const SamityManagementHub = ({ onClose }) => {
             {/* 28 Modules Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
               {SAMITY_28_MODULES.map(m => {
+                const isServiceEnabled = !(data.disabledServices || []).includes(m.id);
                 const targetTabMap = {
                   samity_setup: 'samity_setup',
                   member_mgmt: 'members',
@@ -12002,28 +12284,62 @@ export const SamityManagementHub = ({ onClose }) => {
                   <div
                     key={m.id}
                     style={{
-                      background: 'rgba(30, 41, 59, 0.65)',
+                      background: isServiceEnabled ? 'rgba(30, 41, 59, 0.65)' : 'rgba(30, 41, 59, 0.35)',
                       backdropFilter: 'blur(10px)',
                       borderRadius: '14px',
                       padding: '16px',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      border: isServiceEnabled ? '1px solid rgba(255, 255, 255, 0.08)' : '1px dashed rgba(239, 68, 68, 0.3)',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      gap: '12px'
+                      gap: '12px',
+                      opacity: isServiceEnabled ? 1 : 0.72,
+                      transition: 'all 0.2s ease'
                     }}
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: '900', color: '#2dd4bf', background: 'rgba(20, 184, 166, 0.15)', padding: '2px 8px', borderRadius: '10px' }}>
-                          MODULE #{m.num}
+                        <span style={{ fontSize: '0.78rem', fontWeight: '900', color: isServiceEnabled ? '#2dd4bf' : '#94a3b8', background: 'rgba(20, 184, 166, 0.12)', padding: '2px 9px', borderRadius: '8px' }}>
+                          #{m.num}
                         </span>
-                        <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <CheckCircle2 size={12} />
-                          সক্রিয়
-                        </span>
+
+                        {/* Super Admin & Business Toggle */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentlyDisabled = data.disabledServices || [];
+                            const newDisabled = currentlyDisabled.includes(m.id)
+                              ? currentlyDisabled.filter(id => id !== m.id)
+                              : [...currentlyDisabled, m.id];
+                            updateAndSave(prev => ({ ...prev, disabledServices: newDisabled }), {
+                              action: 'TOGGLE_SAMITY_SERVICE',
+                              module: 'SERVICES',
+                              details: { service: m.nameBn, status: !isServiceEnabled ? 'Enabled' : 'Disabled' }
+                            });
+                            showToast?.(`সার্ভিস #${m.num} (${m.nameBn}) ${currentlyDisabled.includes(m.id) ? 'সক্রিয় করা হয়েছে' : 'নিষ্ক্রিয় করা হয়েছে'}`, 'info');
+                          }}
+                          style={{
+                            background: isServiceEnabled ? 'rgba(16, 185, 129, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+                            color: isServiceEnabled ? '#10b981' : '#f87171',
+                            border: '1px solid ' + (isServiceEnabled ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'),
+                            padding: '3px 9px',
+                            borderRadius: '12px',
+                            fontSize: '0.68rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                          title="ট্যাপ করে এই সার্ভিসটি সক্রিয় অথবা নিষ্ক্রিয় করুন"
+                        >
+                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isServiceEnabled ? '#10b981' : '#ef4444' }}></span>
+                          <span>{isServiceEnabled ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span>
+                        </button>
                       </div>
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.94rem', fontWeight: '800' }}>
+
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.94rem', fontWeight: '800', color: isServiceEnabled ? '#f8fafc' : '#94a3b8' }}>
                         {m.nameBn}
                       </h4>
                       <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '600', marginBottom: '6px' }}>
@@ -12036,27 +12352,31 @@ export const SamityManagementHub = ({ onClose }) => {
 
                     <button
                       onClick={() => {
+                        if (!isServiceEnabled) {
+                          showToast?.('এই সার্ভিসটি বর্তমানে নিষ্ক্রিয় রয়েছে। সক্রিয় করতে উপরের বাটনে ট্যাপ করুন।', 'warning');
+                          return;
+                        }
                         playButtonClick?.();
                         triggerHaptic();
                         setActiveTab(targetTabMap[m.id] || 'dashboard');
                       }}
                       className="btn"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        color: '#f8fafc',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        background: isServiceEnabled ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                        color: isServiceEnabled ? '#f8fafc' : '#64748b',
+                        border: '1px solid ' + (isServiceEnabled ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.05)'),
                         padding: '6px 12px',
                         borderRadius: '8px',
                         fontSize: '0.76rem',
                         fontWeight: '800',
-                        cursor: 'pointer',
+                        cursor: isServiceEnabled ? 'pointer' : 'not-allowed',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '6px'
                       }}
                     >
-                      <span>মডিউল খুলুন</span>
+                      <span>{isServiceEnabled ? 'সার্ভিস খুলুন' : 'লকড / নিষ্ক্রিয়'}</span>
                       <ArrowUpRight size={13} />
                     </button>
                   </div>
@@ -14799,20 +15119,43 @@ export const SamityManagementHub = ({ onClose }) => {
               </div>
             </div>
 
-            {/* Official Samity Letterhead for Print */}
-            <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #0f172a', paddingBottom: '14px' }}>
-              <h1 style={{ margin: '0 0 4px', fontSize: '1.4rem', fontWeight: '900', color: '#0f172a' }}>
-                {currentSamity.nameBn}
-              </h1>
-              <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '700' }}>
-                {currentSamity.nameEn} • {currentSamity.type}
+            {/* Official Samity Letterhead for Print with Logo & Verification QR */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid #0f172a', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <img
+                  src={currentSamity.logo || '/logo.png'}
+                  alt="Logo"
+                  style={{ width: '64px', height: '64px', objectFit: 'contain', borderRadius: '8px' }}
+                  onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                />
+                <div>
+                  <h1 style={{ margin: '0 0 4px', fontSize: '1.35rem', fontWeight: '900', color: '#0f172a' }}>
+                    {currentSamity.nameBn}
+                  </h1>
+                  <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '700' }}>
+                    {currentSamity.nameEn} • {currentSamity.type}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                    {currentSamity.address || `${currentSamity.village || ''}, ${currentSamity.upazila || ''}, ${currentSamity.district || ''}`}
+                    {currentSamity.mobile ? ` • ফোন: ${currentSamity.mobile}` : ''}
+                    {currentSamity.regNo ? ` • নিবন্ধন: ${currentSamity.regNo}` : ''}
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
-                {currentSamity.address || `${currentSamity.village || ''}, ${currentSamity.upazila || ''}, ${currentSamity.district || ''}`}
-                {currentSamity.mobile ? ` • ফোন: ${currentSamity.mobile}` : ''}
-                {currentSamity.email ? ` • ইমেইল: ${currentSamity.email}` : ''}
+              <div style={{ textAlign: 'center', padding: '6px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                {padQrDataUrl ? (
+                  <img src={padQrDataUrl} alt="Verification QR" style={{ width: '68px', height: '68px', display: 'block', margin: '0 auto' }} />
+                ) : (
+                  <div style={{ width: '68px', height: '68px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <QrCode size={28} color="#64748b" />
+                  </div>
+                )}
+                <div style={{ fontSize: '0.62rem', fontWeight: '800', color: '#475569', marginTop: '2px' }}>ভেরিফিকেশন QR</div>
               </div>
-              <div style={{ marginTop: '8px', display: 'inline-block', background: '#0f172a', color: '#fff', padding: '3px 12px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '800' }}>
+            </div>
+
+            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'inline-block', background: '#0f172a', color: '#fff', padding: '4px 14px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '800' }}>
                 সদস্য তালিকা ও চলতি মাসের অবস্থা প্রতিবেদন ({targetMonth} {targetYear})
               </div>
             </div>
@@ -14864,7 +15207,16 @@ export const SamityManagementHub = ({ onClose }) => {
                   সাধারণ সম্পাদক
                 </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '-46px', left: '-20px', pointerEvents: 'none', zIndex: 1, opacity: 0.88 }}>
+                  <CircularOfficialSeal
+                    samityName={currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
+                    designation="সভাপতি"
+                    officerName=""
+                    sealColor="#1e3a8a"
+                    size={76}
+                  />
+                </div>
                 <div style={{ width: '140px', borderTop: '1px solid #0f172a', paddingTop: '4px', fontSize: '0.75rem', fontWeight: '700' }}>
                   সভাপতি
                 </div>
