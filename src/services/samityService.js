@@ -68,55 +68,95 @@ export const numberToEnglishWords = (num) => {
   return `${inWords(n)} Taka Only`;
 };
 
+// Samity Setup Constants & Multi-Tenant Specs
+export const SAMITY_TYPES = [
+  { value: 'General Samity', labelBn: 'সাধারণ সমিতি / সমবায় সমিতি', labelEn: 'General Samity' },
+  { value: 'Club', labelBn: 'ক্লাব / ক্রীড়া ও সাংস্কৃতিক সংস্থা', labelEn: 'Club' },
+  { value: 'Social Organization', labelBn: 'সামাজিক ও যুব সংগঠন', labelEn: 'Social Organization' },
+  { value: 'Savings Samity', labelBn: 'সঞ্চয় ও ঋণদান সমবায় সমিতি', labelEn: 'Savings Samity' },
+  { value: 'Business Samity', labelBn: 'ব্যবসায়ী সমিতি / বণিক সমিতি', labelEn: 'Business Samity' },
+  { value: 'Religious Committee', labelBn: 'ধর্মীয় কমিটি (মসজিদ/মন্দির/মাদ্রাসা)', labelEn: 'Religious Committee' },
+  { value: 'School Committee', labelBn: 'স্কুল / কলেজ পরিচালনা পর্ষদ (SMC)', labelEn: 'School Committee' },
+  { value: 'Charity Organization', labelBn: 'দাতব্য ও সেবামূলক সংস্থা (NGO)', labelEn: 'Charity Organization' },
+  { value: 'Other', labelBn: 'অন্যান্য সমিতি / অ্যাসোসিয়েশন', labelEn: 'Other' }
+];
+
+export const BD_DIVISIONS = ['ঢাকা', 'চট্টগ্রাম', 'রাজশাহী', 'খুলনা', 'বরিশাল', 'সিলেট', 'রংপুর', 'ময়মনসিংহ'];
+
+export const MOBILE_BANKING_PROVIDERS = ['bKash', 'Nagad', 'Rocket', 'Upay'];
+
+export const MOBILE_BANKING_ACCOUNT_TYPES = ['Personal', 'Merchant'];
+
+export const SAMITY_STATUSES = [
+  { value: 'active', labelBn: 'সক্রিয় (Active)', color: '#10b981' },
+  { value: 'inactive', labelBn: 'নিষ্ক্রিয় (Inactive)', color: '#f59e0b' },
+  { value: 'archived', labelBn: 'সংরক্ষিত (Archived)', color: '#94a3b8' }
+];
+
+// Helper to create an empty or initialized Samity profile with all 38 specification fields
+export const createDefaultSamityObject = (id = 'SAMITY-001', customFields = {}) => {
+  const currentYear = new Date().getFullYear();
+  return {
+    id: id || `SAMITY-${String(Date.now()).slice(-4)}`,
+    nameBn: 'স্বপ্নছোঁয়া সমবায় সমিতি',
+    nameEn: 'Shopnochoa Co-operative Samity',
+    type: 'Savings Samity',
+    regNo: 'REG-2026/DHK-482',
+    establishedDate: '2024-01-01',
+    logo: '',
+    sloganBn: 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি',
+    sloganEn: 'Building Dreams, Securing the Future',
+    address: 'প্লট #১২, ব্লক-বি, মিরপুর-১০, ঢাকা-১২১৬',
+    division: 'ঢাকা',
+    district: 'ঢাকা',
+    upazila: 'মিরপুর',
+    postOffice: 'মিরপুর',
+    village: 'মিরপুর-১০',
+    phone: '02-9876543',
+    mobile: '01700000000',
+    whatsapp: '01700000000',
+    email: 'info@shopnochoasamity.org',
+    website: 'https://shopnochoasamity.org',
+    fbPage: 'https://facebook.com/shopnochoasamity',
+    ytChannel: '',
+    bankDetails: {
+      accName: 'স্বপ্নছোঁয়া সমবায় সমিতি',
+      bankName: 'ডাচ্-বাংলা ব্যাংক',
+      branchName: 'মিরপুর শাখা',
+      accNo: '123.120.98765',
+      routingNo: '090271234'
+    },
+    mobileBanking: {
+      provider: 'bKash',
+      number: '01700000000',
+      accountType: 'Merchant'
+    },
+    currency: 'BDT',
+    monthlySubscription: 500,
+    subscriptionDueDay: 10,
+    gracePeriodDays: 5,
+    lateFeeEnabled: true,
+    lateFeeAmount: 50,
+    financialYearStart: `${currentYear}-01-01`,
+    financialYearEnd: `${currentYear}-12-31`,
+    status: 'active',
+    createdBy: 'Super Admin',
+    createdAt: new Date().toISOString(),
+    updatedBy: 'Super Admin',
+    updatedAt: new Date().toISOString(),
+    ...customFields
+  };
+};
+
+export const generateSamityId = (existingSamities = []) => {
+  const count = existingSamities.length + 1;
+  const pad = String(count).padStart(3, '0');
+  return `SAMITY-${pad}`;
+};
+
 // Default empty clean state (Strict Zero Mock Data Standard)
 const DEFAULT_CLEAN_DATA = {
-  samities: [
-    {
-      id: 'SAMITY-001',
-      nameBn: 'স্বপ্নছোঁয়া সমবায় সমিতি',
-      nameEn: 'Shopnochoa Co-operative Samity',
-      type: 'Savings Samity',
-      regNo: 'REG-2026/DHK-482',
-      establishedDate: '2024-01-01',
-      logo: '',
-      sloganBn: 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি',
-      sloganEn: 'Building Dreams, Securing the Future',
-      address: 'প্লট #১২, ব্লক-বি, মিরপুর-১০, ঢাকা-১২১৬',
-      division: 'ঢাকা',
-      district: 'ঢাকা',
-      upazila: 'মিরপুর',
-      postOffice: 'মিরপুর',
-      village: 'মিরপুর-১০',
-      phone: '02-9876543',
-      mobile: '01700000000',
-      whatsapp: '01700000000',
-      email: 'info@shopnochoasamity.org',
-      website: 'https://shopnochoasamity.org',
-      fbPage: 'https://facebook.com/shopnochoasamity',
-      ytChannel: '',
-      bankDetails: {
-        bankName: 'ডাচ্-বাংলা ব্যাংক',
-        branchName: 'মিরপুর শাখা',
-        accName: 'স্বপ্নছোঁয়া সমবায় সমিতি',
-        accNo: '123.120.98765',
-        routingNo: '090271234'
-      },
-      mobileBanking: {
-        provider: 'bKash',
-        number: '01700000000',
-        accountType: 'Merchant'
-      },
-      currency: 'BDT',
-      monthlySubscription: 500,
-      subscriptionDueDay: 10,
-      gracePeriodDays: 5,
-      lateFeeEnabled: true,
-      lateFeeAmount: 50,
-      financialYearStart: '2026-01-01',
-      financialYearEnd: '2026-12-31',
-      status: 'active'
-    }
-  ],
+  samities: [createDefaultSamityObject('SAMITY-001')],
   members: [],
   deposits: [],
   bulkDeposits: [],

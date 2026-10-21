@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Users,
   Building2,
+  Building,
   Landmark,
   Wallet,
   Receipt,
@@ -35,6 +36,7 @@ import {
   HelpCircle,
   Share2,
   Phone,
+  PhoneCall,
   Mail,
   Globe,
   ExternalLink,
@@ -48,7 +50,9 @@ import {
   Code,
   Upload,
   Lock,
-  FileDown
+  FileDown,
+  MapPin,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -57,6 +61,8 @@ import {
   generateMemberId,
   generateReceiptNumber,
   generateVoucherNumber,
+  generateSamityId,
+  createDefaultSamityObject,
   recordAuditLog,
   calculateMemberPaymentStatus,
   calculateSamityMetrics,
@@ -66,6 +72,11 @@ import {
   getMessengerUrl,
   numberToBanglaWords,
   numberToEnglishWords,
+  SAMITY_TYPES,
+  BD_DIVISIONS,
+  MOBILE_BANKING_PROVIDERS,
+  MOBILE_BANKING_ACCOUNT_TYPES,
+  SAMITY_STATUSES,
   SAMITY_SQL_MIGRATION_SCHEMA,
   SAMITY_28_MODULES,
   SAMITY_RBAC_ROLES,
@@ -104,7 +115,7 @@ export const SamityManagementHub = ({ onClose }) => {
   // Derived 6-Master Cluster state based on activeTab
   const activeCluster = useMemo(() => {
     if (activeTab === 'all_modules') return 'all_modules';
-    if (['dashboard', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
+    if (['dashboard', 'samity_setup', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
     if (['members', 'payment_status', 'settings'].includes(activeTab)) return 'members_dues';
     if (['deposits', 'bulk_deposit'].includes(activeTab)) return 'deposits_receipts';
     if (['reminders'].includes(activeTab)) return 'reminders_hub';
@@ -169,6 +180,56 @@ export const SamityManagementHub = ({ onClose }) => {
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isSamityModalOpen, setIsSamityModalOpen] = useState(false);
+  const [editingSamity, setEditingSamity] = useState(null);
+  const [samityFormActiveTab, setSamityFormActiveTab] = useState('basic'); // 'basic' | 'location' | 'contact' | 'bank' | 'policy'
+  const [samitySearchQuery, setSamitySearchQuery] = useState('');
+  const [samityStatusFilter, setSamityStatusFilter] = useState('all');
+  const [samityForm, setSamityForm] = useState(() => ({
+    id: 'SAMITY-001',
+    nameBn: '',
+    nameEn: '',
+    type: 'Savings Samity',
+    regNo: '',
+    establishedDate: '',
+    logo: '',
+    sloganBn: '',
+    sloganEn: '',
+    address: '',
+    division: 'ঢাকা',
+    district: '',
+    upazila: '',
+    postOffice: '',
+    village: '',
+    phone: '',
+    mobile: '',
+    whatsapp: '',
+    email: '',
+    website: '',
+    fbPage: '',
+    ytChannel: '',
+    bankAccountName: '',
+    bankName: '',
+    bankBranchName: '',
+    bankAccountNo: '',
+    bankRoutingNo: '',
+    mobileBankingProvider: 'bKash',
+    mobileBankingNumber: '',
+    mobileBankingAccountType: 'Merchant',
+    currency: 'BDT',
+    monthlySubscription: 500,
+    subscriptionDueDay: 10,
+    gracePeriodDays: 5,
+    lateFeeEnabled: true,
+    lateFeeAmount: 50,
+    financialYearStart: `${new Date().getFullYear()}-01-01`,
+    financialYearEnd: `${new Date().getFullYear()}-12-31`,
+    status: 'active',
+    createdBy: 'Super Admin',
+    createdAt: new Date().toISOString(),
+    updatedBy: 'Super Admin',
+    updatedAt: new Date().toISOString()
+  }));
+
   const [activePrintReceipt, setActivePrintReceipt] = useState(null);
   const [activePrintNotice, setActivePrintNotice] = useState(null);
   const [activePrintDoc, setActivePrintDoc] = useState(null);
@@ -359,6 +420,227 @@ export const SamityManagementHub = ({ onClose }) => {
       details: { memberId }
     });
     showToast?.('সদস্য মুছে ফেলা হয়েছে', 'info');
+  };
+
+  // --------------------------------------------------------------------------
+  // Handlers: Samity Setup & Multi-Tenant Management (#1 Module)
+  // --------------------------------------------------------------------------
+  const handleOpenNewSamityModal = () => {
+    playButtonClick?.();
+    triggerHaptic();
+    const newId = generateSamityId(data.samities);
+    const currentYear = new Date().getFullYear();
+    setEditingSamity(null);
+    setSamityForm({
+      id: newId,
+      nameBn: '',
+      nameEn: '',
+      type: 'Savings Samity',
+      regNo: '',
+      establishedDate: new Date().toISOString().split('T')[0],
+      logo: '',
+      sloganBn: '',
+      sloganEn: '',
+      address: '',
+      division: 'ঢাকা',
+      district: '',
+      upazila: '',
+      postOffice: '',
+      village: '',
+      phone: '',
+      mobile: '',
+      whatsapp: '',
+      email: '',
+      website: '',
+      fbPage: '',
+      ytChannel: '',
+      bankAccountName: '',
+      bankName: '',
+      bankBranchName: '',
+      bankAccountNo: '',
+      bankRoutingNo: '',
+      mobileBankingProvider: 'bKash',
+      mobileBankingNumber: '',
+      mobileBankingAccountType: 'Merchant',
+      currency: 'BDT',
+      monthlySubscription: 500,
+      subscriptionDueDay: 10,
+      gracePeriodDays: 5,
+      lateFeeEnabled: true,
+      lateFeeAmount: 50,
+      financialYearStart: `${currentYear}-01-01`,
+      financialYearEnd: `${currentYear}-12-31`,
+      status: 'active',
+      createdBy: 'Super Admin',
+      createdAt: new Date().toISOString(),
+      updatedBy: 'Super Admin',
+      updatedAt: new Date().toISOString()
+    });
+    setSamityFormActiveTab('basic');
+    setIsSamityModalOpen(true);
+  };
+
+  const handleOpenEditSamityModal = (samity) => {
+    playButtonClick?.();
+    triggerHaptic();
+    setEditingSamity(samity);
+    setSamityForm({
+      id: samity.id,
+      nameBn: samity.nameBn || '',
+      nameEn: samity.nameEn || '',
+      type: samity.type || 'Savings Samity',
+      regNo: samity.regNo || '',
+      establishedDate: samity.establishedDate || '',
+      logo: samity.logo || '',
+      sloganBn: samity.sloganBn || '',
+      sloganEn: samity.sloganEn || '',
+      address: samity.address || '',
+      division: samity.division || 'ঢাকা',
+      district: samity.district || '',
+      upazila: samity.upazila || '',
+      postOffice: samity.postOffice || '',
+      village: samity.village || '',
+      phone: samity.phone || '',
+      mobile: samity.mobile || '',
+      whatsapp: samity.whatsapp || '',
+      email: samity.email || '',
+      website: samity.website || '',
+      fbPage: samity.fbPage || '',
+      ytChannel: samity.ytChannel || '',
+      bankAccountName: samity.bankDetails?.accName || samity.bankAccountName || '',
+      bankName: samity.bankDetails?.bankName || samity.bankName || '',
+      bankBranchName: samity.bankDetails?.branchName || samity.bankBranchName || '',
+      bankAccountNo: samity.bankDetails?.accNo || samity.bankAccountNo || '',
+      bankRoutingNo: samity.bankDetails?.routingNo || samity.bankRoutingNo || '',
+      mobileBankingProvider: samity.mobileBanking?.provider || samity.mobileBankingProvider || 'bKash',
+      mobileBankingNumber: samity.mobileBanking?.number || samity.mobileBankingNumber || '',
+      mobileBankingAccountType: samity.mobileBanking?.accountType || samity.mobileBankingAccountType || 'Merchant',
+      currency: samity.currency || 'BDT',
+      monthlySubscription: samity.monthlySubscription || 500,
+      subscriptionDueDay: samity.subscriptionDueDay || 10,
+      gracePeriodDays: samity.gracePeriodDays || 5,
+      lateFeeEnabled: samity.lateFeeEnabled !== undefined ? samity.lateFeeEnabled : true,
+      lateFeeAmount: samity.lateFeeAmount || 50,
+      financialYearStart: samity.financialYearStart || `${new Date().getFullYear()}-01-01`,
+      financialYearEnd: samity.financialYearEnd || `${new Date().getFullYear()}-12-31`,
+      status: samity.status || 'active',
+      createdBy: samity.createdBy || 'Super Admin',
+      createdAt: samity.createdAt || new Date().toISOString(),
+      updatedBy: 'Super Admin',
+      updatedAt: new Date().toISOString()
+    });
+    setSamityFormActiveTab('basic');
+    setIsSamityModalOpen(true);
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast?.('লোগো ফাইলের সাইজ ২ মেগাবাইটের কম হতে হবে', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setSamityForm(prev => ({ ...prev, logo: event.target.result }));
+      showToast?.('লোগো প্রিভিউ প্রস্তুত হয়েছে', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveSamity = (e) => {
+    e.preventDefault();
+    if (!samityForm.nameBn.trim() || !samityForm.nameEn.trim()) {
+      showToast?.('সমিতির বাংলা ও ইংরেজি উভয় নাম আবশ্যক', 'error');
+      return;
+    }
+    if (!samityForm.mobile.trim()) {
+      showToast?.('সমিতির অফিসিয়াল মোবাইল নম্বর আবশ্যক', 'error');
+      return;
+    }
+
+    playSuccessChime?.();
+    triggerHaptic();
+
+    const formattedSamity = {
+      ...samityForm,
+      bankDetails: {
+        accName: samityForm.bankAccountName || samityForm.nameBn,
+        bankName: samityForm.bankName,
+        branchName: samityForm.bankBranchName,
+        accNo: samityForm.bankAccountNo,
+        routingNo: samityForm.bankRoutingNo
+      },
+      mobileBanking: {
+        provider: samityForm.mobileBankingProvider,
+        number: samityForm.mobileBankingNumber,
+        accountType: samityForm.mobileBankingAccountType
+      },
+      monthlySubscription: Number(samityForm.monthlySubscription) || 500,
+      subscriptionDueDay: Number(samityForm.subscriptionDueDay) || 10,
+      lateFeeAmount: Number(samityForm.lateFeeAmount) || 50,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (editingSamity) {
+      updateAndSave(prev => ({
+        ...prev,
+        samities: prev.samities.map(s => s.id === editingSamity.id ? formattedSamity : s)
+      }), {
+        action: 'UPDATE_SAMITY',
+        module: 'SAMITY_SETUP',
+        recordId: formattedSamity.id,
+        details: { nameBn: formattedSamity.nameBn, status: formattedSamity.status }
+      });
+      showToast?.(`"${formattedSamity.nameBn}" তথ্য সফলভাবে আপডেট হয়েছে!`, 'success');
+    } else {
+      updateAndSave(prev => ({
+        ...prev,
+        samities: [...prev.samities, formattedSamity]
+      }), {
+        action: 'CREATE_SAMITY',
+        module: 'SAMITY_SETUP',
+        recordId: formattedSamity.id,
+        details: { nameBn: formattedSamity.nameBn, type: formattedSamity.type }
+      });
+      setActiveSamityId(formattedSamity.id);
+      showToast?.(`নতুন সমিতি "${formattedSamity.nameBn}" সফলভাবে তৈরি হয়েছে!`, 'success');
+    }
+
+    setIsSamityModalOpen(false);
+  };
+
+  const handleDeleteSamity = (samityId) => {
+    if (data.samities.length <= 1) {
+      showToast?.('কমপক্ষে একটি সমিতি বিদ্যমান থাকতে হবে, এটি ডিলিট করা সম্ভব নয়', 'warning');
+      return;
+    }
+    const target = data.samities.find(s => s.id === samityId);
+    if (!window.confirm(`আপনি কি নিশ্চিত যে "${target?.nameBn || samityId}" সমিতিটি এবং এর সকল ডাটা মুছে ফেলতে চান?`)) {
+      return;
+    }
+
+    playButtonClick?.();
+    triggerHaptic();
+
+    const remaining = data.samities.filter(s => s.id !== samityId);
+    updateAndSave(prev => ({
+      ...prev,
+      samities: remaining,
+      members: prev.members.filter(m => m.samityId !== samityId),
+      deposits: prev.deposits.filter(d => d.samityId !== samityId),
+      expenses: prev.expenses.filter(e => e.samityId !== samityId)
+    }), {
+      action: 'DELETE_SAMITY',
+      module: 'SAMITY_SETUP',
+      recordId: samityId,
+      details: { name: target?.nameBn }
+    });
+
+    if (activeSamityId === samityId) {
+      setActiveSamityId(remaining[0]?.id || 'SAMITY-001');
+    }
+    showToast?.('সমিতি সফলভাবে মুছে ফেলা হয়েছে', 'info');
   };
 
   // --------------------------------------------------------------------------
@@ -900,6 +1182,52 @@ export const SamityManagementHub = ({ onClose }) => {
                 <option key={s.id} value={s.id}>{s.nameBn} ({s.type})</option>
               ))}
             </select>
+
+            <button
+              onClick={() => {
+                playButtonClick?.();
+                triggerHaptic();
+                setActiveTab('samity_setup');
+              }}
+              style={{
+                background: activeTab === 'samity_setup' ? '#2dd4bf' : 'rgba(255, 255, 255, 0.08)',
+                color: activeTab === 'samity_setup' ? '#0f172a' : '#fff',
+                border: '1px solid ' + (activeTab === 'samity_setup' ? '#2dd4bf' : 'rgba(255, 255, 255, 0.15)'),
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="সমিতি ও শাখা তালিকা/সেটআপ"
+            >
+              <Building2 size={14} />
+              <span>শাখা ও সমিতি</span>
+            </button>
+
+            <button
+              onClick={handleOpenNewSamityModal}
+              style={{
+                background: 'rgba(20, 184, 166, 0.18)',
+                color: '#2dd4bf',
+                border: '1px solid rgba(20, 184, 166, 0.4)',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="নতুন সমিতি তৈরি করুন"
+            >
+              <Plus size={14} />
+              <span>নতুন সমিতি</span>
+            </button>
           </div>
 
           <button
@@ -989,7 +1317,7 @@ export const SamityManagementHub = ({ onClose }) => {
           { id: 'deposits_receipts', label: '💳 ৩. জমা ও রশিদ', defaultTab: 'deposits', count: data.deposits.length },
           { id: 'reminders_hub', label: '📢 ৪. রিমাইন্ডার সেন্টার', defaultTab: 'reminders' },
           { id: 'finance_reports', label: '⚖️ ৫. হিসাব ও রিপোর্ট', defaultTab: 'expenses', count: data.expenses.length },
-          { id: 'admin_system', label: '⚙️ ৬. প্রশাসন ও সিস্টেম', defaultTab: 'letterhead' },
+          { id: 'admin_system', label: '⚙️ ৬. প্রশাসন ও সিস্টেম', defaultTab: 'samity_setup' },
           { id: 'all_modules', label: '📋 ২৮টি মডিউল সূচি', defaultTab: 'all_modules', isDirectory: true }
         ].map(cluster => {
           const isClusterActive = activeCluster === cluster.id;
@@ -1059,6 +1387,7 @@ export const SamityManagementHub = ({ onClose }) => {
           </span>
           {activeCluster === 'overview' && [
             { id: 'dashboard', label: '📊 লাইভ ড্যাশবোর্ড' },
+            { id: 'samity_setup', label: '🏛️ সমিতি সেটআপ ও শাখা', count: data.samities.length },
             { id: 'notifications', label: '🔔 নোটিফিকেশন সেন্টার', count: getSamityNotifications(data, activeSamityId).length },
             { id: 'audit_trail', label: '🔍 অডিট ট্রেইল ও লগ' }
           ].map(renderSubPill)}
@@ -1086,6 +1415,7 @@ export const SamityManagementHub = ({ onClose }) => {
           ].map(renderSubPill)}
 
           {activeCluster === 'admin_system' && [
+            { id: 'samity_setup', label: '🏛️ সমিতি সেটআপ', count: data.samities.length },
             { id: 'letterhead', label: '📜 লেটারহেড প্যাড' },
             { id: 'signatures', label: '✍️ স্বাক্ষর ও সিল' },
             { id: 'documents', label: '📝 অফিশিয়াল চিঠি/দলিল' },
@@ -1501,6 +1831,482 @@ export const SamityManagementHub = ({ onClose }) => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 1.1: SAMITY SETUP & MULTI-BRANCH MANAGEMENT MODULE (#1) */}
+        {activeTab === 'samity_setup' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Module Header Banner */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%)',
+                padding: '22px 24px',
+                borderRadius: '16px',
+                border: '1px solid rgba(20, 184, 166, 0.35)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: 'rgba(20, 184, 166, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <Building2 size={24} color="#2dd4bf" />
+                  </div>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', letterSpacing: '-0.02em' }}>
+                      🏛️ সমিতি সেটআপ ও শাখা ব্যবস্থাপনা (Module #1: Samity Setup & Multi-Branch)
+                    </h2>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                      সুপার অ্যাডমিন ও সমিতি অ্যাডমিনদের জন্য সেন্ট্রালাইজড মাল্টি-ব্রাঞ্চ তৈরি, প্রোফাইল, লোগো, ব্যাংক একাউন্ট ও চাঁদা পলিসি ম্যানেজমেন্ট
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleOpenNewSamityModal}
+                className="btn"
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  fontWeight: '800',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                <Plus size={18} />
+                <span>নতুন সমিতি তৈরি করুন</span>
+              </button>
+            </div>
+
+            {/* Overview Stats Cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gap: '12px'
+              }}
+            >
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '12px',
+                  padding: '14px 16px'
+                }}
+              >
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '700' }}>মোট সমিতি / শাখা</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#fff', marginTop: '4px' }}>
+                  {data.samities.length} টি
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '2px' }}>
+                  মাল্টি-টেন্যান্ট ডেটাবেজ রেডি
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  borderRadius: '12px',
+                  padding: '14px 16px'
+                }}
+              >
+                <div style={{ fontSize: '0.74rem', color: '#10b981', fontWeight: '700' }}>সক্রিয় সমিতি</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
+                  {data.samities.filter(s => s.status === 'active').length} টি
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  নিয়মিত চাঁদা ও লেনদেন চালু
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  borderRadius: '12px',
+                  padding: '14px 16px'
+                }}
+              >
+                <div style={{ fontSize: '0.74rem', color: '#f59e0b', fontWeight: '700' }}>নিষ্ক্রিয় / সংরক্ষিত</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#f59e0b', marginTop: '4px' }}>
+                  {data.samities.filter(s => s.status !== 'active').length} টি
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  হিসাব লক বা স্থগিত
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '12px',
+                  padding: '14px 16px'
+                }}
+              >
+                <div style={{ fontSize: '0.74rem', color: '#818cf8', fontWeight: '700' }}>বর্তমানে সচল শাখা</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: '900', color: '#fff', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {currentSamity.nameBn}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#a5b4fc', marginTop: '2px' }}>
+                  আইডি: {currentSamity.id} ({currentSamity.type})
+                </div>
+              </div>
+            </div>
+
+            {/* Search & Filter Toolbar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap',
+                background: 'rgba(30, 41, 59, 0.7)',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="সমিতির নাম, আইডি, রেজিস্ট্রেশন নং বা অবস্থান দিয়ে খুঁজুন..."
+                  value={samitySearchQuery}
+                  onChange={(e) => setSamitySearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '8px',
+                    padding: '8px 12px 8px 36px',
+                    color: '#fff',
+                    fontSize: '0.82rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Filter size={15} color="var(--text-muted)" />
+                <select
+                  value={samityStatusFilter}
+                  onChange={(e) => setSamityStatusFilter(e.target.value)}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700'
+                  }}
+                >
+                  <option value="all">সকল স্ট্যাটাস ({data.samities.length})</option>
+                  <option value="active">সক্রিয় সমিতি</option>
+                  <option value="inactive">নিষ্ক্রিয় সমিতি</option>
+                  <option value="archived">সংরক্ষিত (Archived)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Samities Card Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+                gap: '16px'
+              }}
+            >
+              {data.samities
+                .filter(s => {
+                  if (samityStatusFilter !== 'all' && s.status !== samityStatusFilter) return false;
+                  if (samitySearchQuery.trim()) {
+                    const q = samitySearchQuery.toLowerCase();
+                    const matchBn = (s.nameBn || '').toLowerCase().includes(q);
+                    const matchEn = (s.nameEn || '').toLowerCase().includes(q);
+                    const matchId = (s.id || '').toLowerCase().includes(q);
+                    const matchReg = (s.regNo || '').toLowerCase().includes(q);
+                    const matchDistrict = (s.district || '').toLowerCase().includes(q);
+                    const matchUpazila = (s.upazila || '').toLowerCase().includes(q);
+                    if (!matchBn && !matchEn && !matchId && !matchReg && !matchDistrict && !matchUpazila) return false;
+                  }
+                  return true;
+                })
+                .map(samity => {
+                  const isSelected = activeSamityId === samity.id;
+                  const memberCount = data.members.filter(m => m.samityId === samity.id).length;
+                  const depositSum = data.deposits
+                    .filter(d => d.samityId === samity.id && d.approvalStatus === 'approved')
+                    .reduce((acc, d) => acc + Number(d.amount || 0), 0);
+                  const expenseSum = data.expenses
+                    .filter(e => e.samityId === samity.id && e.approvalStatus === 'approved')
+                    .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+                  const netFund = depositSum - expenseSum;
+
+                  return (
+                    <div
+                      key={samity.id}
+                      style={{
+                        background: isSelected ? 'rgba(30, 41, 59, 0.95)' : 'rgba(30, 41, 59, 0.65)',
+                        border: isSelected ? '2px solid #2dd4bf' : '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '14px',
+                        boxShadow: isSelected ? '0 10px 30px -10px rgba(45, 212, 191, 0.3)' : 'none',
+                        position: 'relative',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {/* Top Header inside Card */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {samity.logo ? (
+                              <img
+                                src={samity.logo}
+                                alt={samity.nameBn}
+                                style={{ width: '46px', height: '46px', borderRadius: '10px', objectFit: 'contain', background: '#fff', padding: '2px', border: '1px solid rgba(255,255,255,0.2)' }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '10px',
+                                  background: isSelected ? '#0d9488' : 'rgba(255, 255, 255, 0.1)',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '20px',
+                                  fontWeight: '900'
+                                }}
+                              >
+                                {samity.nameBn?.[0] || 'স'}
+                              </div>
+                            )}
+
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', color: '#fff' }}>
+                                  {samity.nameBn}
+                                </h3>
+                              </div>
+                              <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: '600' }}>
+                                {samity.nameEn}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            <span
+                              style={{
+                                background: samity.status === 'active' ? 'rgba(16, 185, 129, 0.18)' : 'rgba(245, 158, 11, 0.18)',
+                                color: samity.status === 'active' ? '#34d399' : '#fbbf24',
+                                border: `1px solid ${samity.status === 'active' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontSize: '0.68rem',
+                                fontWeight: '800'
+                              }}
+                            >
+                              {samity.status === 'active' ? '● সক্রিয়' : samity.status === 'inactive' ? '○ নিষ্ক্রিয়' : '📦 সংরক্ষিত'}
+                            </span>
+                            <span
+                              style={{
+                                background: 'rgba(59, 130, 246, 0.15)',
+                                color: '#60a5fa',
+                                padding: '1px 6px',
+                                borderRadius: '6px',
+                                fontSize: '0.65rem',
+                                fontWeight: '700'
+                              }}
+                            >
+                              {samity.type}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Slogan */}
+                        {(samity.sloganBn || samity.sloganEn) && (
+                          <div style={{ fontSize: '0.74rem', color: '#2dd4bf', fontStyle: 'italic', marginBottom: '10px', padding: '4px 8px', background: 'rgba(20, 184, 166, 0.08)', borderRadius: '6px' }}>
+                            "{samity.sloganBn || samity.sloganEn}"
+                          </div>
+                        )}
+
+                        {/* Details Specs Grid */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '8px',
+                            background: 'rgba(15, 23, 42, 0.7)',
+                            padding: '12px',
+                            borderRadius: '10px',
+                            fontSize: '0.74rem'
+                          }}
+                        >
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>আইডি: </span>
+                            <strong style={{ color: '#fff' }}>{samity.id}</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>নিবন্ধন নং: </span>
+                            <strong style={{ color: '#fff' }}>{samity.regNo || 'নিবন্ধনহীন'}</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>প্রতিষ্ঠা: </span>
+                            <strong style={{ color: '#fff' }}>{samity.establishedDate || 'N/A'}</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>মাসিক চাঁদা: </span>
+                            <strong style={{ color: '#10b981' }}>৳{samity.monthlySubscription || 500}</strong>
+                          </div>
+                          <div style={{ gridColumn: 'span 2' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>ঠিকানা: </span>
+                            <strong style={{ color: '#e2e8f0' }}>
+                              {samity.address || `${samity.upazila || ''}, ${samity.district || ''}, ${samity.division || ''}`}
+                            </strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>মোবাইল: </span>
+                            <strong style={{ color: '#38bdf8' }}>{samity.mobile}</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>ব্যাংক: </span>
+                            <strong style={{ color: '#e2e8f0' }}>{samity.bankDetails?.bankName || samity.bankName || 'N/A'}</strong>
+                          </div>
+                          <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '6px', marginTop: '2px' }}>
+                            <span>সদস্য: <strong>{memberCount} জন</strong></span>
+                            <span>ফান্ড: <strong style={{ color: netFund >= 0 ? '#10b981' : '#ef4444' }}>৳{netFund.toLocaleString()}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Actions Footer */}
+                      <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '12px' }}>
+                        {isSelected ? (
+                          <div
+                            style={{
+                              flex: 1,
+                              background: 'rgba(20, 184, 166, 0.15)',
+                              color: '#2dd4bf',
+                              border: '1px solid rgba(20, 184, 166, 0.3)',
+                              padding: '8px',
+                              borderRadius: '8px',
+                              fontSize: '0.76rem',
+                              fontWeight: '900',
+                              textAlign: 'center',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <CheckCircle2 size={14} />
+                            <span>বর্তমান সক্রিয় শাখা</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              playButtonClick?.();
+                              triggerHaptic();
+                              setActiveSamityId(samity.id);
+                              showToast?.(`সক্রিয় শাখা "${samity.nameBn}"-এ পরিবর্তন করা হয়েছে`, 'success');
+                            }}
+                            className="btn"
+                            style={{
+                              flex: 1,
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              color: '#fff',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              padding: '8px',
+                              borderRadius: '8px',
+                              fontSize: '0.76rem',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <span>🎯 শাখা সক্রিয় করুন</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleOpenEditSamityModal(samity)}
+                          style={{
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            color: '#3b82f6',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.76rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="সম্পূর্ণ ৩৮টি ফিল্ড সম্পাদনা করুন"
+                        >
+                          <Edit3 size={14} />
+                          <span>সম্পাদনা</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteSamity(samity.id)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            fontSize: '0.76rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="সমিতি মুছে ফেলুন"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -2953,7 +3759,7 @@ export const SamityManagementHub = ({ onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
               {SAMITY_28_MODULES.map(m => {
                 const targetTabMap = {
-                  samity_setup: 'settings',
+                  samity_setup: 'samity_setup',
                   member_mgmt: 'members',
                   subscription_cfg: 'payment_status',
                   bank_deposit: 'deposits',
@@ -4383,6 +5189,731 @@ export const SamityManagementHub = ({ onClose }) => {
                   style={{ flex: 1, background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)', border: 'none', color: '#fff', padding: '10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer' }}
                 >
                   মওকুফ নিশ্চিত করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 10. MODAL: SAMITY SETUP & MULTI-BRANCH PROFILE (38 SPEC FIELDS) */}
+      {/* ==================================================================== */}
+      {isSamityModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 105,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#0f172a',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '820px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '24px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(20, 184, 166, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Building2 size={22} color="#2dd4bf" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#fff' }}>
+                    {editingSamity ? `সমিতি প্রোফাইল সম্পাদনা: ${editingSamity.nameBn}` : '➕ নতুন সমিতি / সমবায় শাখা নিবন্ধন'}
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                    ৩৮টি স্ট্যান্ডার্ড ফিল্ড: সাধারণ পরিচিতি, অবস্থান, ব্যাংক হিসাব ও চাঁদা পলিসি কনফিগারেশন
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSamityModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* 5 Categorized Form Navigation Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '6px',
+                overflowX: 'auto',
+                whiteSpace: 'nowrap',
+                background: 'rgba(30, 41, 59, 0.6)',
+                padding: '4px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              {[
+                { id: 'basic', label: '🏛️ ১. সাধারণ পরিচিতি' },
+                { id: 'location', label: '📍 ২. ঠিকানা ও অবস্থান' },
+                { id: 'contact', label: '📞 ৩. যোগাযোগ ও সোশ্যাল' },
+                { id: 'bank', label: '🏦 ৪. ব্যাংক ও মোবাইল ব্যাংকিং' },
+                { id: 'policy', label: '⚖️ ৫. চাঁদা পলিসি ও মেটা' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSamityFormActiveTab(tab.id)}
+                  style={{
+                    background: samityFormActiveTab === tab.id ? '#2dd4bf' : 'transparent',
+                    color: samityFormActiveTab === tab.id ? '#0f172a' : '#94a3b8',
+                    border: 'none',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: samityFormActiveTab === tab.id ? '900' : '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveSamity} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* TAB 1: BASIC INFORMATION */}
+              {samityFormActiveTab === 'basic' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        সমিতি আইডি (Samity ID) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={samityForm.id}
+                        onChange={(e) => setSamityForm({ ...samityForm, id: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#38bdf8', fontSize: '0.82rem', fontWeight: '800' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        সমিতির ধরন (Samity Type) *
+                      </label>
+                      <select
+                        value={samityForm.type}
+                        onChange={(e) => setSamityForm({ ...samityForm, type: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      >
+                        {SAMITY_TYPES.map(t => (
+                          <option key={t.value} value={t.value}>{t.labelBn} ({t.value})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        সমিতির নাম (বাংলায়) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="যেমন: স্বপ্নছোঁয়া সমবায় সমিতি"
+                        value={samityForm.nameBn}
+                        onChange={(e) => setSamityForm({ ...samityForm, nameBn: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1.5px solid #2dd4bf', color: '#fff', fontSize: '0.85rem', fontWeight: '800' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Samity Name in English *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Shopnochoa Co-operative Samity"
+                        value={samityForm.nameEn}
+                        onChange={(e) => setSamityForm({ ...samityForm, nameEn: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        নিবন্ধন নম্বর (Registration Number - Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: REG-2026/DHK-482"
+                        value={samityForm.regNo}
+                        onChange={(e) => setSamityForm({ ...samityForm, regNo: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        প্রতিষ্ঠার তারিখ (Established Date)
+                      </label>
+                      <input
+                        type="date"
+                        value={samityForm.establishedDate}
+                        onChange={(e) => setSamityForm({ ...samityForm, establishedDate: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Slogans */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        সমিতির স্লোগান (বাংলায়)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি"
+                        value={samityForm.sloganBn}
+                        onChange={(e) => setSamityForm({ ...samityForm, sloganBn: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Samity Slogan in English
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Building Dreams, Securing the Future"
+                        value={samityForm.sloganEn}
+                        onChange={(e) => setSamityForm({ ...samityForm, sloganEn: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Logo Upload & Preview */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '12px', border: '1px dashed rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    {samityForm.logo ? (
+                      <div style={{ position: 'relative' }}>
+                        <img
+                          src={samityForm.logo}
+                          alt="Logo Preview"
+                          style={{ width: '64px', height: '64px', borderRadius: '12px', objectFit: 'contain', background: '#fff', padding: '4px', border: '1px solid #2dd4bf' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSamityForm(prev => ({ ...prev, logo: '' }))}
+                          style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ width: '64px', height: '64px', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <ImageIcon size={28} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '800', color: '#fff', marginBottom: '2px' }}>
+                        সমিতির অফিসিয়াল লোগো আপলোড (Samity Logo Upload)
+                      </label>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                        PNG / JPG ফরম্যাটে ২ MB-এর নিচে লোগো আপলোড করুন। এটি রিসিট ও প্যাডে স্বয়ংক্রিয়ভাবে বসবে।
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: LOCATION & ADDRESS */}
+              {samityFormActiveTab === 'location' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        বিভাগ (Division) *
+                      </label>
+                      <select
+                        value={samityForm.division}
+                        onChange={(e) => setSamityForm({ ...samityForm, division: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      >
+                        {BD_DIVISIONS.map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        জেলা (District) *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: ঢাকা"
+                        value={samityForm.district}
+                        onChange={(e) => setSamityForm({ ...samityForm, district: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        উপজেলা / থানা (Upazila / Thana) *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: মিরপুর / বাড্ডা"
+                        value={samityForm.upazila}
+                        onChange={(e) => setSamityForm({ ...samityForm, upazila: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        পোস্ট অফিস (Post Office)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: মিরপুর-১২১৬"
+                        value={samityForm.postOffice}
+                        onChange={(e) => setSamityForm({ ...samityForm, postOffice: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        গ্রাম / মহল্লা / এরিয়া (Village / Area)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: মিরপুর-১০, সেকশন-৬"
+                        value={samityForm.village}
+                        onChange={(e) => setSamityForm({ ...samityForm, village: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      পূর্ণাঙ্গ ঠিকানা (Full Address)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="যেমন: প্লট #১২, ব্লক-বি, রোড #৪, মিরপুর-১০, ঢাকা-১২১৬"
+                      value={samityForm.address}
+                      onChange={(e) => setSamityForm({ ...samityForm, address: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: CONTACT & SOCIAL MEDIA */}
+              {samityFormActiveTab === 'contact' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: '#38bdf8', fontWeight: '800', marginBottom: '4px' }}>
+                      অফিসিয়াল মোবাইল নম্বর (Mobile Number) *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="01XXXXXXXXX"
+                      value={samityForm.mobile}
+                      onChange={(e) => setSamityForm({ ...samityForm, mobile: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1.5px solid #38bdf8', color: '#fff', fontSize: '0.85rem', fontWeight: '800' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      হোয়াটসঅ্যাপ নম্বর (WhatsApp Number)
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="01XXXXXXXXX"
+                      value={samityForm.whatsapp}
+                      onChange={(e) => setSamityForm({ ...samityForm, whatsapp: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      টেলিফোন নম্বর (Phone Number)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: 02-9876543"
+                      value={samityForm.phone}
+                      onChange={(e) => setSamityForm({ ...samityForm, phone: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      অফিসিয়াল ইমেইল (Email Address)
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="info@samity.org"
+                      value={samityForm.email}
+                      onChange={(e) => setSamityForm({ ...samityForm, email: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      ওয়েবসাইট লিঙ্ক (Website URL)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://samity.org"
+                      value={samityForm.website}
+                      onChange={(e) => setSamityForm({ ...samityForm, website: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      ফেসবুক পেজ লিঙ্ক (Facebook Page URL)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://facebook.com/samity"
+                      value={samityForm.fbPage}
+                      onChange={(e) => setSamityForm({ ...samityForm, fbPage: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      ইউটিউব চ্যানেল লিঙ্ক (YouTube Channel URL - Optional)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://youtube.com/@samity"
+                      value={samityForm.ytChannel}
+                      onChange={(e) => setSamityForm({ ...samityForm, ytChannel: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: BANKING & MOBILE BANKING */}
+              {samityFormActiveTab === 'bank' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Bank Accounts */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#60a5fa', marginBottom: '10px' }}>
+                      🏦 মূল ব্যাংক হিসাবের বিবরণ (Primary Bank Account)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>ব্যাংক হিসাবের নাম (Account Name)</label>
+                        <input
+                          type="text"
+                          placeholder="সমিতির নামে খোলা হিসাব"
+                          value={samityForm.bankAccountName}
+                          onChange={(e) => setSamityForm({ ...samityForm, bankAccountName: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>ব্যাংকের নাম (Bank Name)</label>
+                        <input
+                          type="text"
+                          placeholder="যেমন: ডাচ্-বাংলা ব্যাংক / সোনালী ব্যাংক"
+                          value={samityForm.bankName}
+                          onChange={(e) => setSamityForm({ ...samityForm, bankName: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>শাখার নাম (Branch Name)</label>
+                        <input
+                          type="text"
+                          placeholder="যেমন: মিরপুর শাখা"
+                          value={samityForm.bankBranchName}
+                          onChange={(e) => setSamityForm({ ...samityForm, bankBranchName: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>হিসাব নম্বর (Account Number)</label>
+                        <input
+                          type="text"
+                          placeholder="যেমন: 123.120.98765"
+                          value={samityForm.bankAccountNo}
+                          onChange={(e) => setSamityForm({ ...samityForm, bankAccountNo: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>রাউটিং নম্বর (Routing Number)</label>
+                        <input
+                          type="text"
+                          placeholder="যেমন: 090271234"
+                          value={samityForm.bankRoutingNo}
+                          onChange={(e) => setSamityForm({ ...samityForm, bankRoutingNo: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Banking */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#ec4899', marginBottom: '10px' }}>
+                      📱 অফিসিয়াল মোবাইল ব্যাংকিং (Mobile Banking Service)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>প্রোভাইডার (bKash, Nagad, Rocket, Upay)</label>
+                        <select
+                          value={samityForm.mobileBankingProvider}
+                          onChange={(e) => setSamityForm({ ...samityForm, mobileBankingProvider: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        >
+                          {MOBILE_BANKING_PROVIDERS.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>মোবাইল ব্যাংকিং নম্বর</label>
+                        <input
+                          type="tel"
+                          placeholder="01XXXXXXXXX"
+                          value={samityForm.mobileBankingNumber}
+                          onChange={(e) => setSamityForm({ ...samityForm, mobileBankingNumber: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>হিসাবের ধরন (Account Type)</label>
+                        <select
+                          value={samityForm.mobileBankingAccountType}
+                          onChange={(e) => setSamityForm({ ...samityForm, mobileBankingAccountType: e.target.value })}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                        >
+                          {MOBILE_BANKING_ACCOUNT_TYPES.map(t => (
+                            <option key={t} value={t}>{t === 'Personal' ? 'ব্যক্তিগত (Personal)' : 'মার্চেন্ট (Merchant)'}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: SUBSCRIPTION POLICY & AUDIT METADATA */}
+              {samityFormActiveTab === 'policy' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        ডিফল্ট কারেন্সি (Currency)
+                      </label>
+                      <input
+                        type="text"
+                        value={samityForm.currency || 'BDT'}
+                        onChange={(e) => setSamityForm({ ...samityForm, currency: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: '#10b981', fontWeight: '800', marginBottom: '4px' }}>
+                        মাসিক চাঁদার পরিমাণ (Monthly Subscription Amount) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        value={samityForm.monthlySubscription}
+                        onChange={(e) => setSamityForm({ ...samityForm, monthlySubscription: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1.5px solid #10b981', color: '#10b981', fontSize: '0.88rem', fontWeight: '900' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        চাঁদা জমার শেষ তারিখ (Subscription Due Day)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="10"
+                        value={samityForm.subscriptionDueDay}
+                        onChange={(e) => setSamityForm({ ...samityForm, subscriptionDueDay: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        গ্রেস পিরিয়ড (Grace Period Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        placeholder="5"
+                        value={samityForm.gracePeriodDays}
+                        onChange={(e) => setSamityForm({ ...samityForm, gracePeriodDays: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Late Fee Settings */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '12px 16px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        id="late_fee_toggle"
+                        checked={samityForm.lateFeeEnabled}
+                        onChange={(e) => setSamityForm({ ...samityForm, lateFeeEnabled: e.target.checked })}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="late_fee_toggle" style={{ fontSize: '0.78rem', fontWeight: '800', color: '#fff', cursor: 'pointer' }}>
+                        বিলম্ব ফি / জরিমানা কার্যকর রাখুন (Enable Late Fee)
+                      </label>
+                    </div>
+
+                    {samityForm.lateFeeEnabled && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>জরিমানার হার (টাকা):</span>
+                        <input
+                          type="number"
+                          value={samityForm.lateFeeAmount}
+                          onChange={(e) => setSamityForm({ ...samityForm, lateFeeAmount: e.target.value })}
+                          style={{ width: '90px', padding: '6px 10px', borderRadius: '6px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.82rem', fontWeight: '900' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Financial Year & Status */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        অর্থবছর শুরু (Financial Year Start)
+                      </label>
+                      <input
+                        type="date"
+                        value={samityForm.financialYearStart}
+                        onChange={(e) => setSamityForm({ ...samityForm, financialYearStart: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        অর্থবছর শেষ (Financial Year End)
+                      </label>
+                      <input
+                        type="date"
+                        value={samityForm.financialYearEnd}
+                        onChange={(e) => setSamityForm({ ...samityForm, financialYearEnd: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        সমিতির স্ট্যাটাস (Samity Status) *
+                      </label>
+                      <select
+                        value={samityForm.status}
+                        onChange={(e) => setSamityForm({ ...samityForm, status: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      >
+                        {SAMITY_STATUSES.map(st => (
+                          <option key={st.value} value={st.value}>{st.labelBn}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Audit Metadata Info Box */}
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.72rem', color: 'var(--text-muted)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                    <div>সৃষ্টিকারী: <strong style={{ color: '#fff' }}>{samityForm.createdBy || 'Super Admin'}</strong></div>
+                    <div>তৈরির তারিখ: <strong style={{ color: '#fff' }}>{samityForm.createdAt ? new Date(samityForm.createdAt).toLocaleString('bn-BD') : 'এখন'}</strong></div>
+                    <div>আপডেটকারী: <strong style={{ color: '#fff' }}>{samityForm.updatedBy || 'Super Admin'}</strong></div>
+                    <div>সর্বশেষ আপডেট: <strong style={{ color: '#fff' }}>{samityForm.updatedAt ? new Date(samityForm.updatedAt).toLocaleString('bn-BD') : 'এখন'}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Form Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsSamityModalOpen(false)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    fontSize: '0.84rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                  }}
+                >
+                  {editingSamity ? '💾 পরিবর্তন সংরক্ষণ করুন' : '✓ নতুন সমিতি তৈরি সম্পন্ন করুন'}
                 </button>
               </div>
             </form>
