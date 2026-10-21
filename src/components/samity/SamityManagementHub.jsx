@@ -98,8 +98,18 @@ import {
   SAMITY_API_SPEC,
   exportSamityBackupJson,
   exportMembersCsv,
-  getSamityNotifications
+  getSamityNotifications,
+  EXPENSE_CATEGORIES,
+  EXPENSE_PAYMENT_METHODS,
+  EXPENSE_APPROVAL_STATUSES,
+  EXPENSE_SUB_REPORTS,
+  ALL_28_REPORTS_LIST,
+  reconcileBankStatement,
+  generateReportDataset,
+  exportReportToCsv,
+  exportReportToExcel
 } from '../../services/samityService';
+import * as XLSX from 'xlsx';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { hapticFeedback } from '../../services/nativeAppService';
 
@@ -326,15 +336,48 @@ export const SamityManagementHub = ({ onClose }) => {
   const [depositPreviewImage, setDepositPreviewImage] = useState(null); // { url, title }
 
   const [expenseForm, setExpenseForm] = useState({
-    category: 'office_rent',
+    voucherNo: '',
+    category: 'Office Rent',
     title: '',
+    description: '',
     amount: '',
     expenseDate: new Date().toISOString().split('T')[0],
     paymentMethod: 'Cash',
     paidTo: '',
-    paidBy: '',
-    description: ''
+    paidBy: 'কোষাধ্যক্ষ',
+    bankAccount: '',
+    billInvoiceNo: '',
+    billImage: '',
+    approvalStatus: 'approved',
+    approvedBy: 'অ্যাডমিন ও কোষাধ্যক্ষ',
+    approvedAt: new Date().toISOString(),
+    remarks: ''
   });
+  const [expenseViewMode, setExpenseViewMode] = useState('all_expenses'); // 'all_expenses' | 'daily' | 'monthly' | 'yearly' | 'category' | 'event' | 'bank' | 'cash' | 'status'
+  const [expenseSearchQuery, setExpenseSearchQuery] = useState('');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('all');
+  const [expenseMethodFilter, setExpenseMethodFilter] = useState('all');
+  const [expenseApprovalFilter, setExpenseApprovalFilter] = useState('all');
+  const [editingExpense, setEditingExpense] = useState(null);
+
+  // Fund & Bank Reconciliation States
+  const [fundViewTab, setFundViewTab] = useState('overview'); // 'overview' | 'reconciliation' | 'summary'
+  const [bankStatementInput, setBankStatementInput] = useState('');
+  const [manualStatementRows, setManualStatementRows] = useState([]);
+
+  // Report Module States (All 28 Reports)
+  const [selectedReportId, setSelectedReportId] = useState('member_list');
+  const [reportDateFrom, setReportDateFrom] = useState('');
+  const [reportDateTo, setReportDateTo] = useState('');
+  const [reportMemberFilter, setReportMemberFilter] = useState('all');
+  const [reportBankFilter, setReportBankFilter] = useState('all');
+  const [reportMethodFilter, setReportMethodFilter] = useState('all');
+  const [reportStatusFilter, setReportStatusFilter] = useState('all');
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+  const [reportSortBy, setReportSortBy] = useState('date');
+  const [reportSortOrder, setReportSortOrder] = useState('desc');
+  const [reportCurrentPage, setReportCurrentPage] = useState(1);
+  const [reportItemsPerPage, setReportItemsPerPage] = useState(15);
 
   // Bulk Deposit Module States
   const [bulkDepositHead, setBulkDepositHead] = useState({
@@ -1403,6 +1446,69 @@ export const SamityManagementHub = ({ onClose }) => {
   // --------------------------------------------------------------------------
   // Handlers: Expense Management
   // --------------------------------------------------------------------------
+  const handleOpenNewExpense = () => {
+    setEditingExpense(null);
+    setExpenseForm({
+      voucherNo: generateVoucherNumber(data.expenses, 'EXP-'),
+      category: 'Office Rent',
+      title: '',
+      description: '',
+      amount: '',
+      expenseDate: new Date().toISOString().split('T')[0],
+      paymentMethod: 'Cash',
+      paidTo: '',
+      paidBy: 'কোষাধ্যক্ষ ও সমিতি প্রশাসন',
+      bankAccount: currentSamity?.bankDetails?.accNo || '',
+      billInvoiceNo: '',
+      billImage: '',
+      approvalStatus: 'approved',
+      approvedBy: 'অ্যাডমিন ও কোষাধ্যক্ষ',
+      approvedAt: new Date().toISOString(),
+      remarks: ''
+    });
+    setIsExpenseModalOpen(true);
+  };
+
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setExpenseForm({
+      voucherNo: expense.voucherNo || '',
+      category: expense.category || 'Office Rent',
+      title: expense.title || '',
+      description: expense.description || '',
+      amount: String(expense.amount || ''),
+      expenseDate: expense.expenseDate || new Date().toISOString().split('T')[0],
+      paymentMethod: expense.paymentMethod || 'Cash',
+      paidTo: expense.paidTo || '',
+      paidBy: expense.paidBy || '',
+      bankAccount: expense.bankAccount || '',
+      billInvoiceNo: expense.billInvoiceNo || '',
+      billImage: expense.billImage || '',
+      approvalStatus: expense.approvalStatus || 'approved',
+      approvedBy: expense.approvedBy || '',
+      approvedAt: expense.approvedAt || new Date().toISOString(),
+      remarks: expense.remarks || ''
+    });
+    setIsExpenseModalOpen(true);
+  };
+
+  const handleDeleteExpense = (expenseId) => {
+    const target = data.expenses.find(e => e.id === expenseId);
+    if (!target) return;
+    if (window.confirm(`আপনি কি নিশ্চিত যে ভাউচার "${target.voucherNo || target.title}" মুছে ফেলতে চান?`)) {
+      updateAndSave(prev => ({
+        ...prev,
+        expenses: prev.expenses.filter(e => e.id !== expenseId)
+      }), {
+        action: 'DELETE_EXPENSE',
+        module: 'EXPENSES',
+        recordId: target.voucherNo,
+        details: { title: target.title, amount: target.amount }
+      });
+      showToast?.(`খরচের ভাউচার "${target.voucherNo}" সফলভাবে মুছে ফেলা হয়েছে`, 'info');
+    }
+  };
+
   const handleSaveExpense = (e) => {
     e.preventDefault();
     if (!expenseForm.amount || Number(expenseForm.amount) <= 0) {
@@ -1417,31 +1523,54 @@ export const SamityManagementHub = ({ onClose }) => {
     playSuccessChime?.();
     triggerHaptic();
 
-    const voucherNo = generateVoucherNumber(data.expenses, 'EXP-');
-    const newExpense = {
-      ...expenseForm,
-      id: `EXP-${Date.now()}`,
-      voucherNo,
-      samityId: activeSamityId,
-      amount: Number(expenseForm.amount),
-      approvalStatus: 'approved',
-      approvedBy: 'Admin',
-      approvedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString()
-    };
+    if (editingExpense) {
+      const updatedExpense = {
+        ...editingExpense,
+        ...expenseForm,
+        amount: Number(expenseForm.amount),
+        updatedAt: new Date().toISOString()
+      };
 
-    updateAndSave(prev => ({
-      ...prev,
-      expenses: [newExpense, ...prev.expenses]
-    }), {
-      action: 'CREATE_EXPENSE',
-      module: 'EXPENSES',
-      recordId: voucherNo,
-      details: { title: newExpense.title, amount: newExpense.amount }
-    });
+      updateAndSave(prev => ({
+        ...prev,
+        expenses: prev.expenses.map(exp => exp.id === editingExpense.id ? updatedExpense : exp)
+      }), {
+        action: 'UPDATE_EXPENSE',
+        module: 'EXPENSES',
+        recordId: updatedExpense.voucherNo,
+        details: { title: updatedExpense.title, amount: updatedExpense.amount }
+      });
 
-    showToast?.(`খরচ সফলভাবে লিপিবদ্ধ হয়েছে (ভাউচার: ${voucherNo})`, 'success');
+      showToast?.(`খরচের ভাউচার "${updatedExpense.voucherNo}" সফলভাবে আপডেট করা হয়েছে`, 'success');
+    } else {
+      const voucherNo = expenseForm.voucherNo || generateVoucherNumber(data.expenses, 'EXP-');
+      const newExpense = {
+        ...expenseForm,
+        id: `EXP-${Date.now()}`,
+        voucherNo,
+        samityId: activeSamityId,
+        amount: Number(expenseForm.amount),
+        approvalStatus: expenseForm.approvalStatus || 'approved',
+        approvedBy: expenseForm.approvedBy || 'Admin',
+        approvedAt: expenseForm.approvedAt || new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+
+      updateAndSave(prev => ({
+        ...prev,
+        expenses: [newExpense, ...prev.expenses]
+      }), {
+        action: 'CREATE_EXPENSE',
+        module: 'EXPENSES',
+        recordId: voucherNo,
+        details: { title: newExpense.title, amount: newExpense.amount }
+      });
+
+      showToast?.(`খরচ সফলভাবে লিপিবদ্ধ হয়েছে (ভাউচার: ${voucherNo})`, 'success');
+    }
+
     setIsExpenseModalOpen(false);
+    setEditingExpense(null);
   };
 
   // --------------------------------------------------------------------------
@@ -9070,148 +9199,854 @@ export const SamityManagementHub = ({ onClose }) => {
           );
         })()}
 
-        {/* TAB 7: EXPENSES & FUND BALANCE */}
-        {activeTab === 'expenses' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>💸 সমিতির নিয়মিত খরচ ও বিল ভাউচার</h3>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  অফিস ভাড়া, বিদ্যুৎ বিল, ইভেন্ট খরচ, ত্রাণ বা সমাজসেবা ইত্যাদি সমিতির ফান্ড থেকে ব্যয়ের খাতা
-                </p>
-              </div>
-              <button
-                onClick={() => setIsExpenseModalOpen(true)}
-                className="btn"
-                style={{
-                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontSize: '0.8rem',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                <Plus size={16} />
-                <span>+ খরচ এন্ট্রি করুন</span>
-              </button>
-            </div>
+        {/* TAB 7: EXPENSES & 8 SUB-REPORTS */}
+        {activeTab === 'expenses' && (() => {
+          const samityExpenses = (data.expenses || []).filter(e => e.samityId === activeSamityId);
+          const totalExpenseAmt = samityExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+          const approvedExpenseAmt = samityExpenses.filter(e => e.approvalStatus === 'approved').reduce((s, e) => s + Number(e.amount || 0), 0);
+          const pendingExpenseAmt = samityExpenses.filter(e => e.approvalStatus === 'pending').reduce((s, e) => s + Number(e.amount || 0), 0);
 
-            {/* Expense Table */}
-            <div
-              style={{
-                background: 'rgba(30, 41, 59, 0.7)',
-                borderRadius: '14px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                overflowX: 'auto'
-              }}
-            >
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার নং</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>তারিখ</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>খরচের শিরোনাম ও খাত</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>পেমেন্ট মাধ্যম</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>টাকার পরিমাণ</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>অনুমোদন</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.expenses.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        এখনো কোনো খরচ রেকর্ড করা হয়নি।
-                      </td>
-                    </tr>
-                  ) : (
-                    data.expenses.map(exp => (
-                      <tr key={exp.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                        <td style={{ padding: '12px 14px', fontWeight: '800', color: '#f87171' }}>{exp.voucherNo}</td>
-                        <td style={{ padding: '12px 14px' }}>{exp.expenseDate}</td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ fontWeight: '800' }}>{exp.title}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{exp.category}</div>
-                        </td>
-                        <td style={{ padding: '12px 14px' }}>{exp.paymentMethod}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#ef4444', fontSize: '0.95rem' }}>
-                          ৳ {exp.amount?.toLocaleString()}
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800' }}>
-                            ✓ Approved
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          // Filtered Expenses
+          const filteredExpenses = samityExpenses.filter(exp => {
+            if (expenseCategoryFilter !== 'all' && exp.category !== expenseCategoryFilter) return false;
+            if (expenseMethodFilter !== 'all' && exp.paymentMethod !== expenseMethodFilter) return false;
+            if (expenseApprovalFilter !== 'all' && exp.approvalStatus !== expenseApprovalFilter) return false;
+            if (expenseSearchQuery) {
+              const q = expenseSearchQuery.toLowerCase();
+              return (
+                exp.title?.toLowerCase().includes(q) ||
+                exp.voucherNo?.toLowerCase().includes(q) ||
+                exp.paidTo?.toLowerCase().includes(q) ||
+                exp.category?.toLowerCase().includes(q)
+              );
+            }
+            return true;
+          });
 
-        {/* TAB 8: FUND & BALANCE */}
-        {activeTab === 'fund_balance' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '850px', margin: '0 auto' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <h3 style={{ margin: '0 0 14px 0', fontSize: '1rem', fontWeight: '800' }}>
-                ⚖️ সমিতির তহবিল ও হিসাব সমীকরণ (Fund Calculation Formula)
-              </h3>
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  padding: '14px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(20, 184, 166, 0.3)',
-                  fontSize: '0.88rem',
-                  fontWeight: '700',
-                  color: '#2dd4bf',
-                  textAlign: 'center'
-                }}
-              >
-                মোট ফান্ড = মোট অনুমোদিত জমা (৳{metrics.totalApprovedDeposits.toLocaleString()}) - মোট অনুমোদিত খরচ (৳{metrics.totalApprovedExpenses.toLocaleString()}) = ৳{metrics.availableFund.toLocaleString()}
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Header & Metrics */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>💸 সমিতির ব্যয় / খরচ ব্যবস্থাপনা (Expense Management)</span>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '12px' }}>
+                      {samityExpenses.length} টি ভাউচার
+                    </span>
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    অফিস ভাড়া, ইউটিলিটি বিল, ইভেন্ট খরচ, ত্রাণ ও সমাজসেবামূলক ব্যয়ের খতিয়ান ও ৮টি পূর্ণাঙ্গ সাব-রিপোর্ট
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleOpenNewExpense}
+                    className="btn"
+                    style={{
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>+ খরচ এন্ট্রি করুন</span>
+                  </button>
+                </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '20px' }}>
-                <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '16px' }}>
-                  <div style={{ fontSize: '0.76rem', color: '#3b82f6', fontWeight: '700' }}>ব্যাংক ব্যালেন্স</div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#3b82f6', marginTop: '4px' }}>
-                    ৳ {metrics.bankBalance.toLocaleString()}
+              {/* 4 Summary Metrics Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#f87171', fontWeight: '700' }}>সর্বমোট খরচ (Total Expenses)</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>
+                    ৳ {totalExpenseAmt.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    {currentSamity.bankDetails?.bankName} ({currentSamity.bankDetails?.accNo})
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মোট {samityExpenses.length} টি ভাউচার রেকর্ড</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: '700' }}>অনুমোদিত ব্যয় (Approved)</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
+                    ৳ {approvedExpenseAmt.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মূল ফান্ড থেকে কর্তনযোগ্য খরচ</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#fbbf24', fontWeight: '700' }}>অপেক্ষমাণ ব্যয় (Pending)</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#f59e0b', marginTop: '2px' }}>
+                    ৳ {pendingExpenseAmt.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>অ্যাডমিন অনুমোদনের অপেক্ষায়</div>
+                </div>
+
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '14px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#60a5fa', fontWeight: '700' }}>ব্যাংক থেকে পরিশোধ (Bank Paid)</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#3b82f6', marginTop: '2px' }}>
+                    ৳ {samityExpenses.filter(e => e.paymentMethod === 'Bank').reduce((s, e) => s + Number(e.amount || 0), 0).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>চেক ও অনলাইন ব্যাংক ডেবিট</div>
+                </div>
+              </div>
+
+              {/* 8 Sub-Reports View Navigation Pills */}
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                <button
+                  onClick={() => setExpenseViewMode('all_expenses')}
+                  style={{
+                    background: expenseViewMode === 'all_expenses' ? '#ef4444' : 'rgba(255,255,255,0.06)',
+                    color: expenseViewMode === 'all_expenses' ? '#fff' : 'var(--text-muted)',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  📋 সকল খরচের খতিয়ান
+                </button>
+                {EXPENSE_SUB_REPORTS.map(rep => (
+                  <button
+                    key={rep.id}
+                    onClick={() => setExpenseViewMode(rep.id)}
+                    style={{
+                      background: expenseViewMode === rep.id ? '#3b82f6' : 'rgba(255,255,255,0.06)',
+                      color: expenseViewMode === rep.id ? '#fff' : 'var(--text-muted)',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.75rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {rep.titleBn.split(' ')[0]} {rep.titleBn.split(' ')[1]}
+                  </button>
+                ))}
+              </div>
+
+              {/* View 1: Main Expense Table with Filters */}
+              {expenseViewMode === 'all_expenses' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Filters Bar */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: '180px', position: 'relative' }}>
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
+                      <input
+                        type="text"
+                        placeholder="শিরোনাম, ভাউচার নং বা গ্রহীতার নাম..."
+                        value={expenseSearchQuery}
+                        onChange={(e) => setExpenseSearchQuery(e.target.value)}
+                        style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
+                      />
+                    </div>
+
+                    <select
+                      value={expenseCategoryFilter}
+                      onChange={(e) => setExpenseCategoryFilter(e.target.value)}
+                      style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
+                    >
+                      <option value="all">সকল খাত (All Categories)</option>
+                      {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.labelBn}</option>)}
+                    </select>
+
+                    <select
+                      value={expenseMethodFilter}
+                      onChange={(e) => setExpenseMethodFilter(e.target.value)}
+                      style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
+                    >
+                      <option value="all">সকল মাধ্যম (All Methods)</option>
+                      {EXPENSE_PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+
+                    <select
+                      value={expenseApprovalFilter}
+                      onChange={(e) => setExpenseApprovalFilter(e.target.value)}
+                      style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
+                    >
+                      <option value="all">সকল স্ট্যাটাস</option>
+                      <option value="approved">অনুমোদিত (Approved)</option>
+                      <option value="pending">অপেক্ষমাণ (Pending)</option>
+                      <option value="rejected">প্রত্যাখ্যাত (Rejected)</option>
+                    </select>
+
+                    {(expenseSearchQuery || expenseCategoryFilter !== 'all' || expenseMethodFilter !== 'all' || expenseApprovalFilter !== 'all') && (
+                      <button
+                        onClick={() => {
+                          setExpenseSearchQuery('');
+                          setExpenseCategoryFilter('all');
+                          setExpenseMethodFilter('all');
+                          setExpenseApprovalFilter('all');
+                        }}
+                        style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#94a3b8', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer' }}
+                      >
+                        রিসেট
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expense Table */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার নং</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>তারিখ</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>শিরোনাম ও বিবরণ</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>খাত</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>পেমেন্ট মাধ্যম</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>গ্রহীতা ও বিল নং</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>পরিমাণ (৳)</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>অনুমোদন</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>অ্যাকশন</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredExpenses.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              কোনো খরচ পাওয়া যায়নি। নতুন খরচ রেকর্ড করতে উপরে "+ খরচ এন্ট্রি করুন" বাটনে চাপুন।
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredExpenses.map(exp => (
+                            <tr key={exp.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <td style={{ padding: '10px 14px', fontWeight: '800', color: '#f87171', fontFamily: 'monospace' }}>
+                                {exp.voucherNo}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center', color: '#94a3b8', fontSize: '0.74rem' }}>
+                                {exp.expenseDate}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <div style={{ fontWeight: '800', color: '#fff' }}>{exp.title}</div>
+                                {exp.description && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{exp.description}</div>}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '700' }}>
+                                  {exp.category}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                <div style={{ fontWeight: '700' }}>{exp.paymentMethod}</div>
+                                {exp.bankAccount && <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{exp.bankAccount}</div>}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <div style={{ fontWeight: '700' }}>{exp.paidTo || '—'}</div>
+                                {exp.billInvoiceNo && <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>ইনভয়েস: {exp.billInvoiceNo}</div>}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '900', color: '#ef4444', fontSize: '0.92rem' }}>
+                                ৳ {Number(exp.amount || 0).toLocaleString()}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                {exp.approvalStatus === 'approved' ? (
+                                  <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800' }}>
+                                    ✓ Approved
+                                  </span>
+                                ) : exp.approvalStatus === 'rejected' ? (
+                                  <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800' }}>
+                                    ✕ Rejected
+                                  </span>
+                                ) : (
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                    <button
+                                      onClick={() => handleApproveExpense(exp.id)}
+                                      style={{ background: '#10b981', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', cursor: 'pointer', fontWeight: '800' }}
+                                    >
+                                      ✓
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectExpense(exp.id)}
+                                      style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '4px', fontSize: '0.68rem', cursor: 'pointer', fontWeight: '800' }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                  {exp.billImage && (
+                                    <button
+                                      onClick={() => window.open(exp.billImage, '_blank')}
+                                      title="বিল / ভাউচার মেমো ছবি দেখুন"
+                                      style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                      <ImageIcon size={13} />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleEditExpense(exp)}
+                                    title="সম্পাদনা করুন"
+                                    style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer' }}
+                                  >
+                                    <Edit3 size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteExpense(exp.id)}
+                                    title="মুছে ফেলুন"
+                                    style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer' }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* View 2: Dedicated Expense Sub-Reports (8 Reports) */}
+              {expenseViewMode !== 'all_expenses' && (() => {
+                let reportTitle = '';
+                let groupedData = [];
+
+                if (expenseViewMode === 'daily') {
+                  reportTitle = 'দৈনিক খরচ রিপোর্ট (Daily Expense Report)';
+                  const dateMap = {};
+                  samityExpenses.forEach(e => {
+                    const d = e.expenseDate || 'অজানা';
+                    dateMap[d] = (dateMap[d] || 0) + Number(e.amount || 0);
+                  });
+                  groupedData = Object.entries(dateMap).map(([k, v]) => ({ label: k, count: samityExpenses.filter(e => e.expenseDate === k).length, total: v }));
+                } else if (expenseViewMode === 'monthly') {
+                  reportTitle = 'মাসিক খরচ রিপোর্ট (Monthly Expense Report)';
+                  const monthMap = {};
+                  samityExpenses.forEach(e => {
+                    const m = (e.expenseDate || '').substring(0, 7) || 'চলতি মাস';
+                    monthMap[m] = (monthMap[m] || 0) + Number(e.amount || 0);
+                  });
+                  groupedData = Object.entries(monthMap).map(([k, v]) => ({ label: k, count: samityExpenses.filter(e => (e.expenseDate || '').startsWith(k)).length, total: v }));
+                } else if (expenseViewMode === 'yearly') {
+                  reportTitle = 'বার্ষিক খরচ রিপোর্ট (Yearly Expense Report)';
+                  const yearMap = {};
+                  samityExpenses.forEach(e => {
+                    const y = (e.expenseDate || '').substring(0, 4) || '২০২৬';
+                    yearMap[y] = (yearMap[y] || 0) + Number(e.amount || 0);
+                  });
+                  groupedData = Object.entries(yearMap).map(([k, v]) => ({ label: `${k} অর্থবছর`, count: samityExpenses.filter(e => (e.expenseDate || '').startsWith(k)).length, total: v }));
+                } else if (expenseViewMode === 'category') {
+                  reportTitle = 'খাতওয়ারি খরচ রিপোর্ট (Category-wise Expense Report)';
+                  const catMap = {};
+                  samityExpenses.forEach(e => {
+                    const c = e.category || 'Other';
+                    catMap[c] = (catMap[c] || 0) + Number(e.amount || 0);
+                  });
+                  groupedData = Object.entries(catMap).map(([k, v]) => ({ label: k, count: samityExpenses.filter(e => e.category === k).length, total: v }));
+                } else if (expenseViewMode === 'event') {
+                  reportTitle = 'সদস্য/ইভেন্ট/গ্রহীতাবিশিষ্ট খরচ রিপোর্ট (Event-wise Expense Report)';
+                  const paidToMap = {};
+                  samityExpenses.forEach(e => {
+                    const p = e.paidTo || 'অফিস পরিচালনা';
+                    paidToMap[p] = (paidToMap[p] || 0) + Number(e.amount || 0);
+                  });
+                  groupedData = Object.entries(paidToMap).map(([k, v]) => ({ label: k, count: samityExpenses.filter(e => e.paidTo === k).length, total: v }));
+                } else if (expenseViewMode === 'bank') {
+                  reportTitle = 'ব্যাংকভিত্তিক খরচ রিপোর্ট (Bank-wise Expense Report)';
+                  const bankExpenses = samityExpenses.filter(e => e.paymentMethod === 'Bank');
+                  groupedData = bankExpenses.map(e => ({ label: `${e.title} (${e.bankAccount || 'ব্যাংক'})`, count: 1, total: Number(e.amount || 0) }));
+                } else if (expenseViewMode === 'cash') {
+                  reportTitle = 'নগদ ক্যাশ খরচ রিপোর্ট (Cash-wise Expense Report)';
+                  const cashExpenses = samityExpenses.filter(e => e.paymentMethod === 'Cash');
+                  groupedData = cashExpenses.map(e => ({ label: `${e.title} - ${e.paidTo || 'ক্যাশ'}`, count: 1, total: Number(e.amount || 0) }));
+                } else if (expenseViewMode === 'status') {
+                  reportTitle = 'অনুমোদিত ও অপেক্ষমাণ খরচ রিপোর্ট (Approved vs Pending Report)';
+                  ['approved', 'pending', 'rejected'].forEach(st => {
+                    const list = samityExpenses.filter(e => (e.approvalStatus || 'approved') === st);
+                    groupedData.push({
+                      label: st === 'approved' ? 'অনুমোদিত ব্যয় (Approved)' : st === 'pending' ? 'অপেক্ষমাণ ব্যয় (Pending)' : 'প্রত্যাখ্যাত (Rejected)',
+                      count: list.length,
+                      total: list.reduce((s, e) => s + Number(e.amount || 0), 0)
+                    });
+                  });
+                }
+
+                return (
+                  <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#38bdf8' }}>
+                        📊 {reportTitle}
+                      </h4>
+                      <button
+                        onClick={() => {
+                          const cols = [{ key: 'label', label: 'বিবরণ' }, { key: 'count', label: 'ভাউচার সংখ্যা' }, { key: 'total', label: 'মোট টাকা (৳)' }];
+                          exportReportToExcel(XLSX, reportTitle, cols, groupedData);
+                        }}
+                        style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <FileSpreadsheet size={13} />
+                        <span>এক্সেল ডাউনলোড</span>
+                      </button>
+                    </div>
+
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '800' }}>খাত / বিবরণ</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: '800' }}>ভাউচার সংখ্যা</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800' }}>সর্বমোট টাকার পরিমাণ (৳)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedData.length === 0 ? (
+                          <tr><td colSpan={3} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>কোনো তথ্য পাওয়া যায়নি</td></tr>
+                        ) : (
+                          groupedData.map((row, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <td style={{ padding: '10px 14px', fontWeight: '700' }}>{row.label}</td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center', color: '#94a3b8' }}>{row.count} টি</td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '900', color: '#ef4444' }}>
+                                ৳ {row.total.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.9)', fontWeight: '900', borderTop: '2px solid rgba(255,255,255,0.1)' }}>
+                          <td style={{ padding: '10px 14px' }}>সর্বমোট:</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            {groupedData.reduce((s, r) => s + r.count, 0)} টি
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#ef4444', fontSize: '0.92rem' }}>
+                            ৳ {groupedData.reduce((s, r) => s + r.total, 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })()}
+
+        {/* TAB 8: FUND & BALANCE MODULE (WITH BANK RECONCILIATION) */}
+        {activeTab === 'fund_balance' && (() => {
+          const approvedDeposits = (data.deposits || []).filter(d => d.samityId === activeSamityId && d.approvalStatus !== 'rejected');
+          const approvedExpenses = (data.expenses || []).filter(e => e.samityId === activeSamityId && e.approvalStatus !== 'rejected');
+
+          const totalBankDep = approvedDeposits.filter(d => d.paymentMethod === 'Bank').reduce((s, d) => s + Number(d.amount || 0), 0);
+          const totalCashDep = approvedDeposits.filter(d => d.paymentMethod === 'Cash').reduce((s, d) => s + Number(d.amount || 0), 0);
+          const totalMobDep = approvedDeposits.filter(d => ['bKash', 'Nagad', 'Rocket', 'Upay'].includes(d.paymentMethod)).reduce((s, d) => s + Number(d.amount || 0), 0);
+
+          const totalBankExp = approvedExpenses.filter(e => e.paymentMethod === 'Bank').reduce((s, e) => s + Number(e.amount || 0), 0);
+          const totalCashExp = approvedExpenses.filter(e => e.paymentMethod === 'Cash').reduce((s, e) => s + Number(e.amount || 0), 0);
+          const totalMobExp = approvedExpenses.filter(e => ['bKash', 'Nagad', 'Rocket', 'Upay'].includes(e.paymentMethod)).reduce((s, e) => s + Number(e.amount || 0), 0);
+
+          const totalApprovedExpensesAmount = totalBankExp + totalCashExp + totalMobExp;
+          const totalApprovedDepositsAmount = totalBankDep + totalCashDep + totalMobDep;
+          const totalSamityFund = totalApprovedDepositsAmount - totalApprovedExpensesAmount;
+
+          const availBankBalance = totalBankDep - totalBankExp;
+          const availCashBalance = totalCashDep - totalCashExp;
+          const availMobBalance = totalMobDep - totalMobExp;
+
+          // Reconcile
+          const allStatementRows = [...(data.bankStatements || []), ...manualStatementRows];
+          const reconResult = reconcileBankStatement(approvedDeposits, allStatementRows);
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '950px', margin: '0 auto' }}>
+              {/* Header & Fundamental Calculation Formula */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ⚖️ তহবিল ও হিসাব সমীকরণ (Fund & Balance Calculation System)
+                  </h3>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => setFundViewTab('overview')}
+                      style={{
+                        background: fundViewTab === 'overview' ? '#14b8a6' : 'rgba(255,255,255,0.06)',
+                        color: fundViewTab === 'overview' ? '#fff' : '#94a3b8',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      তহবিল ওভারভিউ
+                    </button>
+                    <button
+                      onClick={() => setFundViewTab('summary')}
+                      style={{
+                        background: fundViewTab === 'summary' ? '#14b8a6' : 'rgba(255,255,255,0.06)',
+                        color: fundViewTab === 'summary' ? '#fff' : '#94a3b8',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      মাসিক ও বার্ষিক সারসংক্ষেপ
+                    </button>
+                    <button
+                      onClick={() => setFundViewTab('reconciliation')}
+                      style={{
+                        background: fundViewTab === 'reconciliation' ? '#3b82f6' : 'rgba(255,255,255,0.06)',
+                        color: fundViewTab === 'reconciliation' ? '#fff' : '#94a3b8',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🏦 ব্যাংক রিকনসিলেশন
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '16px' }}>
-                  <div style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: '700' }}>নগদ ক্যাশ ব্যালেন্স</div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
-                    ৳ {metrics.cashBalance.toLocaleString()}
+                {/* Formula Callout */}
+                <div
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    padding: '14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid rgba(20, 184, 166, 0.4)',
+                    fontSize: '0.9rem',
+                    fontWeight: '800',
+                    color: '#2dd4bf',
+                    textAlign: 'center'
+                  }}
+                >
+                  মোট ফান্ড = মোট অনুমোদিত জমা (৳{totalApprovedDepositsAmount.toLocaleString()}) - মোট অনুমোদিত খরচ (৳{totalApprovedExpensesAmount.toLocaleString()}) = ৳{totalSamityFund.toLocaleString()}
+                </div>
+
+                {/* Separate Breakdown Metric Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginTop: '16px' }}>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#60a5fa', fontWeight: '700' }}>১. মোট ব্যাংক জমা (Bank Deposit)</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#3b82f6', marginTop: '2px' }}>
+                      ৳ {totalBankDep.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>খরচ: ৳{totalBankExp.toLocaleString()}</div>
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    কোষাধ্যক্ষের নিকট সংরক্ষিত নগদ ক্যাশ
+
+                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: '700' }}>২. মোট নগদ ক্যাশ জমা (Cash Deposit)</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
+                      ৳ {totalCashDep.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>খরচ: ৳{totalCashExp.toLocaleString()}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(236, 72, 153, 0.08)', border: '1px solid rgba(236, 72, 153, 0.3)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#f472b6', fontWeight: '700' }}>৩. মোট মোবাইল ব্যাংকিং জমা</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ec4899', marginTop: '2px' }}>
+                      ৳ {totalMobDep.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>খরচ: ৳{totalMobExp.toLocaleString()}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#f87171', fontWeight: '700' }}>৪. মোট অনুমোদিত ব্যয় (Total Expense)</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>
+                      ৳ {totalApprovedExpensesAmount.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>সকল অনুমোদিত ভাউচার</div>
                   </div>
                 </div>
 
-                <div style={{ background: 'rgba(236, 72, 153, 0.08)', border: '1px solid rgba(236, 72, 153, 0.25)', borderRadius: '12px', padding: '16px' }}>
-                  <div style={{ fontSize: '0.76rem', color: '#ec4899', fontWeight: '700' }}>মোবাইল ব্যাংকিং ব্যালেন্স</div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#ec4899', marginTop: '4px' }}>
-                    ৳ {metrics.mobileBalance.toLocaleString()}
+                {/* Available Net Balances */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginTop: '12px' }}>
+                  <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>৫. বিদ্যমান নিট ব্যাংক ব্যালেন্স</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#38bdf8', marginTop: '2px' }}>
+                      ৳ {availBankBalance.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{currentSamity.bankDetails?.bankName} ({currentSamity.bankDetails?.accNo})</div>
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    বিকাশ/নগদ ({currentSamity.mobileBanking?.number})
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>৬. বিদ্যমান নিট নগদ ক্যাশ ব্যালেন্স</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
+                      ৳ {availCashBalance.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>কোষাধ্যক্ষের নিকট সংরক্ষিত ক্যাশ</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(236, 72, 153, 0.4)', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>৭. বিদ্যমান নিট মোবাইল ব্যালেন্স</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ec4899', marginTop: '2px' }}>
+                      ৳ {availMobBalance.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>বিকাশ / নগদ ({currentSamity.mobileBanking?.number})</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(20, 184, 166, 0.15)', border: '2px solid #14b8a6', borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#2dd4bf', fontWeight: '800' }}>৮. সর্বমোট কার্যকরী সমিতি ফান্ড</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#2dd4bf', marginTop: '2px' }}>
+                      ৳ {totalSamityFund.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#99f6e4' }}>মোট অনুমোদিত স্থিতি</div>
                   </div>
                 </div>
               </div>
+
+              {/* Sub-view 2: Month-wise & Year-wise Fund Summary */}
+              {fundViewTab === 'summary' && (() => {
+                const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const targetYear = new Date().getFullYear();
+
+                const monthSummary = months.map(m => {
+                  const mDeps = approvedDeposits.filter(d => d.paymentMonth === m && Number(d.paymentYear) === targetYear).reduce((s, d) => s + Number(d.amount || 0), 0);
+                  const mExps = approvedExpenses.filter(e => {
+                    const eDate = e.expenseDate || '';
+                    const mIdx = months.indexOf(m) + 1;
+                    const mPrefix = `${targetYear}-${String(mIdx).padStart(2, '0')}`;
+                    return eDate.startsWith(mPrefix);
+                  }).reduce((s, e) => s + Number(e.amount || 0), 0);
+
+                  return {
+                    month: m,
+                    deposit: mDeps,
+                    expense: mExps,
+                    net: mDeps - mExps
+                  };
+                });
+
+                return (
+                  <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <h4 style={{ margin: '0 0 14px', fontSize: '0.95rem', fontWeight: '800', color: '#14b8a6' }}>
+                      📅 {targetYear} অর্থবছরের মাসওয়ারি ফান্ড সারসংক্ষেপ (Month-wise Fund Summary)
+                    </h4>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: '800' }}>মাস</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#10b981' }}>মোট জমা (৳)</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#ef4444' }}>মোট খরচ (৳)</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '800', color: '#2dd4bf' }}>মাসিক নিট উদ্বৃত্ত (৳)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthSummary.map((m, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <td style={{ padding: '8px 14px', fontWeight: '700' }}>{m.month}</td>
+                            <td style={{ padding: '8px 14px', textAlign: 'right', color: '#10b981', fontWeight: '800' }}>
+                              ৳ {m.deposit.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '8px 14px', textAlign: 'right', color: '#ef4444', fontWeight: '800' }}>
+                              ৳ {m.expense.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: '900', color: m.net >= 0 ? '#2dd4bf' : '#f87171' }}>
+                              ৳ {m.net.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.9)', fontWeight: '900', borderTop: '2px solid rgba(255,255,255,0.1)' }}>
+                          <td style={{ padding: '10px 14px' }}>সর্বমোট বার্ষিক তহবিল সারসংক্ষেপ:</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#10b981' }}>
+                            ৳ {monthSummary.reduce((s, m) => s + m.deposit, 0).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#ef4444' }}>
+                            ৳ {monthSummary.reduce((s, m) => s + m.expense, 0).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#2dd4bf', fontSize: '0.92rem' }}>
+                            ৳ {monthSummary.reduce((s, m) => s + m.net, 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
+
+              {/* Sub-view 3: Bank Reconciliation Module */}
+              {fundViewTab === 'reconciliation' && (
+                <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#38bdf8' }}>
+                        🏦 ব্যাংক রিকনসিলেশন বিবরণী (Bank Reconciliation Module)
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        সফটওয়্যারের ব্যাংক জমা বনাম ব্যাংকের মূল পাসবুক / স্টেটমেন্ট মিলকরণ
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          // Quick sample statement simulation
+                          const now = new Date();
+                          const today = now.toISOString().split('T')[0];
+                          const newSample = [
+                            { date: today, reference: 'DEP-SLIP-01', credit: 1500, chequeNo: 'CHQ-881' },
+                            { date: today, reference: 'TRX-ONLINE-99', credit: 500, chequeNo: '' }
+                          ];
+                          setManualStatementRows(prev => [...newSample, ...prev]);
+                          showToast?.('টেস্ট ব্যাংক স্টেটমেন্ট এন্ট্রি সফলভাবে যুক্ত করা হয়েছে', 'success');
+                        }}
+                        style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#38bdf8', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
+                      >
+                        + নমুনা স্টেটমেন্ট এন্ট্রি
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reconciliation Stats Card */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>সফটওয়্যারের মোট ব্যাংক জমা</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#3b82f6', marginTop: '2px' }}>
+                        ৳ {reconResult.summary.totalSoftwareBankDeposit.toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>স্টেটমেন্টের মোট ক্রেডিট</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
+                        ৳ {reconResult.summary.totalStatementCredit.toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>মিলকরণ স্থিতি (Matched)</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#34d399', marginTop: '2px' }}>
+                        {reconResult.summary.matchedCount} টি রেকর্ড মিলেছে
+                      </div>
+                    </div>
+
+                    <div style={{ background: reconResult.summary.discrepancy === 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '12px 14px', borderRadius: '10px', border: `1px solid ${reconResult.summary.discrepancy === 0 ? '#10b981' : '#ef4444'}` }}>
+                      <div style={{ fontSize: '0.72rem', color: reconResult.summary.discrepancy === 0 ? '#10b981' : '#f87171', fontWeight: '800' }}>পার্থক্য / অমিল (Discrepancy)</div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: reconResult.summary.discrepancy === 0 ? '#10b981' : '#ef4444', marginTop: '2px' }}>
+                        ৳ {reconResult.summary.discrepancy.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manual Statement CSV/Text Ingestion Box */}
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#fff', marginBottom: '6px' }}>
+                      📥 ব্যাংক স্টেটমেন্ট আপলোড বা পেস্ট করুন (Manual Bank Statement Upload)
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <input
+                        type="text"
+                        placeholder="তারিখ (YYYY-MM-DD), বিবরণ, টাকার পরিমাণ (যেমন: 2026-10-21, ডিপোজিট স্লিপ নং 881, 1500)"
+                        value={bankStatementInput}
+                        onChange={(e) => setBankStatementInput(e.target.value)}
+                        style={{ flex: 1, minWidth: '260px', padding: '6px 10px', borderRadius: '6px', background: '#090d16', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (!bankStatementInput.trim()) return;
+                          const parts = bankStatementInput.split(',').map(s => s.trim());
+                          const newRow = {
+                            date: parts[0] || new Date().toISOString().split('T')[0],
+                            reference: parts[1] || 'ম্যানুয়াল স্টেটমেন্ট',
+                            credit: Number(parts[2] || parts[1] || 0)
+                          };
+                          setManualStatementRows(prev => [newRow, ...prev]);
+                          setBankStatementInput('');
+                          showToast?.('স্টেটমেন্ট রেকর্ড সফলভাবে যোগ করা হয়েছে', 'success');
+                        }}
+                        style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer' }}
+                      >
+                        রেকর্ড যোগ করুন
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Comparison Table */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '800' }}>বিবরণ ও উৎস</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '800' }}>রেফারেন্স / স্লিপ নং</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800' }}>তারিখ</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '800' }}>রিকনসিলেশন স্ট্যাটাস</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '800' }}>টাকার পরিমাণ (৳)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reconResult.matched.length === 0 && reconResult.pendingDeposits.length === 0 && reconResult.unmatchedStatement.length === 0 ? (
+                          <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>এখনো কোনো ব্যাংক স্টেটমেন্ট যোগ করা হয়নি</td></tr>
+                        ) : (
+                          <>
+                            {reconResult.matched.map((m, idx) => (
+                              <tr key={`m-${idx}`} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: 'rgba(16, 185, 129, 0.05)' }}>
+                                <td style={{ padding: '8px 12px', color: '#34d399', fontWeight: '700' }}>✓ সফটওয়্যার ও ব্যাংক উভয় স্থানে মিলেছে</td>
+                                <td style={{ padding: '8px 12px' }}>ভাউচার: {m.depositRecord.voucherNo} | স্লিপ: {m.depositRecord.bankReceiptNo || '—'}</td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', color: '#94a3b8' }}>{m.depositRecord.depositDate}</td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                  <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '800' }}>
+                                    Matched (মিলেছে)
+                                  </span>
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '900', color: '#10b981' }}>
+                                  ৳ {Number(m.depositRecord.amount).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+
+                            {reconResult.pendingDeposits.map((p, idx) => (
+                              <tr key={`p-${idx}`} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: 'rgba(245, 158, 11, 0.05)' }}>
+                                <td style={{ padding: '8px 12px', color: '#fbbf24', fontWeight: '700' }}>⏳ সফটওয়্যারে আছে কিন্তু স্টেটমেন্টে আসেনি</td>
+                                <td style={{ padding: '8px 12px' }}>ভাউচার: {p.depositRecord.voucherNo} ({p.depositRecord.memberName})</td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', color: '#94a3b8' }}>{p.depositRecord.depositDate}</td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                  <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '800' }}>
+                                    Pending (অপেক্ষমাণ)
+                                  </span>
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '900', color: '#f59e0b' }}>
+                                  ৳ {Number(p.depositRecord.amount).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+
+                            {reconResult.unmatchedStatement.map((u, idx) => (
+                              <tr key={`u-${idx}`} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                                <td style={{ padding: '8px 12px', color: '#f87171', fontWeight: '700' }}>✕ ব্যাংক স্টেটমেন্টে আছে কিন্তু সফটওয়্যারে নেই</td>
+                                <td style={{ padding: '8px 12px' }}>{u.statementRow.reference}</td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', color: '#94a3b8' }}>{u.statementRow.date}</td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                  <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '800' }}>
+                                    Unmatched (অমিল)
+                                  </span>
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '900', color: '#ef4444' }}>
+                                  ৳ {Number(u.statementRow.credit || u.statementRow.amount).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 9: LETTERHEAD & PRINT TEMPLATE */}
         {activeTab === 'letterhead' && (
@@ -9461,74 +10296,370 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 12: 28 COMPLETE REPORTS */}
-        {activeTab === 'reports' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                <FileSpreadsheet size={20} color="#10b981" />
-                <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800' }}>
-                  📈 ২৮টি পূর্ণাঙ্গ অডিট ও সমবায় রিপোর্ট
-                </h3>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                বার্ষিক অডিট, সদস্য তালিকা, ব্যাংক রিকনসিলেশন, চাঁদা আদায় শিট ও রিমাইন্ডার রিপোর্ট
-              </p>
-            </div>
+        {/* TAB 12: 28 COMPLETE OFFICIAL REPORTS SYSTEM (ALL FILTERS, EXPORTS & PAGINATION) */}
+        {activeTab === 'reports' && (() => {
+          const activeReportMeta = ALL_28_REPORTS_LIST.find(r => r.id === selectedReportId) || ALL_28_REPORTS_LIST[0];
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-              {[
-                '১. সাধারণ সদস্য তালিকা রিপোর্ট',
-                '২. সক্রিয় সদস্য ও চাঁদার রেট রিপোর্ট',
-                '৩. চলতি মাসের সম্পূর্ণ পরিশোধিত তালিকা',
-                '৪. বকেয়া সদস্য ও বকেয়ার পরিমাণ শিট',
-                '৫. আংশিক পরিশোধিত সদস্য রিপোর্ট',
-                '৬. সদস্যভিত্তিক সর্বমোট জমা লেজার',
-                '৭. ব্যাংকভিত্তিক জমা স্টেটমেন্ট রিপোর্ট',
-                '৮. ভাউচার ও ব্যাংক রসিদওয়ারি রিপোর্ট',
-                '৯. মোবাইল ব্যাংকিং (বিকাশ/নগদ) জমা রিপোর্ট',
-                '১০. বাল্ক ব্যাংক ডিপোজিট রিপোর্ট',
-                '১১. সমিতির নিয়মিত খরচের খাতা রিপোর্ট',
-                '১২. মাসিক ও বার্ষিক তহবিল ব্যালেন্স রিপোর্ট',
-                '১৩. ব্যাংক রিকনসিলেশন স্টেটমেন্ট',
-                '১৪. মাল্টি-চ্যানেল রিমাইন্ডার হিস্ট্রি রিপোর্ট',
-                '১৫. রিমাইন্ডারের কার্যকারিতা রিপোর্ট',
-                '১৬. সিস্টেম অডিট ট্রেইল ও লগ রিপোর্ট'
-              ].map((rep, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    background: 'rgba(30, 41, 59, 0.7)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <span style={{ fontSize: '0.82rem', fontWeight: '700' }}>{rep}</span>
+          // Generate Report Dataset with full active filters
+          const reportDataset = generateReportDataset(selectedReportId, data, {
+            samityId: activeSamityId,
+            fromDate: reportDateFrom,
+            toDate: reportDateTo,
+            memberId: reportMemberFilter,
+            bank: reportBankFilter,
+            paymentMethod: reportMethodFilter,
+            status: reportStatusFilter,
+            searchQuery: reportSearchQuery,
+            sortBy: reportSortBy,
+            sortOrder: reportSortOrder
+          });
+
+          // Pagination
+          const totalRows = reportDataset.rows.length;
+          const totalPages = Math.ceil(totalRows / reportItemsPerPage) || 1;
+          const paginatedRows = reportDataset.rows.slice((reportCurrentPage - 1) * reportItemsPerPage, reportCurrentPage * reportItemsPerPage);
+
+          // Email Report Handler
+          const handleEmailReport = () => {
+            const subject = encodeURIComponent(`${currentSamity.nameBn} - ${activeReportMeta.titleBn}`);
+            const body = encodeURIComponent(
+              `প্রতিবেদন: ${activeReportMeta.titleBn} (${activeReportMeta.titleEn})\n` +
+              `সমিতি: ${currentSamity.nameBn}\n` +
+              `তারিখ: ${new Date().toLocaleDateString('bn-BD')}\n` +
+              `মোট রেকর্ড: ${totalRows} টি\n` +
+              `মোট টাকার পরিমাণ: ৳ ${reportDataset.summary.totalAmount ? reportDataset.summary.totalAmount.toLocaleString() : '—'}\n\n` +
+              `বিস্তারিত প্রতিবেদনের জন্য হিসাবকিতাব ৩৬০ সফটওয়্যারে লগইন করুন।`
+            );
+            window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+          };
+
+          // WhatsApp Report Handler
+          const handleWhatsAppReport = () => {
+            const text = encodeURIComponent(
+              `*${currentSamity.nameBn} - অফিশিয়াল রিপোর্ট*\n` +
+              `📄 *${activeReportMeta.titleBn}*\n` +
+              `📅 তারিখ: ${new Date().toLocaleDateString('bn-BD')}\n` +
+              `📊 মোট রেকর্ড: ${totalRows} টি\n` +
+              `💰 পরিমাণ/ব্যালেন্স: ৳ ${reportDataset.summary.totalAmount ? reportDataset.summary.totalAmount.toLocaleString() : 'N/A'}\n\n` +
+              `_হিসাবকিতাব ৩৬০ অটো-জেনারেটেড অডিট রিপোর্ট_`
+            );
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+          };
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Header Box */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                    <FileSpreadsheet size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: '#fff' }}>
+                      📈 ২৮টি পূর্ণাঙ্গ সমবায় ও আর্থিক অডিট রিপোর্ট সেন্টার
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      সদস্য তালিকা, চাঁদা আদায়, বকেয়া, ব্যাংক ডিপোজিট, নিয়মিত খরচ, তহবিল স্থিতি ও রিমাইন্ডার অডিট
+                    </p>
+                  </div>
+                </div>
+
+                {/* 6 Comprehensive Export Buttons */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {/* Excel Export */}
                   <button
                     onClick={() => {
-                      showToast?.(`"${rep}" জেনারেট হচ্ছে...`, 'info');
+                      exportReportToExcel(XLSX, activeReportMeta.titleBn, reportDataset.columns, reportDataset.rows);
+                      showToast?.(`"${activeReportMeta.titleBn}" এক্সেল ফাইলে ডাউনলোড হয়েছে`, 'success');
                     }}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: 'none',
-                      color: '#fff',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.72rem',
-                      cursor: 'pointer'
-                    }}
+                    title="এক্সেল শিট (.xlsx) ডাউনলোড"
+                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    এক্সপোর্ট
+                    <FileSpreadsheet size={13} />
+                    <span>Excel</span>
+                  </button>
+
+                  {/* CSV Export */}
+                  <button
+                    onClick={() => {
+                      exportReportToCsv(activeReportMeta.titleBn, reportDataset.columns, reportDataset.rows);
+                      showToast?.(`"${activeReportMeta.titleBn}" সিএসভি ফাইলে ডাউনলোড হয়েছে`, 'success');
+                    }}
+                    title="সিএসভি ফাইল (.csv) ডাউনলোড"
+                    style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Download size={13} />
+                    <span>CSV</span>
+                  </button>
+
+                  {/* Print / PDF Export */}
+                  <button
+                    onClick={() => window.print()}
+                    title="প্রিন্ট বা পিডিএফ হিসেবে সংরক্ষণ করুন"
+                    style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Printer size={13} />
+                    <span>Print / PDF</span>
+                  </button>
+
+                  {/* Email Report */}
+                  <button
+                    onClick={handleEmailReport}
+                    title="ইমেইলে রিপোর্ট পাঠান"
+                    style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Mail size={13} />
+                    <span>Email</span>
+                  </button>
+
+                  {/* WhatsApp Report */}
+                  <button
+                    onClick={handleWhatsAppReport}
+                    title="হোয়াটসঅ্যাপে রিপোর্ট পাঠান"
+                    style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', border: '1px solid rgba(37, 211, 102, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Share2 size={13} />
+                    <span>WhatsApp</span>
                   </button>
                 </div>
-              ))}
+              </div>
+
+              {/* 28 Reports Dropdown & Selector Bar */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px 18px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: '280px' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                    রিপোর্ট নির্বাচন করুন (Select From 28 Official Reports):
+                  </label>
+                  <select
+                    value={selectedReportId}
+                    onChange={(e) => {
+                      setSelectedReportId(e.target.value);
+                      setReportCurrentPage(1);
+                    }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1.5px solid #10b981', color: '#fff', fontSize: '0.84rem', fontWeight: '700' }}
+                  >
+                    {ALL_28_REPORTS_LIST.map(rep => (
+                      <option key={rep.id} value={rep.id}>
+                        {rep.no}. {rep.titleBn} ({rep.titleEn})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>নির্বাচিত ক্যাটাগরি:</div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#38bdf8', textTransform: 'uppercase' }}>{activeReportMeta.category}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Universal Filter Toolbar (All Required Filters) */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px 18px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* Search */}
+                <div style={{ flex: 1, minWidth: '170px', position: 'relative' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '9px', color: '#94a3b8' }} />
+                  <input
+                    type="text"
+                    placeholder="রিপোর্টে দ্রুত খুঁজুন..."
+                    value={reportSearchQuery}
+                    onChange={(e) => { setReportSearchQuery(e.target.value); setReportCurrentPage(1); }}
+                    style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.76rem' }}
+                  />
+                </div>
+
+                {/* Date From */}
+                <div>
+                  <input
+                    type="date"
+                    title="শুরুর তারিখ"
+                    value={reportDateFrom}
+                    onChange={(e) => { setReportDateFrom(e.target.value); setReportCurrentPage(1); }}
+                    style={{ padding: '6px 8px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.76rem' }}
+                  />
+                </div>
+
+                {/* Date To */}
+                <div>
+                  <input
+                    type="date"
+                    title="শেষ তারিখ"
+                    value={reportDateTo}
+                    onChange={(e) => { setReportDateTo(e.target.value); setReportCurrentPage(1); }}
+                    style={{ padding: '6px 8px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.76rem' }}
+                  />
+                </div>
+
+                {/* Member Filter */}
+                <select
+                  value={reportMemberFilter}
+                  onChange={(e) => { setReportMemberFilter(e.target.value); setReportCurrentPage(1); }}
+                  style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.76rem' }}
+                >
+                  <option value="all">সকল সদস্য (All Members)</option>
+                  {(data.members || []).filter(m => m.samityId === activeSamityId).map(m => (
+                    <option key={m.id} value={m.id}>{m.nameBn || m.nameEn} ({m.memberCode || m.id})</option>
+                  ))}
+                </select>
+
+                {/* Payment Method Filter */}
+                <select
+                  value={reportMethodFilter}
+                  onChange={(e) => { setReportMethodFilter(e.target.value); setReportCurrentPage(1); }}
+                  style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.76rem' }}
+                >
+                  <option value="all">সকল পেমেন্ট মাধ্যম</option>
+                  <option value="Cash">ক্যাশ (Cash)</option>
+                  <option value="Bank">ব্যাংক ডিপোজিট (Bank)</option>
+                  <option value="bKash">বিকাশ (bKash)</option>
+                  <option value="Nagad">নগদ (Nagad)</option>
+                  <option value="Rocket">রকেট (Rocket)</option>
+                </select>
+
+                {/* Status Filter */}
+                <select
+                  value={reportStatusFilter}
+                  onChange={(e) => { setReportStatusFilter(e.target.value); setReportCurrentPage(1); }}
+                  style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.76rem' }}
+                >
+                  <option value="all">সকল স্ট্যাটাস</option>
+                  <option value="Active">সক্রিয় (Active)</option>
+                  <option value="Inactive">নিষ্ক্রিয় (Inactive)</option>
+                  <option value="approved">অনুমোদিত (Approved)</option>
+                  <option value="pending">অপেক্ষমাণ (Pending)</option>
+                </select>
+
+                {(reportSearchQuery || reportDateFrom || reportDateTo || reportMemberFilter !== 'all' || reportMethodFilter !== 'all' || reportStatusFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setReportSearchQuery('');
+                      setReportDateFrom('');
+                      setReportDateTo('');
+                      setReportMemberFilter('all');
+                      setReportMethodFilter('all');
+                      setReportStatusFilter('all');
+                      setReportCurrentPage(1);
+                    }}
+                    style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#94a3b8', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer' }}
+                  >
+                    ফিল্টার রিসেট
+                  </button>
+                )}
+              </div>
+
+              {/* Report Live Printable Presentation Area */}
+              <div
+                id="samity-active-report-render-area"
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '14px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Official Letterhead Header for Print / Display */}
+                <div style={{ padding: '16px 20px', background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#38bdf8' }}>
+                      {activeReportMeta.no}. {activeReportMeta.titleBn}
+                    </h4>
+                    <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                      {currentSamity.nameBn} • {activeReportMeta.desc}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: '0.72rem', color: '#64748b' }}>
+                    <div>মোট ফলাফল: <strong style={{ color: '#10b981' }}>{totalRows}</strong> টি রেকর্ড</div>
+                    {reportDataset.summary.totalAmount > 0 && (
+                      <div>মোট টাকার পরিমাণ: <strong style={{ color: '#ef4444' }}>৳ {reportDataset.summary.totalAmount.toLocaleString()}</strong></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dynamic Table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(15, 23, 42, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', width: '35px', fontWeight: '800' }}>#</th>
+                        {reportDataset.columns.map(col => (
+                          <th key={col.key} style={{ padding: '10px 12px', textAlign: col.align || 'left', fontWeight: '800' }}>
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={reportDataset.columns.length + 1} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            নির্বাচিত ফিল্টার অনুযায়ী কোনো তথ্য পাওয়া যায়নি।
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedRows.map((row, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', color: '#64748b' }}>
+                              {(reportCurrentPage - 1) * reportItemsPerPage + idx + 1}
+                            </td>
+                            {reportDataset.columns.map(col => {
+                              const val = row[col.key];
+                              const isAmount = col.align === 'right' && typeof val === 'number';
+                              return (
+                                <td key={col.key} style={{ padding: '8px 12px', textAlign: col.align || 'left' }}>
+                                  {isAmount ? (
+                                    <strong style={{ color: '#10b981' }}>৳ {val.toLocaleString()}</strong>
+                                  ) : (
+                                    <span>{val ?? '—'}</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div style={{ padding: '12px 18px', background: 'rgba(15, 23, 42, 0.8)', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.74rem' }}>
+                  <div style={{ color: '#94a3b8' }}>
+                    পৃষ্ঠা <strong style={{ color: '#fff' }}>{reportCurrentPage}</strong> / <strong>{totalPages}</strong> (মোট {totalRows} টি এন্ট্রি)
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <select
+                      value={reportItemsPerPage}
+                      onChange={(e) => { setReportItemsPerPage(Number(e.target.value)); setReportCurrentPage(1); }}
+                      style={{ padding: '4px 8px', borderRadius: '4px', background: '#090d16', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.72rem' }}
+                    >
+                      <option value={10}>১০টি করে</option>
+                      <option value={15}>১৫টি করে</option>
+                      <option value={25}>২৫টি করে</option>
+                      <option value={50}>৫০টি করে</option>
+                    </select>
+
+                    <button
+                      disabled={reportCurrentPage <= 1}
+                      onClick={() => setReportCurrentPage(prev => Math.max(1, prev - 1))}
+                      style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: '4px', cursor: reportCurrentPage <= 1 ? 'not-allowed' : 'pointer', opacity: reportCurrentPage <= 1 ? 0.4 : 1 }}
+                    >
+                      পূর্ববর্তী
+                    </button>
+
+                    <button
+                      disabled={reportCurrentPage >= totalPages}
+                      onClick={() => setReportCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: '4px', cursor: reportCurrentPage >= totalPages ? 'not-allowed' : 'pointer', opacity: reportCurrentPage >= totalPages ? 0.4 : 1 }}
+                    >
+                      পরবর্তী
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 13: SQL SCHEMA MIGRATION */}
         {activeTab === 'sql_schema' && (
@@ -13538,7 +14669,7 @@ export const SamityManagementHub = ({ onClose }) => {
       )}
 
       {/* ==================================================================== */}
-      {/* 6. MODAL: EXPENSE ENTRY */}
+      {/* 6. MODAL: EXPENSE ENTRY & EDIT (ALL 16 SPECIFICATION FIELDS) */}
       {/* ==================================================================== */}
       {isExpenseModalOpen && (
         <div
@@ -13560,16 +14691,24 @@ export const SamityManagementHub = ({ onClose }) => {
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '16px',
               width: '100%',
-              maxWidth: '500px',
-              padding: '24px'
+              maxWidth: '680px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>
-                💸 সমিতির নতুন খরচ এন্ট্রি
-              </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#fff' }}>
+                  💸 {editingExpense ? 'সমিতির খরচ সম্পাদনা' : 'সমিতির নতুন খরচ ও ভাউচার এন্ট্রি'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: '#94a3b8' }}>
+                  ভাউচার নং: <strong style={{ color: '#f87171' }}>{expenseForm.voucherNo || 'স্বয়ংক্রিয় জেনারেট হবে'}</strong>
+                </p>
+              </div>
               <button
-                onClick={() => setIsExpenseModalOpen(false)}
+                onClick={() => { setIsExpenseModalOpen(false); setEditingExpense(null); }}
                 style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}
               >
                 <X size={20} />
@@ -13577,51 +14716,252 @@ export const SamityManagementHub = ({ onClose }) => {
             </div>
 
             <form onSubmit={handleSaveExpense} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>খরচের শিরোনাম *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="যেমন: অফিস রুম ভাড়া, বিদ্যুৎ বিল"
-                  value={expenseForm.title}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              {/* Row 1: Title & Category */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: '#ef4444', fontWeight: '800', marginBottom: '4px' }}>টাকার পরিমাণ *</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    খরচের শিরোনাম (Expense Title) *
+                  </label>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1.5px solid #ef4444', color: '#ef4444', fontSize: '0.9rem', fontWeight: '900' }}
+                    placeholder="যেমন: চলতি মাসের অফিস রুম ভাড়া"
+                    value={expenseForm.title}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, title: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>খরচের খাত</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    খরচের খাত (Expense Category) *
+                  </label>
                   <select
                     value={expenseForm.category}
                     onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
                   >
-                    <option value="office_rent">অফিস ভাড়া</option>
-                    <option value="electricity_bill">বিদ্যুৎ ও গ্যাস বিল</option>
-                    <option value="event_cost">মিটিং বা বার্ষিক সভা</option>
-                    <option value="charity">ত্রাণ বা অনুদান</option>
-                    <option value="stationery">কাগজপত্র ও স্টেশনারি</option>
-                    <option value="bank_charge">ব্যাংক চার্জ ও ফি</option>
-                    <option value="other">অন্যান্য ব্যয়</option>
+                    {EXPENSE_CATEGORIES.map(cat => (
+                      <option key={cat.value} value={cat.value}>{cat.labelBn}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              {/* Row 2: Amount & Date */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: '#ef4444', fontWeight: '800', marginBottom: '4px' }}>
+                    খরচের পরিমাণ (Expense Amount ৳) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="0"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1.5px solid #ef4444', color: '#ef4444', fontSize: '0.95rem', fontWeight: '900' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    খরচের তারিখ (Expense Date) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={expenseForm.expenseDate}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, expenseDate: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Payment Method & Bank Account */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    পরিশোধের মাধ্যম (Payment Method) *
+                  </label>
+                  <select
+                    value={expenseForm.paymentMethod}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, paymentMethod: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  >
+                    {EXPENSE_PAYMENT_METHODS.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {expenseForm.paymentMethod === 'Bank' ? (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      ব্যাংক হিসাব (Bank Account Paid From)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: ডাচ্-বাংলা ব্যাংক - ১২৩.১২০.৯৮৭৬৫"
+                      value={expenseForm.bankAccount}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, bankAccount: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      বিল / ইনভয়েস নম্বর (Bill/Invoice No)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: BILL-2026-081"
+                      value={expenseForm.billInvoiceNo}
+                      onChange={(e) => setExpenseForm({ ...expenseForm, billInvoiceNo: e.target.value })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Row 4: Paid To & Paid By */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    টাকা গ্রহীতা (Paid To) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="যেমন: বাড়িওয়ালা জনাব আতিকুর রহমান"
+                    value={expenseForm.paidTo}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, paidTo: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    টাকা প্রদানকারী (Paid By / Disbursed By)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="যেমন: কোষাধ্যক্ষ মোঃ তারেক হাসান"
+                    value={expenseForm.paidBy}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, paidBy: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Description & Remarks */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    খরচের বিস্তারিত বর্ণনা (Expense Description)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="খরচ সংক্রান্ত কোনো বিশদ তথ্য থাকলে লিখুন..."
+                    value={expenseForm.description}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    মন্তব্য ও অনুমোদন নোট (Remarks)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="বিশেষ কোনো অনুমোদন নোট বা ভাউচার রিমার্কস..."
+                    value={expenseForm.remarks}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, remarks: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 6: Bill Image Upload & Approval Status */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', alignItems: 'center' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    অনুমোদন স্ট্যাটাস (Approval Status)
+                  </label>
+                  <select
+                    value={expenseForm.approvalStatus}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, approvalStatus: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.82rem' }}
+                  >
+                    <option value="approved">অনুমোদিত (Approved)</option>
+                    <option value="pending">অপেক্ষমাণ (Pending)</option>
+                    <option value="rejected">প্রত্যাখ্যাত (Rejected)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    বিল / ক্যাশ মেমো ছবি (Bill Image Upload)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="expense-bill-upload"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setExpenseForm({ ...expenseForm, billImage: reader.result });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="expense-bill-upload"
+                      style={{
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#38bdf8',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.76rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Upload size={13} />
+                      <span>{expenseForm.billImage ? 'ছবি পরিবর্তন' : 'বিল ছবি যুক্ত করুন'}</span>
+                    </label>
+
+                    {expenseForm.billImage && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <img
+                          src={expenseForm.billImage}
+                          alt="Bill preview"
+                          style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setExpenseForm({ ...expenseForm, billImage: '' })}
+                          style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '14px' }}>
                 <button
                   type="button"
-                  onClick={() => setIsExpenseModalOpen(false)}
+                  onClick={() => { setIsExpenseModalOpen(false); setEditingExpense(null); }}
                   style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 16px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer' }}
                 >
                   বাতিল
@@ -13629,9 +14969,9 @@ export const SamityManagementHub = ({ onClose }) => {
                 <button
                   type="submit"
                   className="btn"
-                  style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer' }}
+                  style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff', border: 'none', padding: '8px 24px', borderRadius: '8px', fontSize: '0.84rem', fontWeight: '800', cursor: 'pointer' }}
                 >
-                  খরচ সংরক্ষণ করুন
+                  {editingExpense ? 'আপডেট সম্পন্ন করুন' : 'খরচ সংরক্ষণ করুন'}
                 </button>
               </div>
             </form>

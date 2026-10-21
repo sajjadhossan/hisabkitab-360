@@ -371,6 +371,8 @@ const DEFAULT_CLEAN_DATA = {
   deposits: [],
   bulkDeposits: [],
   expenses: [],
+  bankStatements: [],
+  reconciliations: [],
   reminders: [],
   subscriptionBills: [],
   waivers: [],
@@ -1337,7 +1339,643 @@ export const getSamityNotifications = (data, activeSamityId) => {
   return notifications;
 };
 
-// Complete Section 32 SQL Migration Schema for PostgreSQL / Supabase
+// ============================================================================
+// EXPENSE / ব্যয় MANAGEMENT MODULE CONSTANTS & SPECIFICATIONS
+// ============================================================================
+export const EXPENSE_CATEGORIES = [
+  { value: 'Office Rent', labelBn: 'অফিস ভাড়া (Office Rent)' },
+  { value: 'Electricity Bill', labelBn: 'বিদ্যুৎ ও ইউটিলিটি বিল (Electricity Bill)' },
+  { value: 'Event Cost', labelBn: 'অনুষ্ঠান বা বার্ষিক সভা খরচ (Event Cost)' },
+  { value: 'Charity', labelBn: 'দান ও জনকল্যাণ (Charity)' },
+  { value: 'Relief', labelBn: 'ত্রাণ বিতরণ ও সাহায্য (Relief)' },
+  { value: 'Meeting Cost', labelBn: 'মিটিং ও আপ্যায়ন খরচ (Meeting Cost)' },
+  { value: 'Stationery', labelBn: 'কাগজপত্র ও স্টেশনারি (Stationery)' },
+  { value: 'Travel', labelBn: 'যাতায়াত ও ভ্রমণ ব্যয় (Travel)' },
+  { value: 'Bank Charge', labelBn: 'ব্যাংক চার্জ ও ফি (Bank Charge)' },
+  { value: 'Other', labelBn: 'অন্যান্য পরিচালনা ব্যয় (Other)' }
+];
+
+export const EXPENSE_PAYMENT_METHODS = ['Cash', 'Bank', 'bKash', 'Nagad', 'Rocket', 'Cheque'];
+
+export const EXPENSE_APPROVAL_STATUSES = [
+  { value: 'approved', labelBn: 'অনুমোদিত (Approved)', color: '#10b981' },
+  { value: 'pending', labelBn: 'অপেক্ষমাণ (Pending)', color: '#f59e0b' },
+  { value: 'rejected', labelBn: 'প্রত্যাখ্যাত (Rejected)', color: '#ef4444' }
+];
+
+export const EXPENSE_SUB_REPORTS = [
+  { id: 'daily', titleBn: '১. দৈনিক খরচ রিপোর্ট (Daily Expense Report)' },
+  { id: 'monthly', titleBn: '২. মাসিক খরচ রিপোর্ট (Monthly Expense Report)' },
+  { id: 'yearly', titleBn: '৩. বার্ষিক খরচ রিপোর্ট (Yearly Expense Report)' },
+  { id: 'category', titleBn: '৪. খাতওয়ারি খরচ রিপোর্ট (Category-wise Expense Report)' },
+  { id: 'event', titleBn: '৫. সদস্য/ইভেন্টভিত্তিক খরচ রিপোর্ট (Member/Event-wise Expense Report)' },
+  { id: 'bank', titleBn: '৬. ব্যাংকভিত্তিক খরচ রিপোর্ট (Bank-wise Expense Report)' },
+  { id: 'cash', titleBn: '৭. নগদ ক্যাশ খরচ রিপোর্ট (Cash-wise Expense Report)' },
+  { id: 'status', titleBn: '৮. অনুমোদিত ও অপেক্ষমাণ রিপোর্ট (Approved & Pending Expense Report)' }
+];
+
+// ============================================================================
+// ALL 28 OFFICIAL SAMITY REPORTS SPECIFICATIONS
+// ============================================================================
+export const ALL_28_REPORTS_LIST = [
+  { id: 'member_list', no: 1, titleBn: 'সাধারণ সদস্য তালিকা রিপোর্ট', titleEn: 'Member List Report', category: 'members', desc: 'সকল নিবন্ধিত সদস্যের পূর্ণ বিবরণ, কোড ও যোগাযোগের তথ্য' },
+  { id: 'active_members', no: 2, titleBn: 'সক্রিয় সদস্য রিপোর্ট', titleEn: 'Active Member Report', category: 'members', desc: 'নিয়মিত চাঁদা প্রদানকারী সক্রিয় সদস্যদের তালিকা ও রেট' },
+  { id: 'inactive_members', no: 3, titleBn: 'নিষ্ক্রিয় সদস্য রিপোর্ট', titleEn: 'Inactive Member Report', category: 'members', desc: 'স্থগিত, নিষ্ক্রিয় বা বকেয়া সদস্যদের তালিকা' },
+  { id: 'paid_members', no: 4, titleBn: 'সম্পূর্ণ পরিশোধিত সদস্য রিপোর্ট', titleEn: 'Paid Member Report', category: 'collections', desc: 'চলতি মাসে কোনো বকেয়া নেই এমন শতভাগ পরিশোধিত সদস্য' },
+  { id: 'unpaid_members', no: 5, titleBn: 'অপরিশোধিত সদস্য রিপোর্ট', titleEn: 'Unpaid Member Report', category: 'collections', desc: 'চলতি মাসে এখনো চাঁদা জমা দেননি এমন সদস্যের তালিকা' },
+  { id: 'partially_paid_members', no: 6, titleBn: 'আংশিক পরিশোধিত সদস্য রিপোর্ট', titleEn: 'Partially Paid Member Report', category: 'collections', desc: 'চাঁদা আংশিক পরিশোধ করেছেন কিন্তু কিছু বকেয়া রয়েছে' },
+  { id: 'member_wise_deposit', no: 7, titleBn: 'সদস্যভিত্তিক জমা লেজার রিপোর্ট', titleEn: 'Member-wise Deposit Report', category: 'deposits', desc: 'প্রত্যেক সদস্যের সর্বমোট জমাকৃত অর্থ ও ভাউচার বিবরণ' },
+  { id: 'member_wise_due', no: 8, titleBn: 'সদস্যভিত্তিক মোট বকেয়া রিপোর্ট', titleEn: 'Member-wise Due Report', category: 'collections', desc: 'প্রত্যেক সদস্যের মোট প্রদেয়, জমাকৃত ও অবশিষ্ট বকেয়া' },
+  { id: 'month_wise_collection', no: 9, titleBn: 'মাসিক চাঁদা আদায় রিপোর্ট', titleEn: 'Month-wise Collection Report', category: 'collections', desc: '১২ মাসের মাসওয়ারি চাঁদা আদায়ের তুলনামূলক চিত্র' },
+  { id: 'year_wise_collection', no: 10, titleBn: 'বার্ষিক চাঁদা আদায় রিপোর্ট', titleEn: 'Year-wise Collection Report', category: 'collections', desc: 'বছরভিত্তিক সর্বমোট আদায় ও প্রবৃদ্ধির চিত্র' },
+  { id: 'daily_collection', no: 11, titleBn: 'দৈনিক চাঁদা আদায় রিপোর্ট', titleEn: 'Daily Collection Report', category: 'collections', desc: 'নির্দিষ্ট তারিখ অনুযায়ী দৈনিক জমাকৃত রসিদের তালিকা' },
+  { id: 'bank_wise_deposit', no: 12, titleBn: 'ব্যাংকভিত্তিক জমা রিপোর্ট', titleEn: 'Bank-wise Deposit Report', category: 'deposits', desc: 'ব্যাংক হিসাবওয়ারি সর্বমোট জমার স্টেটমেন্ট' },
+  { id: 'bank_receipt_wise', no: 13, titleBn: 'ব্যাংক রসিদওয়ারি রিপোর্ট', titleEn: 'Bank Receipt-wise Report', category: 'deposits', desc: 'ব্যাংক স্ক্রোল / ডিপোজিট স্লিপ ও ট্রানজ্যাকশন আইডি রিপোর্ট' },
+  { id: 'payment_method_wise', no: 14, titleBn: 'পেমেন্ট মাধ্যমভিত্তিক জমা রিপোর্ট', titleEn: 'Payment Method-wise Report', category: 'deposits', desc: 'ক্যাশ, ব্যাংক, বিকাশ, নগদ ও রকেটের আলাদা হিসাব' },
+  { id: 'bulk_deposit', no: 15, titleBn: 'বাল্ক ব্যাংক ডিপোজিট রিপোর্ট', titleEn: 'Bulk Deposit Report', category: 'deposits', desc: 'একক স্লিপে একাধিক সদস্যের ব্যাংক জমা ভাউচার তালিকা' },
+  { id: 'expense_report', no: 16, titleBn: 'সমিতির সর্বমোট খরচ রিপোর্ট', titleEn: 'Expense Report', category: 'finance', desc: 'সমিতির ফান্ড থেকে ব্যয়িত সকল ভাউচার ও খাতের হিসাব' },
+  { id: 'fund_balance_report', no: 17, titleBn: 'তহবিল ব্যালেন্স ও স্থিতি রিপোর্ট', titleEn: 'Fund Balance Report', category: 'finance', desc: 'মোট জমা, মোট খরচ ও নিট ব্যাংক, ক্যাশ এবং মোবাইল স্থিতি' },
+  { id: 'bank_reconciliation', no: 18, titleBn: 'ব্যাংক রিকনসিলেশন রিপোর্ট', titleEn: 'Bank Reconciliation Report', category: 'finance', desc: 'সফটওয়্যার রেকর্ড বনাম ব্যাংক স্টেটমেন্ট মিলকরণ বিবরণ' },
+  { id: 'reminder_report', no: 19, titleBn: 'সর্বমোট তাগাদা ও রিমাইন্ডার রিপোর্ট', titleEn: 'Reminder Report', category: 'reminders', desc: 'সকল মাধ্যমে প্রেরিত তাগাদা বার্তার পূর্ণ ইতিহাস' },
+  { id: 'whatsapp_reminder', no: 20, titleBn: 'হোয়াটসঅ্যাপ তাগাদা রিপোর্ট', titleEn: 'WhatsApp Reminder Report', category: 'reminders', desc: 'হোয়াটসঅ্যাপ (ক্লিক-টু-সেন্ড ও ক্লাউড এপিআই) মেসেজ রিপোর্ট' },
+  { id: 'sms_reminder', no: 21, titleBn: 'এসএমএস তাগাদা রিপোর্ট', titleEn: 'SMS Reminder Report', category: 'reminders', desc: 'এসএমএস গেটওয়ের মাধ্যমে প্রেরিত বার্তার ডেলিভারি ও খরচ' },
+  { id: 'telegram_reminder', no: 22, titleBn: 'টেলিগ্রাম তাগাদা রিপোর্ট', titleEn: 'Telegram Reminder Report', category: 'reminders', desc: 'টেলিগ্রাম বট ও গ্রুপে পাঠানো তাগাদার স্টেটমেন্ট' },
+  { id: 'facebook_reminder', no: 23, titleBn: 'ফেসবুক ও মেসেঞ্জার তাগাদা রিপোর্ট', titleEn: 'Facebook Reminder Report', category: 'reminders', desc: 'মেসেঞ্জার ইনবক্সে পাঠানো তাগাদার ট্র্যাকিং লগ' },
+  { id: 'reminder_effectiveness', no: 24, titleBn: 'তাগাদার কার্যকারিতা ও কনভার্শন রিপোর্ট', titleEn: 'Reminder Effectiveness Report', category: 'reminders', desc: 'তাগাদা পাঠানোর পর চাঁদা পরিশোধের হার ও কার্যকারিতা' },
+  { id: 'audit_trail', no: 25, titleBn: 'অডিট ট্রেইল ও সিকিউরিটি লগ রিপোর্ট', titleEn: 'Audit Trail Report', category: 'audit', desc: 'ব্যবহারকারীর সকল এন্ট্রি, এডিট, ডিলিট ও পরিবর্তনের অকাট্য লগ' },
+  { id: 'annual_financial', no: 26, titleBn: 'বার্ষিক পূর্ণাঙ্গ আর্থিক বিবরণী', titleEn: 'Annual Financial Report', category: 'finance', desc: 'সমগ্র অর্থবছরের আয়-ব্যয়, উদ্বৃত্ত/ঘাটতি ও নিট ব্যালেন্স শিট' },
+  { id: 'samity_wise', no: 27, titleBn: 'সমিতিওয়ারি সারসংক্ষেপ রিপোর্ট', titleEn: 'Samity-wise Report', category: 'finance', desc: 'একাধিক সমিতির মধ্যে সদস্য সংখ্যা, ফান্ড ও পারফরম্যান্স তুলনা' },
+  { id: 'custom_date_range', no: 28, titleBn: 'কাস্টম তারিখ রেঞ্জ সমন্বিত রিপোর্ট', titleEn: 'Custom Date Range Report', category: 'finance', desc: 'ব্যবহারকারীর নির্ধারিত যেকোনো দুটি তারিখের মধ্যবর্তী সামগ্রিক খতিয়ান' }
+];
+
+// Helper to auto-reconcile bank statement rows against software deposits
+export const reconcileBankStatement = (deposits = [], statementRows = []) => {
+  const depositBankRecords = deposits.filter(d => (d.paymentMethod === 'Bank' || d.bankReceiptNo) && d.approvalStatus !== 'rejected');
+
+  const matched = [];
+  const unmatchedStatement = [];
+  const pendingDeposits = [];
+
+  const matchedDepositIds = new Set();
+
+  statementRows.forEach(stRow => {
+    const stAmount = Number(stRow.credit || stRow.amount || 0);
+    const stDate = stRow.date || '';
+    const stRef = String(stRow.reference || stRow.chequeNo || '').toLowerCase().trim();
+
+    // Find match in software deposits
+    const match = depositBankRecords.find(d => {
+      if (matchedDepositIds.has(d.id)) return false;
+      const dAmount = Number(d.amount || 0);
+      const isAmountMatch = Math.abs(dAmount - stAmount) < 0.01;
+      const isDateMatch = d.depositDate === stDate;
+      const isRefMatch = stRef && (
+        String(d.bankReceiptNo || '').toLowerCase().includes(stRef) ||
+        String(d.transactionId || '').toLowerCase().includes(stRef) ||
+        String(d.voucherNo || '').toLowerCase().includes(stRef)
+      );
+
+      return isAmountMatch && (isRefMatch || isDateMatch);
+    });
+
+    if (match) {
+      matchedDepositIds.add(match.id);
+      matched.push({
+        statementRow: stRow,
+        depositRecord: match,
+        status: 'matched',
+        matchType: 'Exact Match'
+      });
+    } else {
+      unmatchedStatement.push({
+        statementRow: stRow,
+        status: 'unmatched',
+        reason: 'সফটওয়্যারে এই পরিমাণের কোনো ব্যাংক জমা এন্ট্রি পাওয়া যায়নি'
+      });
+    }
+  });
+
+  // Deposits in software not matched to statement
+  depositBankRecords.forEach(d => {
+    if (!matchedDepositIds.has(d.id)) {
+      pendingDeposits.push({
+        depositRecord: d,
+        status: 'pending',
+        reason: 'ব্যাংক স্টেটমেন্টে এখনো ক্রেডিট এন্ট্রি হিসেবে আসেনি (In-transit)'
+      });
+    }
+  });
+
+  const totalStatementCredit = statementRows.reduce((sum, r) => sum + Number(r.credit || r.amount || 0), 0);
+  const totalSoftwareBankDeposit = depositBankRecords.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const discrepancy = totalSoftwareBankDeposit - totalStatementCredit;
+
+  return {
+    matched,
+    unmatchedStatement,
+    pendingDeposits,
+    summary: {
+      totalStatementCredit,
+      totalSoftwareBankDeposit,
+      discrepancy,
+      matchedCount: matched.length,
+      unmatchedCount: unmatchedStatement.length,
+      pendingCount: pendingDeposits.length
+    }
+  };
+};
+
+// ============================================================================
+// COMPREHENSIVE DATASET GENERATOR FOR ALL 28 REPORTS
+// ============================================================================
+export const generateReportDataset = (reportId, data, filters = {}) => {
+  const {
+    samityId,
+    fromDate,
+    toDate,
+    memberId = 'all',
+    bank = 'all',
+    paymentMethod = 'all',
+    status = 'all',
+    searchQuery = '',
+    sortBy = 'date',
+    sortOrder = 'desc'
+  } = filters;
+
+  const currentSamity = data.samities.find(s => s.id === samityId) || data.samities[0] || {};
+  const members = data.members.filter(m => m.samityId === samityId);
+  const deposits = data.deposits.filter(d => d.samityId === samityId);
+  const expenses = (data.expenses || []).filter(e => e.samityId === samityId);
+  const reminders = (data.reminders || []).filter(r => r.samityId === samityId);
+  const auditLogs = (data.auditLogs || []).filter(a => !a.samityId || a.samityId === samityId);
+
+  // Helper date filter
+  const isDateInRange = (dateStr) => {
+    if (!dateStr) return true;
+    if (fromDate && dateStr < fromDate) return false;
+    if (toDate && dateStr > toDate) return false;
+    return true;
+  };
+
+  const meta = ALL_28_REPORTS_LIST.find(r => r.id === reportId) || ALL_28_REPORTS_LIST[0];
+  let columns = [];
+  let rows = [];
+  let summary = { totalCount: 0, totalAmount: 0 };
+
+  switch (reportId) {
+    case 'member_list':
+    case 'active_members':
+    case 'inactive_members': {
+      columns = [
+        { key: 'memberCode', label: 'সদস্য কোড', align: 'left' },
+        { key: 'nameBn', label: 'সদস্যের নাম', align: 'left' },
+        { key: 'mobile', label: 'মোবাইল নম্বর', align: 'left' },
+        { key: 'whatsappNumber', label: 'হোয়াটসঅ্যাপ', align: 'left' },
+        { key: 'membershipType', label: 'সদস্যতার ধরণ', align: 'center' },
+        { key: 'monthlyRate', label: 'চাঁদার হার (৳)', align: 'right' },
+        { key: 'status', label: 'স্ট্যাটাস', align: 'center' },
+        { key: 'joinDate', label: 'যোগদানের তারিখ', align: 'center' }
+      ];
+
+      let list = members.filter(m => {
+        if (reportId === 'active_members' && m.status !== 'Active') return false;
+        if (reportId === 'inactive_members' && m.status === 'Active') return false;
+        if (status !== 'all' && m.status !== status) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return (m.nameBn?.toLowerCase().includes(q) || m.nameEn?.toLowerCase().includes(q) || m.memberCode?.toLowerCase().includes(q) || m.mobile?.includes(q));
+        }
+        return true;
+      });
+
+      rows = list.map(m => ({
+        memberCode: m.memberCode || m.id,
+        nameBn: m.nameBn || m.nameEn,
+        mobile: m.mobile || '—',
+        whatsappNumber: m.whatsappNumber || m.mobile || '—',
+        membershipType: m.membershipType || 'General Member',
+        monthlyRate: (m.customSubscription || currentSamity.monthlySubscription || 500).toLocaleString(),
+        status: m.status || 'Active',
+        joinDate: m.membershipStartDate || '—'
+      }));
+      summary.totalCount = rows.length;
+      break;
+    }
+
+    case 'paid_members':
+    case 'unpaid_members':
+    case 'partially_paid_members':
+    case 'member_wise_due': {
+      columns = [
+        { key: 'memberCode', label: 'সদস্য কোড', align: 'left' },
+        { key: 'nameBn', label: 'সদস্যের নাম', align: 'left' },
+        { key: 'mobile', label: 'মোবাইল', align: 'left' },
+        { key: 'expected', label: 'প্রদেয় চাঁদা (৳)', align: 'right' },
+        { key: 'paid', label: 'পরিশোধিত (৳)', align: 'right' },
+        { key: 'due', label: 'বকেয়া (৳)', align: 'right' },
+        { key: 'status', label: 'অবস্থা', align: 'center' }
+      ];
+
+      const now = new Date();
+      const currentMonth = now.toLocaleString('en-US', { month: 'long' });
+      const currentYear = now.getFullYear();
+
+      rows = members.map(m => {
+        const rate = Number(m.customSubscription || currentSamity.monthlySubscription || 500);
+        const memberDeposits = deposits.filter(d => d.memberId === m.id && d.approvalStatus !== 'rejected');
+        const totalPaid = memberDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+        const currentMonthPaid = memberDeposits.filter(d => d.paymentMonth === currentMonth && Number(d.paymentYear) === currentYear).reduce((sum, d) => sum + Number(d.amount || 0), 0);
+        const netDue = Math.max(0, rate - currentMonthPaid);
+
+        let st = 'পরিশোধিত';
+        if (currentMonthPaid === 0) st = 'অপরিশোধিত';
+        else if (currentMonthPaid < rate) st = 'আংশিক পরিশোধিত';
+
+        return {
+          memberCode: m.memberCode || m.id,
+          nameBn: m.nameBn || m.nameEn,
+          mobile: m.mobile,
+          expected: rate,
+          paid: currentMonthPaid,
+          due: netDue,
+          status: st
+        };
+      }).filter(r => {
+        if (reportId === 'paid_members' && r.due > 0) return false;
+        if (reportId === 'unpaid_members' && r.paid > 0) return false;
+        if (reportId === 'partially_paid_members' && (r.paid === 0 || r.due === 0)) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return r.nameBn?.toLowerCase().includes(q) || r.memberCode?.toLowerCase().includes(q) || r.mobile?.includes(q);
+        }
+        return true;
+      });
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = rows.reduce((s, r) => s + r.due, 0);
+      break;
+    }
+
+    case 'member_wise_deposit':
+    case 'daily_collection':
+    case 'bank_wise_deposit':
+    case 'bank_receipt_wise':
+    case 'payment_method_wise':
+    case 'bulk_deposit':
+    case 'custom_date_range': {
+      columns = [
+        { key: 'voucherNo', label: 'ভাউচার / রসিদ নং', align: 'left' },
+        { key: 'date', label: 'তারিখ', align: 'center' },
+        { key: 'member', label: 'সদস্যের নাম', align: 'left' },
+        { key: 'method', label: 'পেমেন্ট মাধ্যম', align: 'center' },
+        { key: 'bankRef', label: 'ব্যাংক / রসিদ রেফারেন্স', align: 'left' },
+        { key: 'amount', label: 'পরিমাণ (৳)', align: 'right' },
+        { key: 'approvalStatus', label: 'অনুমোদন', align: 'center' }
+      ];
+
+      let list = deposits.filter(d => {
+        if (!isDateInRange(d.depositDate)) return false;
+        if (memberId !== 'all' && d.memberId !== memberId) return false;
+        if (paymentMethod !== 'all' && d.paymentMethod !== paymentMethod) return false;
+        if (status !== 'all' && d.approvalStatus !== status) return false;
+        if (bank !== 'all' && d.bankName !== bank) return false;
+        if (reportId === 'bank_wise_deposit' && d.paymentMethod !== 'Bank') return false;
+        if (reportId === 'bank_receipt_wise' && !d.bankReceiptNo) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return (d.voucherNo?.toLowerCase().includes(q) || d.memberName?.toLowerCase().includes(q) || d.bankReceiptNo?.toLowerCase().includes(q));
+        }
+        return true;
+      });
+
+      rows = list.map(d => ({
+        voucherNo: d.voucherNo || d.id,
+        date: d.depositDate,
+        member: d.memberName || d.memberId,
+        method: d.paymentMethod,
+        bankRef: d.paymentMethod === 'Bank' ? `${d.bankName || 'ব্যাংক'} (স্লিপ: ${d.bankReceiptNo || '—'})` : d.transactionId || 'নগদ',
+        amount: Number(d.amount || 0),
+        approvalStatus: d.approvalStatus || 'approved'
+      }));
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+      break;
+    }
+
+    case 'month_wise_collection': {
+      columns = [
+        { key: 'month', label: 'মাস', align: 'left' },
+        { key: 'year', label: 'বছর', align: 'center' },
+        { key: 'depositsCount', label: 'মোট জমার সংখ্যা', align: 'center' },
+        { key: 'totalCollected', label: 'সর্বমোট আদায় (৳)', align: 'right' }
+      ];
+
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const targetYear = new Date().getFullYear();
+
+      rows = months.map(m => {
+        const monthDeposits = deposits.filter(d => d.paymentMonth === m && Number(d.paymentYear) === targetYear && d.approvalStatus !== 'rejected');
+        const sum = monthDeposits.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+        return {
+          month: m,
+          year: targetYear,
+          depositsCount: monthDeposits.length,
+          totalCollected: sum
+        };
+      });
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = rows.reduce((s, r) => s + r.totalCollected, 0);
+      break;
+    }
+
+    case 'year_wise_collection': {
+      columns = [
+        { key: 'year', label: 'অর্থবছর', align: 'center' },
+        { key: 'depositsCount', label: 'মোট জমা সংখ্যা', align: 'center' },
+        { key: 'totalCollected', label: 'সর্বমোট আদায় (৳)', align: 'right' }
+      ];
+
+      const currentY = new Date().getFullYear();
+      const years = [currentY - 2, currentY - 1, currentY, currentY + 1];
+
+      rows = years.map(y => {
+        const yDeposits = deposits.filter(d => Number(d.paymentYear) === y && d.approvalStatus !== 'rejected');
+        const sum = yDeposits.reduce((acc, d) => acc + Number(d.amount || 0), 0);
+        return {
+          year: y,
+          depositsCount: yDeposits.length,
+          totalCollected: sum
+        };
+      });
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = rows.reduce((s, r) => s + r.totalCollected, 0);
+      break;
+    }
+
+    case 'expense_report': {
+      columns = [
+        { key: 'voucherNo', label: 'ভাউচার নং', align: 'left' },
+        { key: 'expenseDate', label: 'তারিখ', align: 'center' },
+        { key: 'title', label: 'খরচের বিবরণ ও শিরোনাম', align: 'left' },
+        { key: 'category', label: 'খাত', align: 'left' },
+        { key: 'paymentMethod', label: 'পেমেন্ট মাধ্যম', align: 'center' },
+        { key: 'paidTo', label: 'গ্রহীতা (Paid To)', align: 'left' },
+        { key: 'amount', label: 'পরিমাণ (৳)', align: 'right' },
+        { key: 'approvalStatus', label: 'অনুমোদন', align: 'center' }
+      ];
+
+      let list = expenses.filter(e => {
+        if (!isDateInRange(e.expenseDate)) return false;
+        if (paymentMethod !== 'all' && e.paymentMethod !== paymentMethod) return false;
+        if (status !== 'all' && e.approvalStatus !== status) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return (e.title?.toLowerCase().includes(q) || e.voucherNo?.toLowerCase().includes(q) || e.category?.toLowerCase().includes(q));
+        }
+        return true;
+      });
+
+      rows = list.map(e => ({
+        voucherNo: e.voucherNo || e.id,
+        expenseDate: e.expenseDate,
+        title: e.title,
+        category: e.category,
+        paymentMethod: e.paymentMethod || 'Cash',
+        paidTo: e.paidTo || '—',
+        amount: Number(e.amount || 0),
+        approvalStatus: e.approvalStatus || 'approved'
+      }));
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+      break;
+    }
+
+    case 'fund_balance_report':
+    case 'annual_financial': {
+      columns = [
+        { key: 'head', label: 'হিসাব খাত ও বিবরণ', align: 'left' },
+        { key: 'bankAmt', label: 'ব্যাংক হিসাব (৳)', align: 'right' },
+        { key: 'cashAmt', label: 'নগদ ক্যাশ (৳)', align: 'right' },
+        { key: 'mobileAmt', label: 'মোবাইল ব্যাংকিং (৳)', align: 'right' },
+        { key: 'totalAmt', label: 'মোট পরিমাণ (৳)', align: 'right' }
+      ];
+
+      const approvedDeposits = deposits.filter(d => d.approvalStatus !== 'rejected');
+      const approvedExpenses = expenses.filter(e => e.approvalStatus !== 'rejected');
+
+      const bankDep = approvedDeposits.filter(d => d.paymentMethod === 'Bank').reduce((s, d) => s + Number(d.amount || 0), 0);
+      const cashDep = approvedDeposits.filter(d => d.paymentMethod === 'Cash').reduce((s, d) => s + Number(d.amount || 0), 0);
+      const mobDep = approvedDeposits.filter(d => ['bKash', 'Nagad', 'Rocket', 'Upay'].includes(d.paymentMethod)).reduce((s, d) => s + Number(d.amount || 0), 0);
+      const totalDep = bankDep + cashDep + mobDep;
+
+      const bankExp = approvedExpenses.filter(e => e.paymentMethod === 'Bank').reduce((s, e) => s + Number(e.amount || 0), 0);
+      const cashExp = approvedExpenses.filter(e => e.paymentMethod === 'Cash').reduce((s, e) => s + Number(e.amount || 0), 0);
+      const mobExp = approvedExpenses.filter(e => ['bKash', 'Nagad', 'Rocket', 'Upay'].includes(e.paymentMethod)).reduce((s, e) => s + Number(e.amount || 0), 0);
+      const totalExp = bankExp + cashExp + mobExp;
+
+      const availBank = bankDep - bankExp;
+      const availCash = cashDep - cashExp;
+      const availMob = mobDep - mobExp;
+      const netFund = totalDep - totalExp;
+
+      rows = [
+        { head: '১. সর্বমোট অনুমোদিত চাঁদা ও জমা (Income)', bankAmt: bankDep, cashAmt: cashDep, mobileAmt: mobDep, totalAmt: totalDep },
+        { head: '২. সর্বমোট অনুমোদিত ব্যয় ও খরচ (Expenditure)', bankAmt: bankExp, cashAmt: cashExp, mobileAmt: mobExp, totalAmt: totalExp },
+        { head: '৩. বিদ্যমান কার্যকরী উদ্বৃত্ত / নিট ফান্ড (Available Balance)', bankAmt: availBank, cashAmt: availCash, mobileAmt: availMob, totalAmt: netFund }
+      ];
+
+      summary.totalCount = 3;
+      summary.totalAmount = netFund;
+      break;
+    }
+
+    case 'bank_reconciliation': {
+      columns = [
+        { key: 'type', label: 'বিবরণ', align: 'left' },
+        { key: 'reference', label: 'রেফারেন্স / ভাউচার', align: 'left' },
+        { key: 'date', label: 'তারিখ', align: 'center' },
+        { key: 'status', label: 'মিলকরণ স্ট্যাটাস', align: 'center' },
+        { key: 'amount', label: 'টাকার পরিমাণ (৳)', align: 'right' }
+      ];
+
+      const recon = reconcileBankStatement(deposits, data.bankStatements || []);
+      rows = [
+        ...recon.matched.map(m => ({
+          type: 'সফটওয়্যার ও ব্যাংক উভয় স্থানে মিলেছে',
+          reference: `ভাউচার: ${m.depositRecord.voucherNo} | ব্যাংক স্লিপ: ${m.depositRecord.bankReceiptNo || '—'}`,
+          date: m.depositRecord.depositDate,
+          status: 'Matched (মিলেছে)',
+          amount: Number(m.depositRecord.amount)
+        })),
+        ...recon.pendingDeposits.map(p => ({
+          type: 'সফটওয়্যারে জমা এন্ট্রি আছে কিন্তু স্টেটমেন্টে নেই',
+          reference: `ভাউচার: ${p.depositRecord.voucherNo}`,
+          date: p.depositRecord.depositDate,
+          status: 'Pending (অপেক্ষমাণ)',
+          amount: Number(p.depositRecord.amount)
+        })),
+        ...recon.unmatchedStatement.map(u => ({
+          type: 'ব্যাংক স্টেটমেন্টে ক্রেডিট আছে কিন্তু সফটওয়্যারে নেই',
+          reference: u.statementRow.reference || 'অজ্ঞাত জমা',
+          date: u.statementRow.date || '—',
+          status: 'Unmatched (অমিল)',
+          amount: Number(u.statementRow.credit || u.statementRow.amount)
+        }))
+      ];
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = recon.summary.totalSoftwareBankDeposit;
+      break;
+    }
+
+    case 'reminder_report':
+    case 'whatsapp_reminder':
+    case 'sms_reminder':
+    case 'telegram_reminder':
+    case 'facebook_reminder':
+    case 'reminder_effectiveness': {
+      columns = [
+        { key: 'id', label: 'লগ আইডি', align: 'left' },
+        { key: 'date', label: 'তারিখ ও সময়', align: 'center' },
+        { key: 'member', label: 'সদস্যের নাম', align: 'left' },
+        { key: 'channel', label: 'মাধ্যম', align: 'center' },
+        { key: 'deliveryStatus', label: 'ডেলিভারি স্ট্যাটাস', align: 'center' },
+        { key: 'paymentAfter', label: 'চাঁদা পরিশোধের অবস্থা', align: 'center' }
+      ];
+
+      let list = reminders.filter(r => {
+        if (!isDateInRange(r.reminderDate)) return false;
+        if (reportId === 'whatsapp_reminder' && r.channel !== 'WHATSAPP') return false;
+        if (reportId === 'sms_reminder' && r.channel !== 'SMS') return false;
+        if (reportId === 'telegram_reminder' && r.channel !== 'TELEGRAM') return false;
+        if (reportId === 'facebook_reminder' && !['MESSENGER', 'FACEBOOK'].includes(r.channel)) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return r.memberName?.toLowerCase().includes(q) || r.channel?.toLowerCase().includes(q);
+        }
+        return true;
+      });
+
+      rows = list.map(r => ({
+        id: r.id,
+        date: `${r.reminderDate} ${r.reminderTime || ''}`,
+        member: r.memberName || r.memberId,
+        channel: r.channel,
+        deliveryStatus: r.deliveryStatus || 'Sent',
+        paymentAfter: r.paymentStatusAfter || 'বকেয়া রয়েছে'
+      }));
+
+      summary.totalCount = rows.length;
+      break;
+    }
+
+    case 'audit_trail': {
+      columns = [
+        { key: 'timestamp', label: 'সময়', align: 'center' },
+        { key: 'action', label: 'অ্যাকশন', align: 'center' },
+        { key: 'module', label: 'মডিউল', align: 'center' },
+        { key: 'recordId', label: 'রেকর্ড রেফারেন্স', align: 'left' },
+        { key: 'performedBy', label: 'ব্যবহারকারী', align: 'center' }
+      ];
+
+      rows = auditLogs.map(a => ({
+        timestamp: a.timestamp ? new Date(a.timestamp).toLocaleString('bn-BD') : '—',
+        action: a.action || 'MODIFY',
+        module: a.module || 'SYSTEM',
+        recordId: a.recordId || '—',
+        performedBy: a.performedBy || 'Admin'
+      }));
+
+      summary.totalCount = rows.length;
+      break;
+    }
+
+    case 'samity_wise': {
+      columns = [
+        { key: 'samityName', label: 'সমিতির নাম', align: 'left' },
+        { key: 'regNo', label: 'নিবন্ধন নং', align: 'center' },
+        { key: 'membersCount', label: 'সদস্য সংখ্যা', align: 'center' },
+        { key: 'totalDeposits', label: 'মোট জমা (৳)', align: 'right' },
+        { key: 'totalExpenses', label: 'মোট খরচ (৳)', align: 'right' },
+        { key: 'availableFund', label: 'মোট ফান্ড (৳)', align: 'right' }
+      ];
+
+      rows = data.samities.map(s => {
+        const sM = data.members.filter(m => m.samityId === s.id).length;
+        const sD = data.deposits.filter(d => d.samityId === s.id && d.approvalStatus !== 'rejected').reduce((acc, d) => acc + Number(d.amount || 0), 0);
+        const sE = (data.expenses || []).filter(e => e.samityId === s.id && e.approvalStatus !== 'rejected').reduce((acc, e) => acc + Number(e.amount || 0), 0);
+        return {
+          samityName: s.nameBn || s.nameEn,
+          regNo: s.regNo || '—',
+          membersCount: sM,
+          totalDeposits: sD,
+          totalExpenses: sE,
+          availableFund: sD - sE
+        };
+      });
+
+      summary.totalCount = rows.length;
+      summary.totalAmount = rows.reduce((s, r) => s + r.availableFund, 0);
+      break;
+    }
+
+    default: {
+      columns = [
+        { key: 'col1', label: 'বিবরণ', align: 'left' },
+        { key: 'col2', label: 'তারিখ', align: 'center' },
+        { key: 'col3', label: 'পরিমাণ (৳)', align: 'right' }
+      ];
+      rows = [];
+      summary.totalCount = 0;
+      break;
+    }
+  }
+
+  return {
+    meta,
+    columns,
+    rows,
+    summary,
+    samity: currentSamity
+  };
+};
+
+// Helper for CSV string conversion & download
+export const exportReportToCsv = (reportTitle, columns, rows) => {
+  const headers = columns.map(c => `"${c.label}"`).join(',');
+  const rowStrings = rows.map(r => columns.map(c => `"${String(r[c.key] ?? '').replace(/"/g, '""')}"`).join(','));
+  const csvContent = '\uFEFF' + [headers, ...rowStrings].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${reportTitle.replace(/[^a-zA-Z0-9\u0980-\u09FF]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// Helper for Excel Export using SheetJS
+export const exportReportToExcel = (XLSX, reportTitle, columns, rows) => {
+  if (!XLSX) return;
+  const sheetData = rows.map(r => {
+    const obj = {};
+    columns.forEach(c => {
+      obj[c.label] = r[c.key];
+    });
+    return obj;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(sheetData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Report');
+  XLSX.writeFile(wb, `${reportTitle.replace(/[^a-zA-Z0-9\u0980-\u09FF]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
 export const SAMITY_SQL_MIGRATION_SCHEMA = `-- ============================================================================
 -- HISABKITAB 360 - SAMITY / CLUB / ASSOCIATION COMPLETE DATABASE SCHEMA
 -- Normalized Tables, Foreign Keys, Indexes, Audit Constraints, Multi-Tenant Safe
