@@ -131,7 +131,7 @@ export const SamityManagementHub = ({ onClose }) => {
   const activeCluster = useMemo(() => {
     if (activeTab === 'all_modules') return 'all_modules';
     if (['dashboard', 'samity_setup', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
-    if (['members', 'payment_status', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_dues';
+    if (['members', 'due_mgmt', 'payment_status', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_dues';
     if (['deposits', 'bulk_deposit'].includes(activeTab)) return 'deposits_receipts';
     if (['reminders'].includes(activeTab)) return 'reminders_hub';
     if (['expenses', 'fund_balance', 'approvals', 'reports'].includes(activeTab)) return 'finance_reports';
@@ -369,6 +369,21 @@ export const SamityManagementHub = ({ onClose }) => {
   const [psMemberQuery, setPsMemberQuery] = useState('');
   const [psBankFilter, setPsBankFilter] = useState('all');
   const [psMethodFilter, setPsMethodFilter] = useState('all');
+
+  // Due / বকেয়া Management Module (#7) Specific States
+  const [dueMonth, setDueMonth] = useState(() => new Date().toLocaleString('en-US', { month: 'long' }));
+  const [dueYear, setDueYear] = useState(() => new Date().getFullYear());
+  const [dueSearchQuery, setDueSearchQuery] = useState('');
+  const [dueRangeFilter, setDueRangeFilter] = useState('all'); // 'all' | 'has_due' | 'over_1000' | 'over_3000' | 'paid_after_reminder'
+  const [quickDuePaymentModal, setQuickDuePaymentModal] = useState({
+    open: false,
+    member: null,
+    status: null,
+    amount: '',
+    paymentMethod: 'Bank Counter',
+    bankReceiptNo: '',
+    notes: ''
+  });
 
   // Persist helper
   const updateAndSave = (updater, auditMeta = null) => {
@@ -1949,6 +1964,241 @@ export const SamityManagementHub = ({ onClose }) => {
     showToast?.('পেমেন্ট ফিল্টার রিসেট করা হয়েছে', 'info');
   };
 
+  // --------------------------------------------------------------------------
+  // Due / বকেয়া Management Module (#7) Memos & Handlers
+  // --------------------------------------------------------------------------
+  const dueManagementSummary = useMemo(() => {
+    const samity = currentSamity;
+    const activeMembers = (data.members || []).filter(m => {
+      if (m.samityId && activeSamityId && m.samityId !== activeSamityId) return false;
+      return (m.status || 'Active').toLowerCase() === 'active';
+    });
+
+    let totalSamityDue = 0;
+    let totalCurrentMonthDue = 0;
+    let totalOldDue = 0;
+    let totalAdvancePaid = 0;
+    let dueMembersCount = 0;
+    let paidAfterReminderCount = 0;
+
+    activeMembers.forEach(m => {
+      const st = calculateMemberPaymentStatus(m, samity, data.deposits, dueMonth, dueYear, data.waivers);
+      const memberTotalDue = Number(st.totalCumulativeDue || st.dueAmount || 0);
+      const curDue = Number(st.dueAmount || 0);
+      const oldDue = Number(st.previousMonthsDues || 0);
+      const adv = Number(st.advanceAmount || 0);
+
+      totalSamityDue += memberTotalDue;
+      totalCurrentMonthDue += curDue;
+      totalOldDue += oldDue;
+      totalAdvancePaid += adv;
+      if (memberTotalDue > 0) dueMembersCount++;
+
+      // Check if member paid after receiving reminder
+      const memberReminders = (data.reminders || []).filter(r => r.memberId === m.id);
+      if (memberReminders.length > 0) {
+        const lastRem = memberReminders[0];
+        const remTime = new Date(lastRem.sentAt).getTime();
+        const paidAfter = (data.deposits || []).some(d => {
+          if (d.memberId !== m.id) return false;
+          if ((d.approvalStatus || 'approved').toLowerCase() !== 'approved') return false;
+          const depTime = new Date(d.depositDate || d.date || d.createdAt || 0).getTime();
+          return depTime >= remTime - (24 * 3600 * 1000);
+        });
+        if (paidAfter) paidAfterReminderCount++;
+      }
+    });
+
+    return {
+      totalMembers: activeMembers.length,
+      totalSamityDue,
+      totalCurrentMonthDue,
+      totalOldDue,
+      totalAdvancePaid,
+      dueMembersCount,
+      paidAfterReminderCount
+    };
+  }, [data.members, data.deposits, data.waivers, data.reminders, currentSamity, activeSamityId, dueMonth, dueYear]);
+
+  // Member-wise Due Rows
+  const memberDueRows = useMemo(() => {
+    const samity = currentSamity;
+    const activeMembers = (data.members || []).filter(m => {
+      if (m.samityId && activeSamityId && m.samityId !== activeSamityId) return false;
+      return (m.status || 'Active').toLowerCase() === 'active';
+    });
+
+    return activeMembers.map(m => {
+      const st = calculateMemberPaymentStatus(m, samity, data.deposits, dueMonth, dueYear, data.waivers);
+      const memberReminders = (data.reminders || []).filter(r => r.memberId === m.id);
+      const lastReminder = memberReminders[0] || null;
+
+      let paidAfterReminder = false;
+      let paidAfterReminderDeposit = null;
+      if (lastReminder) {
+        const remTime = new Date(lastReminder.sentAt).getTime();
+        const depositsAfter = (data.deposits || []).filter(d => {
+          if (d.memberId !== m.id) return false;
+          if ((d.approvalStatus || 'approved').toLowerCase() !== 'approved') return false;
+          const depTime = new Date(d.depositDate || d.date || d.createdAt || 0).getTime();
+          return depTime >= remTime - (24 * 3600 * 1000);
+        });
+        if (depositsAfter.length > 0) {
+          paidAfterReminder = true;
+          paidAfterReminderDeposit = depositsAfter[depositsAfter.length - 1];
+        }
+      }
+
+      // Build due months list
+      const dueMonthsList = [];
+      (st.previousMonthsBreakdown || []).forEach(b => {
+        if (b.due > 0) dueMonthsList.push(`${b.month} (৳${b.due})`);
+      });
+      if (st.dueAmount > 0) {
+        dueMonthsList.push(`${st.month} (৳${st.dueAmount})`);
+      }
+
+      return {
+        member: m,
+        status: st,
+        currentDue: Number(st.dueAmount || 0),
+        oldDue: Number(st.previousMonthsDues || 0),
+        lateFee: Number(st.lateFee || 0),
+        totalDue: Number(st.totalCumulativeDue || st.dueAmount || 0),
+        advanceAmount: Number(st.advanceAmount || 0),
+        dueMonthsList,
+        reminderCount: memberReminders.length,
+        lastReminder,
+        paidAfterReminder,
+        paidAfterReminderDeposit
+      };
+    }).filter(row => {
+      // Search query filter
+      if (dueSearchQuery.trim()) {
+        const q = dueSearchQuery.toLowerCase();
+        const matchId = (row.member.id || '').toLowerCase().includes(q);
+        const matchCode = (row.member.memberCode || '').toLowerCase().includes(q);
+        const matchName = ((row.member.nameBn || '') + ' ' + (row.member.nameEn || '')).toLowerCase().includes(q);
+        const matchPhone = (row.member.mobile || '').includes(q) || (row.member.whatsappNumber || '').includes(q);
+        if (!matchId && !matchCode && !matchName && !matchPhone) return false;
+      }
+
+      // Range filter
+      if (dueRangeFilter === 'has_due') {
+        if (row.totalDue <= 0) return false;
+      } else if (dueRangeFilter === 'over_1000') {
+        if (row.totalDue < 1000) return false;
+      } else if (dueRangeFilter === 'over_3000') {
+        if (row.totalDue < 3000) return false;
+      } else if (dueRangeFilter === 'paid_after_reminder') {
+        if (!row.paidAfterReminder) return false;
+      }
+
+      return true;
+    });
+  }, [data.members, data.deposits, data.waivers, data.reminders, currentSamity, activeSamityId, dueMonth, dueYear, dueSearchQuery, dueRangeFilter]);
+
+  // Handler: Save Partial Due Payment
+  const handleSaveDuePayment = (e) => {
+    e.preventDefault();
+    playButtonClick?.();
+    triggerHaptic();
+    const { member, status, amount, paymentMethod, bankReceiptNo, notes } = quickDuePaymentModal;
+    const payAmount = Number(amount);
+    if (!payAmount || payAmount <= 0) {
+      showToast?.('সঠিক জমার পরিমাণ উল্লেখ করুন', 'error');
+      return;
+    }
+
+    const nextDeposit = createDefaultDepositObject(currentSamity, (data.deposits || []).length + 1, {
+      memberId: member.id,
+      memberName: member.nameBn || member.nameEn,
+      depositorName: member.nameBn || member.nameEn,
+      depositorPhone: member.mobile || '',
+      amount: payAmount,
+      depositMethod: paymentMethod || 'Bank Counter',
+      bankReceiptNo: bankReceiptNo || `DUE-PAY-${Date.now().toString().slice(-6)}`,
+      paymentMonth: status?.month || dueMonth,
+      paymentYear: status?.year || dueYear,
+      depositType: 'Monthly Subscription',
+      remarks: notes || `বকেয়া চাঁদা পরিশোধ (${status?.month || dueMonth} ${status?.year || dueYear})`,
+      approvalStatus: 'approved'
+    });
+
+    updateAndSave(prev => ({
+      ...prev,
+      deposits: [nextDeposit, ...(prev.deposits || [])]
+    }), {
+      action: 'DUE_PAYMENT_COLLECTED',
+      module: 'DUE_MGMT',
+      recordId: nextDeposit.id,
+      amount: payAmount,
+      details: { memberId: member.id, memberName: member.nameBn, amount: payAmount }
+    });
+
+    setQuickDuePaymentModal({ open: false, member: null, status: null, amount: '', paymentMethod: 'Bank Counter', bankReceiptNo: '', notes: '' });
+    showToast?.(`সদস্য ${member.nameBn || member.id}-এর ৳${payAmount} বকেয়া জমা সফলভাবে সংরক্ষিত হয়েছে!`, 'success');
+    setActivePrintReceipt(nextDeposit);
+  };
+
+  // Handler: 1-Click Full Due Payment
+  const handleFullDuePayment = (member, st, row) => {
+    playButtonClick?.();
+    triggerHaptic();
+    const fullAmount = Number(row?.totalDue || st?.totalCumulativeDue || st?.dueAmount || 0);
+    if (fullAmount <= 0) {
+      showToast?.('এই সদস্যের কোনো বকেয়া নেই', 'info');
+      return;
+    }
+    if (!window.confirm(`সদস্য ${member.nameBn || member.id}-এর সর্বমোট ৳${fullAmount} টাকা বকেয়া সম্পূর্ণ পরিশোধ হিসেবে এন্ট্রি করতে চান?`)) {
+      return;
+    }
+
+    const nextDeposit = createDefaultDepositObject(currentSamity, (data.deposits || []).length + 1, {
+      memberId: member.id,
+      memberName: member.nameBn || member.nameEn,
+      depositorName: member.nameBn || member.nameEn,
+      depositorPhone: member.mobile || '',
+      amount: fullAmount,
+      depositMethod: 'Bank Counter',
+      bankReceiptNo: `FULL-DUE-${Date.now().toString().slice(-6)}`,
+      paymentMonth: st?.month || dueMonth,
+      paymentYear: st?.year || dueYear,
+      depositType: 'Monthly Subscription',
+      remarks: `সম্পূর্ণ বকেয়া পরিশোধ (${st?.month || dueMonth} ${st?.year || dueYear})`,
+      approvalStatus: 'approved'
+    });
+
+    updateAndSave(prev => ({
+      ...prev,
+      deposits: [nextDeposit, ...(prev.deposits || [])]
+    }), {
+      action: 'FULL_DUE_PAID',
+      module: 'DUE_MGMT',
+      recordId: nextDeposit.id,
+      amount: fullAmount,
+      details: { memberId: member.id, memberName: member.nameBn, amount: fullAmount }
+    });
+
+    showToast?.(`৳${fullAmount} টাকা সম্পূর্ণ বকেয়া পরিশোধ হয়েছে এবং পেইড রশিদ প্রস্তুত!`, 'success');
+    setActivePrintReceipt(nextDeposit);
+  };
+
+  // Handler: Open Due Notice Modal
+  const handleOpenDueNotice = (member, st, row) => {
+    playButtonClick?.();
+    triggerHaptic();
+    setActivePrintNotice({
+      member: member,
+      status: st,
+      dueMonthsList: row.dueMonthsList,
+      currentDue: row.currentDue,
+      oldDue: row.oldDue,
+      lateFee: row.lateFee,
+      totalDue: row.totalDue
+    });
+  };
+
   return (
     <div
       style={{
@@ -2256,8 +2506,9 @@ export const SamityManagementHub = ({ onClose }) => {
 
           {activeCluster === 'members_dues' && [
             { id: 'members', label: '👥 সদস্য তালিকা ও প্রোফাইল', count: metrics.totalMembers },
-            { id: 'payment_status', label: '📋 চাঁদা ও বকেয়া খাতা' },
-            { id: 'subscription_cfg', label: '⚙️ চাঁদা পলিসি ও কনফিগারেশন' }
+            { id: 'due_mgmt', label: '⏳ বকেয়া ও ডিউ ব্যবস্থাপনা (#৭)' },
+            { id: 'payment_status', label: '📋 চাঁদা ও পেমেন্ট স্ট্যাটাস (#৬)' },
+            { id: 'subscription_cfg', label: '⚙️ চাঁদা পলিসি ও কনফিগারেশন (#৩)' }
           ].map(renderSubPill)}
 
           {activeCluster === 'deposits_receipts' && [
@@ -5988,6 +6239,691 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
+        {/* TAB 7: DUE / বকেয়া MANAGEMENT MODULE (#7) */}
+        {activeTab === 'due_mgmt' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* 1. Header Toolbar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Clock size={20} color="#ef4444" />
+                  </div>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>বকেয়া / ডিউ ব্যবস্থাপনা ও তাগাদা কেন্দ্র</span>
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                        MODULE #7
+                      </span>
+                    </h2>
+                    <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      সদস্যদের পুঞ্জীভূত ও চলতি বকেয়া পর্যবেক্ষণ, আংশিক/পূর্ণ আদায়, বকেয়া নোটিশ এবং তাগাদা রেসপন্স ট্র্যাকিং
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Month/Year & Action Bar */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <select
+                  value={dueMonth}
+                  onChange={(e) => setDueMonth(e.target.value)}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '8px',
+                    padding: '7px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+
+                <input
+                  type="number"
+                  value={dueYear}
+                  onChange={(e) => setDueYear(Number(e.target.value))}
+                  style={{
+                    width: '85px',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '8px',
+                    padding: '7px 10px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800'
+                  }}
+                />
+
+                <button
+                  onClick={() => handlePrintElement('due-management-printable-container')}
+                  style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)'
+                  }}
+                >
+                  <Printer size={15} />
+                  <span>বকেয়া তালিকা প্রিন্ট</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. 6 High-Fidelity Summary Cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '12px'
+              }}
+            >
+              {/* Card 1: Total Samity Due */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>১. সর্বমোট সমিতি বকেয়া</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#ef4444', marginTop: '4px' }}>
+                      ৳ {dueManagementSummary.totalSamityDue.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <AlertTriangle size={18} color="#ef4444" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#f87171', marginTop: '6px' }}>পুরাতন + চলতি বকেয়া + জরিমানা</div>
+              </div>
+
+              {/* Card 2: Current Month Due */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>২. চলতি মাসের বকেয়া</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#f59e0b', marginTop: '4px' }}>
+                      ৳ {dueManagementSummary.totalCurrentMonthDue.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Clock size={18} color="#f59e0b" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#fbbf24', marginTop: '6px' }}>{dueMonth} {dueYear} মাসের চাঁদা</div>
+              </div>
+
+              {/* Card 3: Old Due */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৩. পূর্ববর্তী মাসের বকেয়া</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#c084fc', marginTop: '4px' }}>
+                      ৳ {dueManagementSummary.totalOldDue.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(168, 85, 247, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Layers size={18} color="#c084fc" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#d8b4fe', marginTop: '6px' }}>পুঞ্জীভূত পুরাতন বকেয়া</div>
+              </div>
+
+              {/* Card 4: Due Members Count */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৪. বকেয়াদার সদস্য সংখ্যা</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>
+                      {dueManagementSummary.dueMembersCount} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8' }}>জন</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(56, 189, 248, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Users size={18} color="#38bdf8" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#7dd3fc', marginTop: '6px' }}>মোট {dueManagementSummary.totalMembers} জনের মধ্যে</div>
+              </div>
+
+              {/* Card 5: Advance Payment */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৫. মোট অগ্রিম জমা</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#60a5fa', marginTop: '4px' }}>
+                      ৳ {dueManagementSummary.totalAdvancePaid.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <Wallet size={18} color="#60a5fa" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#93c5fd', marginTop: '6px' }}>অতিরিক্ত জমা করা চাঁদা</div>
+              </div>
+
+              {/* Card 6: Paid After Reminder */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.7)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  padding: '14px 16px',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '800' }}>৬. তাগাদার পর পরিশোধ</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
+                      {dueManagementSummary.paidAfterReminderCount} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8' }}>জন</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '8px', borderRadius: '8px' }}>
+                    <CheckCircle2 size={18} color="#10b981" />
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#34d399', marginTop: '6px' }}>রিমাইন্ডারের সফল প্রতিক্রিয়া</div>
+              </div>
+            </div>
+
+            {/* 3. Filter Bar & Search */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.7)',
+                borderRadius: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '14px 16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              {/* Range Filters */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: '800', marginRight: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Filter size={13} color="#ef4444" /> বকেয়া ফিল্টার:
+                </span>
+
+                {[
+                  { id: 'all', label: 'সকল সদস্য (All)', count: dueManagementSummary.totalMembers, color: '#38bdf8' },
+                  { id: 'has_due', label: 'বকেয়াদার সদস্য (Has Due)', count: dueManagementSummary.dueMembersCount, color: '#ef4444' },
+                  { id: 'over_1000', label: '১,০০০+ টাকা বকেয়া', color: '#f59e0b' },
+                  { id: 'over_3000', label: '৩,০০০+ টাকা বকেয়া', color: '#ec4899' },
+                  { id: 'paid_after_reminder', label: 'তাগাদার পর পরিশোধিত', count: dueManagementSummary.paidAfterReminderCount, color: '#10b981' }
+                ].map(chip => {
+                  const isActive = dueRangeFilter === chip.id;
+                  return (
+                    <button
+                      key={chip.id}
+                      onClick={() => {
+                        playButtonClick?.();
+                        triggerHaptic();
+                        setDueRangeFilter(chip.id);
+                      }}
+                      style={{
+                        background: isActive ? chip.color : 'rgba(255, 255, 255, 0.06)',
+                        color: isActive ? '#0f172a' : '#f8fafc',
+                        border: '1px solid ' + (isActive ? chip.color : 'rgba(255, 255, 255, 0.12)'),
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.74rem',
+                        fontWeight: isActive ? '900' : '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{chip.label}</span>
+                      {chip.count !== undefined && (
+                        <span
+                          style={{
+                            background: isActive ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255, 255, 255, 0.12)',
+                            color: isActive ? '#0f172a' : chip.color,
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            fontSize: '0.65rem',
+                            fontWeight: '900'
+                          }}
+                        >
+                          {chip.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search Box */}
+              <div style={{ position: 'relative', width: '260px' }}>
+                <input
+                  type="text"
+                  placeholder="সদস্য আইডি, নাম বা ফোন..."
+                  value={dueSearchQuery}
+                  onChange={(e) => setDueSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '7px 10px 7px 32px',
+                    fontSize: '0.78rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+              </div>
+            </div>
+
+            {/* 4. Due Management Member Table */}
+            <div
+              id="due-management-printable-container"
+              style={{
+                background: 'rgba(30, 41, 59, 0.7)',
+                borderRadius: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                overflowX: 'auto',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <table style={{ width: '100%', minWidth: '1280px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '2px solid rgba(255, 255, 255, 0.12)' }}>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>সদস্য আইডি</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>সদস্যের নাম</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>মোবাইল নম্বর</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', color: '#94a3b8' }}>বকেয়া মাসসমূহ</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>পূর্বের বকেয়া</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>চলতি বকেয়া</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>বিলম্ব ফি</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>সর্বমোট বকেয়া</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>অগ্রিম জমা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>রিমাইন্ডার হিস্টোরি</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#94a3b8' }}>তাগাদার পর জমা</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: '#94a3b8' }}>অ্যাকশন ও পেমেন্ট</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {memberDueRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                          <CheckCircle2 size={36} color="#10b981" />
+                          <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#f8fafc' }}>
+                            কোনো বকেয়া পাওয়া যায়নি!
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.78rem' }}>
+                            {dueRangeFilter !== 'all' ? 'ফিল্টার পরিবর্তন করে দেখুন।' : 'সকল সদস্যের চাঁদা সম্পূর্ণ পরিশোধিত রয়েছে।'}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    memberDueRows.map(row => {
+                      const { member, status: st } = row;
+                      const hasDue = row.totalDue > 0;
+
+                      return (
+                        <tr
+                          key={member.id}
+                          style={{
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                            background: hasDue ? 'rgba(239, 68, 68, 0.02)' : 'transparent',
+                            transition: 'background 0.1s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = hasDue ? 'rgba(239, 68, 68, 0.02)' : 'transparent'}
+                        >
+                          {/* 1. Member ID */}
+                          <td style={{ padding: '12px 14px', fontWeight: '900', color: '#38bdf8', whiteSpace: 'nowrap' }}>
+                            {member.id}
+                          </td>
+
+                          {/* 2. Member Name */}
+                          <td style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: '800', color: '#f8fafc' }}>
+                              {member.nameBn || member.nameEn}
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                              {member.membershipType || 'সদস্য'}
+                            </div>
+                          </td>
+
+                          {/* 3. Mobile Number */}
+                          <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                            {member.mobile ? (
+                              <a
+                                href={`tel:${member.mobile}`}
+                                style={{ color: '#cbd5e1', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Phone size={12} color="#94a3b8" />
+                                <span>{member.mobile}</span>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#64748b' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* 4. Due Months Breakdown */}
+                          <td style={{ padding: '12px 14px' }}>
+                            {row.dueMonthsList.length > 0 ? (
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '240px' }}>
+                                {row.dueMonthsList.map((mStr, idx) => (
+                                  <span
+                                    key={idx}
+                                    style={{
+                                      background: 'rgba(239, 68, 68, 0.15)',
+                                      color: '#f87171',
+                                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                                      borderRadius: '4px',
+                                      padding: '2px 6px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: '700'
+                                    }}
+                                  >
+                                    {mStr}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#10b981', fontSize: '0.72rem', fontWeight: '800' }}>✓ সকল মাস ক্লিয়ার</span>
+                            )}
+                          </td>
+
+                          {/* 5. Old Due */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: row.oldDue > 0 ? '#c084fc' : '#64748b' }}>
+                            ৳ {row.oldDue.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* 6. Current Due */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: row.currentDue > 0 ? '#f59e0b' : '#64748b' }}>
+                            ৳ {row.currentDue.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* 7. Late Fee */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: row.lateFee > 0 ? '#fb7185' : '#64748b' }}>
+                            {row.lateFee > 0 ? `৳ ${row.lateFee.toLocaleString('en-IN')}` : '—'}
+                          </td>
+
+                          {/* 8. Total Cumulative Due */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: row.totalDue > 0 ? '#ef4444' : '#10b981', fontSize: '0.86rem' }}>
+                            ৳ {row.totalDue.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* 9. Advance Payment */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', color: row.advanceAmount > 0 ? '#60a5fa' : '#64748b' }}>
+                            {row.advanceAmount > 0 ? `৳ ${row.advanceAmount.toLocaleString('en-IN')}` : '—'}
+                          </td>
+
+                          {/* 10. Reminder History */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {row.reminderCount > 0 ? (
+                              <div>
+                                <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '900' }}>
+                                  {row.reminderCount} বার প্রেরিত
+                                </span>
+                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '3px' }}>
+                                  {new Date(row.lastReminder.sentAt).toLocaleDateString('bn-BD')} ({row.lastReminder.channel})
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#64748b', fontSize: '0.72rem' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* 11. Payment After Reminder */}
+                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {row.paidAfterReminder ? (
+                              <span
+                                title={`তাগাদার পর ৳${row.paidAfterReminderDeposit?.amount} টাকা জমা হয়েছে (${row.paidAfterReminderDeposit?.depositDate || row.paidAfterReminderDeposit?.date})`}
+                                style={{
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: '900',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <CheckCircle2 size={11} />
+                                <span>পরিশোধ করেছেন</span>
+                              </span>
+                            ) : row.reminderCount > 0 ? (
+                              <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '3px 8px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                ⏳ অপেক্ষমাণ
+                              </span>
+                            ) : (
+                              <span style={{ color: '#64748b', fontSize: '0.72rem' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* 12. Actions */}
+                          <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              {hasDue ? (
+                                <>
+                                  {/* Partial Due Payment Button */}
+                                  <button
+                                    onClick={() => {
+                                      playButtonClick?.();
+                                      triggerHaptic();
+                                      setQuickDuePaymentModal({
+                                        open: true,
+                                        member: member,
+                                        status: st,
+                                        amount: String(row.currentDue || row.totalDue),
+                                        paymentMethod: 'Bank Counter',
+                                        bankReceiptNo: '',
+                                        notes: `বকেয়া চাঁদা পরিশোধ (${st.month} ${st.year})`
+                                      });
+                                    }}
+                                    title="আংশিক বা নির্ধারিত টাকা জমা দিন"
+                                    style={{
+                                      background: 'rgba(56, 189, 248, 0.15)',
+                                      color: '#38bdf8',
+                                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    আংশিক জমা
+                                  </button>
+
+                                  {/* Full Due Payment Button */}
+                                  <button
+                                    onClick={() => handleFullDuePayment(member, st, row)}
+                                    title={`সম্পূর্ণ ৳${row.totalDue} টাকা এক ক্লিকে পরিশোধ হিসেবে এন্ট্রি করুন`}
+                                    style={{
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#10b981',
+                                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    সম্পূর্ণ পরিশোধ
+                                  </button>
+
+                                  {/* Due Notice Button */}
+                                  <button
+                                    onClick={() => handleOpenDueNotice(member, st, row)}
+                                    title="অফিসিয়াল বকেয়া নোটিশ প্রস্তুত ও প্রিন্ট করুন"
+                                    style={{
+                                      background: 'rgba(239, 68, 68, 0.15)',
+                                      color: '#ef4444',
+                                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    নোটিশ
+                                  </button>
+
+                                  {/* Send Reminder Button */}
+                                  <button
+                                    onClick={() => handleSendReminder(member, 'whatsapp')}
+                                    title="হোয়াটসঅ্যাপে তাগাদা পাঠান"
+                                    style={{
+                                      background: 'rgba(37, 211, 102, 0.15)',
+                                      color: '#25D366',
+                                      border: '1px solid rgba(37, 211, 102, 0.3)',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: '800',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px'
+                                    }}
+                                  >
+                                    <Send size={10} />
+                                    <span>তাগাদা</span>
+                                  </button>
+
+                                  {/* Waiver Button */}
+                                  <button
+                                    onClick={() => {
+                                      setWaiverTargetMember({ member, status: st });
+                                      setWaiverForm({
+                                        amount: row.totalDue,
+                                        reason: 'বিশেষ আর্থিক অসচ্ছলতা বিবেচনায় মওকুফ',
+                                        approvedBy: 'সভাপতি ও কোষাধ্যক্ষ'
+                                      });
+                                      setIsWaiverModalOpen(true);
+                                    }}
+                                    title="বকেয়া মওকুফ (Waiver)"
+                                    style={{
+                                      background: 'rgba(168, 85, 247, 0.15)',
+                                      color: '#c084fc',
+                                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    মওকুফ
+                                  </button>
+                                </>
+                              ) : (
+                                <span style={{ color: '#10b981', fontSize: '0.74rem', fontWeight: '900', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <Check size={13} />
+                                  <span>ক্লিয়ার</span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer Summary Row */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+                padding: '10px 14px',
+                background: 'rgba(15, 23, 42, 0.8)',
+                borderRadius: '10px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                fontSize: '0.76rem',
+                color: '#94a3b8'
+              }}
+            >
+              <div>
+                তালিকাভুক্ত সদস্য: <strong style={{ color: '#38bdf8' }}>{memberDueRows.length}</strong> জন | বকেয়াদার: <strong style={{ color: '#ef4444' }}>{dueManagementSummary.dueMembersCount}</strong> জন
+              </div>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div>পুরাতন বকেয়া: <strong style={{ color: '#c084fc' }}>৳ {dueManagementSummary.totalOldDue.toLocaleString('en-IN')}</strong></div>
+                <div>চলতি বকেয়া: <strong style={{ color: '#f59e0b' }}>৳ {dueManagementSummary.totalCurrentMonthDue.toLocaleString('en-IN')}</strong></div>
+                <div>সর্বমোট বকেয়া: <strong style={{ color: '#ef4444' }}>৳ {dueManagementSummary.totalSamityDue.toLocaleString('en-IN')}</strong></div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 6: MULTI-CHANNEL REMINDERS */}
         {activeTab === 'reminders' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -6698,7 +7634,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   bank_deposit: 'deposits',
                   bulk_deposit: 'bulk_deposit',
                   payment_status: 'payment_status',
-                  due_mgmt: 'payment_status',
+                  due_mgmt: 'due_mgmt',
                   paid_receipt: 'deposits',
                   reminder_hub: 'reminders',
                   whatsapp_reminder: 'reminders',
@@ -10917,110 +11853,284 @@ export const SamityManagementHub = ({ onClose }) => {
       {/* ==================================================================== */}
       {/* 8. MODAL: PRINTABLE DUE NOTICE */}
       {/* ==================================================================== */}
-      {activePrintNotice && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 110,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px'
-          }}
-        >
+      {/* ==================================================================== */}
+      {/* 8. MODAL: PRINTABLE DUE NOTICE (ALL 13 REQUIRED SPECIFICATION FIELDS) */}
+      {/* ==================================================================== */}
+      {activePrintNotice && (() => {
+        const member = activePrintNotice.member || {};
+        const status = activePrintNotice.status || {};
+        const dueMonths = (activePrintNotice.dueMonthsList && activePrintNotice.dueMonthsList.length > 0)
+          ? activePrintNotice.dueMonthsList.join(', ')
+          : `${status.month || dueMonth} ${status.year || dueYear}`;
+        const oldDueAmt = Number(activePrintNotice.oldDue ?? status.oldDue ?? 0);
+        const currentDueAmt = Number(activePrintNotice.currentDue ?? status.dueAmount ?? 0);
+        const lateFeeAmt = Number(activePrintNotice.lateFee ?? status.lateFee ?? 0);
+        const totalDueAmt = Number(activePrintNotice.totalDue ?? status.totalCumulativeDue ?? status.totalPayable ?? (oldDueAmt + currentDueAmt + lateFeeAmt));
+        const deadlineDay = currentSamity.subscriptionDueDay || 10;
+        const deadlineMonth = status.month || dueMonth || 'চলতি মাস';
+        const deadlineYear = status.year || dueYear || '২০২৬';
+        const treasurer = (data.signatures || []).find(s => 
+          s.designationBn?.includes('কোষাধ্যক্ষ') || 
+          s.designationEn?.toLowerCase().includes('treasurer')
+        ) || {
+          name: 'কোষাধ্যক্ষ দপ্তর',
+          designationBn: 'কোষাধ্যক্ষ / অর্থ সম্পাদক',
+          phone: currentSamity.mobile || '০১৭১১-XXXXXX'
+        };
+        const memoNo = `HK360/DUE/${currentSamity.code || 'SAM'}/${deadlineYear}/${member.id || 'MEM'}`;
+
+        return (
           <div
             style={{
-              background: '#ffffff',
-              color: '#0f172a',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '650px',
-              maxHeight: '92vh',
-              overflowY: 'auto',
-              padding: '30px',
-              position: 'relative'
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 110,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <button
-                onClick={() => handlePrintElement('samity-printable-due-notice')}
+            <div
+              style={{
+                background: '#ffffff',
+                color: '#0f172a',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '740px',
+                maxHeight: '94vh',
+                overflowY: 'auto',
+                padding: '28px',
+                position: 'relative',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)'
+              }}
+            >
+              {/* Header Action Controls */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    onClick={() => handlePrintElement('samity-printable-due-notice')}
+                    style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 18px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Printer size={16} />
+                    <span>বকেয়া নোটিশ প্রিন্ট করুন</span>
+                  </button>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>সরাসরি প্রিন্ট বা PDF হিসেবে সেভ করুন</span>
+                </div>
+                <button
+                  onClick={() => setActivePrintNotice(null)}
+                  style={{ background: '#f1f5f9', border: 'none', color: '#475569', padding: '6px', borderRadius: '8px', cursor: 'pointer' }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Printable Document Container */}
+              <div
+                id="samity-printable-due-notice"
                 style={{
-                  background: '#ef4444',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer'
+                  border: '2px solid #ef4444',
+                  padding: '28px',
+                  borderRadius: '12px',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  fontFamily: "'Inter', 'SolaimanLipi', sans-serif"
                 }}
               >
-                <Printer size={16} />
-                <span>বকেয়া নোটিশ প্রিন্ট করুন</span>
-              </button>
-              <button
-                onClick={() => setActivePrintNotice(null)}
-                style={{ background: '#f1f5f9', border: 'none', color: '#475569', padding: '6px', borderRadius: '8px', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div id="samity-printable-due-notice" style={{ border: '2px solid #ef4444', padding: '24px', borderRadius: '12px', background: '#fff' }}>
-              <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '12px' }}>
-                <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: '#0f172a' }}>{currentSamity.nameBn}</h2>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{currentSamity.address} • ফোন: {currentSamity.mobile}</div>
-              </div>
-
-              <div style={{ textAlign: 'center', margin: '14px 0' }}>
-                <span style={{ background: '#ef4444', color: '#fff', padding: '4px 18px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '900' }}>
-                  বকেয়া চাঁদা পরিশোধের তাগিদপত্র / DUE NOTICE
-                </span>
-              </div>
-
-              <div style={{ fontSize: '0.85rem', lineHeight: '1.6', color: '#334155' }}>
-                <p>তারিখ: <strong>{new Date().toLocaleDateString('bn-BD')}</strong></p>
-                <p>বরাবর,<br />
-                জনাব <strong>{activePrintNotice.member.nameBn || activePrintNotice.member.nameEn}</strong> (সদস্য আইডি: {activePrintNotice.member.id})<br />
-                মোবাইল: {activePrintNotice.member.mobile}</p>
-
-                <p>
-                  জনাব, আপনার সদয় অবগতির জন্য জানানো যাচ্ছে যে, <strong>{currentSamity.nameBn}</strong>-এর অধীনে আপনার <strong>{activePrintNotice.status.month} {activePrintNotice.status.year}</strong> মাসের মাসিক চাঁদা বাবদ মোট <strong>৳{activePrintNotice.status.dueAmount}/-</strong> টাকা এখনো বকেয়া রয়েছে।
-                </p>
-
-                <div style={{ background: '#fef2f2', padding: '12px', borderRadius: '8px', border: '1px solid #fecaca', margin: '14px 0' }}>
-                  <div>মোট বকেয়া চাঁদা: <strong>৳ {activePrintNotice.status.dueAmount}/-</strong></div>
-                  <div>বিলম্ব ফি / জরিমানা: <strong>৳ {activePrintNotice.status.lateFee || 0}/-</strong></div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: '900', color: '#b91c1c', marginTop: '4px' }}>
-                    সর্বমোট পরিশোধযোগ্য: ৳ {activePrintNotice.status.totalPayable}/-
+                {/* 1. Samity Letterhead */}
+                <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    গণপ্রজাতন্ত্রী বাংলাদেশ সরকার অনুমোদিত কো-অপারেটিভ সোসাইটি
+                  </div>
+                  <h1 style={{ margin: '4px 0 2px 0', fontSize: '1.5rem', fontWeight: '900', color: '#0f172a' }}>
+                    {currentSamity.nameBn}
+                  </h1>
+                  {currentSamity.nameEn && (
+                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                      {currentSamity.nameEn}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.8rem', color: '#334155' }}>
+                    {currentSamity.address} • সরকারি নিবন্ধন নং: <strong>{currentSamity.registrationNo || 'রেজিস্ট্রেশন প্রক্রিয়াধীন'}</strong>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                    হেল্পলাইন: {currentSamity.mobile} | ইমেইল: {currentSamity.email || 'samity@hisabkitab360.com'}
                   </div>
                 </div>
 
-                <p>
-                  অতএব, আগামী <strong>{currentSamity.subscriptionDueDay || 10} {activePrintNotice.status.month}</strong> তারিখের মধ্যে উক্ত বকেয়া চাঁদা সমিতির উল্লেখিত ব্যাংক হিসাবে অথবা বিকাশ মার্চেন্ট নম্বরে জমা প্রদানের জন্য বিশেষভাবে অনুরোধ করা হলো।
-                </p>
-              </div>
+                {/* Memo & Date Meta Line */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#475569', marginBottom: '14px', borderBottom: '1px dashed #cbd5e1', paddingBottom: '8px' }}>
+                  <div>স্মারক নং: <strong style={{ color: '#0f172a' }}>{memoNo}</strong></div>
+                  <div>ইস্যুর তারিখ: <strong style={{ color: '#0f172a' }}>{new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}</strong></div>
+                </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', paddingTop: '10px' }}>
-                {data.signatures.map(sig => (
-                  <div key={sig.id} style={{ textAlign: 'center', width: '30%' }}>
-                    <div style={{ borderTop: '1px solid #0f172a', paddingTop: '4px', fontWeight: '800', fontSize: '0.78rem' }}>
-                      {sig.name}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{sig.designationBn}</div>
+                {/* Title Badge */}
+                <div style={{ textAlign: 'center', margin: '14px 0 18px 0' }}>
+                  <span style={{ background: '#ef4444', color: '#ffffff', padding: '5px 22px', borderRadius: '24px', fontSize: '0.88rem', fontWeight: '900', letterSpacing: '0.5px' }}>
+                    বকেয়া চাঁদা পরিশোধের তাগিদপত্র / OFFICIAL DUE NOTICE
+                  </span>
+                </div>
+
+                {/* 2, 3, 4. Member Information */}
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '0.84rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px 16px' }}>
+                    <div>সদস্যের নাম: <strong style={{ color: '#0f172a' }}>{member.nameBn || member.nameEn}</strong></div>
+                    <div>সদস্য আইডি (Member ID): <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{member.id}</strong></div>
+                    <div>মোবাইল নম্বর: <strong style={{ color: '#0f172a' }}>{member.mobile || 'প্রযোজ্য নয়'}</strong></div>
+                    <div>সদস্যের ধরন: <strong style={{ color: '#0f172a' }}>{member.memberType || 'সাধারণ সদস্য'}</strong></div>
                   </div>
-                ))}
+                </div>
+
+                {/* Formal Statement */}
+                <div style={{ fontSize: '0.85rem', lineHeight: '1.7', color: '#1e293b', marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 8px 0' }}>
+                    জনাব / মহোদয়,<br />
+                    আপনার সদয় অবগতির জন্য জানানো যাচ্ছে যে, সমিতির সংরক্ষিত হিসাব খতিয়ান অনুযায়ী <strong>{currentSamity.nameBn}</strong>-এর আওতায় আপনার মাসিক সঞ্চয়/চাঁদা বাবদ নিম্নবর্ণিত মাসের বকেয়া পাওনা এখনো অপরিশোধিত রয়েছে:
+                  </p>
+                </div>
+
+                {/* 5, 6, 7. Due Month(s) and Due Amount Table */}
+                <div style={{ marginBottom: '16px', border: '1px solid #fecaca', borderRadius: '10px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca', color: '#991b1b', fontWeight: '800' }}>
+                        <th style={{ padding: '8px 12px' }}>বিবরণ / খাত</th>
+                        <th style={{ padding: '8px 12px' }}>বকেয়া মাসসমূহ (Due Month/s)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>পরিমাণ (টাকা)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {oldDueAmt > 0 && (
+                        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 12px', color: '#64748b' }}>বিগত বকেয়া (Past Months Dues)</td>
+                          <td style={{ padding: '8px 12px', color: '#64748b' }}>পূর্ববর্তী বকেয়া খতিয়ান</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700' }}>৳ {oldDueAmt.toLocaleString('en-IN')}</td>
+                        </tr>
+                      )}
+                      <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 12px' }}>চলতি মাসিক চাঁদা (Current Subscription)</td>
+                        <td style={{ padding: '8px 12px', fontWeight: '700', color: '#0f172a' }}>{dueMonths}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700' }}>৳ {currentDueAmt.toLocaleString('en-IN')}</td>
+                      </tr>
+                      {lateFeeAmt > 0 && (
+                        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 12px', color: '#dc2626' }}>বিলম্ব জরিমানা ফি (Late Fee Penalty)</td>
+                          <td style={{ padding: '8px 12px', color: '#64748b' }}>নির্ধারিত তারিখ অতিক্রান্ত ফি</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: '#dc2626' }}>৳ {lateFeeAmt.toLocaleString('en-IN')}</td>
+                        </tr>
+                      )}
+                      <tr style={{ background: '#fff1f2', borderTop: '2px solid #ef4444', fontWeight: '900', color: '#b91c1c', fontSize: '0.92rem' }}>
+                        <td colSpan="2" style={{ padding: '10px 12px' }}>সর্বমোট বকেয়া পাওনা (Total Due Payable)</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>৳ {totalDueAmt.toLocaleString('en-IN')}/-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ background: '#fff5f5', padding: '8px 14px', borderTop: '1px dashed #fecaca', fontSize: '0.8rem', color: '#7f1d1d' }}>
+                    কথায়: <strong>{numberToBanglaWords(totalDueAmt)}</strong>
+                  </div>
+                </div>
+
+                {/* 8. Payment Deadline */}
+                <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.82rem', color: '#92400e' }}>
+                  <strong>পরিশোধের শেষ সময়সীমা (Payment Deadline):</strong> আগামী <strong>{deadlineDay} {deadlineMonth} {deadlineYear}</strong> খ্রিষ্টাব্দ তারিখের মধ্যে উক্ত বকেয়া চাঁদা পরিশোধের জন্য অনুরোধ করা হলো।
+                </div>
+
+                {/* 9, 10, 11. Payment Channels & Treasurer Block */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
+                  {/* 9. Bank Account Details */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem' }}>
+                    <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '4px', borderBottom: '1px solid #e2e8f0', paddingBottom: '3px' }}>
+                      🏦 ব্যাংকে জমার হিসাব তথ্য:
+                    </div>
+                    <div>ব্যাংক: <strong>{currentSamity.bankDetails?.bankName || 'ডাচ্-বাংলা ব্যাংক পিএলসি'}</strong></div>
+                    <div>শাখা: <strong>{currentSamity.bankDetails?.branchName || 'প্রধান শাখা'}</strong></div>
+                    <div>হিসাব নাম: <strong>{currentSamity.bankDetails?.accName || currentSamity.nameBn}</strong></div>
+                    <div>হিসাব নং: <strong style={{ fontFamily: 'monospace', color: '#0369a1' }}>{currentSamity.bankDetails?.accNo || '123456789'}</strong></div>
+                    <div>রাউটিং নং: {currentSamity.bankDetails?.routingNo || '125271234'}</div>
+                  </div>
+
+                  {/* 10 & 11. Mobile Banking Details & Treasurer Contact */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem' }}>
+                    <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '4px', borderBottom: '1px solid #e2e8f0', paddingBottom: '3px' }}>
+                      📱 মোবাইল ব্যাংকিং ও কোষাধ্যক্ষ:
+                    </div>
+                    <div>{currentSamity.mobileBanking?.provider || 'বিকাশ'} ({currentSamity.mobileBanking?.accountType || 'মার্চেন্ট'}): <strong style={{ color: '#be185d' }}>{currentSamity.mobileBanking?.number || currentSamity.mobile || '০১৭১১-XXXXXX'}</strong></div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', margin: '2px 0 6px 0' }}>* রেফারেন্স হিসেবে সদস্য আইডি <strong>{member.id}</strong> দিন</div>
+                    
+                    <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '4px' }}>
+                      <div style={{ fontWeight: '700', color: '#0f172a' }}>{treasurer.designationBn || 'কোষাধ্যক্ষ দপ্তর'}:</div>
+                      <div>{treasurer.name} | সরাসরি ফোন: <strong style={{ color: '#0f172a' }}>{treasurer.phone || currentSamity.mobile}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 12 & 13. Verification QR Code & Authorized Signatures */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '24px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', gap: '16px' }}>
+                  {/* 13. QR Code for verification */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '64px', height: '64px', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '3px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="56" height="56" viewBox="0 0 100 100" style={{ shapeRendering: 'crispEdges' }}>
+                        <rect width="100" height="100" fill="#fff" />
+                        <rect x="5" y="5" width="28" height="28" fill="#0f172a" />
+                        <rect x="9" y="9" width="20" height="20" fill="#fff" />
+                        <rect x="13" y="13" width="12" height="12" fill="#0f172a" />
+                        <rect x="67" y="5" width="28" height="28" fill="#0f172a" />
+                        <rect x="71" y="9" width="20" height="20" fill="#fff" />
+                        <rect x="75" y="13" width="12" height="12" fill="#0f172a" />
+                        <rect x="5" y="67" width="28" height="28" fill="#0f172a" />
+                        <rect x="9" y="71" width="20" height="20" fill="#fff" />
+                        <rect x="13" y="75" width="12" height="12" fill="#0f172a" />
+                        <rect x="40" y="10" width="8" height="8" fill="#0f172a" />
+                        <rect x="52" y="15" width="8" height="8" fill="#0f172a" />
+                        <rect x="40" y="40" width="20" height="20" fill="#0f172a" />
+                        <rect x="45" y="45" width="10" height="10" fill="#fff" />
+                        <rect x="10" y="42" width="8" height="8" fill="#0f172a" />
+                        <rect x="22" y="48" width="8" height="8" fill="#0f172a" />
+                        <rect x="70" y="45" width="12" height="8" fill="#0f172a" />
+                        <rect x="85" y="55" width="10" height="10" fill="#0f172a" />
+                        <rect x="40" y="72" width="10" height="8" fill="#0f172a" />
+                        <rect x="55" y="80" width="14" height="12" fill="#0f172a" />
+                        <rect x="75" y="75" width="20" height="8" fill="#0f172a" />
+                      </svg>
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#64748b', lineHeight: '1.4' }}>
+                      <strong style={{ color: '#0f172a' }}>ডিজিটাল ভেরিফিকেশন কোড</strong><br />
+                      মোবাইল ক্যামেরা বা স্ক্যানার দিয়ে<br />সরাসরি সত্যতা যাচাই করুন
+                    </div>
+                  </div>
+
+                  {/* 12. Authorized Signatures */}
+                  <div style={{ display: 'flex', gap: '20px', flex: 1, justifyContent: 'flex-end' }}>
+                    {data.signatures.map(sig => (
+                      <div key={sig.id} style={{ textAlign: 'center', minWidth: '95px' }}>
+                        <div style={{ height: '30px' }}></div>
+                        <div style={{ borderTop: '1px solid #0f172a', paddingTop: '4px', fontWeight: '800', fontSize: '0.74rem', color: '#0f172a' }}>
+                          {sig.name}
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#64748b' }}>{sig.designationBn}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ==================================================================== */}
       {/* 9. MODAL: DUE WAIVER / বকেয়া মওকুফ অনুমোদন */}
@@ -11117,6 +12227,139 @@ export const SamityManagementHub = ({ onClose }) => {
                   style={{ flex: 1, background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)', border: 'none', color: '#fff', padding: '10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer' }}
                 >
                   মওকুফ নিশ্চিত করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 9.1 MODAL: QUICK / PARTIAL DUE PAYMENT (বকেয়া চাঁদা জমা এন্ট্রি) */}
+      {/* ==================================================================== */}
+      {quickDuePaymentModal.open && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 115,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+        >
+          <div
+            style={{
+              background: '#0f172a',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '500px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={18} color="#38bdf8" />
+                <span>বকেয়া চাঁদা জমা এন্ট্রি (Due Payment)</span>
+              </h3>
+              <button
+                onClick={() => setQuickDuePaymentModal(prev => ({ ...prev, open: false }))}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDuePayment} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Member Summary Box */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#38bdf8' }}>
+                  {quickDuePaymentModal.member?.nameBn || quickDuePaymentModal.member?.nameEn}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '3px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>সদস্য আইডি: <strong style={{ color: '#fff' }}>{quickDuePaymentModal.member?.id}</strong></span>
+                  <span>মোবাইল: <strong style={{ color: '#fff' }}>{quickDuePaymentModal.member?.mobile || 'N/A'}</strong></span>
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#f59e0b', marginTop: '4px' }}>
+                  পরিশোধযোগ্য মাস: <strong>{quickDuePaymentModal.status?.month || dueMonth} {quickDuePaymentModal.status?.year || dueYear}</strong>
+                </div>
+              </div>
+
+              {/* Payment Amount */}
+              <div>
+                <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#94a3b8' }}>জমার পরিমাণ (টাকা) *</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={quickDuePaymentModal.amount}
+                  onChange={(e) => setQuickDuePaymentModal(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="টাকার অংক লিখুন"
+                  style={{ width: '100%', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '10px 12px', borderRadius: '8px', color: '#fff', fontSize: '0.9rem', fontWeight: '800', marginTop: '4px' }}
+                />
+              </div>
+
+              {/* Payment Method & Receipt */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#94a3b8' }}>পরিশোধের মাধ্যম *</label>
+                  <select
+                    value={quickDuePaymentModal.paymentMethod}
+                    onChange={(e) => setQuickDuePaymentModal(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '9px 10px', borderRadius: '8px', color: '#fff', fontSize: '0.8rem', marginTop: '4px' }}
+                  >
+                    <option value="Bank Counter">ব্যাংক কাউন্টার (Deposit Slip)</option>
+                    <option value="bKash">বিকাশ (bKash)</option>
+                    <option value="Nagad">নগদ (Nagad)</option>
+                    <option value="Cash Counter">অফিস ক্যাশ (Cash)</option>
+                    <option value="Online Transfer">অনলাইন ট্রান্সফার (BEFTN/NPSB)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#94a3b8' }}>ব্যাংক রসিদ / Trx ID নং</label>
+                  <input
+                    type="text"
+                    value={quickDuePaymentModal.bankReceiptNo}
+                    onChange={(e) => setQuickDuePaymentModal(prev => ({ ...prev, bankReceiptNo: e.target.value }))}
+                    placeholder="রসিদ বা Trx নম্বর"
+                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '9px 10px', borderRadius: '8px', color: '#fff', fontSize: '0.8rem', marginTop: '4px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <div>
+                <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#94a3b8' }}>মন্তব্য / নোট (Remarks)</label>
+                <input
+                  type="text"
+                  value={quickDuePaymentModal.notes}
+                  onChange={(e) => setQuickDuePaymentModal(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="যেমন: আংশিক বকেয়া জমা"
+                  style={{ width: '100%', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 12px', borderRadius: '8px', color: '#fff', fontSize: '0.8rem', marginTop: '4px' }}
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setQuickDuePaymentModal(prev => ({ ...prev, open: false }))}
+                  style={{ flex: 1, background: 'rgba(255, 255, 255, 0.08)', border: 'none', color: '#fff', padding: '10px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  style={{ flex: 2, background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', border: 'none', color: '#fff', padding: '10px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Check size={16} />
+                  <span>জমা নিশ্চিত করুন ও রশিদ দেখুন</span>
                 </button>
               </div>
             </form>
