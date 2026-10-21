@@ -101,6 +101,61 @@ export const SamityManagementHub = ({ onClose }) => {
     return calculateSamityMetrics(activeSamityId, data);
   }, [activeSamityId, data]);
 
+  // Derived 6-Master Cluster state based on activeTab
+  const activeCluster = useMemo(() => {
+    if (activeTab === 'all_modules') return 'all_modules';
+    if (['dashboard', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
+    if (['members', 'payment_status', 'settings'].includes(activeTab)) return 'members_dues';
+    if (['deposits', 'bulk_deposit'].includes(activeTab)) return 'deposits_receipts';
+    if (['reminders'].includes(activeTab)) return 'reminders_hub';
+    if (['expenses', 'fund_balance', 'approvals', 'reports'].includes(activeTab)) return 'finance_reports';
+    return 'admin_system';
+  }, [activeTab]);
+
+  const renderSubPill = (sub) => {
+    const isSubActive = activeTab === sub.id;
+    return (
+      <button
+        key={sub.id}
+        onClick={() => {
+          playButtonClick?.();
+          triggerHaptic();
+          setActiveTab(sub.id);
+        }}
+        style={{
+          background: isSubActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.07)',
+          color: isSubActive ? '#0f172a' : '#f8fafc',
+          border: '1px solid ' + (isSubActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.12)'),
+          borderRadius: '20px',
+          padding: '4px 12px',
+          fontSize: '0.76rem',
+          fontWeight: isSubActive ? '900' : '700',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          transition: 'all 0.15s ease'
+        }}
+      >
+        <span>{sub.label}</span>
+        {sub.count !== undefined && (
+          <span
+            style={{
+              background: isSubActive ? '#0f172a' : 'rgba(255, 255, 255, 0.2)',
+              color: isSubActive ? '#2dd4bf' : '#fff',
+              padding: '1px 5px',
+              borderRadius: '8px',
+              fontSize: '0.65rem',
+              fontWeight: '900'
+            }}
+          >
+            {sub.count}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [memberFilterType, setMemberFilterType] = useState('all');
@@ -913,59 +968,51 @@ export const SamityManagementHub = ({ onClose }) => {
       </div>
 
       {/* ==================================================================== */}
-      {/* 2. NAVIGATION SUB-TABS (Modular Multi-Feature Navigation) */}
+      {/* 2. TWO-TIER NAVIGATION: 6 MASTER CLUSTERS + CONTEXTUAL SUB-PILLS */}
       {/* ==================================================================== */}
+      {/* Tier 1: 6 Master Clusters + All Modules Directory Quick Access */}
       <div
         style={{
-          background: 'rgba(30, 41, 59, 0.7)',
+          background: 'rgba(15, 23, 42, 0.9)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '0 16px',
+          padding: '4px 16px',
           display: 'flex',
-          gap: '4px',
+          alignItems: 'center',
+          gap: '6px',
           overflowX: 'auto',
           whiteSpace: 'nowrap'
         }}
       >
         {[
-          { id: 'dashboard', label: '📊 ড্যাশবোর্ড', icon: TrendingUp },
-          { id: 'all_modules', label: '📋 ২৮টি মডিউল সূচি', icon: Award },
-          { id: 'members', label: '👥 সদস্য তালিকা', count: metrics.totalMembers, icon: Users },
-          { id: 'deposits', label: '💳 ব্যাংক ও নগদ জমা', count: data.deposits.length, icon: Landmark },
-          { id: 'bulk_deposit', label: '📑 বাল্ক ব্যাংক জমা', icon: Layers },
-          { id: 'payment_status', label: '📋 চাঁদা ও বকেয়া খাতা', icon: Receipt },
-          { id: 'approvals', label: '🛡️ লেনদেন অনুমোদন', count: (data.deposits.filter(d => d.approvalStatus === 'pending').length + data.expenses.filter(e => e.approvalStatus === 'pending').length), icon: CheckCircle2 },
-          { id: 'reminders', label: '📢 মাল্টি-চ্যানেল রিমাইন্ডার', icon: Send },
-          { id: 'expenses', label: '💸 সমিতির খরচ', count: data.expenses.length, icon: Wallet },
-          { id: 'fund_balance', label: '⚖️ ফান্ড ও ব্যালেন্স', icon: DollarSign },
-          { id: 'reports', label: '📈 ২৮টি পূর্ণাঙ্গ রিপোর্ট', icon: FileSpreadsheet },
-          { id: 'letterhead', label: '📜 লেটারহেড কনফিগ', icon: FileText },
-          { id: 'signatures', label: '✍️ স্বাক্ষর ও সিল', icon: PenTool },
-          { id: 'documents', label: '📝 অফিসিয়াল চিঠি/নোটিশ', icon: Award },
-          { id: 'roles_permissions', label: '👥 রোল ও পারমিশন', icon: ShieldCheck },
-          { id: 'audit_trail', label: '🔍 অডিট ট্রেইল ও লগ', icon: Search },
-          { id: 'notifications', label: '🔔 নোটিফিকেশন সেন্টার', count: getSamityNotifications(data, activeSamityId).length, icon: Bell },
-          { id: 'settings', label: '⚙️ সমিতি সেটিংস', icon: Settings },
-          { id: 'api_docs', label: '🔌 রেস্ট এপিআই ও ওয়েবহুক', icon: Code },
-          { id: 'backup_restore', label: '💾 ব্যাকআপ ও এক্সপোর্ট', icon: Download },
-          { id: 'sql_schema', label: '🗄️ SQL ডাটাবেজ স্কিমা', icon: ShieldCheck }
-        ].map(tab => {
-          const isActive = activeTab === tab.id;
+          { id: 'overview', label: '📊 ১. ওভারভিউ ও ড্যাশবোর্ড', defaultTab: 'dashboard' },
+          { id: 'members_dues', label: '👥 ২. সদস্য ও চাঁদা খাতা', defaultTab: 'members', count: metrics.totalMembers },
+          { id: 'deposits_receipts', label: '💳 ৩. জমা ও রশিদ', defaultTab: 'deposits', count: data.deposits.length },
+          { id: 'reminders_hub', label: '📢 ৪. রিমাইন্ডার সেন্টার', defaultTab: 'reminders' },
+          { id: 'finance_reports', label: '⚖️ ৫. হিসাব ও রিপোর্ট', defaultTab: 'expenses', count: data.expenses.length },
+          { id: 'admin_system', label: '⚙️ ৬. প্রশাসন ও সিস্টেম', defaultTab: 'letterhead' },
+          { id: 'all_modules', label: '📋 ২৮টি মডিউল সূচি', defaultTab: 'all_modules', isDirectory: true }
+        ].map(cluster => {
+          const isClusterActive = activeCluster === cluster.id;
           return (
             <button
-              key={tab.id}
+              key={cluster.id}
               onClick={() => {
                 playButtonClick?.();
                 triggerHaptic();
-                setActiveTab(tab.id);
+                setActiveTab(cluster.defaultTab);
               }}
               style={{
-                background: isActive ? 'rgba(20, 184, 166, 0.15)' : 'transparent',
-                color: isActive ? '#2dd4bf' : 'var(--text-muted, #94a3b8)',
+                background: isClusterActive
+                  ? (cluster.isDirectory ? 'rgba(59, 130, 246, 0.25)' : 'rgba(20, 184, 166, 0.2)')
+                  : 'transparent',
+                color: isClusterActive
+                  ? (cluster.isDirectory ? '#60a5fa' : '#2dd4bf')
+                  : 'var(--text-muted, #94a3b8)',
                 border: 'none',
-                borderBottom: `2.5px solid ${isActive ? '#2dd4bf' : 'transparent'}`,
-                padding: '12px 14px',
+                borderBottom: `2.5px solid ${isClusterActive ? (cluster.isDirectory ? '#3b82f6' : '#2dd4bf') : 'transparent'}`,
+                padding: '10px 14px',
                 fontSize: '0.82rem',
-                fontWeight: isActive ? '800' : '600',
+                fontWeight: isClusterActive ? '800' : '600',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -973,25 +1020,82 @@ export const SamityManagementHub = ({ onClose }) => {
                 transition: 'all 0.15s ease'
               }}
             >
-              <span>{tab.label}</span>
-              {tab.count !== undefined && (
+              <span>{cluster.label}</span>
+              {cluster.count !== undefined && (
                 <span
                   style={{
-                    background: isActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.1)',
-                    color: isActive ? '#0f172a' : '#fff',
+                    background: isClusterActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.1)',
+                    color: isClusterActive ? '#0f172a' : '#fff',
                     padding: '1px 6px',
                     borderRadius: '10px',
-                    fontSize: '0.7rem',
+                    fontSize: '0.68rem',
                     fontWeight: '800'
                   }}
                 >
-                  {tab.count}
+                  {cluster.count}
                 </span>
               )}
             </button>
           );
         })}
       </div>
+
+      {/* Tier 2: Contextual Sub-Navigation Pills for the Active Cluster */}
+      {activeCluster !== 'all_modules' && (
+        <div
+          style={{
+            background: 'rgba(30, 41, 59, 0.75)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '8px 16px',
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+            alignItems: 'center'
+          }}
+        >
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', marginRight: '4px' }}>
+            সাব-মডিউল:
+          </span>
+          {activeCluster === 'overview' && [
+            { id: 'dashboard', label: '📊 লাইভ ড্যাশবোর্ড' },
+            { id: 'notifications', label: '🔔 নোটিফিকেশন সেন্টার', count: getSamityNotifications(data, activeSamityId).length },
+            { id: 'audit_trail', label: '🔍 অডিট ট্রেইল ও লগ' }
+          ].map(renderSubPill)}
+
+          {activeCluster === 'members_dues' && [
+            { id: 'members', label: '👥 সদস্য তালিকা ও প্রোফাইল', count: metrics.totalMembers },
+            { id: 'payment_status', label: '📋 চাঁদা ও বকেয়া খাতা' },
+            { id: 'settings', label: '⚙️ চাঁদা কনফিগারেশন' }
+          ].map(renderSubPill)}
+
+          {activeCluster === 'deposits_receipts' && [
+            { id: 'deposits', label: '💳 ব্যাংক ও নগদ জমা', count: data.deposits.length },
+            { id: 'bulk_deposit', label: '📑 বাল্ক ব্যাংক জমা' }
+          ].map(renderSubPill)}
+
+          {activeCluster === 'reminders_hub' && [
+            { id: 'reminders', label: '📢 মাল্টি-চ্যানেল রিমাইন্ডার সেন্টার (WhatsApp, SMS, Telegram, Messenger)' }
+          ].map(renderSubPill)}
+
+          {activeCluster === 'finance_reports' && [
+            { id: 'expenses', label: '💸 সমিতির খরচ', count: data.expenses.length },
+            { id: 'fund_balance', label: '⚖️ ফান্ড ও ব্যালেন্স' },
+            { id: 'approvals', label: '🛡️ লেনদেন অনুমোদন', count: (data.deposits.filter(d => d.approvalStatus === 'pending').length + data.expenses.filter(e => e.approvalStatus === 'pending').length) },
+            { id: 'reports', label: '📈 ২৮টি পূর্ণাঙ্গ রিপোর্ট' }
+          ].map(renderSubPill)}
+
+          {activeCluster === 'admin_system' && [
+            { id: 'letterhead', label: '📜 লেটারহেড প্যাড' },
+            { id: 'signatures', label: '✍️ স্বাক্ষর ও সিল' },
+            { id: 'documents', label: '📝 অফিশিয়াল চিঠি/দলিল' },
+            { id: 'roles_permissions', label: '👥 রোল ও ক্ষমতা (RBAC)' },
+            { id: 'backup_restore', label: '💾 ব্যাকআপ ও এক্সপোর্ট' },
+            { id: 'api_docs', label: '🔌 REST API' },
+            { id: 'sql_schema', label: '🗄️ SQL ডাটাবেজ স্কিমা' }
+          ].map(renderSubPill)}
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* 3. MAIN WORKSPACE / CONTENT AREA */}
