@@ -215,6 +215,39 @@ export const createDefaultDepositObject = (samity = {}, nextCount = 1, custom = 
   };
 };
 
+// Helper to create an initialized Bulk Bank Deposit object
+export const createDefaultBulkDepositObject = (samity = {}, nextCount = 1, custom = {}) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const dateStr = now.toISOString().split('T')[0];
+  const pad = String(nextCount).padStart(4, '0');
+  const bulkVoucherNo = `BULK-${year}-${pad}`;
+
+  return {
+    id: `BULK-${Date.now()}`,
+    bulkVoucherNo: bulkVoucherNo,
+    depositDate: dateStr,
+    bankName: samity?.bankDetails?.bankName || 'ডাচ্-বাংলা ব্যাংক',
+    branchName: samity?.bankDetails?.branchName || 'ঢাকা শাখা',
+    accountNo: samity?.bankDetails?.accNo || '123456789',
+    bankReceiptNo: '',
+    totalSlipAmount: '',
+    depositorName: 'কোষাধ্যক্ষ / প্রতিনিধি',
+    depositorPhone: '',
+    depositorRole: 'Treasurer',
+    slipImage: '',
+    approvalStatus: 'approved',
+    approvedBy: 'Admin / President',
+    approvedAt: now.toISOString(),
+    allowPartialMatch: false,
+    mismatchReason: '',
+    remarks: '',
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    ...custom
+  };
+};
+
 // Helper to create an empty or initialized Member object with all 38 specification fields
 export const createDefaultMemberObject = (samityId = 'SAMITY-001', nextCount = 1, custom = {}) => {
   const pad = String(nextCount).padStart(4, '0');

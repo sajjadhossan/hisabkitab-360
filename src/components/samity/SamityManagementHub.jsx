@@ -87,6 +87,7 @@ import {
   DEPOSIT_METHODS,
   DEPOSIT_APPROVAL_STATUSES,
   createDefaultDepositObject,
+  createDefaultBulkDepositObject,
   createDefaultMemberObject,
   downloadMembersCsvTemplate,
   parseMembersCsv,
@@ -334,19 +335,30 @@ export const SamityManagementHub = ({ onClose }) => {
     description: ''
   });
 
-  // Bulk Deposit State
+  // Bulk Deposit Module States
   const [bulkDepositHead, setBulkDepositHead] = useState({
     bankName: 'ডাচ্-বাংলা ব্যাংক',
-    branchName: 'মিরপুর শাখা',
-    accountNo: '123.120.98765',
+    branchName: 'ঢাকা শাখা',
+    accountNo: '123456789',
     bankReceiptNo: '',
     depositDate: new Date().toISOString().split('T')[0],
-    totalSlipAmount: ''
+    totalSlipAmount: '',
+    depositorName: 'কোষাধ্যক্ষ / প্রতিনিধি',
+    depositorPhone: '',
+    depositorRole: 'Treasurer',
+    slipImage: '',
+    approvalStatus: 'approved',
+    allowPartialMatch: false,
+    mismatchReason: '',
+    remarks: ''
   });
 
   const [bulkItems, setBulkItems] = useState([
-    { memberId: '', amount: '', month: targetMonth, year: targetYear }
+    { memberId: '', memberName: '', phone: '', amount: '500', month: targetMonth, year: targetYear }
   ]);
+  const [editingBulkDeposit, setEditingBulkDeposit] = useState(null);
+  const [activeConsolidatedReport, setActiveConsolidatedReport] = useState(null);
+  const [bulkSubView, setBulkSubView] = useState('new'); // 'new' | 'history'
 
   // Persist helper
   const updateAndSave = (updater, auditMeta = null) => {
@@ -981,13 +993,20 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   // --------------------------------------------------------------------------
-  // Handlers: Bulk Deposit
+  // Handlers: Bulk Bank Deposit Module (Specification Compliant)
   // --------------------------------------------------------------------------
   const handleAddBulkRow = () => {
-    setBulkItems(prev => [...prev, { memberId: '', amount: currentSamity.monthlySubscription || '500', month: targetMonth, year: targetYear }]);
+    setBulkItems(prev => [
+      ...prev,
+      { memberId: '', memberName: '', phone: '', amount: currentSamity?.monthlySubscription || '500', month: targetMonth, year: targetYear }
+    ]);
   };
 
   const handleRemoveBulkRow = (index) => {
+    if (bulkItems.length <= 1) {
+      showToast?.('কমপক্ষে একজন সদস্যের লাইন থাকা আবশ্যক', 'warning');
+      return;
+    }
     setBulkItems(prev => prev.filter((_, idx) => idx !== index));
   };
 
@@ -995,82 +1014,290 @@ export const SamityManagementHub = ({ onClose }) => {
     setBulkItems(prev => {
       const copy = [...prev];
       copy[index][field] = value;
+      if (field === 'memberId') {
+        const m = data.members.find(mem => mem.id === value);
+        if (m) {
+          copy[index].memberName = m.nameBn || m.nameEn || '';
+          copy[index].phone = m.mobile || '';
+          copy[index].amount = m.customSubscription || currentSamity?.monthlySubscription || copy[index].amount || '500';
+        }
+      }
       return copy;
     });
+  };
+
+  const handleLoadAllActiveMembers = () => {
+    const activeMembers = data.members.filter(m => (!m.samityId || m.samityId === activeSamityId) && (m.status || 'Active') === 'Active');
+    if (!activeMembers.length) {
+      showToast?.('কোনো সক্রিয় সদস্য পাওয়া যায়নি। প্রথমে সদস্য নিবন্ধন করুন।', 'warning');
+      return;
+    }
+    playButtonClick?.();
+    triggerHaptic();
+    const newItems = activeMembers.map(m => ({
+      memberId: m.id,
+      memberName: m.nameBn || m.nameEn,
+      phone: m.mobile || '',
+      amount: m.customSubscription || currentSamity?.monthlySubscription || '500',
+      month: targetMonth,
+      year: targetYear
+    }));
+    setBulkItems(newItems);
+    showToast?.(`${newItems.length} জন সক্রিয় সদস্য সফলভাবে তালিকায় যুক্ত হয়েছে`, 'success');
+  };
+
+  const handleBulkSlipUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      showToast?.('ছবির সর্বোচ্চ সাইজ ৩ মেগাবাইট হতে হবে', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setBulkDepositHead(prev => ({ ...prev, slipImage: event.target.result }));
+      showToast?.('ব্যাংক স্লিপের ছবি যুক্ত হয়েছে', 'success');
+    };
+    reader.readAsDataURL(file);
   };
 
   const calculatedBulkSum = useMemo(() => {
     return bulkItems.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
   }, [bulkItems]);
 
+  const handleStartEditBulkDeposit = (bulk) => {
+    if ((bulk.approvalStatus || 'approved') === 'approved') {
+      const proceed = window.confirm(
+        `এই বাল্ক ডিপোজিটটি (${bulk.bankReceiptNo}) ইতোমধ্যে অনুমোদিত (Approved)।\n\nঅনুমোদনের পর পরিবর্তন করতে বিশেষ অনুমতি প্রয়োজন। আপনি কি বিশেষ অনুমতিক্রমে সম্পাদনা করতে চান?`
+      );
+      if (!proceed) return;
+    }
+    playButtonClick?.();
+    triggerHaptic();
+    setEditingBulkDeposit(bulk);
+
+    setBulkDepositHead({
+      bankName: bulk.bankName || 'ডাচ্-বাংলা ব্যাংক',
+      branchName: bulk.branchName || 'ঢাকা শাখা',
+      accountNo: bulk.accountNo || '123456789',
+      bankReceiptNo: bulk.bankReceiptNo || '',
+      depositDate: bulk.depositDate || new Date().toISOString().split('T')[0],
+      totalSlipAmount: bulk.totalSlipAmount || '',
+      depositorName: bulk.depositorName || 'কোষাধ্যক্ষ / প্রতিনিধি',
+      depositorPhone: bulk.depositorPhone || '',
+      depositorRole: bulk.depositorRole || 'Treasurer',
+      slipImage: bulk.slipImage || '',
+      approvalStatus: bulk.approvalStatus || 'approved',
+      allowPartialMatch: Boolean(bulk.allowPartialMatch),
+      mismatchReason: bulk.mismatchReason || '',
+      remarks: bulk.remarks || ''
+    });
+
+    const linkedDeposits = data.deposits.filter(d => d.bulkDepositId === bulk.id);
+    if (linkedDeposits.length > 0) {
+      setBulkItems(linkedDeposits.map(d => ({
+        memberId: d.memberId,
+        memberName: d.memberName,
+        phone: d.depositorPhone || '',
+        amount: d.amount,
+        month: d.paymentMonth || d.month || targetMonth,
+        year: d.paymentYear || d.year || targetYear
+      })));
+    }
+    setBulkSubView('new');
+    showToast?.(`বাল্ক ডিপোজিট ${bulk.bankReceiptNo} সম্পাদনার জন্য লোড হয়েছে`, 'info');
+  };
+
+  const handleCancelEditBulkDeposit = () => {
+    setEditingBulkDeposit(null);
+    setBulkDepositHead({
+      bankName: currentSamity?.bankDetails?.bankName || 'ডাচ্-বাংলা ব্যাংক',
+      branchName: currentSamity?.bankDetails?.branchName || 'ঢাকা শাখা',
+      accountNo: currentSamity?.bankDetails?.accNo || '123456789',
+      bankReceiptNo: '',
+      depositDate: new Date().toISOString().split('T')[0],
+      totalSlipAmount: '',
+      depositorName: 'কোষাধ্যক্ষ / প্রতিনিধি',
+      depositorPhone: '',
+      depositorRole: 'Treasurer',
+      slipImage: '',
+      approvalStatus: 'approved',
+      allowPartialMatch: false,
+      mismatchReason: '',
+      remarks: ''
+    });
+    setBulkItems([{ memberId: '', memberName: '', phone: '', amount: '500', month: targetMonth, year: targetYear }]);
+  };
+
+  const handleDeleteBulkDeposit = (bulkId) => {
+    const target = (data.bulkDeposits || []).find(b => b.id === bulkId);
+    if (!target) return;
+    if (!window.confirm(`আপনি কি নিশ্চিত যে বাল্ক ডিপোজিট রশিদ "${target.bankReceiptNo}" এবং এর সাথে সংযুক্ত সকল সদস্যের জমা ভাউচার মুছে ফেলতে চান?`)) {
+      return;
+    }
+    playButtonClick?.();
+    triggerHaptic();
+
+    updateAndSave(prev => ({
+      ...prev,
+      bulkDeposits: (prev.bulkDeposits || []).filter(b => b.id !== bulkId),
+      deposits: prev.deposits.filter(d => d.bulkDepositId !== bulkId)
+    }), {
+      action: 'DELETE_BULK_DEPOSIT',
+      module: 'BULK_DEPOSITS',
+      recordId: target.bankReceiptNo,
+      details: { totalAmount: target.totalSlipAmount, receiptNo: target.bankReceiptNo }
+    });
+
+    if (activeConsolidatedReport && activeConsolidatedReport.id === bulkId) {
+      setActiveConsolidatedReport(null);
+    }
+    showToast?.(`বাল্ক ডিপোজিট ${target.bankReceiptNo} সফলভাবে মুছে ফেলা হয়েছে`, 'info');
+  };
+
   const handleSaveBulkDeposit = (e) => {
     e.preventDefault();
     const slipTotal = Number(bulkDepositHead.totalSlipAmount);
     if (!slipTotal || slipTotal <= 0) {
-      showToast?.('ব্যাংক স্লিপের মোট টাকার পরিমাণ দিন', 'error');
-      return;
-    }
-    if (calculatedBulkSum !== slipTotal) {
-      showToast?.(`সদস্যদের টাকার যোগফল (${calculatedBulkSum}/-) ও ব্যাংক স্লিপের মোট টাকা (${slipTotal}/-) মেলেনি!`, 'error');
+      showToast?.('ব্যাংক স্লিপের সঠিক মোট টাকার পরিমাণ উল্লেখ করুন', 'error');
       return;
     }
     if (!bulkDepositHead.bankReceiptNo.trim()) {
-      showToast?.('ব্যাংক জমা রশিদ নং প্রদান করুন', 'error');
+      showToast?.('ব্যাংক জমা রশিদ নম্বর (Bank Receipt No) প্রদান করুন', 'error');
       return;
+    }
+
+    const validItems = bulkItems.filter(it => it.memberId && Number(it.amount) > 0);
+    if (validItems.length === 0) {
+      showToast?.('কমপক্ষে একজন সদস্য নির্বাচন করে সঠিক জমার পরিমাণ উল্লেখ করুন', 'error');
+      return;
+    }
+
+    // Validation: Total check & Partial Match Rule
+    const totalMembersSum = calculatedBulkSum;
+    if (totalMembersSum !== slipTotal) {
+      if (!bulkDepositHead.allowPartialMatch) {
+        showToast?.(
+          `সদস্যদের টাকার যোগফল (৳ ${totalMembersSum.toLocaleString()}) এবং ব্যাংক স্লিপের মোট টাকা (৳ ${slipTotal.toLocaleString()}) মেলেনি! ব্যবধান: ৳ ${Math.abs(totalMembersSum - slipTotal).toLocaleString()}। আংশিক জমার জন্য বিশেষ অনুমতি সক্রিয় করুন।`,
+          'error'
+        );
+        return;
+      }
+      if (!bulkDepositHead.mismatchReason.trim()) {
+        showToast?.('বিশেষ অনুমতিতে আংশিক জমার সুনির্দিষ্ট কারণ উল্লেখ করা বাধ্যতামূলক', 'error');
+        return;
+      }
     }
 
     playSuccessChime?.();
     triggerHaptic();
 
-    const bulkId = `BULK-${Date.now()}`;
-    const newDeposits = bulkItems.map((item, idx) => {
+    const bulkId = editingBulkDeposit?.id || `BULK-${Date.now()}`;
+    const year = new Date().getFullYear();
+    const bulkVoucherNo = editingBulkDeposit?.bulkVoucherNo || `BULK-${year}-${String((data.bulkDeposits || []).length + 1).padStart(4, '0')}`;
+
+    // Child deposits with individual vouchers and receipts
+    const newDeposits = validItems.map((item, idx) => {
       const targetMember = data.members.find(m => m.id === item.memberId);
+      const mName = targetMember ? (targetMember.nameBn || targetMember.nameEn) : (item.memberName || 'সমিতি সদস্য');
       const voucherNo = generateVoucherNumber([...data.deposits, { id: idx }], 'DEP-');
+      const receiptNo = generateReceiptNumber([...data.deposits, { id: idx }], 'RCPT-');
+
       return {
         id: `DEP-${Date.now()}-${idx}`,
         voucherNo: `${voucherNo}-${idx + 1}`,
+        receiptNo: `${receiptNo}-${idx + 1}`,
         bulkDepositId: bulkId,
         samityId: activeSamityId,
+        samityName: currentSamity?.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি',
         memberId: item.memberId,
-        memberName: targetMember ? (targetMember.nameBn || targetMember.nameEn) : 'সদস্য',
+        memberName: mName,
+        depositorName: bulkDepositHead.depositorName || mName,
+        depositorPhone: item.phone || targetMember?.mobile || bulkDepositHead.depositorPhone || '',
         amount: Number(item.amount),
         depositDate: bulkDepositHead.depositDate,
         depositType: 'Monthly Subscription',
-        method: 'bank_counter',
+        depositMethod: 'Bank Counter',
+        method: 'Bank Counter',
         bankName: bulkDepositHead.bankName,
         bankBranch: bulkDepositHead.branchName,
-        bankReceiptNo: bulkDepositHead.bankReceiptNo,
-        month: item.month,
-        year: item.year,
-        approvalStatus: 'approved',
-        approvedBy: 'Admin',
+        bankAccountNo: bulkDepositHead.accountNo,
+        bankReceiptNo: bulkDepositHead.bankReceiptNo, // exact same bank receipt number maintained
+        depositSlipNo: bulkDepositHead.bankReceiptNo,
+        bankReceiptDate: bulkDepositHead.depositDate,
+        paymentMonth: item.month || targetMonth,
+        paymentYear: Number(item.year) || Number(targetYear),
+        month: item.month || targetMonth,
+        year: Number(item.year) || Number(targetYear),
+        paymentPeriod: 'Monthly',
+        bankReceiptImage: bulkDepositHead.slipImage,
+        depositSlipImage: bulkDepositHead.slipImage,
+        approvalStatus: bulkDepositHead.approvalStatus || 'approved',
+        approvedBy: bulkDepositHead.depositorName || 'Admin / Treasurer',
         approvedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        approvalRemarks: bulkDepositHead.allowPartialMatch ? `বাল্ক জমা (${bulkDepositHead.mismatchReason})` : 'বাল্ক ব্যাংক রসিদ ভেরিফাইড',
+        remarks: bulkDepositHead.remarks || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
     });
 
     const newBulkRecord = {
       id: bulkId,
+      bulkVoucherNo,
       samityId: activeSamityId,
-      ...bulkDepositHead,
-      totalAmount: slipTotal,
-      itemsCount: bulkItems.length,
-      createdAt: new Date().toISOString()
+      bankName: bulkDepositHead.bankName,
+      branchName: bulkDepositHead.branchName,
+      accountNo: bulkDepositHead.accountNo,
+      bankReceiptNo: bulkDepositHead.bankReceiptNo,
+      depositDate: bulkDepositHead.depositDate,
+      totalSlipAmount: slipTotal,
+      allocatedAmount: totalMembersSum,
+      mismatchAmount: slipTotal - totalMembersSum,
+      allowPartialMatch: Boolean(bulkDepositHead.allowPartialMatch),
+      mismatchReason: bulkDepositHead.mismatchReason,
+      depositorName: bulkDepositHead.depositorName,
+      depositorPhone: bulkDepositHead.depositorPhone,
+      depositorRole: bulkDepositHead.depositorRole,
+      slipImage: bulkDepositHead.slipImage,
+      approvalStatus: bulkDepositHead.approvalStatus || 'approved',
+      itemsCount: newDeposits.length,
+      remarks: bulkDepositHead.remarks,
+      createdAt: editingBulkDeposit?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    updateAndSave(prev => ({
-      ...prev,
-      bulkDeposits: [newBulkRecord, ...(prev.bulkDeposits || [])],
-      deposits: [...newDeposits, ...prev.deposits]
-    }), {
-      action: 'BULK_DEPOSIT_ENTRY',
+    updateAndSave(prev => {
+      // If editing, remove old child deposits
+      const cleanDeposits = editingBulkDeposit ? prev.deposits.filter(d => d.bulkDepositId !== editingBulkDeposit.id) : prev.deposits;
+      const cleanBulk = editingBulkDeposit ? (prev.bulkDeposits || []).filter(b => b.id !== editingBulkDeposit.id) : (prev.bulkDeposits || []);
+
+      return {
+        ...prev,
+        bulkDeposits: [newBulkRecord, ...cleanBulk],
+        deposits: [...newDeposits, ...cleanDeposits]
+      };
+    }, {
+      action: editingBulkDeposit ? 'UPDATE_BULK_DEPOSIT' : 'CREATE_BULK_DEPOSIT',
       module: 'BULK_DEPOSITS',
       recordId: bulkDepositHead.bankReceiptNo,
-      details: { totalAmount: slipTotal, memberCount: bulkItems.length }
+      details: {
+        totalAmount: slipTotal,
+        allocatedAmount: totalMembersSum,
+        memberCount: newDeposits.length,
+        receiptNo: bulkDepositHead.bankReceiptNo,
+        partialMatch: bulkDepositHead.allowPartialMatch
+      }
     });
 
-    showToast?.(`বাল্ক ডিপোজিট সফল! ${newDeposits.length} জন সদস্যের জমা লিপিবদ্ধ হয়েছে`, 'success');
-    setActiveTab('deposits');
+    showToast?.(`বাল্ক ডিপোজিট সফল! ${newDeposits.length} জন সদস্যের পৃথক রসিদ ও খতিয়ান প্রস্তুত`, 'success');
+    handleCancelEditBulkDeposit();
+
+    // Auto-open Consolidated Report
+    setActiveConsolidatedReport({
+      ...newBulkRecord,
+      items: newDeposits
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -3858,172 +4085,692 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 4: BULK BANK DEPOSITS */}
+        {/* TAB 4: BULK BANK DEPOSIT MODULE (SPECIFICATION COMPLIANT) */}
         {activeTab === 'bulk_deposit' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '850px', margin: '0 auto' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <Layers size={22} color="#3b82f6" />
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>এক ব্যাংক স্লিপে বহু সদস্যের চাঁদা এন্ট্রি (Bulk Deposit)</h3>
-                  <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    যখন কোষাধ্যক্ষ বা প্রতিনিধি একাধিক সদস্যের চাঁদা একবারে ব্যাংকে জমা দিয়ে একটি রসিদ পান
-                  </p>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '1080px', margin: '0 auto' }}>
+            {/* Header & Sub-view Switcher */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Layers size={22} color="#3b82f6" />
+                  <span>এক ব্যাংক স্লিপে বহু সদস্যের চাঁদা এন্ট্রি (Bulk Bank Deposit)</span>
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  একটি ব্যাংক রসিদ নম্বরের বিপরীতে একাধিক সদস্যের চাঁদা জমা, স্বয়ংক্রিয় পৃথক রসিদ ও একীভূত প্রতিবেদন
+                </p>
               </div>
 
-              <form onSubmit={handleSaveBulkDeposit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ব্যাংকের নাম</label>
-                    <input
-                      type="text"
-                      value={bulkDepositHead.bankName}
-                      onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, bankName: e.target.value })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>ব্যাংক রশিদ / স্লিপ নম্বর *</label>
-                    <input
-                      type="text"
-                      placeholder="যেমন: DBBL-987654"
-                      required
-                      value={bulkDepositHead.bankReceiptNo}
-                      onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, bankReceiptNo: e.target.value })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>জমার তারিখ</label>
-                    <input
-                      type="date"
-                      value={bulkDepositHead.depositDate}
-                      onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, depositDate: e.target.value })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: '#10b981', fontWeight: '800', marginBottom: '4px' }}>ব্যাংক স্লিপের মোট টাকা (BDT) *</label>
-                    <input
-                      type="number"
-                      placeholder="৫০,০০০"
-                      required
-                      value={bulkDepositHead.totalSlipAmount}
-                      onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, totalSlipAmount: e.target.value })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1.5px solid #10b981', color: '#10b981', fontSize: '0.9rem', fontWeight: '900' }}
-                    />
-                  </div>
-                </div>
+              {/* View Switcher Tabs */}
+              <div style={{ display: 'flex', gap: '6px', background: 'rgba(15, 23, 42, 0.7)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <button
+                  type="button"
+                  onClick={() => setBulkSubView('new')}
+                  style={{
+                    background: bulkSubView === 'new' ? '#3b82f6' : 'transparent',
+                    color: bulkSubView === 'new' ? '#fff' : '#94a3b8',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    fontSize: '0.78rem',
+                    fontWeight: bulkSubView === 'new' ? '800' : '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>{editingBulkDeposit ? '✏️ এন্ট্রি সম্পাদনা' : '📝 নতুন বাল্ক জমা এন্ট্রি'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkSubView('history')}
+                  style={{
+                    background: bulkSubView === 'history' ? '#3b82f6' : 'transparent',
+                    color: bulkSubView === 'history' ? '#fff' : '#94a3b8',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    fontSize: '0.78rem',
+                    fontWeight: bulkSubView === 'history' ? '800' : '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <FileText size={14} />
+                  <span>📑 পূর্ববর্তী রেকর্ড ও রিপোর্ট ({(data.bulkDeposits || []).length})</span>
+                </button>
+              </div>
+            </div>
 
-                {/* Sub-Rows */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: '800' }}>সদস্যভিত্তিক জমার বিভাজন:</span>
+            {/* SUB-VIEW 1: NEW / EDIT BULK DEPOSIT */}
+            {bulkSubView === 'new' && (
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                {editingBulkDeposit && (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: '800' }}>
+                      ⚠️ সম্পাদনা মোড: ভাউচার {editingBulkDeposit.bulkVoucherNo || editingBulkDeposit.bankReceiptNo} আপডেট করা হচ্ছে
+                    </div>
                     <button
                       type="button"
-                      onClick={handleAddBulkRow}
-                      style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                      onClick={handleCancelEditBulkDeposit}
+                      style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '6px', padding: '4px 10px', fontSize: '0.74rem', cursor: 'pointer' }}
                     >
-                      + সদস্য যোগ করুন
+                      সম্পাদনা বাতিল
                     </button>
                   </div>
+                )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {bulkItems.map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <select
-                          value={item.memberId}
-                          onChange={(e) => handleBulkItemChange(idx, 'memberId', e.target.value)}
-                          required
-                          style={{ flex: 2, padding: '8px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
-                        >
-                          <option value="">-- সদস্য নির্বাচন করুন --</option>
-                          {data.members.map(m => (
-                            <option key={m.id} value={m.id}>{m.id} - {m.nameBn || m.nameEn} ({m.mobile})</option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          placeholder="টাকা"
-                          value={item.amount}
-                          required
-                          onChange={(e) => handleBulkItemChange(idx, 'amount', e.target.value)}
-                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
-                        />
-                        <select
-                          value={item.month}
-                          onChange={(e) => handleBulkItemChange(idx, 'month', e.target.value)}
-                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
-                        >
-                          {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                        {bulkItems.length > 1 && (
+                <form onSubmit={handleSaveBulkDeposit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  {/* Bank Header Section */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        ব্যাংকের নাম (Bank Name) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bulkDepositHead.bankName}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, bankName: e.target.value })}
+                        placeholder="যেমন: ডাচ্-বাংলা ব্যাংক"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        ব্যাংক শাখার নাম (Branch Name)
+                      </label>
+                      <input
+                        type="text"
+                        value={bulkDepositHead.branchName}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, branchName: e.target.value })}
+                        placeholder="যেমন: ঢাকা শাখা"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        ব্যাংক হিসাব নম্বর (Account Number) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={bulkDepositHead.accountNo}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, accountNo: e.target.value })}
+                        placeholder="123456789"
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#38bdf8', marginBottom: '4px' }}>
+                        ব্যাংক জমা রশিদ / স্লিপ নম্বর (Receipt No) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="যেমন: DBBL-123456"
+                        value={bulkDepositHead.bankReceiptNo}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, bankReceiptNo: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1.5px solid #38bdf8', color: '#38bdf8', fontSize: '0.85rem', fontWeight: '800' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        জমার তারিখ (Deposit Date) *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={bulkDepositHead.depositDate}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, depositDate: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '800', color: '#10b981', marginBottom: '4px' }}>
+                        ব্যাংক স্লিপের মোট টাকা (Total Slip Amount BDT) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        placeholder="যেমন: 50000"
+                        value={bulkDepositHead.totalSlipAmount}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, totalSlipAmount: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '2px solid #10b981', color: '#34d399', fontSize: '1rem', fontWeight: '900' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        জমাদানকারী / কোষাধ্যক্ষের নাম (Depositor Name)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: তারেক হাসান (কোষাধ্যক্ষ)"
+                        value={bulkDepositHead.depositorName}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, depositorName: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        জমাদানকারীর মোবাইল নম্বর (Depositor Phone)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="017XXXXXXXX"
+                        value={bulkDepositHead.depositorPhone}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, depositorPhone: e.target.value })}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Attachment & Remarks */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                        📎 ব্যাংক ডিপোজিট স্লিপ ছবি আপলোড (Deposit Slip Attachment)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBulkSlipUpload}
+                        style={{ fontSize: '0.74rem', color: '#94a3b8' }}
+                      />
+                      {bulkDepositHead.slipImage && (
+                        <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <img
+                            src={bulkDepositHead.slipImage}
+                            alt="Slip Attachment"
+                            style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' }}
+                          />
+                          <span style={{ fontSize: '0.72rem', color: '#10b981' }}>✓ স্লিপ সংযুক্ত হয়েছে</span>
                           <button
                             type="button"
-                            onClick={() => handleRemoveBulkRow(idx)}
-                            style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}
+                            onClick={() => setBulkDepositHead({ ...bulkDepositHead, slipImage: '' })}
+                            style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer' }}
                           >
-                            <Trash2 size={14} />
+                            মুছুন
                           </button>
-                        )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        অনুমোদন অবস্থা (Approval Status)
+                      </label>
+                      <select
+                        value={bulkDepositHead.approvalStatus}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, approvalStatus: e.target.value })}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem', fontWeight: '800' }}
+                      >
+                        <option value="approved">✓ সরাসরি অনুমোদিত (Approved)</option>
+                        <option value="pending">⏳ পর্যালোচনার জন্য অপেক্ষমাণ (Pending Review)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
+                        মন্তব্য বা বিবরণ (Remarks)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="বাল্ক জমা সংক্রান্ত বিবরণ..."
+                        value={bulkDepositHead.remarks}
+                        onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, remarks: e.target.value })}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Member Payments Table */}
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '800', color: '#fff' }}>
+                          👥 সদস্যভিত্তিক জমার তালিকা ও মাসিক বরাদ্দ ({bulkItems.length} জন)
+                        </span>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          প্রতিটি সদস্যের জন্য স্বয়ংক্রিয় পৃথক রসিদ ও ভাউচার তৈরি হবে
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Validation bar */}
-                <div
-                  style={{
-                    background: calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    border: `1px solid ${calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0 ? '#10b981' : '#ef4444'}50`,
-                    borderRadius: '8px',
-                    padding: '10px 14px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '0.82rem'
-                  }}
-                >
-                  <div>
-                    <span>সদস্যদের যোগফল: </span>
-                    <strong style={{ color: '#fff' }}>৳ {calculatedBulkSum.toLocaleString()}</strong>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={handleLoadAllActiveMembers}
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span>⚡ সকল সক্রিয় সদস্য লোড করুন</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleAddBulkRow}
+                          style={{
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            color: '#3b82f6',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Plus size={14} />
+                          <span>+ সদস্য যোগ করুন</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ overflowX: 'auto', background: '#0f172a', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                        <thead>
+                          <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                            <th style={{ padding: '10px 12px', textAlign: 'center', width: '40px' }}>#</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left', minWidth: '220px' }}>সদস্য নির্বাচন (ID ও নাম)</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left', minWidth: '130px' }}>মোবাইল নম্বর</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left', minWidth: '120px' }}>পরিশোধিত মাস</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left', width: '90px' }}>বছর</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', minWidth: '130px' }}>জমার পরিমাণ (BDT)</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'center', width: '50px' }}>মুছুন</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bulkItems.map((item, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', color: '#94a3b8' }}>
+                                {idx + 1}
+                              </td>
+
+                              <td style={{ padding: '8px 12px' }}>
+                                <select
+                                  value={item.memberId}
+                                  onChange={(e) => handleBulkItemChange(idx, 'memberId', e.target.value)}
+                                  required
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: '#1e293b', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.78rem' }}
+                                >
+                                  <option value="">-- সদস্য নির্বাচন করুন --</option>
+                                  {data.members.map(m => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.memberCode || m.id} - {m.nameBn || m.nameEn} ({m.mobile})
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+
+                              <td style={{ padding: '8px 12px' }}>
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={item.phone || ''}
+                                  placeholder="অটো পূরণ"
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8', fontSize: '0.78rem' }}
+                                />
+                              </td>
+
+                              <td style={{ padding: '8px 12px' }}>
+                                <select
+                                  value={item.month}
+                                  onChange={(e) => handleBulkItemChange(idx, 'month', e.target.value)}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: '#1e293b', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.78rem' }}
+                                >
+                                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                  ))}
+                                </select>
+                              </td>
+
+                              <td style={{ padding: '8px 12px' }}>
+                                <input
+                                  type="number"
+                                  value={item.year}
+                                  onChange={(e) => handleBulkItemChange(idx, 'year', Number(e.target.value))}
+                                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', background: '#1e293b', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.78rem' }}
+                                />
+                              </td>
+
+                              <td style={{ padding: '8px 12px' }}>
+                                <div style={{ position: 'relative' }}>
+                                  <span style={{ position: 'absolute', left: '8px', top: '7px', fontSize: '0.8rem', color: '#10b981' }}>৳</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    placeholder="500"
+                                    value={item.amount}
+                                    onChange={(e) => handleBulkItemChange(idx, 'amount', e.target.value)}
+                                    style={{ width: '100%', padding: '6px 8px 6px 22px', borderRadius: '6px', background: '#1e293b', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34d399', fontSize: '0.85rem', fontWeight: '800', textAlign: 'right' }}
+                                  />
+                                </div>
+                              </td>
+
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveBulkRow(idx)}
+                                  disabled={bulkItems.length <= 1}
+                                  title="সদস্য লাইন মুছুন"
+                                  style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: bulkItems.length <= 1 ? 'not-allowed' : 'pointer' }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  <div>
-                    <span>ব্যাংক স্লিপের মোট: </span>
-                    <strong style={{ color: '#fff' }}>৳ {Number(bulkDepositHead.totalSlipAmount || 0).toLocaleString()}</strong>
+
+                  {/* Live Validation & Mismatch Warning Card */}
+                  <div
+                    style={{
+                      background: calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0
+                        ? 'rgba(16, 185, 129, 0.12)'
+                        : 'rgba(239, 68, 68, 0.12)',
+                      border: `1.5px solid ${calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0 ? '#10b981' : '#ef4444'}`,
+                      borderRadius: '10px',
+                      padding: '12px 18px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>সদস্যদের টাকার মোট যোগফল:</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#fff' }}>
+                        ৳ {calculatedBulkSum.toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>ব্যাংক স্লিপের মোট টাকা:</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#fff' }}>
+                        ৳ {Number(bulkDepositHead.totalSlipAmount || 0).toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div>
+                      {calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '900', fontSize: '0.95rem' }}>
+                          <CheckCircle2 size={18} />
+                          <span>✓ সম্পূর্ণ মিলেছে (100% Matched)</span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: '900', fontSize: '0.95rem' }}>
+                          <AlertTriangle size={18} />
+                          <span>
+                            ব্যবধান / অমিল: ৳ {Math.abs(calculatedBulkSum - Number(bulkDepositHead.totalSlipAmount || 0)).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    {calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0 ? (
-                      <span style={{ color: '#10b981', fontWeight: '800' }}>✓ সম্পূর্ণ মিলেছে!</span>
-                    ) : (
-                      <span style={{ color: '#ef4444', fontWeight: '800' }}>
-                        পার্থক্য: ৳ {Math.abs(calculatedBulkSum - Number(bulkDepositHead.totalSlipAmount || 0)).toLocaleString()}
-                      </span>
+
+                  {/* Special Permission for Partial Matching */}
+                  {calculatedBulkSum !== Number(bulkDepositHead.totalSlipAmount) && (
+                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '12px 16px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '800', color: '#fbbf24' }}>
+                        <input
+                          type="checkbox"
+                          checked={bulkDepositHead.allowPartialMatch}
+                          onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, allowPartialMatch: e.target.checked })}
+                          style={{ width: '16px', height: '16px', accentColor: '#f59e0b' }}
+                        />
+                        <span>বিশেষ অনুমতিতে আংশিক অমিল সত্ত্বেও জমা সম্পন্ন করুন (Allow partial matching with special permission)</span>
+                      </label>
+
+                      {bulkDepositHead.allowPartialMatch && (
+                        <div style={{ marginTop: '10px' }}>
+                          <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
+                            অমিলের অনুমোদিত কারণ উল্লেখ করুন (Mismatch Reason) *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="যেমন: ব্যাংক চার্জ বা সার্ভিস ফি কর্তন / বাকি টাকা সমিতির সাধারণ তহবিলে জমা"
+                            value={bulkDepositHead.mismatchReason}
+                            onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, mismatchReason: e.target.value })}
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(245, 158, 11, 0.5)', color: '#fff', fontSize: '0.82rem' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                    {editingBulkDeposit && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditBulkDeposit}
+                        style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '10px', fontSize: '0.86rem', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        বাতিল করুন
+                      </button>
                     )}
+                    <button
+                      type="submit"
+                      className="btn"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '12px 28px',
+                        borderRadius: '10px',
+                        fontSize: '0.9rem',
+                        fontWeight: '900',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <Check size={18} />
+                      <span>{editingBulkDeposit ? '✓ বাল্ক জমা আপডেট ও রসিদ রি-জেনারেট করুন' : '✓ বাল্ক ডিপোজিট সংরক্ষণ ও সকল সদস্যের পৃথক রিসিট তৈরি করুন'}</span>
+                    </button>
                   </div>
-                </div>
+                </form>
+              </div>
+            )}
 
-                <button
-                  type="submit"
-                  className="btn"
-                  style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                    fontWeight: '800',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ✓ বাল্ক ডিপোজিট ও সকল সদস্যের পৃথক রিসিট তৈরি করুন
-                </button>
-              </form>
-            </div>
+            {/* SUB-VIEW 2: HISTORY & CONSOLIDATED REPORTS */}
+            {bulkSubView === 'history' && (
+              <div style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.81rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার / ব্যাংক রসিদ নং</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>জমার তারিখ</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ব্যাংক ও হিসাব নম্বর</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>জমাদানকারী</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>মোট স্লিপ টাকা</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>সদস্য সংখ্যা</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>স্ট্যাটাস</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>অ্যাকশন</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.bulkDeposits || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <Layers size={32} color="#64748b" />
+                            <span>এখনো কোনো বাল্ক ডিপোজিট রেকর্ড তৈরি করা হয়নি। "নতুন বাল্ক জমা এন্ট্রি" বাটনে ক্লিক করে প্রথম জমা সম্পন্ন করুন।</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      (data.bulkDeposits || []).map(bulk => {
+                        const isApproved = (bulk.approvalStatus || 'approved') === 'approved';
+                        const linkedItems = data.deposits.filter(d => d.bulkDepositId === bulk.id);
+
+                        return (
+                          <tr key={bulk.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '800', color: '#38bdf8' }}>
+                                {bulk.bankReceiptNo}
+                              </div>
+                              <div style={{ fontSize: '0.71rem', color: '#94a3b8' }}>
+                                ভাউচার: {bulk.bulkVoucherNo || bulk.id}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                              <div>{bulk.depositDate}</div>
+                            </td>
+
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700' }}>{bulk.bankName}</div>
+                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                                {bulk.branchName} • হিসাব: {bulk.accountNo}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700' }}>{bulk.depositorName || 'কোষাধ্যক্ষ'}</div>
+                              {bulk.depositorPhone && (
+                                <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                                  📞 {bulk.depositorPhone}
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '900', color: '#10b981', fontSize: '0.96rem' }}>
+                              ৳ {Number(bulk.totalSlipAmount || 0).toLocaleString()}
+                              {bulk.allowPartialMatch && (
+                                <div style={{ fontSize: '0.68rem', color: '#f59e0b' }}>
+                                  (আংশিক মেলানো)
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800' }}>
+                                {bulk.itemsCount || linkedItems.length} জন
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <span
+                                style={{
+                                  background: isApproved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                  color: isApproved ? '#10b981' : '#f59e0b',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '800'
+                                }}
+                              >
+                                {isApproved ? '✓ Approved' : '⏳ Pending'}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveConsolidatedReport({ ...bulk, items: linkedItems })}
+                                  title="একীভূত রিপোর্ট দেখুন ও প্রিন্ট করুন"
+                                  style={{
+                                    background: 'rgba(59, 130, 246, 0.15)',
+                                    color: '#3b82f6',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <FileText size={12} />
+                                  <span>একীভূত রিপোর্ট</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditBulkDeposit(bulk)}
+                                  title="সম্পাদনা করুন"
+                                  style={{
+                                    background: 'rgba(245, 158, 11, 0.15)',
+                                    color: '#f59e0b',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <Edit3 size={12} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBulkDeposit(bulk.id)}
+                                  title="মুছে ফেলুন"
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -8587,6 +9334,249 @@ export const SamityManagementHub = ({ onClose }) => {
                 alt="Document Preview"
                 style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain', borderRadius: '8px' }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* MODAL: CONSOLIDATED BULK BANK DEPOSIT REPORT */}
+      {/* ==================================================================== */}
+      {activeConsolidatedReport && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 140,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setActiveConsolidatedReport(null)}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '16px',
+              maxWidth: '920px',
+              width: '100%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={22} color="#10b981" />
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', color: '#fff' }}>
+                  একীভূত বাল্ক ব্যাংক ডিপোজিট প্রতিবেদন (Consolidated Bulk Deposit Report)
+                </h3>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Printer size={15} />
+                  <span>প্রিন্ট রিপোর্ট</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveConsolidatedReport(null)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: 'none',
+                    color: '#fff',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Sheet */}
+            <div
+              style={{
+                background: '#ffffff',
+                color: '#0f172a',
+                padding: '28px',
+                borderRadius: '12px',
+                fontFamily: "'SolaimanLipi', 'Inter', sans-serif"
+              }}
+            >
+              {/* Samity Official Letterhead */}
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', marginBottom: '16px' }}>
+                <h2 style={{ margin: '0 0 4px', fontSize: '1.45rem', fontWeight: '900', color: '#0f172a' }}>
+                  {currentSamity?.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি লিমিটেড'}
+                </h2>
+                <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: '600' }}>
+                  {currentSamity?.registrationNo ? `রেজিস্ট্রেশন নং: ${currentSamity.registrationNo} • ` : ''}
+                  ঠিকানা: {currentSamity?.address || 'মিরপুর-১০, ঢাকা-১২১৬'}
+                  {currentSamity?.phone ? ` • ফোন: ${currentSamity.phone}` : ''}
+                </div>
+                <div
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '8px',
+                    background: '#0f172a',
+                    color: '#ffffff',
+                    padding: '3px 16px',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  একীভূত ব্যাংক ডিপোজিট ও চাঁদা জমা প্রতিবেদন
+                </div>
+              </div>
+
+              {/* Deposit Meta Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '10px 24px',
+                  background: '#f8fafc',
+                  padding: '14px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '0.82rem',
+                  marginBottom: '18px'
+                }}
+              >
+                <div>
+                  <span style={{ color: '#64748b' }}>ভাউচার নম্বর: </span>
+                  <strong>{activeConsolidatedReport.bulkVoucherNo || activeConsolidatedReport.id}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>ব্যাংক জমা রশিদ নং: </span>
+                  <strong style={{ color: '#0284c7' }}>{activeConsolidatedReport.bankReceiptNo}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>ব্যাংকের নাম ও শাখা: </span>
+                  <strong>{activeConsolidatedReport.bankName} ({activeConsolidatedReport.branchName || 'প্রধান শাখা'})</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>ব্যাংক হিসাব নম্বর: </span>
+                  <strong>{activeConsolidatedReport.accountNo}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>জমার তারিখ: </span>
+                  <strong>{activeConsolidatedReport.depositDate}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>জমাদানকারী কর্মকর্তা: </span>
+                  <strong>{activeConsolidatedReport.depositorName || 'কোষাধ্যক্ষ'} {activeConsolidatedReport.depositorPhone ? `(${activeConsolidatedReport.depositorPhone})` : ''}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>ব্যাংক স্লিপের মোট টাকা: </span>
+                  <strong style={{ color: '#16a34a', fontSize: '0.92rem' }}>৳ {Number(activeConsolidatedReport.totalSlipAmount || 0).toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>সদস্যদের মোট বরাদ্দ: </span>
+                  <strong style={{ color: '#16a34a', fontSize: '0.92rem' }}>৳ {Number(activeConsolidatedReport.allocatedAmount || 0).toLocaleString()}</strong>
+                </div>
+                {activeConsolidatedReport.allowPartialMatch && (
+                  <div style={{ gridColumn: 'span 2', background: '#fef3c7', padding: '6px 10px', borderRadius: '6px', color: '#92400e', fontSize: '0.78rem' }}>
+                    <strong>বিশেষ অনুমতিতে আংশিক জমা: </strong>
+                    {activeConsolidatedReport.mismatchReason || 'ব্যাংক চার্জ কর্তন / অবশিষ্ট টাকা সমন্বয়'} (পার্থক্য: ৳ {Math.abs(Number(activeConsolidatedReport.totalSlipAmount || 0) - Number(activeConsolidatedReport.allocatedAmount || 0)).toLocaleString()})
+                  </div>
+                )}
+              </div>
+
+              {/* Members Breakdown Table */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ margin: '0 0 8px', fontSize: '0.88rem', fontWeight: '800', color: '#0f172a' }}>
+                  সদস্যভিত্তিক জমার বিস্তারিত বিবরণী ({activeConsolidatedReport.items?.length || 0} জন):
+                </h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #cbd5e1', width: '35px' }}>#</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #cbd5e1' }}>সদস্য আইডি</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #cbd5e1' }}>সদস্যের নাম</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #cbd5e1' }}>মোবাইল নম্বর</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #cbd5e1' }}>পরিশোধিত মাস</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #cbd5e1' }}>স্বতন্ত্র রসিদ নং</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #cbd5e1' }}>জমার পরিমাণ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(activeConsolidatedReport.items || []).map((it, idx) => (
+                      <tr key={it.id || idx}>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', border: '1px solid #e2e8f0' }}>{idx + 1}</td>
+                        <td style={{ padding: '6px 10px', fontWeight: '700', border: '1px solid #e2e8f0', color: '#0284c7' }}>{it.memberId}</td>
+                        <td style={{ padding: '6px 10px', fontWeight: '700', border: '1px solid #e2e8f0' }}>{it.memberName}</td>
+                        <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b' }}>{it.depositorPhone || '—'}</td>
+                        <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0' }}>{it.paymentMonth || it.month} {it.paymentYear || it.year}</td>
+                        <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontFamily: 'monospace' }}>{it.receiptNo || it.voucherNo}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: '800', border: '1px solid #e2e8f0', color: '#16a34a' }}>
+                          ৳ {Number(it.amount || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#f8fafc', fontWeight: '900' }}>
+                      <td colSpan={6} style={{ padding: '10px', textAlign: 'right', border: '1px solid #cbd5e1' }}>
+                        সর্বমোট সদস্য জমা:
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'right', border: '1px solid #cbd5e1', color: '#16a34a', fontSize: '0.92rem' }}>
+                        ৳ {Number(activeConsolidatedReport.allocatedAmount || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Signatures */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '40px', paddingTop: '20px', borderTop: '1px dashed #cbd5e1', fontSize: '0.8rem' }}>
+                <div style={{ textAlign: 'center', width: '160px' }}>
+                  <div style={{ borderTop: '1px solid #475569', paddingTop: '4px', fontWeight: '700' }}>
+                    কোষাধ্যক্ষের স্বাক্ষর
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center', width: '160px' }}>
+                  <div style={{ borderTop: '1px solid #475569', paddingTop: '4px', fontWeight: '700' }}>
+                    সাধারণ সম্পাদকের স্বাক্ষর
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center', width: '160px' }}>
+                  <div style={{ borderTop: '1px solid #475569', paddingTop: '4px', fontWeight: '700' }}>
+                    সভাপতির স্বাক্ষর ও সিল
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

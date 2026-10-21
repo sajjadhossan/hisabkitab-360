@@ -7,8 +7,8 @@ android {
         applicationId "com.hisabkitab360.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 248
-        versionName "1.0.248"
+        versionCode 249
+        versionName "1.0.249"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
