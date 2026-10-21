@@ -441,10 +441,40 @@ const DEFAULT_CLEAN_DATA = {
     memberIdPrefix: 'SM-',
     depositPrefix: 'DEP-',
     expensePrefix: 'EXP-',
-    defaultSmsGateway: 'Custom Gateway (Greenweb / BD Bulk SMS)',
+    defaultSmsGateway: 'greenweb',
     whatsappMode: 'click_to_chat', // 'click_to_chat' | 'cloud_api'
-    telegramBotToken: '',
-    telegramChatId: '',
+    whatsappCloudApi: {
+      phoneNumberId: '',
+      wabaId: '',
+      permanentAccessToken: '',
+      webhookVerifyToken: '',
+      templateName: 'samity_monthly_due_reminder',
+      templateLanguage: 'bn',
+      perMessageCostUsd: 0.005,
+      autoAttachPdfReceipt: true
+    },
+    smsConfig: {
+      activeGateway: 'greenweb', // 'greenweb' | 'bulksmsbd' | 'sslwireless' | 'twilio' | 'custom'
+      apiKey: '',
+      apiEndpoint: 'https://api.greenweb.com.bd/api.php',
+      senderId: 'HK360SAMITY',
+      balance: 1250,
+      banglaUnicode: true,
+      roleRestricted: 'admin_only' // 'admin_only' | 'treasurer_and_admin' | 'all_staff'
+    },
+    telegramConfig: {
+      botToken: '',
+      defaultChatId: '',
+      groupChatId: '',
+      channelId: '',
+      enableBotConfirmations: true
+    },
+    facebookConfig: {
+      pageId: '',
+      pageAccessToken: '',
+      webhookVerifyToken: '',
+      complianceAgreed: true
+    },
     paperSize: 'A4',
     language: 'bn'
   }
@@ -811,17 +841,84 @@ export const calculateSamityMetrics = (samityId, data) => {
   };
 };
 
+// Template Variable Replacer
+export const replaceTemplateVariables = (templateStr, { member, samity, dueInfo, treasurer }) => {
+  if (!templateStr) return '';
+  const memberName = member?.nameBn || member?.nameEn || 'সম্মানিত সদস্য';
+  const samityName = samity?.nameBn || samity?.nameEn || 'সমিতি';
+  const month = dueInfo?.month || 'চলতি মাস';
+  const dueAmount = dueInfo?.dueAmount || 0;
+  const deadline = `${samity?.subscriptionDueDay || 10} ${dueInfo?.month || ''} ${dueInfo?.year || ''}`.trim();
+  const treasurerName = treasurer?.name || 'কোষাধ্যক্ষ দপ্তর';
+  const treasurerPhone = treasurer?.phone || samity?.mobile || '';
+
+  return templateStr
+    .replace(/\{\{member_name\}\}/g, memberName)
+    .replace(/\{\{payment_month\}\}/g, month)
+    .replace(/\{\{samity_name\}\}/g, samityName)
+    .replace(/\{\{due_amount\}\}/g, dueAmount)
+    .replace(/\{\{due_date\}\}/g, deadline)
+    .replace(/\{\{treasurer_name\}\}/g, treasurerName)
+    .replace(/\{\{treasurer_phone\}\}/g, treasurerPhone);
+};
+
 // Reminder Message Formatter (WhatsApp, SMS, Telegram, Messenger)
-export const formatReminderMessage = ({ member, samity, dueInfo, channel = 'whatsapp', templateType = 'standard', lang = 'bn' }) => {
+export const formatReminderMessage = ({ member, samity, dueInfo, channel = 'whatsapp', templateType = 'standard', lang = 'bn', treasurer = null }) => {
   const samityName = lang === 'bn' ? samity.nameBn : samity.nameEn;
   const memberName = lang === 'bn' ? member.nameBn || member.nameEn : member.nameEn || member.nameBn;
   const month = dueInfo.month || 'চলতি মাস';
   const dueAmount = dueInfo.dueAmount || 0;
-  const deadline = `${samity.subscriptionDueDay || 10} ${dueInfo.month || ''} ${dueInfo.year || ''}`;
+  const deadline = `${samity.subscriptionDueDay || 10} ${dueInfo.month || ''} ${dueInfo.year || ''}`.trim();
+  const treasurerName = treasurer?.name || 'কোষাধ্যক্ষ';
+  const treasurerPhone = treasurer?.phone || samity.mobile || '';
 
   const bkashNo = samity.mobileBanking?.number || samity.mobile || '01XXXXXXXXX';
   const bankNo = samity.bankDetails?.accNo || '';
   const bankName = samity.bankDetails?.bankName || '';
+
+  // 13. Specific SMS Concise Format
+  if (channel === 'sms') {
+    if (lang === 'bn') {
+      return `প্রিয় ${memberName}, আপনার ${month} মাসের ${samityName} চাঁদা ${dueAmount} টাকা বাকি আছে। অনুগ্রহপূর্বক ${deadline} এর মধ্যে জমা দিন।`;
+    } else {
+      return `Dear ${memberName}, your ${month} subscription of ${dueAmount} BDT for ${samityName} is due. Please pay by ${deadline}.`;
+    }
+  }
+
+  // 14. Specific Telegram Bot & Channel Format
+  if (channel === 'telegram') {
+    return `📢 *${samityName} — বকেয়া চাঁদা পরিশোধের তাগিদ*
+সদস্য: *${memberName}* (আইডি: \`${member.id}\`)
+পরিশোধের মাস: ${month}
+বকেয়া পরিমাণ: *৳ ${dueAmount}/-*
+জমার শেষ তারিখ: ${deadline}
+
+টাকা জমা দেওয়ার মাধ্যম: ব্যাংক / বিকাশ / নগদ।
+জমা দেওয়ার পর অনুগ্রহ করে স্লিপ বা ট্রানজ্যাকশন আইডি পাঠিয়ে নিশ্চিত করুন।
+হেল্পলাইন: ${samity.mobile || samity.phone}`;
+  }
+
+  // 15. Facebook Messenger Format
+  if (channel === 'messenger') {
+    return `প্রিয় ${memberName}, ${samityName}-এ আপনার ${month} মাসের চাঁদা ৳${dueAmount}/- এখনো অপরিশোধিত রয়েছে। অনুগ্রহপূর্বক ${deadline}-এর মধ্যে জমা দিয়ে রসিদের ছবি বা ট্রানজ্যাকশন আইডি পাঠিয়ে নিশ্চিত করবেন। ধন্যবাদ!`;
+  }
+
+  // 10. WhatsApp Format
+  if (templateType === 'sample_spec' || templateType === 'standard') {
+    return `প্রিয় ${memberName},
+
+আপনার ${month} মাসের ${samityName}-এর মাসিক চাঁদা ${dueAmount} টাকা এখনো জমা হয়নি।
+
+জমার শেষ তারিখ: ${deadline}
+জমার মাধ্যম: ব্যাংক / বিকাশ / নগদ
+
+জমা দেওয়ার পর ব্যাংক রিসিটের ছবি পাঠাবেন।
+
+ধন্যবাদ,
+${samityName}
+${treasurerName}
+${treasurerPhone}`;
+  }
 
   if (lang === 'bn') {
     let headerIntro = `আপনার ${month} মাসের "${samityName}"-এর মাসিক চাঁদা ৳${dueAmount}/- এখনো জমা হয়নি।`;
