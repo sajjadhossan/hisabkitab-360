@@ -228,6 +228,7 @@ export const SamityManagementHub = ({ onClose }) => {
     regNo: '',
     establishedDate: '',
     logo: '',
+    letterpadImage: '',
     sloganBn: '',
     sloganEn: '',
     address: '',
@@ -769,6 +770,7 @@ export const SamityManagementHub = ({ onClose }) => {
       regNo: '',
       establishedDate: new Date().toISOString().split('T')[0],
       logo: '',
+      letterpadImage: '',
       sloganBn: '',
       sloganEn: '',
       address: '',
@@ -822,6 +824,7 @@ export const SamityManagementHub = ({ onClose }) => {
       regNo: samity.regNo || '',
       establishedDate: samity.establishedDate || '',
       logo: samity.logo || '',
+      letterpadImage: samity.letterpadImage || '',
       sloganBn: samity.sloganBn || '',
       sloganEn: samity.sloganEn || '',
       address: samity.address || '',
@@ -863,19 +866,80 @@ export const SamityManagementHub = ({ onClose }) => {
     setIsSamityModalOpen(true);
   };
 
-  const handleLogoUpload = (e) => {
+  // High-performance image compressor for mobile cameras (prevents Android WebView upload errors & localStorage quota overflow)
+  const compressImageFile = (file, { maxWidth = 800, maxHeight = 800, quality = 0.85 } = {}) => {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject(new Error('কোনো ফাইল নির্বাচন করা হয়নি'));
+      if (file.type === 'image/svg+xml') {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result);
+            return;
+          }
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          try {
+            const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const compressed = canvas.toDataURL(outputType, quality);
+            resolve(compressed);
+          } catch (e) {
+            resolve(event.target?.result);
+          }
+        };
+        img.onerror = () => resolve(event.target?.result);
+        img.src = event.target?.result;
+      };
+      reader.onerror = (e) => reject(e);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      showToast?.('লোগো ফাইলের সাইজ ২ মেগাবাইটের কম হতে হবে', 'error');
-      return;
+    try {
+      showToast?.('লোগো অপটিমাইজ করা হচ্ছে...', 'info');
+      const compressed = await compressImageFile(file, { maxWidth: 500, maxHeight: 500, quality: 0.88 });
+      setSamityForm(prev => ({ ...prev, logo: compressed }));
+      showToast?.('সমিতির লোগো সফলভাবে লোড ও অপটিমাইজ হয়েছে!', 'success');
+    } catch (err) {
+      console.error('Logo upload error:', err);
+      showToast?.('লোগো আপলোড করতে সমস্যা হয়েছে', 'error');
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setSamityForm(prev => ({ ...prev, logo: event.target.result }));
-      showToast?.('লোগো প্রিভিউ প্রস্তুত হয়েছে', 'success');
-    };
-    reader.readAsDataURL(file);
+  };
+
+  const handleLetterpadImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      showToast?.('লেটারপ্যাড ছবি অপটিমাইজ করা হচ্ছে...', 'info');
+      const compressed = await compressImageFile(file, { maxWidth: 1400, maxHeight: 600, quality: 0.86 });
+      setSamityForm(prev => ({ ...prev, letterpadImage: compressed }));
+      showToast?.('কাস্টম লেটারপ্যাড ছবি সফলভাবে যুক্ত হয়েছে!', 'success');
+    } catch (err) {
+      console.error('Letterpad image upload error:', err);
+      showToast?.('লেটারপ্যাড ছবি আপলোড করতে সমস্যা হয়েছে', 'error');
+    }
   };
 
   const handleSaveSamity = (e) => {
@@ -10145,16 +10209,12 @@ export const SamityManagementHub = ({ onClose }) => {
                         accept="image/png, image/jpeg, image/svg+xml, image/webp"
                         id="samity-letterhead-logo-uploader"
                         style={{ display: 'none' }}
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          if (file.size > 3 * 1024 * 1024) {
-                            showToast?.('লোগো ফাইলের সাইজ ৩ মেগাবাইটের কম হতে হবে', 'error');
-                            return;
-                          }
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const base64Logo = event.target?.result;
+                          try {
+                            showToast?.('লোগো অপটিমাইজ করা হচ্ছে...', 'info');
+                            const base64Logo = await compressImageFile(file, { maxWidth: 500, maxHeight: 500, quality: 0.88 });
                             updateAndSave(prev => ({
                               ...prev,
                               samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, logo: base64Logo } : s)
@@ -10164,8 +10224,9 @@ export const SamityManagementHub = ({ onClose }) => {
                               details: { samityId: activeSamityId, name: currentSamity.nameBn }
                             });
                             showToast?.('অফিসিয়াল লোগো সফলভাবে প্যাডে যুক্ত হয়েছে!', 'success');
-                          };
-                          reader.readAsDataURL(file);
+                          } catch (err) {
+                            showToast?.('লোগো লোড করতে সমস্যা হয়েছে', 'error');
+                          }
                         }}
                       />
 
@@ -10287,6 +10348,106 @@ export const SamityManagementHub = ({ onClose }) => {
                       style={{ width: '100%', accentColor: '#2dd4bf', cursor: 'pointer' }}
                     />
                   </div>
+                </div>
+
+                {/* 1B. Custom Pre-printed Letterpad Banner Image Upload */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FileText size={16} color="#10b981" />
+                      <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>কাস্টম লেটারপ্যাড ব্যানার</span>
+                    </div>
+                    {currentSamity.letterpadImage && (
+                      <button
+                        onClick={() => {
+                          updateAndSave(prev => ({
+                            ...prev,
+                            samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, letterpadImage: '' } : s)
+                          }), {
+                            action: 'REMOVE_SAMITY_LETTERPAD_IMAGE',
+                            module: 'BUSINESS_PAD',
+                            details: { samityId: activeSamityId }
+                          });
+                          showToast?.('লেটারপ্যাড ব্যানার মুছে ফেলা হয়েছে', 'info');
+                        }}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          color: '#f87171',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.7rem',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        রিমুভ
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ marginBottom: '10px' }}>
+                    {currentSamity.letterpadImage ? (
+                      <div style={{ width: '100%', maxHeight: '72px', borderRadius: '6px', overflow: 'hidden', background: '#fff', padding: '4px', border: '1px solid #10b981', textAlign: 'center' }}>
+                        <img
+                          src={currentSamity.letterpadImage}
+                          alt="Custom Pad Banner"
+                          style={{ width: '100%', maxHeight: '64px', objectFit: 'contain' }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ padding: '8px', textAlign: 'center', color: '#64748b', fontSize: '0.72rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                        রেডিমেড প্যাডের ছবি থাকলে আপলোড করুন
+                      </div>
+                    )}
+                  </div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="samity-tab-letterpad-banner-uploader"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        showToast?.('লেটারপ্যাড অপটিমাইজ করা হচ্ছে...', 'info');
+                        const compressed = await compressImageFile(file, { maxWidth: 1400, maxHeight: 600, quality: 0.86 });
+                        updateAndSave(prev => ({
+                          ...prev,
+                          samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, letterpadImage: compressed } : s)
+                        }), {
+                          action: 'UPDATE_SAMITY_LETTERPAD_IMAGE',
+                          module: 'BUSINESS_PAD',
+                          details: { samityId: activeSamityId, name: currentSamity.nameBn }
+                        });
+                        showToast?.('কাস্টম লেটারপ্যাড ব্যানার সফলভাবে সংরক্ষিত হয়েছে!', 'success');
+                      } catch (err) {
+                        showToast?.('লেটারপ্যাড আপলোড ব্যর্থ হয়েছে', 'error');
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => document.getElementById('samity-tab-letterpad-banner-uploader')?.click()}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.76rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Upload size={13} />
+                    <span>{currentSamity.letterpadImage ? 'লেটারপ্যাড ছবি পরিবর্তন' : 'লেটারপ্যাড ছবি আপলোড'}</span>
+                  </button>
                 </div>
 
                 {/* 2. Samity Branding & Header Information */}
@@ -10591,11 +10752,23 @@ export const SamityManagementHub = ({ onClose }) => {
                   {currentSamity.nameEn || 'HISABKITAB 360'}
                 </div>
 
-                {/* Header Container based on Logo Placement */}
+                {/* Header Container based on Logo Placement or Custom Letterpad Banner */}
                 {(() => {
                   const pos = data.letterhead?.logoPosition || 'left';
                   const logoHeight = data.letterhead?.logoSize || 64;
                   const themeBorder = data.letterhead?.borderColor || '#0f172a';
+
+                  if (currentSamity.letterpadImage) {
+                    return (
+                      <div style={{ textAlign: 'center', borderBottom: `2px solid ${themeBorder}`, paddingBottom: '12px', marginBottom: '16px', position: 'relative', zIndex: 1 }}>
+                        <img
+                          src={currentSamity.letterpadImage}
+                          alt="Official Samity Letterpad"
+                          style={{ width: '100%', maxHeight: '160px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                        />
+                      </div>
+                    );
+                  }
 
                   const renderLogoElement = () => (
                     currentSamity.logo ? (
@@ -15936,37 +16109,47 @@ export const SamityManagementHub = ({ onClose }) => {
                 </div>
 
                 {/* 1, 2, 3, 4, 5, 6, 7. Samity Letterhead & Branding */}
-                <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', position: 'relative', zIndex: 1 }}>
-                  {/* 1. Samity Logo Emblem */}
-                  {currentSamity.logo ? (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                      <img
-                        src={currentSamity.logo}
-                        alt={currentSamity.nameBn}
-                        style={{ maxHeight: '60px', maxWidth: '160px', objectFit: 'contain' }}
-                      />
+                {currentSamity.letterpadImage ? (
+                  <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '8px', marginBottom: '10px', position: 'relative', zIndex: 1 }}>
+                    <img
+                      src={currentSamity.letterpadImage}
+                      alt="Official Samity Letterpad"
+                      style={{ width: '100%', maxHeight: '130px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '14px', position: 'relative', zIndex: 1 }}>
+                    {/* 1. Samity Logo Emblem */}
+                    {currentSamity.logo ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                        <img
+                          src={currentSamity.logo}
+                          alt={currentSamity.nameBn}
+                          style={{ maxHeight: '60px', maxWidth: '160px', objectFit: 'contain' }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', color: '#fff', marginBottom: '6px', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}>
+                        <Building2 size={26} />
+                      </div>
+                    )}
+                    {/* 2. Samity Name */}
+                    <h1 style={{ margin: '0 0 2px 0', fontSize: '1.45rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.3px' }}>
+                      {currentSamity.nameBn}
+                    </h1>
+                    <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '700', marginBottom: '2px' }}>
+                      {currentSamity.nameEn}
                     </div>
-                  ) : (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', color: '#fff', marginBottom: '6px', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}>
-                      <Building2 size={26} />
+                    {/* 3. Samity Slogan */}
+                    <div style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '800' }}>
+                      স্লোগান: {currentSamity.sloganBn || 'সততা, স্বচ্ছতা ও সমন্বিত উন্নয়নের প্রত্যয়'}
                     </div>
-                  )}
-                  {/* 2. Samity Name */}
-                  <h1 style={{ margin: '0 0 2px 0', fontSize: '1.45rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.3px' }}>
-                    {currentSamity.nameBn}
-                  </h1>
-                  <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: '700', marginBottom: '2px' }}>
-                    {currentSamity.nameEn}
+                    {/* 4, 5, 6, 7. Samity Address, Phone, Email, Website */}
+                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px', lineHeight: '1.4' }}>
+                      <span>{currentSamity.address || 'ঢাকা, বাংলাদেশ'}</span> • <span>ফোন: {currentSamity.mobile || '০১৭১১-XXXXXX'}</span> • <span>ইমেইল: {currentSamity.email || 'samity@hisabkitab360.org'}</span> • <span>ওয়েবসাইট: {currentSamity.website || 'www.hisabkitab360.org'}</span>
+                    </div>
                   </div>
-                  {/* 3. Samity Slogan */}
-                  <div style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: '800' }}>
-                    স্লোগান: {currentSamity.sloganBn || 'সততা, স্বচ্ছতা ও সমন্বিত উন্নয়নের প্রত্যয়'}
-                  </div>
-                  {/* 4, 5, 6, 7. Samity Address, Phone, Email, Website */}
-                  <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px', lineHeight: '1.4' }}>
-                    <span>{currentSamity.address || 'ঢাকা, বাংলাদেশ'}</span> • <span>ফোন: {currentSamity.mobile || '০১৭১১-XXXXXX'}</span> • <span>ইমেইল: {currentSamity.email || 'samity@hisabkitab360.org'}</span> • <span>ওয়েবসাইট: {currentSamity.website || 'www.hisabkitab360.org'}</span>
-                  </div>
-                </div>
+                )}
 
                 {/* 8. Receipt Title & Copy Badge */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0', position: 'relative', zIndex: 1, flexWrap: 'wrap', gap: '8px' }}>
@@ -17110,7 +17293,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     </div>
                   </div>
 
-                  {/* Logo Upload & Preview */}
+                  {/* 1. Logo Upload & Preview (Mobile Auto-Compressed) */}
                   <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '12px', border: '1px dashed rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', gap: '16px' }}>
                     {samityForm.logo ? (
                       <div style={{ position: 'relative' }}>
@@ -17122,7 +17305,8 @@ export const SamityManagementHub = ({ onClose }) => {
                         <button
                           type="button"
                           onClick={() => setSamityForm(prev => ({ ...prev, logo: '' }))}
-                          style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px' }}
+                          style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '11px' }}
+                          title="লোগো মুছুন"
                         >
                           ✕
                         </button>
@@ -17133,17 +17317,76 @@ export const SamityManagementHub = ({ onClose }) => {
                       </div>
                     )}
                     <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '800', color: '#fff', marginBottom: '2px' }}>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '800', color: '#fff', marginBottom: '2px' }}>
                         সমিতির অফিসিয়াল লোগো আপলোড (Samity Logo Upload)
                       </label>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                        PNG / JPG ফরম্যাটে ২ MB-এর নিচে লোগো আপলোড করুন। এটি রিসিট ও প্যাডে স্বয়ংক্রিয়ভাবে বসবে।
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '8px' }}>
+                        মোবাইল ক্যামেরা বা গ্যালারি থেকে যেকোনো সাইজের ছবি নির্বাচন করুন (স্বয়ংক্রিয়ভাবে অপটিমাইজ হবে)।
                       </div>
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleLogoUpload}
                         style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Custom Pre-printed Letterpad Banner Image Upload & Preview */}
+                  <div style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '12px', border: '1.5px dashed rgba(45, 212, 191, 0.4)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '800', color: '#2dd4bf', marginBottom: '2px' }}>
+                          📄 কাস্টম অফিসিয়াল লেটারপ্যাড ব্যানার / ছবি (Custom Letterpad Banner)
+                        </label>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                          আপনার সমিতির পূর্বে মুদ্রিত বা তৈরি করা প্যাডের ছবি থাকলে এখানে দিন। এটি রিসিট ও অফিশিয়াল প্রিন্টে হুবহু বসবে।
+                        </div>
+                      </div>
+                      {samityForm.letterpadImage && (
+                        <button
+                          type="button"
+                          onClick={() => setSamityForm(prev => ({ ...prev, letterpadImage: '' }))}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Trash2 size={12} />
+                          <span>ব্যানার মুছুন</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {samityForm.letterpadImage ? (
+                      <div style={{ width: '100%', maxHeight: '110px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(45, 212, 191, 0.4)', background: '#fff', padding: '4px', textAlign: 'center' }}>
+                        <img
+                          src={samityForm.letterpadImage}
+                          alt="Custom Letterpad Preview"
+                          style={{ width: '100%', maxHeight: '102px', objectFit: 'contain' }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.03)', border: '1px dashed rgba(255, 255, 255, 0.1)', textAlign: 'center', color: '#64748b', fontSize: '0.74rem' }}>
+                        কোনো কাস্টম লেটারপ্যাড ছবি যুক্ত করা হয়নি (লোগো ও নাম সংবলিত স্ট্যান্ডার্ড হেডার ব্যবহূত হবে)
+                      </div>
+                    )}
+
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLetterpadImageUpload}
+                        style={{ fontSize: '0.75rem', color: '#94a3b8', width: '100%' }}
                       />
                     </div>
                   </div>

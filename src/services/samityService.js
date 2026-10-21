@@ -314,6 +314,7 @@ export const createDefaultSamityObject = (id = 'SAMITY-001', customFields = {}) 
     regNo: 'REG-2026/DHK-482',
     establishedDate: '2024-01-01',
     logo: '',
+    letterpadImage: '',
     sloganBn: 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি',
     sloganEn: 'Building Dreams, Securing the Future',
     address: 'প্লট #১২, ব্লক-বি, মিরপুর-১০, ঢাকা-১২১৬',
