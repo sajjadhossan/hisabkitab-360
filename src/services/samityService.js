@@ -253,6 +253,8 @@ const DEFAULT_CLEAN_DATA = {
   bulkDeposits: [],
   expenses: [],
   reminders: [],
+  subscriptionBills: [],
+  waivers: [],
   auditLogs: [],
   approvals: [],
   letterhead: {
@@ -404,8 +406,8 @@ export const recordAuditLog = (currentData, { action, module, recordId, details,
   };
 };
 
-// Monthly Due and Payment Status Engine
-export const calculateMemberPaymentStatus = (member, samity, deposits = [], targetMonth = null, targetYear = null) => {
+// Monthly Due and Payment Status Engine (with Advance, Partial, Waivers/Discounts, and Late Fees)
+export const calculateMemberPaymentStatus = (member, samity, deposits = [], targetMonth = null, targetYear = null, waivers = []) => {
   const now = new Date();
   const currentMonth = targetMonth || now.toLocaleString('en-US', { month: 'long' });
   const currentYear = targetYear || now.getFullYear();
@@ -425,6 +427,15 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
 
   const totalPaidForMonth = memberDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
+  // Find authorized waivers/discounts for this member and target month/year
+  const memberWaivers = (waivers || []).filter(w =>
+    w.memberId === member.id &&
+    w.samityId === member.samityId &&
+    (!w.month || w.month.toLowerCase() === currentMonth.toLowerCase()) &&
+    (!w.year || Number(w.year) === Number(currentYear))
+  );
+  const totalWaiver = memberWaivers.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
   // All time total paid
   const allTimePaid = deposits
     .filter(d => d.memberId === member.id && d.samityId === member.samityId && d.approvalStatus === 'approved')
@@ -432,27 +443,81 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
 
   let status = 'unpaid';
   let dueAmount = monthlyRequired;
+  let advanceAmount = 0;
 
-  if (totalPaidForMonth >= monthlyRequired) {
-    status = totalPaidForMonth > monthlyRequired ? 'advance_paid' : 'paid';
-    dueAmount = 0;
-  } else if (totalPaidForMonth > 0 && totalPaidForMonth < monthlyRequired) {
+  const effectiveCredit = totalPaidForMonth + totalWaiver;
+
+  if (effectiveCredit >= monthlyRequired) {
+    if (totalPaidForMonth > monthlyRequired) {
+      status = 'advance_paid';
+      dueAmount = 0;
+      advanceAmount = totalPaidForMonth - monthlyRequired;
+    } else if (totalWaiver >= monthlyRequired && totalPaidForMonth === 0) {
+      status = 'waived';
+      dueAmount = 0;
+      advanceAmount = 0;
+    } else {
+      status = 'paid';
+      dueAmount = 0;
+      advanceAmount = 0;
+    }
+  } else if (effectiveCredit > 0 && effectiveCredit < monthlyRequired) {
     status = 'partially_paid';
-    dueAmount = monthlyRequired - totalPaidForMonth;
+    dueAmount = monthlyRequired - effectiveCredit;
   } else {
     status = 'unpaid';
     dueAmount = monthlyRequired;
   }
 
-  // Check if late fee applies
+  // Calculate Previous Months' Cumulative Due
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const targetMonthIndex = MONTH_NAMES.findIndex(m => m.toLowerCase() === currentMonth.toLowerCase());
+  let previousMonthsDues = 0;
+  const previousMonthsBreakdown = [];
+
+  if (targetMonthIndex > 0) {
+    for (let i = 0; i < targetMonthIndex; i++) {
+      const prevM = MONTH_NAMES[i];
+      const prevDeposits = deposits.filter(d =>
+        d.memberId === member.id &&
+        d.samityId === member.samityId &&
+        d.approvalStatus === 'approved' &&
+        d.month && d.month.toLowerCase() === prevM.toLowerCase() &&
+        (!d.year || Number(d.year) === Number(currentYear))
+      );
+      const prevWaivers = (waivers || []).filter(w =>
+        w.memberId === member.id &&
+        w.samityId === member.samityId &&
+        w.month && w.month.toLowerCase() === prevM.toLowerCase() &&
+        (!w.year || Number(w.year) === Number(currentYear))
+      );
+      const prevPaid = prevDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+      const prevWaived = prevWaivers.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+      const prevDue = Math.max(0, monthlyRequired - (prevPaid + prevWaived));
+      if (prevDue > 0) {
+        previousMonthsDues += prevDue;
+        previousMonthsBreakdown.push({ month: prevM, due: prevDue, paid: prevPaid, waived: prevWaived });
+      }
+    }
+  }
+
+  // Check if late fee applies (Fixed or Percentage, with auto-apply check)
   const dueDay = samity?.subscriptionDueDay || 10;
   const gracePeriod = samity?.gracePeriodDays || 5;
   const cutoffDay = dueDay + gracePeriod;
   let lateFee = 0;
 
-  if (status !== 'paid' && status !== 'advance_paid' && samity?.lateFeeEnabled && now.getDate() > cutoffDay) {
-    lateFee = Number(samity?.lateFeeAmount || 50);
+  const lateFeeAuto = samity?.lateFeeAutoApply !== false;
+  if (status !== 'paid' && status !== 'advance_paid' && status !== 'waived' && samity?.lateFeeEnabled && lateFeeAuto && now.getDate() > cutoffDay) {
+    if (samity?.lateFeeType === 'percentage') {
+      const pct = Number(samity?.lateFeePercent || 5);
+      lateFee = Math.round((monthlyRequired * pct) / 100);
+    } else {
+      lateFee = Number(samity?.lateFeeAmount || 50);
+    }
   }
+
+  const totalCumulativeDue = dueAmount + previousMonthsDues + lateFee;
 
   return {
     memberId: member.id,
@@ -461,13 +526,49 @@ export const calculateMemberPaymentStatus = (member, samity, deposits = [], targ
     year: currentYear,
     requiredAmount: monthlyRequired,
     paidAmount: totalPaidForMonth,
+    waiverAmount: totalWaiver,
     dueAmount: dueAmount,
+    advanceAmount: advanceAmount,
+    previousMonthsDues: previousMonthsDues,
+    previousMonthsBreakdown: previousMonthsBreakdown,
     lateFee: lateFee,
     totalPayable: dueAmount + lateFee,
+    totalCumulativeDue: totalCumulativeDue,
     status: status, // 'paid' | 'unpaid' | 'partially_paid' | 'advance_paid' | 'waived'
     allTimePaid,
     lastDepositDate: memberDeposits[0]?.date || null
   };
+};
+
+// Auto-generate monthly subscription bills for all active members
+export const generateMonthlySubscriptionBills = (samityId, data, targetMonth, targetYear) => {
+  const samity = data.samities?.find(s => s.id === samityId) || data.samities?.[0] || {};
+  const activeMembers = (data.members || []).filter(m => m.samityId === samityId && (m.status || 'Active').toLowerCase() === 'active');
+
+  const generatedBills = activeMembers.map(member => {
+    const status = calculateMemberPaymentStatus(member, samity, data.deposits || [], targetMonth, targetYear, data.waivers || []);
+    return {
+      id: `BILL-${targetYear}-${targetMonth.slice(0, 3).toUpperCase()}-${member.id}`,
+      billNo: `BILL-${targetYear}-${member.id}`,
+      samityId,
+      memberId: member.id,
+      memberName: member.nameBn || member.nameEn,
+      memberCode: member.memberCode || member.id,
+      month: targetMonth,
+      year: targetYear,
+      subscriptionAmount: status.requiredAmount,
+      paidAmount: status.paidAmount,
+      waiverAmount: status.waiverAmount || 0,
+      currentDue: status.dueAmount,
+      previousDues: status.previousMonthsDues || 0,
+      lateFee: status.lateFee,
+      totalPayable: status.totalCumulativeDue,
+      status: status.status,
+      generatedAt: new Date().toISOString()
+    };
+  });
+
+  return generatedBills;
 };
 
 // Summary metrics calculator for Dashboard & Fund

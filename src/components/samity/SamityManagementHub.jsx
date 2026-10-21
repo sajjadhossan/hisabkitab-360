@@ -65,6 +65,7 @@ import {
   createDefaultSamityObject,
   recordAuditLog,
   calculateMemberPaymentStatus,
+  generateMonthlySubscriptionBills,
   calculateSamityMetrics,
   formatReminderMessage,
   getWhatsAppUrl,
@@ -124,7 +125,7 @@ export const SamityManagementHub = ({ onClose }) => {
   const activeCluster = useMemo(() => {
     if (activeTab === 'all_modules') return 'all_modules';
     if (['dashboard', 'samity_setup', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
-    if (['members', 'payment_status', 'settings'].includes(activeTab)) return 'members_dues';
+    if (['members', 'payment_status', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_dues';
     if (['deposits', 'bulk_deposit'].includes(activeTab)) return 'deposits_receipts';
     if (['reminders'].includes(activeTab)) return 'reminders_hub';
     if (['expenses', 'fund_balance', 'approvals', 'reports'].includes(activeTab)) return 'finance_reports';
@@ -262,6 +263,12 @@ export const SamityManagementHub = ({ onClose }) => {
   });
   const [approvalFilter, setApprovalFilter] = useState('pending');
   const [apiSimulatorOutput, setApiSimulatorOutput] = useState(null);
+
+  // Subscription Configuration Module (#3) States
+  const [subConfigTab, setSubConfigTab] = useState('policy'); // 'policy' | 'billing_engine' | 'member_rates' | 'waiver_hub'
+  const [memberRateSearch, setMemberRateSearch] = useState('');
+  const [billingEngineMonth, setBillingEngineMonth] = useState(() => new Date().toLocaleString('en-US', { month: 'long' }));
+  const [billingEngineYear, setBillingEngineYear] = useState(() => new Date().getFullYear());
 
   // Form States (38 Specification Fields for Member)
   const [memberForm, setMemberForm] = useState(() => ({
@@ -1163,7 +1170,8 @@ export const SamityManagementHub = ({ onClose }) => {
 
     updateAndSave(prev => ({
       ...prev,
-      deposits: [waiverDeposit, ...prev.deposits]
+      deposits: [waiverDeposit, ...prev.deposits],
+      waivers: [waiverDeposit, ...(prev.waivers || [])]
     }), {
       action: 'APPLY_DUE_WAIVER',
       module: 'WAIVERS',
@@ -1174,6 +1182,81 @@ export const SamityManagementHub = ({ onClose }) => {
     showToast?.(`৳${waiverForm.amount} বকেয়া সফলভাবে মওকুফ করা হয়েছে`, 'success');
     setIsWaiverModalOpen(false);
     setWaiverTargetMember(null);
+  };
+
+  // --------------------------------------------------------------------------
+  // Handlers: Module #3 Subscription Configuration & Automated Billing
+  // --------------------------------------------------------------------------
+  const handleGenerateBills = (month = billingEngineMonth, year = billingEngineYear) => {
+    playSuccessChime?.();
+    triggerHaptic();
+    const newBills = generateMonthlySubscriptionBills(activeSamityId, data, month, year);
+    if (!newBills || newBills.length === 0) {
+      showToast?.('কোনো সক্রিয় সদস্য পাওয়া যায়নি', 'warning');
+      return;
+    }
+
+    updateAndSave(prev => {
+      const otherBills = (prev.subscriptionBills || []).filter(
+        b => !(b.samityId === activeSamityId && b.month === month && Number(b.year) === Number(year))
+      );
+      return {
+        ...prev,
+        subscriptionBills: [...newBills, ...otherBills]
+      };
+    }, {
+      action: 'GENERATE_SUBSCRIPTION_BILLS',
+      module: 'SUBSCRIPTION_CONFIG',
+      recordId: `${month}-${year}`,
+      details: { totalBills: newBills.length, targetMonth: month, targetYear: year }
+    });
+
+    showToast?.(`${month} ${year}-এর জন্য ${newBills.length} জন সদস্যের চাঁদার বিল ও বকেয়া হিসাব সফলভাবে প্রস্তুত হয়েছে!`, 'success');
+  };
+
+  const handleUpdateMemberSubscriptionRate = (memberId, customAmount, paymentCycle) => {
+    playButtonClick?.();
+    triggerHaptic();
+    const targetMember = data.members.find(m => m.id === memberId);
+    if (!targetMember) return;
+
+    const parsedAmount = customAmount === '' ? '' : Number(customAmount);
+    updateAndSave(prev => ({
+      ...prev,
+      members: prev.members.map(m => m.id === memberId ? {
+        ...m,
+        customSubscription: parsedAmount,
+        paymentCycle: paymentCycle || m.paymentCycle || 'Monthly',
+        updatedAt: new Date().toISOString()
+      } : m)
+    }), {
+      action: 'UPDATE_MEMBER_RATE',
+      module: 'SUBSCRIPTION_CONFIG',
+      recordId: memberId,
+      details: { customSubscription: parsedAmount, paymentCycle }
+    });
+
+    showToast?.(`${targetMember.nameBn || targetMember.nameEn}-এর চাঁদার হার সফলভাবে সংরক্ষিত হয়েছে`, 'success');
+  };
+
+  const handleSaveSamityPolicy = (policyUpdates) => {
+    playSuccessChime?.();
+    triggerHaptic();
+    updateAndSave(prev => ({
+      ...prev,
+      samities: prev.samities.map(s => s.id === activeSamityId ? {
+        ...s,
+        ...policyUpdates,
+        updatedAt: new Date().toISOString()
+      } : s)
+    }), {
+      action: 'UPDATE_SUBSCRIPTION_POLICY',
+      module: 'SUBSCRIPTION_CONFIG',
+      recordId: activeSamityId,
+      details: policyUpdates
+    });
+
+    showToast?.('সমিতির চাঁদা ও বিলম্ব ফি পলিসি সফলভাবে সংরক্ষিত হয়েছে!', 'success');
   };
 
   // --------------------------------------------------------------------------
@@ -1570,7 +1653,7 @@ export const SamityManagementHub = ({ onClose }) => {
           {activeCluster === 'members_dues' && [
             { id: 'members', label: '👥 সদস্য তালিকা ও প্রোফাইল', count: metrics.totalMembers },
             { id: 'payment_status', label: '📋 চাঁদা ও বকেয়া খাতা' },
-            { id: 'settings', label: '⚙️ চাঁদা কনফিগারেশন' }
+            { id: 'subscription_cfg', label: '⚙️ চাঁদা পলিসি ও কনফিগারেশন' }
           ].map(renderSubPill)}
 
           {activeCluster === 'deposits_receipts' && [
@@ -4736,85 +4819,1162 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         )}
 
-        {/* TAB 19: SETTINGS MODULE (#1, #25, #27) */}
-        {activeTab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '780px', margin: '0 auto' }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <Settings size={20} color="#2dd4bf" />
+        {/* TAB 19: MODULE #3 SUBSCRIPTION / চাঁদা CONFIGURATION & AUTOMATED BILLING SYSTEM */}
+        {(activeTab === 'subscription_cfg' || activeTab === 'settings') && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Module Header & Description */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                padding: '20px 24px',
+                borderRadius: '16px',
+                border: '1px solid rgba(45, 212, 191, 0.25)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 14px rgba(20, 184, 166, 0.35)'
+                  }}
+                >
+                  <DollarSign size={24} color="#ffffff" />
+                </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>
-                    ⚙️ সমিতি জেনারেল ও সাবস্ক্রিপশন কনফিগারেশন
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    সমিতি প্রোফাইল, মাসিক চাঁদা, বিলম্ব ফি ও এসএমএস গেটওয়ে প্রেফারেন্স
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#f8fafc' }}>
+                      চাঁদা কনফিগারেশন ও অটো-বিলিং সিস্টেম
+                    </h2>
+                    <span
+                      style={{
+                        background: 'rgba(20, 184, 166, 0.18)',
+                        color: '#2dd4bf',
+                        border: '1px solid rgba(20, 184, 166, 0.35)',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontSize: '0.7rem',
+                        fontWeight: '800'
+                      }}
+                    >
+                      MODULE #3
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    ডিফল্ট চাঁদা, সদস্যভিত্তিক ভিন্ন হার, পেমেন্ট চক্র, বিল জেনারেটর, পূর্বের বকেয়া হিসাব, বিলম্ব ফি, অগ্রিম ও মওকুফ পলিসি
                   </p>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>সমিতির নাম (বাংলা)</label>
-                  <input
-                    type="text"
-                    value={currentSamity.nameBn || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateAndSave(prev => ({
-                        ...prev,
-                        samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, nameBn: val } : s)
-                      }));
-                    }}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 12px', borderRadius: '8px', color: '#fff', fontSize: '0.82rem', marginTop: '4px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>ডিফল্ট মাসিক চাঁদা (টাকা)</label>
-                  <input
-                    type="number"
-                    value={currentSamity.monthlySubscription || 500}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      updateAndSave(prev => ({
-                        ...prev,
-                        samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, monthlySubscription: val } : s)
-                      }));
-                    }}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 12px', borderRadius: '8px', color: '#fff', fontSize: '0.82rem', marginTop: '4px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>চাঁদা জমার শেষ দিন (প্রতি মাস)</label>
-                  <input
-                    type="number"
-                    value={currentSamity.subscriptionDueDay || 10}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      updateAndSave(prev => ({
-                        ...prev,
-                        samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, subscriptionDueDay: val } : s)
-                      }));
-                    }}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 12px', borderRadius: '8px', color: '#fff', fontSize: '0.82rem', marginTop: '4px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>বিলম্ব ফি / জরিমানা (টাকা)</label>
-                  <input
-                    type="number"
-                    value={currentSamity.lateFeeAmount || 50}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      updateAndSave(prev => ({
-                        ...prev,
-                        samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, lateFeeAmount: val } : s)
-                      }));
-                    }}
-                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 12px', borderRadius: '8px', color: '#fff', fontSize: '0.82rem', marginTop: '4px' }}
-                  />
-                </div>
+              {/* 4 Inner Sub-Tabs */}
+              <div
+                style={{
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  padding: '4px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  gap: '4px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                {[
+                  { id: 'policy', label: '📌 ১. সাধারণ পলিসি ও বিলম্ব ফি' },
+                  { id: 'billing_engine', label: '⚡ ২. অটো-বিলিং ও বকেয়া ইঞ্জিন' },
+                  { id: 'member_rates', label: '👥 ৩. সদস্যভিত্তিক চাঁদার হার' },
+                  { id: 'waiver_hub', label: '🎁 ৪. বকেয়া মওকুফ ও ছাড় হাব' }
+                ].map(t => {
+                  const isActive = subConfigTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        playButtonClick?.();
+                        triggerHaptic?.();
+                        setSubConfigTab(t.id);
+                      }}
+                      style={{
+                        background: isActive ? '#2dd4bf' : 'transparent',
+                        color: isActive ? '#0f172a' : '#94a3b8',
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: isActive ? '800' : '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
+            {/* SUB-TAB 1: GLOBAL SUBSCRIPTION & LATE FEE POLICY */}
+            {subConfigTab === 'policy' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px' }}>
+                {/* Policy Settings Form Card */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    padding: '24px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px' }}>
+                    <Sliders size={18} color="#2dd4bf" />
+                    <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#f8fafc' }}>
+                      সমিতির কেন্দ্রীয় চাঁদা ও বিলম্ব ফি পলিসি
+                    </h3>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    {/* Default Monthly Subscription */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        ডিফল্ট মাসিক চাঁদা (টাকা) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={currentSamity.monthlySubscription || 500}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          handleSaveSamityPolicy({ monthlySubscription: val });
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(15, 23, 42, 0.8)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '0.84rem',
+                          fontWeight: '700',
+                          marginTop: '4px'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>সাধারণ সদস্যদের ক্ষেত্রে ডিফল্ট হিসেবে প্রযোজ্য</span>
+                    </div>
+
+                    {/* Default Payment Cycle */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        ডিফল্ট পেমেন্ট চক্র (Payment Cycle)
+                      </label>
+                      <select
+                        value={currentSamity.paymentCycle || 'Monthly'}
+                        onChange={(e) => handleSaveSamityPolicy({ paymentCycle: e.target.value })}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(15, 23, 42, 0.8)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '0.84rem',
+                          fontWeight: '700',
+                          marginTop: '4px'
+                        }}
+                      >
+                        {PAYMENT_CYCLES.map(c => (
+                          <option key={c.value} value={c.value}>{c.labelBn}</option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মাসিক, ত্রৈমাসিক, ষাণ্মাসিক বা বার্ষিক</span>
+                    </div>
+
+                    {/* Subscription Due Day */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        চাঁদা জমার শেষ তারিখ (প্রতি মাসের) *
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          value={currentSamity.subscriptionDueDay || 10}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            handleSaveSamityPolicy({ subscriptionDueDay: val });
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '0.84rem',
+                            fontWeight: '700'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>তারিখ</span>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>যেমন: প্রতি মাসের ১০ তারিখের মধ্যে প্রদেয়</span>
+                    </div>
+
+                    {/* Grace Period */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        গ্রেস পিরিয়ড / অতিরিক্ত সময় (দিন) *
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          value={currentSamity.gracePeriodDays ?? 5}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            handleSaveSamityPolicy({ gracePeriodDays: val });
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '0.84rem',
+                            fontWeight: '700'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>দিন</span>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ডিউ ডেটের পর কত দিন পর্যন্ত জরিমানা ছাড়া জমা দেওয়া যাবে</span>
+                    </div>
+
+                    {/* Late Fee Enabled Toggle */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        বিলম্ব ফি / জরিমানা কার্যকর আছে কিনা
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSamityPolicy({ lateFeeEnabled: true })}
+                          style={{
+                            flex: 1,
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: '1px solid ' + (currentSamity.lateFeeEnabled ? '#10b981' : 'rgba(255, 255, 255, 0.15)'),
+                            background: currentSamity.lateFeeEnabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                            color: currentSamity.lateFeeEnabled ? '#34d399' : '#94a3b8',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✓ চালু (Enabled)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSamityPolicy({ lateFeeEnabled: false })}
+                          style={{
+                            flex: 1,
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: '1px solid ' + (!currentSamity.lateFeeEnabled ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'),
+                            background: !currentSamity.lateFeeEnabled ? 'rgba(239, 68, 68, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                            color: !currentSamity.lateFeeEnabled ? '#f87171' : '#94a3b8',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕ বন্ধ (Disabled)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Late Fee Calculation Type */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        বিলম্ব ফির হিসাবের ধরন
+                      </label>
+                      <select
+                        value={currentSamity.lateFeeType || 'fixed'}
+                        onChange={(e) => handleSaveSamityPolicy({ lateFeeType: e.target.value })}
+                        disabled={!currentSamity.lateFeeEnabled}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(15, 23, 42, 0.8)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '0.84rem',
+                          fontWeight: '700',
+                          marginTop: '4px',
+                          opacity: currentSamity.lateFeeEnabled ? 1 : 0.5
+                        }}
+                      >
+                        <option value="fixed">নির্দিষ্ট অঙ্কের টাকা (Fixed BDT)</option>
+                        <option value="percentage">মূল চাঁদার শতাংশ (Percentage %)</option>
+                      </select>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ফ্ল্যাট ৫০ টাকা নাকি মূল ফির ৫% জরিমানা</span>
+                    </div>
+
+                    {/* Late Fee Amount or Percentage */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        {currentSamity.lateFeeType === 'percentage' ? 'বিলম্ব ফির হার (শতাংশ %)' : 'বিলম্ব ফির পরিমাণ (টাকা)'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={currentSamity.lateFeeType === 'percentage' ? (currentSamity.lateFeePercent || 5) : (currentSamity.lateFeeAmount || 50)}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (currentSamity.lateFeeType === 'percentage') {
+                            handleSaveSamityPolicy({ lateFeePercent: val });
+                          } else {
+                            handleSaveSamityPolicy({ lateFeeAmount: val });
+                          }
+                        }}
+                        disabled={!currentSamity.lateFeeEnabled}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(15, 23, 42, 0.8)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '0.84rem',
+                          fontWeight: '700',
+                          marginTop: '4px',
+                          opacity: currentSamity.lateFeeEnabled ? 1 : 0.5
+                        }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        {currentSamity.lateFeeType === 'percentage' ? 'যেমন: ৫% (৫০০ টাকায় ২৫ টাকা জরিমানা)' : 'যেমন: ৫০ টাকা ফ্ল্যাট জরিমানা'}
+                      </span>
+                    </div>
+
+                    {/* Auto Apply Toggle */}
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: '700', color: '#cbd5e1' }}>
+                        স্বয়ংক্রিয়ভাবে বিলম্ব ফি প্রয়োগ হবে কিনা
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSamityPolicy({ lateFeeAutoApply: true })}
+                          disabled={!currentSamity.lateFeeEnabled}
+                          style={{
+                            flex: 1,
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: '1px solid ' + (currentSamity.lateFeeAutoApply !== false ? '#3b82f6' : 'rgba(255, 255, 255, 0.15)'),
+                            background: currentSamity.lateFeeAutoApply !== false ? 'rgba(59, 130, 246, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                            color: currentSamity.lateFeeAutoApply !== false ? '#60a5fa' : '#94a3b8',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            opacity: currentSamity.lateFeeEnabled ? 1 : 0.5
+                          }}
+                        >
+                          ✓ স্বয়ংক্রিয় (Auto)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSamityPolicy({ lateFeeAutoApply: false })}
+                          disabled={!currentSamity.lateFeeEnabled}
+                          style={{
+                            flex: 1,
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: '1px solid ' + (currentSamity.lateFeeAutoApply === false ? '#f59e0b' : 'rgba(255, 255, 255, 0.15)'),
+                            background: currentSamity.lateFeeAutoApply === false ? 'rgba(245, 158, 11, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                            color: currentSamity.lateFeeAutoApply === false ? '#fbbf24' : '#94a3b8',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            opacity: currentSamity.lateFeeEnabled ? 1 : 0.5
+                          }}
+                        >
+                          ম্যানুয়াল যাচাই
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Policy Simulation & Live Rule Visualizer Card */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    padding: '24px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px' }}>
+                    <Sparkles size={18} color="#f59e0b" />
+                    <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#f8fafc' }}>
+                      লাইভ পলিসি প্রিভিউ ও ক্যালকুলেশন রুল
+                    </h3>
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(45, 212, 191, 0.2)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.74rem', color: '#2dd4bf', fontWeight: '800' }}>
+                      📌 বর্তমান কনফিগারেশন সারসংক্ষেপ:
+                    </span>
+                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.8rem', color: '#e2e8f0', lineHeight: '1.6' }}>
+                      <li>
+                        <strong>মাসিক চাঁদা:</strong> ৳{currentSamity.monthlySubscription || 500} টাকা
+                      </li>
+                      <li>
+                        <strong>জমার শেষ তারিখ (Due Date):</strong> প্রতি মাসের {currentSamity.subscriptionDueDay || 10} তারিখ
+                      </li>
+                      <li>
+                        <strong>গ্রেস পিরিয়ড:</strong> {currentSamity.gracePeriodDays ?? 5} দিন
+                      </li>
+                      <li>
+                        <strong>জরিমানা কার্যকর দিন:</strong> প্রতি মাসের {(Number(currentSamity.subscriptionDueDay || 10) + Number(currentSamity.gracePeriodDays ?? 5))} তারিখের পর
+                      </li>
+                      <li>
+                        <strong>বিলম্ব ফি:</strong> {currentSamity.lateFeeEnabled
+                          ? (currentSamity.lateFeeType === 'percentage'
+                              ? `${currentSamity.lateFeePercent || 5}% (৳${Math.round(((currentSamity.monthlySubscription || 500) * (currentSamity.lateFeePercent || 5)) / 100)} টাকা)`
+                              : `৳${currentSamity.lateFeeAmount || 50} টাকা ফ্ল্যাট`)
+                          : 'নিষ্ক্রিয় (কোনো জরিমানা নেই)'}
+                      </li>
+                      <li>
+                        <strong>প্রয়োগ পদ্ধতি:</strong> {currentSamity.lateFeeAutoApply !== false ? 'স্বয়ংক্রিয়ভাবে বিলে যুক্ত হবে' : 'অ্যাডমিনের অনুমোদনে প্রযোজ্য'}
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Real-world Example Box */}
+                  <div
+                    style={{
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      fontSize: '0.78rem',
+                      color: '#93c5fd',
+                      lineHeight: '1.5'
+                    }}
+                  >
+                    <strong>💡 ব্যবহারিক উদাহরণ:</strong><br />
+                    সদস্য যদি মাসের {currentSamity.subscriptionDueDay || 10} তারিখ বা গ্রেস পিরিয়ড শেষ হওয়া পর্যন্ত ({(Number(currentSamity.subscriptionDueDay || 10) + Number(currentSamity.gracePeriodDays ?? 5))} তারিখের মধ্যে) চাঁদা প্রদান করেন, তবে তাকে কেবল <strong>৳{currentSamity.monthlySubscription || 500}</strong> টাকা দিতে হবে। কিন্তু {(Number(currentSamity.subscriptionDueDay || 10) + Number(currentSamity.gracePeriodDays ?? 5))} তারিখ অতিক্রান্ত হলে স্বয়ংক্রিয়ভাবে মোট প্রদেয় হবে <strong>৳{(Number(currentSamity.monthlySubscription || 500) + (currentSamity.lateFeeEnabled ? (currentSamity.lateFeeType === 'percentage' ? Math.round(((currentSamity.monthlySubscription || 500) * (currentSamity.lateFeePercent || 5)) / 100) : Number(currentSamity.lateFeeAmount || 50)) : 0))}</strong> টাকা।
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 2: AUTOMATED BILLING & DUE ARREARS ENGINE */}
+            {subConfigTab === 'billing_engine' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Engine Controller Toolbar */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    padding: '16px 20px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>বিলিং মাস:</span>
+                      <select
+                        value={billingEngineMonth}
+                        onChange={(e) => setBillingEngineMonth(e.target.value)}
+                        style={{
+                          background: 'rgba(15, 23, 42, 0.8)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          borderRadius: '8px',
+                          padding: '6px 12px',
+                          fontSize: '0.82rem',
+                          fontWeight: '700'
+                        }}
+                      >
+                        {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>বছর:</span>
+                      <input
+                        type="number"
+                        value={billingEngineYear}
+                        onChange={(e) => setBillingEngineYear(Number(e.target.value))}
+                        style={{
+                          width: '84px',
+                          background: 'rgba(15, 23, 42, 0.8)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          borderRadius: '8px',
+                          padding: '6px 10px',
+                          fontSize: '0.82rem',
+                          fontWeight: '700'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 1-Click Auto Bill Generator Button */}
+                  <button
+                    onClick={() => handleGenerateBills(billingEngineMonth, billingEngineYear)}
+                    style={{
+                      background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 18px',
+                      borderRadius: '10px',
+                      fontSize: '0.84rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(20, 184, 166, 0.35)'
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    <span>⚡ {billingEngineMonth} {billingEngineYear}-এর চাঁদার বিল ও বকেয়া রেকর্ড জেনারেট করুন</span>
+                  </button>
+                </div>
+
+                {/* 5 Billing Metric Counters */}
+                {(() => {
+                  const activeM = (data.members || []).filter(m => m.samityId === activeSamityId && (m.status || 'Active').toLowerCase() === 'active');
+                  const statuses = activeM.map(m => calculateMemberPaymentStatus(m, currentSamity, data.deposits || [], billingEngineMonth, billingEngineYear, data.waivers || []));
+                  const totalReq = statuses.reduce((acc, s) => acc + (s.requiredAmount || 0), 0);
+                  const totalPrev = statuses.reduce((acc, s) => acc + (s.previousMonthsDues || 0), 0);
+                  const totalLate = statuses.reduce((acc, s) => acc + (s.lateFee || 0), 0);
+                  const totalPayable = statuses.reduce((acc, s) => acc + (s.totalCumulativeDue || 0), 0);
+                  const totalCollected = statuses.reduce((acc, s) => acc + (s.paidAmount || 0), 0);
+
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                      <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>মোট সক্রিয় সদস্য</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#60a5fa', marginTop: '4px' }}>
+                          {activeM.length} জন
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>চলতি মাসের নির্ধারিত দাবি</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#f8fafc', marginTop: '4px' }}>
+                          ৳{totalReq.toLocaleString('bn-BD')}
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>পূর্ববর্তী মাসের মোট বকেয়া</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#f59e0b', marginTop: '4px' }}>
+                          ৳{totalPrev.toLocaleString('bn-BD')}
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>বিলম্ব ফি প্রাক্কলন</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#f87171', marginTop: '4px' }}>
+                          ৳{totalLate.toLocaleString('bn-BD')}
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(45, 212, 191, 0.3)' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#2dd4bf' }}>সর্বমোট প্রদেয় / দাবি</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#2dd4bf', marginTop: '4px' }}>
+                          ৳{totalPayable.toLocaleString('bn-BD')}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Generated Bills & Dues Ledger Table */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FileCheck size={18} color="#2dd4bf" />
+                      <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: '800', color: '#f8fafc' }}>
+                        {billingEngineMonth} {billingEngineYear}-এর পূর্ণাঙ্গ চাঁদা ও পুঞ্জীভূত বকেয়া খাতা
+                      </h4>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      স্বয়ংক্রিয় ক্যালকুলেশন ইঞ্জিন
+                    </span>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(15, 23, 42, 0.85)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                          <th style={{ padding: '10px 14px' }}>সদস্য কোড ও নাম</th>
+                          <th style={{ padding: '10px 14px' }}>মাসিক হার</th>
+                          <th style={{ padding: '10px 14px' }}>চলতি দাবি</th>
+                          <th style={{ padding: '10px 14px' }}>পূর্বের বকেয়া</th>
+                          <th style={{ padding: '10px 14px' }}>বিলম্ব ফি</th>
+                          <th style={{ padding: '10px 14px' }}>মওকুফ</th>
+                          <th style={{ padding: '10px 14px' }}>মোট প্রদেয়</th>
+                          <th style={{ padding: '10px 14px' }}>স্ট্যাটাস</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'center' }}>অ্যাকশন</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const activeM = (data.members || []).filter(m => m.samityId === activeSamityId && (m.status || 'Active').toLowerCase() === 'active');
+                          if (activeM.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan="9" style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                  <Users size={32} style={{ opacity: 0.4, marginBottom: '8px' }} />
+                                  <p style={{ margin: 0, fontSize: '0.84rem' }}>কোনো সক্রিয় সদস্যের তথ্য পাওয়া যায়নি। প্রথমে সদস্য তালিকা থেকে সদস্য যুক্ত করুন।</p>
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return activeM.map(member => {
+                            const status = calculateMemberPaymentStatus(
+                              member,
+                              currentSamity,
+                              data.deposits || [],
+                              billingEngineMonth,
+                              billingEngineYear,
+                              data.waivers || []
+                            );
+
+                            return (
+                              <tr
+                                key={member.id}
+                                style={{
+                                  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                  background: status.status === 'paid'
+                                    ? 'rgba(16, 185, 129, 0.03)'
+                                    : status.status === 'advance_paid'
+                                    ? 'rgba(16, 185, 129, 0.06)'
+                                    : 'transparent'
+                                }}
+                              >
+                                <td style={{ padding: '10px 14px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontWeight: '800', color: '#60a5fa' }}>{member.memberCode || member.id}</span>
+                                    <span style={{ color: '#fff', fontWeight: '700' }}>{member.nameBn || member.nameEn}</span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>
+                                  ৳{status.requiredAmount}
+                                  {Number(member.customSubscription) > 0 && (
+                                    <span style={{ fontSize: '0.65rem', color: '#f59e0b', marginLeft: '4px' }}>[ভিন্ন হার]</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 14px', color: '#f8fafc', fontWeight: '700' }}>
+                                  ৳{status.requiredAmount}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  {status.previousMonthsDues > 0 ? (
+                                    <span
+                                      title={status.previousMonthsBreakdown?.map(b => `${b.month}: ৳${b.due}`).join(', ')}
+                                      style={{
+                                        background: 'rgba(245, 158, 11, 0.15)',
+                                        color: '#fbbf24',
+                                        padding: '2px 6px',
+                                        borderRadius: '6px',
+                                        fontWeight: '800',
+                                        fontSize: '0.72rem',
+                                        border: '1px solid rgba(245, 158, 11, 0.3)'
+                                      }}
+                                    >
+                                      ৳{status.previousMonthsDues} ({status.previousMonthsBreakdown?.length} মাস)
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#64748b' }}>৳০</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  {status.lateFee > 0 ? (
+                                    <span style={{ color: '#f87171', fontWeight: '800' }}>৳{status.lateFee}</span>
+                                  ) : (
+                                    <span style={{ color: '#64748b' }}>৳০</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  {status.waiverAmount > 0 ? (
+                                    <span style={{ color: '#38bdf8', fontWeight: '800' }}>-৳{status.waiverAmount}</span>
+                                  ) : (
+                                    <span style={{ color: '#64748b' }}>৳০</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 14px', fontWeight: '900', color: status.totalCumulativeDue > 0 ? '#2dd4bf' : '#94a3b8' }}>
+                                  ৳{status.totalCumulativeDue}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  {status.status === 'advance_paid' && (
+                                    <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                      ✓ অগ্রিম পরিশোধ (+৳{status.advanceAmount})
+                                    </span>
+                                  )}
+                                  {status.status === 'paid' && (
+                                    <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                      ✓ পরিশোধিত
+                                    </span>
+                                  )}
+                                  {status.status === 'partially_paid' && (
+                                    <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                      আংশিক পরিশোধ (বাকি ৳{status.dueAmount})
+                                    </span>
+                                  )}
+                                  {status.status === 'unpaid' && (
+                                    <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                      বকেয়া (৳{status.totalCumulativeDue})
+                                    </span>
+                                  )}
+                                  {status.status === 'waived' && (
+                                    <span style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                      সম্পূর্ণ মওকুফ
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                    <button
+                                      onClick={() => handleOpenDepositModal(member.id)}
+                                      style={{
+                                        background: 'rgba(16, 185, 129, 0.2)',
+                                        color: '#34d399',
+                                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: '800',
+                                        cursor: 'pointer'
+                                      }}
+                                      title="জমা গ্রহণ করুন"
+                                    >
+                                      জমা নিন
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setWaiverTargetMember({ member, status });
+                                        setWaiverForm({
+                                          amount: status.totalCumulativeDue || status.dueAmount || '100',
+                                          reason: 'বিশেষ আর্থিক অসচ্ছলতা বিবেচনায় ছাড়',
+                                          approvedBy: 'সভাপতি ও কোষাধ্যক্ষ'
+                                        });
+                                        setIsWaiverModalOpen(true);
+                                      }}
+                                      style={{
+                                        background: 'rgba(56, 189, 248, 0.15)',
+                                        color: '#38bdf8',
+                                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: '700',
+                                        cursor: 'pointer'
+                                      }}
+                                      title="মওকুফ / বিশেষ ছাড় অনুমোদন করুন"
+                                    >
+                                      মওকুফ
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 3: INDIVIDUAL MEMBER CUSTOM RATES */}
+            {subConfigTab === 'member_rates' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Search & Description Bar */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    padding: '16px 20px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#f8fafc' }}>
+                      সদস্যভিত্তিক স্বতন্ত্র চাঁদার হার নির্ধারণ
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      সমিতির ডিফল্ট হার: ৳{currentSamity.monthlySubscription || 500} টাকা। পদবি বা চুক্তি অনুযায়ী যেকোনো সদস্যের জন্য আলাদা চাঁদা ও পেমেন্ট চক্র সেট করুন।
+                    </p>
+                  </div>
+
+                  <div style={{ position: 'relative', width: '260px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      placeholder="নাম, কোড বা মোবাইল দিয়ে খুঁজুন..."
+                      value={memberRateSearch}
+                      onChange={(e) => setMemberRateSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px 6px 30px',
+                        borderRadius: '8px',
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        color: '#fff',
+                        fontSize: '0.8rem'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Member Custom Rates Table */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(15, 23, 42, 0.85)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <th style={{ padding: '10px 14px' }}>সদস্য কোড ও নাম</th>
+                        <th style={{ padding: '10px 14px' }}>সদস্য পদবি</th>
+                        <th style={{ padding: '10px 14px' }}>ডিফল্ট সমিতির হার</th>
+                        <th style={{ padding: '10px 14px' }}>স্বতন্ত্র চাঁদার হার (টাকা)</th>
+                        <th style={{ padding: '10px 14px' }}>পেমেন্ট চক্র</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>অ্যাকশন</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const targetMembers = (data.members || []).filter(m => {
+                          if (m.samityId !== activeSamityId) return false;
+                          if (!memberRateSearch.trim()) return true;
+                          const q = memberRateSearch.toLowerCase();
+                          return (
+                            (m.nameBn && m.nameBn.toLowerCase().includes(q)) ||
+                            (m.nameEn && m.nameEn.toLowerCase().includes(q)) ||
+                            (m.memberCode && m.memberCode.toLowerCase().includes(q)) ||
+                            (m.mobile && m.mobile.includes(q))
+                          );
+                        });
+
+                        if (targetMembers.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="6" style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <Users size={28} style={{ opacity: 0.35, marginBottom: '6px' }} />
+                                <p style={{ margin: 0, fontSize: '0.82rem' }}>কোনো সদস্যের রেকর্ড খুঁজে পাওয়া যায়নি</p>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return targetMembers.map(m => {
+                          const hasCustom = Number(m.customSubscription) > 0;
+                          return (
+                            <tr key={m.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <td style={{ padding: '10px 14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontWeight: '800', color: '#60a5fa' }}>{m.memberCode || m.id}</span>
+                                  <span style={{ color: '#fff', fontWeight: '700' }}>{m.nameBn || m.nameEn}</span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>
+                                {m.membershipType || 'General Member'}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                                ৳{currentSamity.monthlySubscription || 500}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <input
+                                    type="number"
+                                    placeholder={`ডিফল্ট (${currentSamity.monthlySubscription || 500})`}
+                                    defaultValue={m.customSubscription || ''}
+                                    id={`custom_sub_${m.id}`}
+                                    style={{
+                                      width: '120px',
+                                      background: 'rgba(15, 23, 42, 0.8)',
+                                      border: '1px solid ' + (hasCustom ? '#f59e0b' : 'rgba(255, 255, 255, 0.15)'),
+                                      borderRadius: '6px',
+                                      padding: '4px 8px',
+                                      color: hasCustom ? '#fbbf24' : '#fff',
+                                      fontSize: '0.8rem',
+                                      fontWeight: '700'
+                                    }}
+                                  />
+                                  {hasCustom && (
+                                    <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: '800' }}>স্বতন্ত্র</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <select
+                                  defaultValue={m.paymentCycle || 'Monthly'}
+                                  id={`cycle_${m.id}`}
+                                  style={{
+                                    background: 'rgba(15, 23, 42, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    color: '#fff',
+                                    fontSize: '0.78rem'
+                                  }}
+                                >
+                                  {PAYMENT_CYCLES.map(c => (
+                                    <option key={c.value} value={c.value}>{c.labelBn}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                  <button
+                                    onClick={() => {
+                                      const amountInput = document.getElementById(`custom_sub_${m.id}`);
+                                      const cycleInput = document.getElementById(`cycle_${m.id}`);
+                                      handleUpdateMemberSubscriptionRate(m.id, amountInput?.value, cycleInput?.value);
+                                    }}
+                                    style={{
+                                      background: 'rgba(16, 185, 129, 0.2)',
+                                      color: '#34d399',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      borderRadius: '6px',
+                                      padding: '4px 10px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    সংরক্ষণ
+                                  </button>
+                                  {hasCustom && (
+                                    <button
+                                      onClick={() => {
+                                        const amountInput = document.getElementById(`custom_sub_${m.id}`);
+                                        if (amountInput) amountInput.value = '';
+                                        handleUpdateMemberSubscriptionRate(m.id, '', 'Monthly');
+                                      }}
+                                      style={{
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        color: '#f87171',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: '700',
+                                        cursor: 'pointer'
+                                      }}
+                                      title="ডিফল্ট হারে ফেরত যান"
+                                    >
+                                      রিসেট
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-TAB 4: WAIVERS, DISCOUNTS & PERMISSION HUB */}
+            {subConfigTab === 'waiver_hub' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    padding: '16px 20px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: '#f8fafc' }}>
+                      বকেয়া চাঁদা ও জরিমানা মওকুফ / বিশেষ ছাড় লেজার
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      কার্যনির্বাহী কমিটির অনুমোদন সাপেক্ষে অসচ্ছল সদস্যদের বিশেষ ছাড় ও মওকুফের অনুমতি রেকর্ড
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const firstMember = data.members.find(m => m.samityId === activeSamityId);
+                      if (!firstMember) {
+                        showToast?.('প্রথমে সদস্য তৈরি করুন', 'warning');
+                        return;
+                      }
+                      setWaiverTargetMember({
+                        member: firstMember,
+                        status: { month: targetMonth, year: targetYear, totalCumulativeDue: 500 }
+                      });
+                      setWaiverForm({
+                        amount: '500',
+                        reason: 'কার্যনির্বাহী কমিটির বিশেষ সিদ্ধান্তক্রমে মওকুফ',
+                        approvedBy: 'সভাপতি ও সাধারণ সম্পাদক'
+                      });
+                      setIsWaiverModalOpen(true);
+                    }}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.18)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>নতুন মওকুফ অনুমোদন করুন</span>
+                  </button>
+                </div>
+
+                {/* Waivers Ledger Table */}
+                <div
+                  style={{
+                    background: 'rgba(30, 41, 59, 0.75)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(15, 23, 42, 0.85)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <th style={{ padding: '10px 14px' }}>ভাউচার নং</th>
+                        <th style={{ padding: '10px 14px' }}>সদস্যের নাম</th>
+                        <th style={{ padding: '10px 14px' }}>মাস ও বছর</th>
+                        <th style={{ padding: '10px 14px' }}>মওকুফকৃত পরিমাণ</th>
+                        <th style={{ padding: '10px 14px' }}>অনুমোদনের কারণ</th>
+                        <th style={{ padding: '10px 14px' }}>অনুমোদনকারী</th>
+                        <th style={{ padding: '10px 14px' }}>তারিখ</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>স্ট্যাটাস</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const targetWaivers = [
+                          ...(data.waivers || []),
+                          ...(data.deposits || []).filter(d => d.depositType === 'Waiver / মওকুফ' && !(data.waivers || []).some(w => w.id === d.id))
+                        ].filter(w => w.samityId === activeSamityId);
+
+                        if (targetWaivers.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="8" style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <FileCheck size={32} style={{ opacity: 0.35, marginBottom: '8px' }} />
+                                <p style={{ margin: 0, fontSize: '0.84rem' }}>এখনো পর্যন্ত কোনো বকেয়া মওকুফ বা ছাড় প্রদান করা হয়নি।</p>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return targetWaivers.map((w, idx) => {
+                          const member = data.members.find(m => m.id === w.memberId);
+                          return (
+                            <tr key={w.id || idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <td style={{ padding: '10px 14px', fontWeight: '800', color: '#60a5fa' }}>
+                                {w.voucherNo || `WAV-${idx + 1}`}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: '#f8fafc', fontWeight: '700' }}>
+                                {member ? (member.nameBn || member.nameEn) : (w.memberName || 'সদস্য')}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>
+                                {w.month || targetMonth} {w.year || targetYear}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: '#38bdf8', fontWeight: '900' }}>
+                                ৳{w.amount}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: '#e2e8f0', maxWidth: '240px' }}>
+                                {w.remarks?.replace('মওকুফ কারণ: ', '') || w.reason || 'কার্যনির্বাহী কমিটির সিদ্ধান্ত'}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: '#a7f3d0' }}>
+                                {w.approvedBy || 'সভাপতি ও সাধারণ সম্পাদক'}
+                              </td>
+                              <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                                {w.date || (w.createdAt ? new Date(w.createdAt).toLocaleDateString('bn-BD') : 'আজ')}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 8px', borderRadius: '10px', fontSize: '0.68rem', fontWeight: '800' }}>
+                                  ✓ অনুমোদিত
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
