@@ -71,6 +71,7 @@ const packageJson = {
   type: "module",
   private: true,
   version: "1.0.0",
+  author: "Somiti 360",
   description: "সমিতি ৩৬০ - সমিতি, সমবায় সংস্থা ও ক্ষুদ্রঋণ সঞ্চয় ব্যবস্থাপনা প্ল্যাটফর্ম",
   main: "electron/main.cjs",
   scripts: {
@@ -112,6 +113,7 @@ const packageJson = {
   build: {
     appId: "com.somiti360.desktop",
     productName: "Somiti 360",
+    electronVersion: "34.0.0",
     directories: {
       output: "dist-electron"
     },
