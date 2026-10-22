@@ -54,11 +54,6 @@ filesToSync.forEach(item => {
   if (fs.existsSync(srcPath)) {
     let content = fs.readFileSync(srcPath, 'utf8');
     
-    // In SamityManagementHub.jsx, remove any relative import to AppContext
-    if (item.to.includes('SamityManagementHub.jsx')) {
-      content = content.replace("import { useApp } from '../../context/AppContext';", '// useApp unneeded in standalone');
-    }
-    
     fs.writeFileSync(destPath, content, 'utf8');
     console.log(` ✓ [সিঙ্ক সম্পন্ন]: ${item.to}`);
   } else {
