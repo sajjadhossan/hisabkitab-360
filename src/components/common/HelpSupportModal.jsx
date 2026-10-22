@@ -456,23 +456,24 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                   </code>
                 </div>
 
-                {/* 3. Vercel Cloud Link */}
+                {/* 3. Vercel Samity Dedicated Cloud Link */}
                 <div
                   style={{
                     background: 'var(--bg-primary)',
-                    border: '1px solid var(--border-color)',
+                    border: '1.5px solid #8b5cf6',
                     borderRadius: '14px',
                     padding: '12px 14px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '8px'
+                    gap: '8px',
+                    boxShadow: '0 2px 12px rgba(139, 92, 246, 0.15)'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
                     <div style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>⚡ Vercel ক্লাউড লাইভ ওয়েবসাইট</span>
+                      <span>🏛️ Vercel সমিতি ডেডিকেটেড ক্লাউড পোর্টাল</span>
                       <span style={{ fontSize: '0.62rem', background: '#8b5cf6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>
-                        VERCEL
+                        SAMITY DEDICATED
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -481,7 +482,7 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                         onClick={() => window.open('https://hisabkitab-360.vercel.app', '_blank')}
                         style={{
                           padding: '5px 10px',
-                          background: '#8b5cf6',
+                          background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                           color: '#fff',
                           border: 'none',
                           borderRadius: '6px',
@@ -494,7 +495,7 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                         }}
                       >
                         <ExternalLink size={12} />
-                        <span>প্রবেশ করুন</span>
+                        <span>পোর্টাল খুলুন</span>
                       </button>
                       <button
                         type="button"
@@ -505,6 +506,9 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                         {copiedKey === 'vercel_url' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
                       </button>
                     </div>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    ভার্সেল ক্লাউডে সরাসরি সমবায় ও সমিতি ইআরপি মোডে স্বয়ংক্রিয়ভাবে ওপেন হয়
                   </div>
                   <code style={{ fontSize: '0.74rem', color: '#c084fc', wordBreak: 'break-all' }}>
                     https://hisabkitab-360.vercel.app

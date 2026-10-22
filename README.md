@@ -11,9 +11,9 @@
 
 | প্ল্যাটফর্ম | ফাইল ফরম্যাট / হোস্টিং | সাইজ / টাইপ | ডাউনলোড ও লাইভ লিঙ্ক |
 | :--- | :---: | :---: | :--- |
-| 🌐 **Netlify Live Cloud** | Edge Hosted Web App | 0 KB (Instant) | [https://hisabkitab360.netlify.app](https://hisabkitab360.netlify.app) |
-| 🌐 **Vercel Live Cloud** | Global Edge Web App | 0 KB (Instant) | [https://hisabkitab-360.vercel.app](https://hisabkitab-360.vercel.app) |
-| 🏛️ **সমিতি ERP পোর্টাল** | Samity Dedicated Portal | 0 KB (Instant) | [https://hisabkitab360.netlify.app/?portal=samity](https://hisabkitab360.netlify.app/?portal=samity) |
+| 🏛️ **Vercel সমবায় ও সমিতি পোর্টাল** | Samity Dedicated Cloud ERP | 0 KB (Instant) | [https://hisabkitab-360.vercel.app](https://hisabkitab-360.vercel.app) |
+| 🌐 **Netlify লাইভ ক্লাউড** | Edge Hosted All-in-One OS | 0 KB (Instant) | [https://hisabkitab360.netlify.app](https://hisabkitab360.netlify.app) |
+| 🏛️ **Netlify সমিতি পোর্টাল** | Direct Samity Portal URL | 0 KB (Instant) | [https://hisabkitab360.netlify.app/?portal=samity](https://hisabkitab360.netlify.app/?portal=samity) |
 | 🖥️ **Windows PC** | `.exe` (Standalone Desktop) | ~865 KB | [`releases/HisabKitab-360-PC.exe`](./releases/HisabKitab-360-PC.exe) |
 | 📱 **Android Mobile** | `.apk` (Direct Install) | ~7.55 MB | [`releases/HisabKitab-360.apk`](./releases/HisabKitab-360.apk) |
 
@@ -36,10 +36,10 @@
 
 এই প্রজেক্টটি **Netlify** এবং **Vercel** উভয়ের সাথেই সরাসরি গিটহাব সিআই/সিডি (CI/CD)-র মাধ্যমে সংযুক্ত:
 
-- 🚀 **Netlify লাইভ লিংক:** [https://hisabkitab360.netlify.app](https://hisabkitab360.netlify.app)
-  - কনফিগারেশন: [`netlify.toml`](./netlify.toml) (স্বয়ংক্রিয় এসপিএ রিডাইরেক্ট ও এজ ক্যাশিং সক্রিয়)
-- 🚀 **Vercel লাইভ লিংক:** [https://hisabkitab-360.vercel.app](https://hisabkitab-360.vercel.app)
-  - কনফিগারেশন: [`vercel.json`](./vercel.json)
+- 🏛️ **Vercel লাইভ সমিতি পোর্টাল:** [https://hisabkitab-360.vercel.app](https://hisabkitab-360.vercel.app)
+  - **বৈশিষ্ট্য:** এটি সম্পূর্ণ সমবায় ও সমিতি ইআরপি ডেডিকেটেড ক্লাউড পোর্টাল হিসেবে স্বয়ংক্রিয়ভাবে বুট হয় (কনফিগারেশন: [`vercel.json`](./vercel.json))।
+- 🚀 **Netlify লাইভ অল-ইন-ওয়ান ক্লাউড:** [https://hisabkitab360.netlify.app](https://hisabkitab360.netlify.app)
+  - **বৈশিষ্ট্য:** সুপারমার্কেট, পিওএস, ফার্মেসি, ডায়াগনস্টিক ও জেনারেল বিজনেস ইআরপি ওএস (কনফিগারেশন: [`netlify.toml`](./netlify.toml))।
 - 🔄 **ডুয়েল অটো-ডিপ্লয়:** গিটহাবের `main` ব্রাঞ্চে কোড পুশ (`git push origin main`) হওয়ামাত্রই Netlify এবং Vercel উভয়েই স্বয়ংক্রিয়ভাবে ক্লাউডে লাইভ বিল্ড তৈরি করে নেয়।
 
 ---

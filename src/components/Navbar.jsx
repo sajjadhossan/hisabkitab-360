@@ -524,7 +524,8 @@ export const Navbar = () => {
 
   const primaryQuickTabs = useMemo(() => {
     if (profile === 'business') {
-      const opMode = businessSettings?.primaryOperatingMode;
+      const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+      const opMode = isVercelHost ? 'samity' : businessSettings?.primaryOperatingMode;
       if (opMode === 'samity') {
         return [
           { id: 'samity', label: lang === 'bn' ? '🤝 সমিতি' : 'Samity', icon: Users },
@@ -810,8 +811,9 @@ export const Navbar = () => {
 
   // Dynamic business mobile bottom nav items based on admin/owner active modules and staff role permissions
   const businessBottomNavSlots = useMemo(() => {
-    const opMode = businessSettings?.primaryOperatingMode;
-    const isSamityMode = opMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub';
+    const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+    const opMode = isVercelHost ? 'samity' : businessSettings?.primaryOperatingMode;
+    const isSamityMode = isVercelHost || opMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub';
     const isHealthcareMode = opMode === 'healthcare';
     const isCattleMode = opMode === 'cattle';
     const isSpecialMode = isSamityMode || isHealthcareMode || isCattleMode;
@@ -1087,9 +1089,36 @@ export const Navbar = () => {
                 >
                   🎨 {lang === 'bn' ? 'টেমপ্লেট রিভিউ' : 'Templates Review'}
                 </span>
+
+                {/* Dedicated Samity ERP Badge on Vercel */}
+                {typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') && (
+                  <span
+                    className="badge"
+                    onClick={() => setActiveTab('samity')}
+                    title="Vercel Dedicated Samity ERP Portal"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.25), rgba(13, 148, 136, 0.25))',
+                      color: '#14b8a6',
+                      border: '1.5px solid #14b8a6',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      boxShadow: '0 2px 8px rgba(20, 184, 166, 0.3)'
+                    }}
+                  >
+                    🏛️ {lang === 'bn' ? 'সমিতি ডেডিকেটেড পোর্টাল' : 'Samity Dedicated ERP'}
+                  </span>
+                )}
               </div>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {t.tagline}
+                {typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+                  ? (lang === 'bn' ? 'সমবায় ও সমিতি ইআরপি ক্লাউড প্ল্যাটফর্ম' : 'Cooperative & Samity Management Cloud')
+                  : t.tagline}
               </p>
             </div>
           </div>

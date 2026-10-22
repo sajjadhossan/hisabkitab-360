@@ -554,13 +554,15 @@ const AppContent = () => {
     return new URLSearchParams(window.location.search).get('view');
   });
 
-  // Handle Android App Shortcut ?tab= parameter and Standalone Samity Portal ?mode=samity / ?portal=samity
+  // Handle Android App Shortcut ?tab= parameter and Standalone Samity Portal (Vercel Domain / ?mode=samity / ?portal=samity)
   React.useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const tabParam = sp.get('tab');
     const portalParam = sp.get('portal') || sp.get('mode');
+    const hostname = window.location.hostname || '';
 
-    if (portalParam === 'samity' || portalParam === 'somity') {
+    // If accessed on Vercel web domain (hisabkitab-360.vercel.app) or via ?portal=samity, load directly into Samity Dedicated Portal!
+    if (hostname.includes('vercel.app') || portalParam === 'samity' || portalParam === 'somity') {
       setActiveTab('samity');
       return;
     }

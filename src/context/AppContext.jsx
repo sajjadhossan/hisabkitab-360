@@ -563,6 +563,15 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => localStorage.getItem(STORAGE_KEYS.THEME) || 'dark');
   const [activeTab, setActiveTabState] = useState(() => {
     try {
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname || '';
+        const sp = new URLSearchParams(window.location.search);
+        const portal = sp.get('portal') || sp.get('mode');
+        // If on Vercel web domain or ?portal=samity, automatically load into Samity Dedicated Portal!
+        if (hostname.includes('vercel.app') || portal === 'samity' || portal === 'somity') {
+          return 'samity';
+        }
+      }
       const savedBiz = localStorage.getItem('hk360_biz_settings');
       if (savedBiz) {
         const parsed = JSON.parse(savedBiz);
@@ -828,6 +837,7 @@ export const AppProvider = ({ children }) => {
   });
 
   const [businessSettings, setBusinessSettings] = useState(() => {
+    const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
     const saved = localStorage.getItem(STORAGE_KEYS.BIZ_SETTINGS);
     if (saved) {
       try {
@@ -835,14 +845,16 @@ export const AppProvider = ({ children }) => {
         return {
           ...initialData.businessSettings,
           ...parsed,
+          primaryOperatingMode: isVercelHost ? 'samity' : (parsed.primaryOperatingMode || initialData.businessSettings.primaryOperatingMode),
+          industryTemplateId: isVercelHost ? 'samity_management_hub' : (parsed.industryTemplateId || initialData.businessSettings.industryTemplateId),
           googleDriveWebhookUrl: parsed.googleDriveWebhookUrl || initialData.businessSettings.googleDriveWebhookUrl,
           googleDriveEnabled: parsed.googleDriveEnabled !== undefined ? parsed.googleDriveEnabled : true
         };
       } catch {
-        return initialData.businessSettings;
+        return isVercelHost ? { ...initialData.businessSettings, primaryOperatingMode: 'samity', industryTemplateId: 'samity_management_hub' } : initialData.businessSettings;
       }
     }
-    return initialData.businessSettings;
+    return isVercelHost ? { ...initialData.businessSettings, primaryOperatingMode: 'samity', industryTemplateId: 'samity_management_hub' } : initialData.businessSettings;
   });
 
   // Business Invoices & Quotations
