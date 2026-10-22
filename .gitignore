@@ -40,3 +40,5 @@ public/*.exe
 public/*.zip
 public/*.tar.gz
 
+# Standalone Independent Repository
+somiti-360/
