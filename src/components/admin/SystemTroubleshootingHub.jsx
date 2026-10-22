@@ -29,8 +29,8 @@ export const SystemTroubleshootingHub = ({ lang = 'bn', showToast }) => {
     setTimeout(() => setCopiedKey(''), 2500);
   };
 
-  const redirectUri = 'https://juahukfvwbwupsamqzyo.supabase.co/auth/v1/callback';
-  const supabaseUrl = 'https://juahukfvwbwupsamqzyo.supabase.co';
+  const redirectUri = 'https://ygigujzrnghxtcwykhjo.supabase.co/auth/v1/callback';
+  const supabaseUrl = 'https://ygigujzrnghxtcwykhjo.supabase.co';
 
   return (
     <div className="glass-card" style={{ padding: '1.75rem', borderRadius: '20px', border: '1px solid var(--border-color)', maxWidth: '1000px', margin: '0 auto' }}>

@@ -631,7 +631,7 @@ export const SupabaseDatabaseManager = () => {
           </button>
 
           <a
-            href="https://supabase.com/dashboard/project/juahukfvwbwupsamqzyo/sql/new"
+            href="https://supabase.com/dashboard/project/ygigujzrnghxtcwykhjo/sql/new"
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-primary"
