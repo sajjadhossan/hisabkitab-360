@@ -96,6 +96,7 @@ const BarcodeScannerModal = lazyNamed(() => import('./components/common/BarcodeS
 const ShareInvoiceModal = lazyNamed(() => import('./components/common/ShareInvoiceModal'), 'ShareInvoiceModal');
 const HelpSupportModal = lazyNamed(() => import('./components/common/HelpSupportModal'), 'HelpSupportModal');
 const InvoiceVerificationView = lazyNamed(() => import('./components/common/InvoiceVerificationView'), 'InvoiceVerificationView');
+const SamityDocVerificationView = lazyNamed(() => import('./components/samity/SamityDocVerificationView'), 'SamityDocVerificationView');
 const GlobalVoiceWidget = lazyNamed(() => import('./components/common/GlobalVoiceWidget'), 'GlobalVoiceWidget');
 const ScreenLockModal = lazyNamed(() => import('./components/common/ScreenLockModal'), 'ScreenLockModal');
 const CustomerMirrorDisplay = lazyNamed(() => import('./components/pos/CustomerMirrorDisplay'), 'CustomerMirrorDisplay');
@@ -553,10 +554,18 @@ const AppContent = () => {
     return new URLSearchParams(window.location.search).get('view');
   });
 
-  // Handle Android App Shortcut ?tab= parameter
+  // Handle Android App Shortcut ?tab= parameter and Standalone Samity Portal ?mode=samity / ?portal=samity
   React.useEffect(() => {
-    const tabParam = new URLSearchParams(window.location.search).get('tab');
-    if (tabParam && ['pos', 'debts', 'inventory', 'invoices', 'branch_control'].includes(tabParam)) {
+    const sp = new URLSearchParams(window.location.search);
+    const tabParam = sp.get('tab');
+    const portalParam = sp.get('portal') || sp.get('mode');
+
+    if (portalParam === 'samity' || portalParam === 'somity') {
+      setActiveTab('samity');
+      return;
+    }
+
+    if (tabParam && ['pos', 'debts', 'inventory', 'invoices', 'branch_control', 'samity'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [setActiveTab]);
@@ -584,6 +593,12 @@ const AppContent = () => {
     url.searchParams.delete('verify');
     url.searchParams.delete('data');
     url.searchParams.delete('view');
+    url.searchParams.delete('ref');
+    url.searchParams.delete('samity');
+    url.searchParams.delete('title');
+    url.searchParams.delete('date');
+    url.searchParams.delete('body');
+    url.searchParams.delete('hash');
     window.history.replaceState({}, '', url);
     setVerifyParam(null);
     setViewParam(null);
@@ -609,7 +624,16 @@ const AppContent = () => {
     );
   }
 
-  // If opened via QR code scan or link verification
+  // If opened via QR code scan or link verification for Samity Document
+  if (verifyParam === 'samity_doc' || verifyParam === 'samity' || (typeof verifyParam === 'string' && verifyParam.startsWith('samity'))) {
+    return (
+      <Suspense fallback={<div style={{ padding: '60px', textAlign: 'center', color: '#2dd4bf', background: '#0f172a', minHeight: '100vh', fontWeight: '800' }}>ডিজিটাল নথি যাচাই করা হচ্ছে...</div>}>
+        <SamityDocVerificationView onBackToApp={handleBackToApp} />
+      </Suspense>
+    );
+  }
+
+  // If opened via QR code scan or link verification for Invoice
   if (verifyParam) {
     return (
       <InvoiceVerificationView

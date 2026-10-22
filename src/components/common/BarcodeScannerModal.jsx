@@ -491,6 +491,29 @@ export const BarcodeScannerModal = () => {
     if (!code) return;
     const clean = String(code).trim();
 
+    // 0. Auto-Intercept Samity Official Document QR code
+    if (
+      clean.includes('verify=samity') ||
+      clean.includes('verify_samity') ||
+      clean.includes('সছস') ||
+      clean.includes('স্বপ্নছোঁয়া সমবায় সমিতি') ||
+      clean.includes('স্মারক নং')
+    ) {
+      playScannerBeep();
+      triggerHaptic([60, 40, 60]);
+      closeScanner();
+      if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        window.location.href = clean;
+      } else {
+        const url = new URL(window.location);
+        url.searchParams.set('verify', 'samity_doc');
+        url.searchParams.set('ref', clean.match(/স্মারক নং:\s*([^\n\r]+)/)?.[1] || 'সছস/২০২৬/০১');
+        url.searchParams.set('samity', 'স্বপ্নছোঁয়া সমবায় সমিতি');
+        window.location.href = url.toString();
+      }
+      return;
+    }
+
     // Haptic & Sound
     playScannerBeep();
     triggerHaptic([60, 40, 60]);

@@ -443,15 +443,17 @@ export const SamityManagementHub = ({ onClose }) => {
     showToast?.(t('পারমিশন আপডেট ও সংরক্ষিত হয়েছে', 'Permission updated & saved'), 'info');
   };
 
-  // Derived 6-Master Cluster state based on activeTab
+  // Derived 4-Master Cluster state based on activeTab (Smart Condensation Architecture)
   const activeCluster = useMemo(() => {
     if (activeTab === 'all_modules') return 'all_modules';
-    if (['dashboard', 'samity_setup', 'notifications', 'audit_trail'].includes(activeTab)) return 'overview';
-    if (['members', 'due_mgmt', 'payment_status', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_dues';
-    if (['deposits', 'bulk_deposit', 'paid_receipt'].includes(activeTab)) return 'deposits_receipts';
-    if (['reminders'].includes(activeTab)) return 'reminders_hub';
-    if (['expenses', 'fund_balance', 'approvals', 'reports'].includes(activeTab)) return 'finance_reports';
-    return 'admin_system';
+    // Tier 1: Daily Cash & Financial Operations
+    if (['deposits', 'bulk_deposit', 'paid_receipt', 'expenses', 'fund_balance'].includes(activeTab)) return 'fin_operations';
+    // Tier 2: Member & Welfare Wing
+    if (['members', 'due_mgmt', 'payment_status', 'reminders', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_welfare';
+    // Tier 3: Official Secretariat & Document Pad
+    if (['letterhead', 'documents', 'signatures', 'approvals'].includes(activeTab)) return 'secretariat';
+    // Tier 4: Audit, Reports & Governance
+    return 'audit_governance';
   }, [activeTab]);
 
   const renderSubPill = (sub) => {
@@ -901,14 +903,18 @@ export const SamityManagementHub = ({ onClose }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const payload = [
-      `📋 ${currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}`,
-      `নিবন্ধন নং: ${currentSamity.regNo || 'সছস-২০২৪/০৯'}`,
-      `স্মারক নং: ${padDocRefNo || 'সছস/২০২৬/০১'}`,
-      `ডকুমেন্ট: ${padDocTitle || 'অফিসিয়াল নোটিশ'}`,
-      `তারিখ: ${padDocDate || new Date().toISOString().split('T')[0]}`,
-      `স্ট্যাটাস: ✓ ভেরিফাইড ডিজিটাল ডকুমেন্ট`
-    ].join('\n');
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hisabkitab360.vercel.app';
+    const docHash = `HK360-${Math.abs(((padDocRefNo || 'DOC') + (padDocDate || '2026')).split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)).toString(16).toUpperCase()}`;
+    const params = new URLSearchParams({
+      verify: 'samity_doc',
+      ref: padDocRefNo || 'সছস/২০২৬/০১',
+      title: padDocTitle || 'অফিসিয়াল নোটিশ',
+      date: padDocDate || new Date().toISOString().split('T')[0],
+      samity: currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি',
+      reg: currentSamity.regNo || 'সছস-২০২৪/০৯',
+      hash: docHash
+    });
+    const payload = `${origin}?${params.toString()}`;
 
     generateQrDataUrl(payload, { width: 140, margin: 1 }).then(url => {
       if (isMounted && url) setPadQrDataUrl(url);
@@ -3140,10 +3146,10 @@ export const SamityManagementHub = ({ onClose }) => {
                 alignItems: 'center',
                 gap: '5px'
               }}
-              title="সমিতি ও শাখা তালিকা/সেটআপ"
+              title={t('সমিতি ও শাখা তালিকা/সেটআপ', 'Samity & Branch Directory/Setup')}
             >
               <Building2 size={14} />
-              <span>শাখা ও সমিতি</span>
+              <span>{t('শাখা ও সমিতি', 'Branches & Samity')}</span>
             </button>
 
             <button
@@ -3161,10 +3167,10 @@ export const SamityManagementHub = ({ onClose }) => {
                 alignItems: 'center',
                 gap: '4px'
               }}
-              title="নতুন সমিতি তৈরি করুন"
+              title={t('নতুন সমিতি তৈরি করুন', 'Create New Samity')}
             >
               <Plus size={14} />
-              <span>নতুন সমিতি</span>
+              <span>{t('নতুন সমিতি', 'New Samity')}</span>
             </button>
           </div>
 
@@ -3187,7 +3193,7 @@ export const SamityManagementHub = ({ onClose }) => {
             }}
           >
             <Plus size={16} />
-            <span>জমা এন্ট্রি</span>
+            <span>{t('জমা এন্ট্রি', 'Deposit Entry')}</span>
           </button>
 
           <button
@@ -3279,13 +3285,11 @@ export const SamityManagementHub = ({ onClose }) => {
         }}
       >
         {[
-          { id: 'overview', label: t('📊 ওভারভিউ ও ড্যাশবোর্ড', '📊 Overview & Dashboard'), defaultTab: 'dashboard' },
-          { id: 'members_dues', label: t('👥 সদস্য ও চাঁদা রেজিস্টার', '👥 Members & Subscription'), defaultTab: 'members', count: effectiveMetrics.totalMembers },
-          { id: 'deposits_receipts', label: t('💳 জমা ও ক্যাশ রসিদ', '💳 Deposits & Receipts'), defaultTab: 'deposits', count: data.deposits.length },
-          { id: 'reminders_hub', label: t('📢 তাগাদা ও নোটিফিকেশন সেন্টার', '📢 Reminders & Notices'), defaultTab: 'reminders' },
-          { id: 'finance_reports', label: t('⚖️ হিসাব খতিয়ান ও রিপোর্ট', '⚖️ Accounts & Reports'), defaultTab: 'expenses', count: data.expenses.length },
-          { id: 'admin_system', label: t('⚙️ প্রশাসন ও সেন্ট্রাল ব্যাকআপ', '⚙️ Admin & Central Backup'), defaultTab: 'backup_restore' },
-          { id: 'all_modules', label: t('📋 সার্ভিস ও ফিচার সূচি', '📋 All Services Directory'), defaultTab: 'all_modules', isDirectory: true }
+          { id: 'fin_operations', label: t('💳 দৈনন্দিন ক্যাশ ও লেনদেন', '💳 Cash & Financial Operations'), defaultTab: 'deposits', count: data.deposits.length },
+          { id: 'members_welfare', label: t('👥 সদস্য ও সমাজকল্যাণ', '👥 Members & Welfare'), defaultTab: 'members', count: effectiveMetrics.totalMembers },
+          { id: 'secretariat', label: t('🏛️ অফিশিয়াল প্যাড ও নোটিশ', '🏛️ Official Pad & Notices'), defaultTab: 'letterhead' },
+          { id: 'audit_governance', label: t('⚖️ অডিট, ব্যাকআপ ও সেটিংস', '⚖️ Audit, Backup & Settings'), defaultTab: 'dashboard' },
+          { id: 'all_modules', label: t('📋 সকল ফিচার সূচি', '📋 All Features Index'), defaultTab: 'all_modules', isDirectory: true }
         ].map(cluster => {
           const isClusterActive = activeCluster === cluster.id;
           return (
@@ -3352,46 +3356,38 @@ export const SamityManagementHub = ({ onClose }) => {
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', marginRight: '4px' }}>
             {t('সেকশন:', 'Section:')}
           </span>
-          {activeCluster === 'overview' && [
-            { id: 'dashboard', label: t('📊 লাইভ ড্যাশবোর্ড', '📊 Live Dashboard') },
-            { id: 'samity_setup', label: t('🏛️ সমিতি প্রোফাইল ও শাখা', '🏛️ Samity Profile & Branch'), count: data.samities.length },
-            { id: 'notifications', label: t('🔔 নোটিফিকেশন সেন্টার', '🔔 Notifications'), count: getSamityNotifications(data, activeSamityId).length },
-            { id: 'audit_trail', label: t('🔍 অডিট ট্রেইল ও হিস্টোরি', '🔍 Audit Trail') }
+          {activeCluster === 'fin_operations' && [
+            { id: 'deposits', label: t('💳 ব্যাংক ও নগদ জমা', '💳 Bank & Cash Deposits'), count: data.deposits.length },
+            { id: 'bulk_deposit', label: t('📑 বাল্ক ব্যাংক জমা', '📑 Bulk Bank Deposits') },
+            { id: 'paid_receipt', label: t('🧾 পেইড রিসিট ও ভাউচার হাব', '🧾 Receipts & Vouchers'), count: data.deposits.length },
+            { id: 'expenses', label: t('💸 সমিতির খরচ খতিয়ান', '💸 Expense Ledger'), count: data.expenses.length },
+            { id: 'fund_balance', label: t('⚖️ ফান্ড ও ক্যাশ ব্যালেন্স', '⚖️ Fund & Cash Balance') }
           ].map(renderSubPill)}
 
-          {activeCluster === 'members_dues' && [
-            { id: 'members', label: t('👥 সদস্য তালিকা ও খাতা', '👥 Members Roster'), count: effectiveMetrics.totalMembers },
+          {activeCluster === 'members_welfare' && [
+            { id: 'members', label: t('👥 সদস্য তালিকা ও ভর্তি', '👥 Members Roster & Entry'), count: effectiveMetrics.totalMembers },
             { id: 'due_mgmt', label: t('⏳ বকেয়া ও ডিউ ব্যবস্থাপনা', '⏳ Due Management') },
             { id: 'payment_status', label: t('📋 চাঁদা ও পেমেন্ট স্ট্যাটাস', '📋 Subscription Status') },
+            { id: 'reminders', label: t('📢 স্মার্ট তাগাদা ও নোটিশ', '📢 Smart Reminders & Notices') },
             { id: 'subscription_cfg', label: t('⚙️ চাঁদা পলিসি ও অটো-বিলিং', '⚙️ Fee Policy & Billing') }
           ].map(renderSubPill)}
 
-          {activeCluster === 'deposits_receipts' && [
-            { id: 'deposits', label: t('💳 ব্যাংক ও নগদ জমা', '💳 Bank & Cash Deposits'), count: data.deposits.length },
-            { id: 'bulk_deposit', label: t('📑 বাল্ক ব্যাংক জমা', '📑 Bulk Bank Deposits') },
-            { id: 'paid_receipt', label: t('🧾 পেইড রিসিট ও ভাউচার হাব', '🧾 Receipts & Vouchers'), count: data.deposits.length }
+          {activeCluster === 'secretariat' && [
+            { id: 'letterhead', label: t('📜 অফিশিয়াল প্যাড ও নোটিশ কম্পোজার', '📜 Official Pad & Notice Composer') },
+            { id: 'documents', label: t('📝 অফিসিয়াল চিঠি ও রেজুলেশন দলিল', '📝 Official Docs & Resolutions') },
+            { id: 'signatures', label: t('✍️ কর্মকর্তা স্বাক্ষর ও সিল', '✍️ Officer Signatures & Seals') },
+            { id: 'approvals', label: t('🛡️ লেনদেন অনুমোদন হাব', '🛡️ Approvals Hub'), count: (data.deposits.filter(d => d.approvalStatus === 'pending').length + data.expenses.filter(e => e.approvalStatus === 'pending').length) }
           ].map(renderSubPill)}
 
-          {activeCluster === 'reminders_hub' && [
-            { id: 'reminders', label: t('📢 স্মার্ট তাগাদা ও নোটিফিকেশন সেন্টার', '📢 Smart Reminders & Notice') }
-          ].map(renderSubPill)}
-
-          {activeCluster === 'finance_reports' && [
-            { id: 'expenses', label: t('💸 সমিতির খরচ খতিয়ান', '💸 Expense Ledger'), count: data.expenses.length },
-            { id: 'fund_balance', label: t('⚖️ ফান্ড ও ব্যালেন্স', '⚖️ Fund & Balance') },
-            { id: 'approvals', label: t('🛡️ লেনদেন অনুমোদন', '🛡️ Approvals Hub'), count: (data.deposits.filter(d => d.approvalStatus === 'pending').length + data.expenses.filter(e => e.approvalStatus === 'pending').length) },
-            { id: 'reports', label: t('📈 পূর্ণাঙ্গ বিজনেস রিপোর্ট', '📈 Business Reports') }
-          ].map(renderSubPill)}
-
-          {activeCluster === 'admin_system' && [
+          {activeCluster === 'audit_governance' && [
+            { id: 'dashboard', label: t('📊 লাইভ ড্যাশবোর্ড', '📊 Live Dashboard') },
+            { id: 'reports', label: t('📈 পূর্ণাঙ্গ অডিট ও বিজনেস রিপোর্ট', '📈 Audit & Business Reports') },
             { id: 'backup_restore', label: t('💾 সেন্ট্রাল ব্যাকআপ ও রিস্টোর', '💾 Central Backup & Restore') },
-            { id: 'letterhead', label: t('📜 অফিসিয়াল প্যাড ও লোগো', '📜 Letterhead & Logo') },
-            { id: 'samity_setup', label: t('🏛️ সমিতি সেটআপ', '🏛️ Samity Setup'), count: data.samities.length },
-            { id: 'signatures', label: t('✍️ স্বাক্ষর ও সিল', '✍️ Signatures & Seal') },
-            { id: 'documents', label: t('📝 অফিসিয়াল চিঠি/দলিল', '📝 Official Docs/Letters') },
-            { id: 'roles_permissions', label: t('👥 রোল ও ক্ষমতা (RBAC)', '👥 User Roles & Permissions (RBAC)') },
-            { id: 'api_docs', label: t('🔌 সিকিউর REST API', '🔌 Secure REST API') },
-            { id: 'sql_schema', label: t('🗄️ SQL ডাটাবেজ স্কিমা', '🗄️ SQL Schema') }
+            { id: 'samity_setup', label: t('🏛️ সমিতি ও শাখা সেটআপ', '🏛️ Samity & Branch Setup'), count: data.samities.length },
+            { id: 'notifications', label: t('🔔 নোটিফিকেশন সেন্টার', '🔔 Notifications'), count: getSamityNotifications(data, activeSamityId).length },
+            { id: 'roles_permissions', label: t('👥 ইউজার রোল ও RBAC', '👥 User Roles & RBAC') },
+            { id: 'audit_trail', label: t('🔍 অডিট ট্রেইল ও হিস্টোরি', '🔍 Audit Trail') },
+            { id: 'sql_schema', label: t('🗄️ SQL ডাটাবেজ স্কিমা ও API', '🗄️ SQL Schema & API') }
           ].map(renderSubPill)}
         </div>
       )}
@@ -11441,11 +11437,37 @@ export const SamityManagementHub = ({ onClose }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Printer size={18} color="#2dd4bf" />
                   <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '800', color: '#f8fafc' }}>
-                    অফিসিয়াল লেটারহেড প্যাড (A4 লাইভ ভিউ)
+                    {t('অফিসিয়াল লেটারহেড প্যাড (A4 লাইভ ভিউ)', 'Official Letterhead Pad (A4 Live View)')}
                   </h4>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => {
+                      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                      const docHash = `HK360-${Math.abs(((padDocRefNo || 'DOC') + (padDocDate || '2026')).split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)).toString(16).toUpperCase()}`;
+                      const verifyUrl = `${origin}?verify=samity_doc&ref=${encodeURIComponent(padDocRefNo || 'সছস/২০২৬/০১')}&title=${encodeURIComponent(padDocTitle || 'অফিসিয়াল নোটিশ')}&date=${encodeURIComponent(padDocDate || '')}&samity=${encodeURIComponent(currentSamity.nameBn || '')}&reg=${encodeURIComponent(currentSamity.regNo || '')}&hash=${encodeURIComponent(docHash)}`;
+                      window.open(verifyUrl, '_blank');
+                    }}
+                    style={{
+                      background: 'rgba(45, 212, 191, 0.2)',
+                      color: '#2dd4bf',
+                      border: '1px solid rgba(45, 212, 191, 0.45)',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                    title={t('কিউআর কোড স্ক্যান করলে কী আসবে তা সরাসরি টেস্ট করুন', 'Test live QR scan verification')}
+                  >
+                    <QrCode size={15} />
+                    <span>{t('🔍 কিউআর স্ক্যান টেস্ট', '🔍 Test QR Scan')}</span>
+                  </button>
+
                   <button
                     onClick={() => handlePrintElement('samity-official-letterhead-preview')}
                     style={{
@@ -11464,12 +11486,12 @@ export const SamityManagementHub = ({ onClose }) => {
                     }}
                   >
                     <Printer size={15} />
-                    <span>লেটারহেড টেস্ট প্রিন্ট</span>
+                    <span>{t('লেটারহেড টেস্ট প্রিন্ট', 'Test Print Letterhead')}</span>
                   </button>
 
                   <button
                     onClick={() => {
-                      showToast?.('লেটারহেডটি PDF হিসেবে সংরক্ষণ করতে প্রিন্ট উইন্ডোতে "Save as PDF" নির্বাচন করুন', 'info');
+                      showToast?.(t('লেটারহেডটি PDF হিসেবে সংরক্ষণ করতে প্রিন্ট উইন্ডোতে "Save as PDF" নির্বাচন করুন', 'To save letterhead as PDF, choose "Save as PDF" in print window'), 'info');
                       handlePrintElement('samity-official-letterhead-preview');
                     }}
                     style={{
@@ -11487,7 +11509,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     }}
                   >
                     <Download size={15} />
-                    <span>PDF ডাউনলোড</span>
+                    <span>{t('PDF ডাউনলোড', 'Download PDF')}</span>
                   </button>
                 </div>
               </div>

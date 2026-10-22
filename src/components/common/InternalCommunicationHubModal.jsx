@@ -32,7 +32,10 @@ import {
   ArrowLeft,
   UserCheck,
   Phone,
-  Truck
+  Truck,
+  Copy,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -46,6 +49,8 @@ import {
   syncCloudMessages,
   deleteMessage,
   purgeMessagePermanently,
+  bulkPurgeMessages,
+  togglePinMessage,
   compressImageFile
 } from '../../services/internalChatService';
 
@@ -260,6 +265,18 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     return messages.filter((m) => isMessageForTarget(m, activeTarget));
   }, [messages, activeTarget, myLocalDeviceId, activeUserId, activeUserEmail, isSuperAdmin, isOwner]);
 
+  // Pinned messages for active target
+  const pinnedMessages = useMemo(() => {
+    return currentMessages.filter((m) => m.isPinned && !m.isDeleted);
+  }, [currentMessages]);
+
+  // Count of deleted placeholder notices
+  const deletedMessagesCount = useMemo(() => {
+    return currentMessages.filter((m) => m.isDeleted).length;
+  }, [currentMessages]);
+
+  const [isPinnedDrawerOpen, setIsPinnedDrawerOpen] = useState(false);
+
   // Handle File Upload & Auto Compression
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -378,6 +395,49 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
       if (showToast) showToast(lang === 'bn' ? `${count} টি বার্তা সবার জন্য সফলভাবে মুছে ফেলা হয়েছে` : `${count} messages deleted`, 'success');
     } catch {
       if (showToast) showToast('মেসেজ মুছতে সমস্যা হয়েছে', 'error');
+    }
+  };
+
+  const handleTogglePin = (msgId) => {
+    const isNowPinned = togglePinMessage(msgId);
+    setMessages(getStoredMessages());
+    if (showToast) {
+      showToast(isNowPinned ? (lang === 'bn' ? '📌 বার্তাটি পিন করা হয়েছে' : 'Message pinned') : (lang === 'bn' ? '📌 পিন সরানো হয়েছে' : 'Message unpinned'), 'info');
+    }
+  };
+
+  const handleSelectAllDeletedInView = () => {
+    const deletedIds = currentMessages.filter(m => m.isDeleted).map(m => m.id);
+    if (!deletedIds.length) {
+      if (showToast) showToast(lang === 'bn' ? 'এখানে কোনো মোছা বার্তা নেই' : 'No deleted messages here', 'info');
+      return;
+    }
+    const allAlreadySelected = deletedIds.every(id => selectedMsgIds.includes(id));
+    if (allAlreadySelected) {
+      setSelectedMsgIds(prev => prev.filter(id => !deletedIds.includes(id)));
+    } else {
+      setSelectedMsgIds(prev => Array.from(new Set([...prev, ...deletedIds])));
+    }
+  };
+
+  const handleBulkPurgeDeleted = () => {
+    const targetIds = selectedMsgIds.length > 0
+      ? selectedMsgIds.filter(id => {
+          const m = messages.find(item => item.id === id);
+          return m && m.isDeleted;
+        })
+      : currentMessages.filter(m => m.isDeleted).map(m => m.id);
+
+    if (!targetIds.length) {
+      if (showToast) showToast(lang === 'bn' ? 'কোনো মোছা বার্তার নোটিশ পাওয়া যায়নি' : 'No deleted notices found', 'info');
+      return;
+    }
+
+    bulkPurgeMessages(targetIds);
+    setMessages(getStoredMessages());
+    setSelectedMsgIds(prev => prev.filter(id => !targetIds.includes(id)));
+    if (showToast) {
+      showToast(lang === 'bn' ? `${targetIds.length} টি মোছা বার্তার নোটিশ সম্পূর্ণ মুছে ফেলা হয়েছে` : `${targetIds.length} notices purged`, 'success');
     }
   };
 
@@ -1236,13 +1296,13 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '10px',
+                  gap: '8px',
                   flexWrap: 'wrap',
                   zIndex: 20,
                   boxShadow: '0 4px 14px rgba(0,0,0,0.4)'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#f8fafc' }}>
                     ✓ {selectedMsgIds.length} টি বার্তা নির্বাচিত
                   </span>
@@ -1260,11 +1320,36 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                       fontWeight: '700'
                     }}
                   >
-                    {selectedMsgIds.length === currentMessages.length ? 'সব বাতিল' : 'সব নির্বাচন'}
+                    {selectedMsgIds.length === currentMessages.length ? (lang === 'bn' ? 'সব বাতিল' : 'Deselect All') : (lang === 'bn' ? 'সব নির্বাচন' : 'Select All')}
                   </button>
+
+                  {deletedMessagesCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSelectAllDeletedInView}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        padding: '3px 8px',
+                        borderRadius: '5px',
+                        fontSize: '0.7rem',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="শুধু মুছে ফেলা বার্তাগুলো সিলেক্ট করুন"
+                    >
+                      <Trash2 size={11} />
+                      <span>{lang === 'bn' ? `মোছা বার্তা সিলেক্ট (${deletedMessagesCount})` : `Select Deleted (${deletedMessagesCount})`}</span>
+                    </button>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  {/* Delete active messages */}
                   <button
                     type="button"
                     disabled={selectedMsgIds.length === 0}
@@ -1273,20 +1358,52 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                       background: selectedMsgIds.length > 0 ? '#ef4444' : 'rgba(239, 68, 68, 0.3)',
                       color: '#fff',
                       border: 'none',
-                      padding: '5px 12px',
+                      padding: '5px 10px',
                       borderRadius: '6px',
-                      fontSize: '0.76rem',
+                      fontSize: '0.74rem',
                       fontWeight: '800',
                       cursor: selectedMsgIds.length > 0 ? 'pointer' : 'not-allowed',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '5px',
+                      gap: '4px',
                       boxShadow: selectedMsgIds.length > 0 ? '0 2px 10px rgba(239, 68, 68, 0.4)' : 'none'
                     }}
+                    title="নির্বাচিত বার্তা মুছে ফেলুন"
                   >
-                    <Trash2 size={13} />
-                    <span>নির্বাচিত বার্তা মুছুন ({selectedMsgIds.length})</span>
+                    <Trash2 size={12} />
+                    <span>{lang === 'bn' ? `বার্তা মুছুন (${selectedMsgIds.length})` : `Delete (${selectedMsgIds.length})`}</span>
                   </button>
+
+                  {/* Purge deleted notices */}
+                  {deletedMessagesCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleBulkPurgeDeleted}
+                      style={{
+                        background: 'linear-gradient(135deg, #b91c1c, #991b1b)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '5px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: '0 2px 8px rgba(185, 28, 28, 0.4)'
+                      }}
+                      title="মুছে ফেলা বার্তার চিহ্ন চিরতরে সরিয়ে ফেলুন"
+                    >
+                      <Trash2 size={12} />
+                      <span>
+                        {selectedMsgIds.some(id => messages.find(m => m.id === id)?.isDeleted)
+                          ? (lang === 'bn' ? 'চিহ্নিত মোছা বার্তা চিরতরে মুছুন' : 'Purge Selected Deleted')
+                          : (lang === 'bn' ? `সব মোছা নোটিশ সাফ করুন (${deletedMessagesCount})` : `Purge All Deleted (${deletedMessagesCount})`)}
+                      </span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1297,15 +1414,120 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                       background: 'transparent',
                       color: '#94a3b8',
                       border: '1px solid rgba(255, 255, 255, 0.15)',
-                      padding: '4px 9px',
+                      padding: '4px 8px',
                       borderRadius: '6px',
                       fontSize: '0.72rem',
                       cursor: 'pointer'
                     }}
                   >
-                    ✕ বন্ধ
+                    ✕ {lang === 'bn' ? 'বন্ধ' : 'Close'}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Pinned Messages Header Bar (শীর্ষে আনলিমিটেড পিন করা বার্তা প্রদর্শন) */}
+            {pinnedMessages.length > 0 && (
+              <div
+                style={{
+                  padding: '7px 16px',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(217, 119, 6, 0.16))',
+                  borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  flexShrink: 0
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                    <Pin size={14} color="#f59e0b" style={{ fill: '#f59e0b', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.76rem', fontWeight: '800', color: '#f59e0b', whiteSpace: 'nowrap' }}>
+                      {lang === 'bn' ? `📌 পিন করা বার্তা (${pinnedMessages.length})` : `📌 Pinned Messages (${pinnedMessages.length})`}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      : {pinnedMessages[pinnedMessages.length - 1].text || pinnedMessages[pinnedMessages.length - 1].attachment?.name || (lang === 'bn' ? 'সংযুক্তি' : 'Attachment')}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPinnedDrawerOpen(prev => !prev)}
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.2)',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        color: '#fbbf24',
+                        borderRadius: '5px',
+                        padding: '2px 8px',
+                        fontSize: '0.68rem',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isPinnedDrawerOpen ? (lang === 'bn' ? 'সংক্ষেপ' : 'Collapse') : (lang === 'bn' ? 'সব পিন দেখুন' : 'View All')}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expanded Pinned Messages Drawer */}
+                {isPinnedDrawerOpen && (
+                  <div
+                    style={{
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '5px',
+                      paddingTop: '4px',
+                      borderTop: '1px dashed rgba(245, 158, 11, 0.25)'
+                    }}
+                  >
+                    {pinnedMessages.map((pm, idx) => (
+                      <div
+                        key={pm.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          background: 'rgba(0, 0, 0, 0.2)',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.72rem'
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.68rem' }}>#{idx + 1}</span>
+                          <span style={{ fontWeight: '700', color: 'var(--text-muted)', fontSize: '0.68rem' }}>{pm.senderName}:</span>
+                          <span style={{ color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {pm.text || pm.attachment?.name || 'ফাইল'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(pm.text || pm.attachment?.name || '');
+                              if (showToast) showToast(lang === 'bn' ? 'কপি হয়েছে' : 'Copied', 'success');
+                            }}
+                            title="কপি"
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '1px' }}
+                          >
+                            <Copy size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePin(pm.id)}
+                            title="আনপিন"
+                            style={{ background: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', padding: '1px' }}
+                          >
+                            <PinOff size={11} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1373,43 +1595,69 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                     : '';
 
                   if (m.isDeleted) {
+                    const isMsgSelected = selectedMsgIds.includes(m.id);
                     return (
                       <div
                         key={m.id}
-                        onClick={() => setDeleteConfirmModal({ actionType: 'purge_placeholder', msgId: m.id })}
-                        title={lang === 'bn' ? 'ট্যাপ করে এই মেসেজ নোটিশটি চিরতরে সরিয়ে ফেলুন' : 'Tap to permanently remove this notice'}
+                        onClick={() => {
+                          if (isMultiSelectMode) {
+                            handleToggleSelectMsg(m.id);
+                          } else {
+                            setDeleteConfirmModal({ actionType: 'purge_placeholder', msgId: m.id });
+                          }
+                        }}
+                        title={isMultiSelectMode ? (isMsgSelected ? 'নির্বাচন বাতিল করুন' : 'নির্বাচন করুন') : (lang === 'bn' ? 'ট্যাপ করে এই মেসেজ নোটিশটি চিরতরে সরিয়ে ফেলুন' : 'Tap to permanently remove this notice')}
                         style={{
                           alignSelf: isMe ? 'flex-end' : 'flex-start',
                           padding: '6px 14px',
                           borderRadius: '10px',
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          border: '1px dashed rgba(239, 68, 68, 0.35)',
+                          background: isMsgSelected ? 'rgba(239, 68, 68, 0.22)' : 'rgba(239, 68, 68, 0.08)',
+                          border: isMsgSelected ? '1.5px solid #ef4444' : '1px dashed rgba(239, 68, 68, 0.35)',
                           color: 'var(--text-muted)',
                           fontSize: '0.74rem',
                           fontStyle: 'italic',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
+                          gap: '8px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
                           boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
                         }}
                       >
+                        {isMultiSelectMode && (
+                          <div
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '4px',
+                              border: isMsgSelected ? '2px solid #ef4444' : '2px solid rgba(255, 255, 255, 0.3)',
+                              background: isMsgSelected ? '#ef4444' : 'rgba(15, 23, 42, 0.6)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            {isMsgSelected && <Check size={12} color="#fff" strokeWidth={3} />}
+                          </div>
+                        )}
                         <Trash2 size={12} style={{ color: '#ef4444' }} />
                         <span>{lang === 'bn' ? '🚫 এই বার্তাটি মুছে ফেলা হয়েছে' : '🚫 Message deleted'}</span>
-                        <span
-                          style={{
-                            fontSize: '0.64rem',
-                            color: '#ef4444',
-                            marginLeft: '6px',
-                            fontWeight: '800',
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                          }}
-                        >
-                          ✕ {lang === 'bn' ? 'ক্লিয়ার' : 'Clear'}
-                        </span>
+                        {!isMultiSelectMode && (
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              color: '#ef4444',
+                              marginLeft: '6px',
+                              fontWeight: '800',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            ✕ {lang === 'bn' ? 'ক্লিয়ার' : 'Clear'}
+                          </span>
+                        )}
                       </div>
                     );
                   }
@@ -1513,6 +1761,28 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                           wordBreak: 'break-word'
                         }}
                       >
+                        {/* Pinned badge on message bubble */}
+                        {m.isPinned && (
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.64rem',
+                              fontWeight: '800',
+                              color: '#fbbf24',
+                              background: 'rgba(245, 158, 11, 0.22)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              marginBottom: '6px',
+                              border: '1px solid rgba(245, 158, 11, 0.35)'
+                            }}
+                          >
+                            <Pin size={10} style={{ fill: '#fbbf24' }} />
+                            <span>{lang === 'bn' ? '📌 পিন করা' : 'Pinned'}</span>
+                          </div>
+                        )}
+
                         {/* Notice Header */}
                         {m.category === 'notice' && (
                           <div
@@ -1718,6 +1988,44 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
                           style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '1px' }}
                         >
                           <Reply size={12} />
+                        </button>
+
+                        {/* Copy Button (এক-ক্লিকে বার্তা কপি) */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const copyText = m.text || (m.attachment?.invoiceNumber ? `ইনভয়েস #${m.attachment.invoiceNumber}` : m.attachment?.name || '');
+                            if (copyText) {
+                              navigator.clipboard?.writeText(copyText);
+                              if (showToast) showToast(lang === 'bn' ? '📋 বার্তা কপি করা হয়েছে' : 'Copied to clipboard', 'success');
+                            }
+                          }}
+                          title={lang === 'bn' ? 'বার্তা কপি করুন' : 'Copy message'}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '1px', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Copy size={11} />
+                        </button>
+
+                        {/* Pin Button (আনলিমিটেড পিন ব্যবস্থা) */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePin(m.id);
+                          }}
+                          title={m.isPinned ? (lang === 'bn' ? 'আনপিন করুন' : 'Unpin') : (lang === 'bn' ? 'পিন করে রাখুন' : 'Pin message')}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: m.isPinned ? '#f59e0b' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '1px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Pin size={11} style={{ fill: m.isPinned ? '#f59e0b' : 'none' }} />
                         </button>
 
                         {(isMe || isSuperAdmin || isOwner) && (

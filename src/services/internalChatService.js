@@ -258,6 +258,56 @@ export const purgeMessagePermanently = (messageId) => {
 };
 
 /**
+ * Permanently purges multiple messages (e.g. deleted placeholders or bulk items)
+ */
+export const bulkPurgeMessages = (messageIds = []) => {
+  try {
+    if (!messageIds || messageIds.length === 0) return true;
+    const idsSet = new Set(messageIds);
+    const current = getStoredMessages();
+    const updated = current.filter((m) => !idsSet.has(m.id));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { bulkPurgedIds: messageIds, purged: true } }));
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to bulk purge messages:', err);
+    return false;
+  }
+};
+
+/**
+ * Toggles the pinned status of a message. Supports unlimited pinned messages.
+ */
+export const togglePinMessage = (messageId) => {
+  try {
+    const current = getStoredMessages();
+    let newPinnedState = false;
+    const updated = current.map((m) => {
+      if (m.id === messageId) {
+        newPinnedState = !m.isPinned;
+        return {
+          ...m,
+          isPinned: newPinnedState,
+          pinnedAt: newPinnedState ? new Date().toISOString() : null
+        };
+      }
+      return m;
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, isPinned: newPinnedState } }));
+    }
+    return newPinnedState;
+  } catch (err) {
+    console.error('Failed to toggle pin message:', err);
+    return false;
+  }
+};
+
+/**
  * Pulls missed messages from Supabase Cloud and merges into local storage
  */
 export const syncCloudMessages = async () => {
