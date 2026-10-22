@@ -66,6 +66,18 @@ filesToSync.forEach(item => {
   }
 });
 
+// Copy Logo Assets to somiti-360/public
+const somitiLogoSrc = path.join(ROOT_DIR, 'public', 'somiti-logo.png');
+if (fs.existsSync(somitiLogoSrc)) {
+  const somitiPublicDir = path.join(SOMITI_DIR, 'public');
+  if (!fs.existsSync(somitiPublicDir)) fs.mkdirSync(somitiPublicDir, { recursive: true });
+  fs.copyFileSync(somitiLogoSrc, path.join(somitiPublicDir, 'logo.png'));
+  fs.copyFileSync(somitiLogoSrc, path.join(somitiPublicDir, 'logo-512.png'));
+  fs.copyFileSync(somitiLogoSrc, path.join(somitiPublicDir, 'somiti-logo.png'));
+  fs.copyFileSync(somitiLogoSrc, path.join(somitiPublicDir, 'favicon.png'));
+  console.log(' ✓ [লোগো সিঙ্ক সম্পন্ন]: public/logo.png, logo-512.png & favicon.png');
+}
+
 // 3. Standalone package.json
 const packageJson = {
   name: "somiti-360",
@@ -119,12 +131,14 @@ const packageJson = {
       output: "dist-electron"
     },
     win: {
+      icon: "public/logo-512.png",
       target: [
         "nsis",
         "portable"
       ]
     },
     mac: {
+      icon: "public/logo-512.png",
       category: "public.app-category.finance",
       target: [
         {
@@ -420,8 +434,8 @@ function MainView() {
     <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col font-sans">
       <header className="sticky top-0 z-40 bg-[#0d1424]/90 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-slate-950 shadow-lg shadow-teal-500/20 font-bold">
-            <Users className="w-5 h-5 text-slate-950" />
+          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-teal-500/30 flex items-center justify-center shadow-lg shadow-teal-500/15 overflow-hidden p-0.5">
+            <img src="/logo.png" alt="Somiti 360 Logo" className="w-full h-full object-contain rounded-lg" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
