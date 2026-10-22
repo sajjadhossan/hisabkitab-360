@@ -68,14 +68,27 @@ const packageJson = {
   private: true,
   version: "1.0.0",
   description: "সমিতি ৩৬০ - সমিতি, সমবায় সংস্থা ও ক্ষুদ্রঋণ সঞ্চয় ব্যবস্থাপনা প্ল্যাটফর্ম",
+  main: "electron/main.cjs",
   scripts: {
     dev: "vite",
     host: "vite --host 0.0.0.0 --port 5174",
     build: "vite build",
     preview: "vite preview",
-    "preview:host": "vite preview --host 0.0.0.0 --port 5174"
+    "preview:host": "vite preview --host 0.0.0.0 --port 5174",
+    "electron:start": "electron .",
+    "electron:build": "vite build && electron-builder --win",
+    "electron:build:mac": "vite build && electron-builder --mac --x64 --arm64"
   },
   dependencies: {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/keyboard": "^8.0.6",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@supabase/supabase-js": "^2.117.2",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^1.48.0",
@@ -88,7 +101,43 @@ const packageJson = {
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "vite": "^8.3.0"
+  },
+  build: {
+    appId: "com.somiti360.desktop",
+    productName: "Somiti 360",
+    directories: {
+      output: "dist-electron"
+    },
+    win: {
+      target: [
+        "nsis",
+        "portable"
+      ]
+    },
+    mac: {
+      category: "public.app-category.finance",
+      target: [
+        {
+          target: "dmg",
+          arch: ["x64", "arm64"]
+        },
+        {
+          target: "zip",
+          arch: ["x64", "arm64"]
+        }
+      ],
+      hardenedRuntime: false,
+      gatekeeperAssess: false,
+      identity: null
+    },
+    files: [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
   }
 };
 fs.writeFileSync(path.join(SOMITI_DIR, 'package.json'), JSON.stringify(packageJson, null, 2), 'utf8');
@@ -146,13 +195,57 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 `;
 fs.writeFileSync(path.join(SOMITI_DIR, 'src', 'main.jsx'), mainJsxContent, 'utf8');
 
-// 7. Standalone src/App.jsx
-const appJsxContent = `import React, { useState, useEffect } from 'react';
+// 7. Standalone src/App.jsx with ErrorBoundary & AppProvider
+const appJsxContent = `import React, { useState, useEffect, Component } from 'react';
+import { AppProvider } from './context/AppContext';
 import { SamityManagementHub } from './components/samity/SamityManagementHub';
 import { SamityDocVerificationView } from './components/samity/SamityDocVerificationView';
-import { Users, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Users, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
 
-export default function App() {
+// Error Boundary to prevent any blank screen
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Samity 360 Error caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col items-center justify-center p-6 text-center font-sans">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-400">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">সাময়িক ত্রুটি পরিলক্ষিত হয়েছে</h2>
+          <p className="text-sm text-slate-400 max-w-md mb-6">
+            অ্যাপ্লিকেশনের কোনো ডেটা লোড হতে সমস্যা হয়েছে। নিচের বাটনে চাপ দিয়ে রিলোড করুন।
+          </p>
+          <pre className="text-xs text-red-300 bg-red-950/40 p-3 rounded-lg border border-red-900/50 mb-6 max-w-lg overflow-auto">
+            {String(this.state.error?.message || this.state.error)}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold transition shadow-lg shadow-teal-500/20"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>পুনরায় রিলোড করুন</span>
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MainView() {
   const [viewMode, setViewMode] = useState('hub'); // 'hub' | 'verify'
   const [verifyData, setVerifyData] = useState(null);
 
@@ -224,6 +317,16 @@ export default function App() {
     </div>
   );
 }
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppProvider>
+        <MainView />
+      </AppProvider>
+    </ErrorBoundary>
+  );
+}
 `;
 fs.writeFileSync(path.join(SOMITI_DIR, 'src', 'App.jsx'), appJsxContent, 'utf8');
 
@@ -232,6 +335,17 @@ const readmeContent = `# সমিতি ৩৬০ (Somiti 360)
 **ডিজিটাল সমিতি, সমবায় সংস্থা, সঞ্চয় ও ঋণদান ব্যবস্থাপনা প্ল্যাটফর্ম**
 
 ![সমিতি ৩৬০](https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=800)
+
+## 🌐 লাইভ ও ডাউনলোড লিংকসমূহ:
+| প্ল্যাটফর্ম | লিংক / ডাউনলোড | বিবরণ |
+|---|---|---|
+| 📱 **Android Mobile APK** | [সর্বশেষ রিলিজ থেকে Somiti-360.apk ডাউনলোড করুন](https://github.com/sajjadhossan/somiti-360/releases/latest) | স্মার্টফোনে সরাসরি ব্যবহারযোগ্য |
+| 💻 **Windows Desktop Setup** | [Somiti-360-Setup.exe](https://github.com/sajjadhossan/somiti-360/releases/latest) | উইন্ডোজ পিসি ইন্সটলার |
+| ⚡ **Windows Portable** | [Somiti-360-PC.exe](https://github.com/sajjadhossan/somiti-360/releases/latest) | এক ক্লিকে ইনস্টল ছাড়াই চালনার পোর্টেবল অ্যাপ |
+| 🍏 **MacBook (Intel & M-Series)** | [Somiti-360-Mac.dmg](https://github.com/sajjadhossan/somiti-360/releases/latest) | ম্যাক ওএস সংস্করণ |
+| 🌐 **Vercel Web App** | [https://somiti-360.vercel.app](https://somiti-360.vercel.app) | ক্লাউড ব্রাউজার সংস্করণ (যেকোনো ডিভাইসে ব্যবহারের জন্য) |
+
+---
 
 ## 🌟 প্রধান প্রধান ফিচারসমূহ:
 1. **সদস্য লেজার ও পূর্ণাঙ্গ ডাটাবেজ:** সকল সাধারণ, আজীবন ও কার্যনির্বাহী সদস্যদের বিস্তারিত তথ্য, ছবি ও নমিনি ব্যবস্থাপনা।
@@ -242,15 +356,19 @@ const readmeContent = `# সমিতি ৩৬০ (Somiti 360)
 6. **QR কোড ভিত্তিক ভেরিফিকেশন পোর্টাল:** যেকোনো স্মার্টফোন থেকে স্ক্যান করে রসিদ ও নোটিশের সত্যতা নিশ্চিতকরণ।
 7. **১০০% অফলাইন সাপোর্ট ও ক্লাউড সিঙ্ক:** ইন্টারনেট ছাড়াই সম্পূর্ণ কার্যকর এবং ক্লাউডে স্বয়ংক্রিয় ব্যাকআপ।
 
-## 🚀 লোকাল রান করার নিয়ম:
+---
+
+## 🛠️ ডেভেলপার কমান্ডসমূহ:
 \`\`\`bash
+# লোকাল ওয়েব প্রিভিউ
 npm install
 npm run dev
-\`\`\`
 
-## 🌐 প্রোডাকশন বিল্ড:
-\`\`\`bash
-npm run build
+# উইন্ডোজ ডেস্কটপ অ্যাপ বিল্ড
+npm run electron:build
+
+# ম্যাকবুক অ্যাপ বিল্ড (Intel ও M-Series)
+npm run electron:build:mac
 \`\`\`
 `;
 fs.writeFileSync(path.join(SOMITI_DIR, 'README.md'), readmeContent, 'utf8');
@@ -279,6 +397,7 @@ fs.writeFileSync(path.join(SOMITI_DIR, '.gitignore'), somitiGitignore, 'utf8');
 // 10. Standalone vercel.json (Vercel deployment & SPA rewrites)
 const vercelConfig = {
   framework: "vite",
+  installCommand: "npm install --legacy-peer-deps",
   buildCommand: "npm run build",
   outputDirectory: "dist",
   cleanUrls: true,
