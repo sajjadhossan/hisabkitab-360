@@ -363,7 +363,7 @@ export const DeviceStatusIndicator = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontWeight: '800', fontSize: '0.88rem' }}>
-                          {registry[DEVICE_TYPES.WEB]?.name || 'ভার্সেল ওয়েব অ্যাপ (অনলাইন শাখা)'}
+                          {registry[DEVICE_TYPES.WEB]?.name || 'ক্লাউড ওয়েব অ্যাপ (Netlify & Vercel)'}
                         </span>
                         {currentType === DEVICE_TYPES.WEB && (
                           <span style={{ fontSize: '0.68rem', fontWeight: '800', background: '#8b5cf6', color: '#fff', padding: '1px 6px', borderRadius: '4px' }}>
@@ -372,7 +372,7 @@ export const DeviceStatusIndicator = () => {
                         )}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        ক্লাউড ওয়েবসাইট • https://hisabkitab-360.vercel.app
+                        ক্লাউড ওয়েবসাইট • https://hisabkitab360.netlify.app & vercel.app
                       </div>
                     </div>
                   </div>

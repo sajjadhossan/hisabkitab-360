@@ -40,7 +40,7 @@ export const detectDeviceType = () => {
     const port = window.location.port || '';
 
     // If running in Android webview / mobile wrapper
-    if (ua.includes('wv') || (ua.includes('android') && !hostname.includes('vercel.app') && !hostname.includes('localhost'))) {
+    if (ua.includes('wv') || (ua.includes('android') && !hostname.includes('vercel.app') && !hostname.includes('netlify.app') && !hostname.includes('localhost'))) {
       return DEVICE_TYPES.MOBILE;
     }
 
@@ -53,8 +53,8 @@ export const detectDeviceType = () => {
       return DEVICE_TYPES.PC;
     }
 
-    // 3. Vercel Live Web App
-    if (hostname.includes('vercel.app') || window.location.protocol === 'https:') {
+    // 3. Cloud Live Web App (Netlify & Vercel)
+    if (hostname.includes('vercel.app') || hostname.includes('netlify.app') || window.location.protocol === 'https:') {
       if (/android|iphone|ipad|ipod|mobile/i.test(ua)) {
         return DEVICE_TYPES.MOBILE;
       }

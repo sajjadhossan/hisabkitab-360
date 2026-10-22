@@ -9,11 +9,13 @@
 
 এই রিপোজিটরির `releases/` ফোল্ডারে পিসি এবং মোবাইল সংস্করণের প্রস্তুত ফাইলগুলো রাখা হয়েছে:
 
-| প্ল্যাটফর্ম | ফাইল ফরম্যাট | সাইজ | ডাউনলোড লিংক |
+| প্ল্যাটফর্ম | ফাইল ফরম্যাট / হোস্টিং | সাইজ / টাইপ | ডাউনলোড ও লাইভ লিঙ্ক |
 | :--- | :---: | :---: | :--- |
+| 🌐 **Netlify Live Cloud** | Edge Hosted Web App | 0 KB (Instant) | [https://hisabkitab360.netlify.app](https://hisabkitab360.netlify.app) |
+| 🌐 **Vercel Live Cloud** | Global Edge Web App | 0 KB (Instant) | [https://hisabkitab-360.vercel.app](https://hisabkitab-360.vercel.app) |
+| 🏛️ **সমিতি ERP পোর্টাল** | Samity Dedicated Portal | 0 KB (Instant) | [https://hisabkitab360.netlify.app/?portal=samity](https://hisabkitab360.netlify.app/?portal=samity) |
 | 🖥️ **Windows PC** | `.exe` (Standalone Desktop) | ~865 KB | [`releases/HisabKitab-360-PC.exe`](./releases/HisabKitab-360-PC.exe) |
-| 📱 **Android Mobile** | `.apk` (Direct Install) | ~1.03 MB | [`releases/HisabKitab-360.apk`](./releases/HisabKitab-360.apk) |
-| 🌐 **Live Web App** | Cloud Hosted | 0 KB | [Vercel Deployment Guide](#-vercel-এ-লাইভ-হোস্টিং) |
+| 📱 **Android Mobile** | `.apk` (Direct Install) | ~7.55 MB | [`releases/HisabKitab-360.apk`](./releases/HisabKitab-360.apk) |
 
 ---
 
@@ -24,22 +26,21 @@
   - **শুধুমাত্র ব্যবসা (Business ERP Only):** ইনভেন্টরি, বারকোড স্ক্যানার, পিওএস, ভ্যাট/ডিসকাউন্ট, বাকির খাতা ও কর্মচারী বেতন।
   - **শুধুমাত্র পার্সোনাল (Personal Finance Only):** দৈনন্দিন বাজার ফর্দ, পারিবারিক খরচ, উৎসব/ইভেন্ট ও জমার হিসাব।
 - 🛒 **সুপার-ফাস্ট পিওএস টার্মিনাল (POS Terminal):** কি-বোর্ড শর্টকাট, বারকোড গান স্ক্যানিং, ক্যাশ ড্রয়ার ও ব্লুটুথ থার্মাল প্রিন্ট সাপোর্ট।
-- ☁️ **রিয়েল-টাইম ক্লাউড ব্যাকআপ:** গুগল ড্রাইভ ১-ক্লিক অটো-সিঙ্ক (সর্বোচ্চ ৩০টি স্ন্যাপশট ব্যাকআপ ধারণক্ষমতা)।
+- ☁️ **রিয়েল-টাইম ক্লাউড ব্যাকআপ:** গুগল ড্রাইভ ও ক্লাউড অটো-সিঙ্ক (সর্বোচ্চ ৩০টি স্ন্যাপশট ব্যাকআপ ধারণক্ষমতা)।
 - 🛡️ **সুপার অ্যাডমিন ও মাস্টার কন্ট্রোল:** ভেন্ডর ও অ্যাডমিনের জন্য মাস্টার পিন সুরক্ষিত গ্লোবাল কন্ট্রোল প্যানেল।
-- ⚡ **লাইটনিং স্পিড (60 FPS):** React 18 Concurrent Rendering, GPU Hardware Acceleration এবং Non-blocking Storage I/O।
+- ⚡ **লাইটনিং স্পিড (60 FPS):** React 19 Concurrent Rendering, GPU Hardware Acceleration এবং Non-blocking Storage I/O।
 
 ---
 
-## 🚀 Vercel-এ লাইভ হোস্টিং (Deploy to Vercel)
+## 🌐 ক্লাউড ওয়েবসাইট ও লাইভ হোস্টিং (Netlify & Vercel Deployments)
 
-এই প্রজেক্টটিতে ইতিমধ্যে `vercel.json` কনফিগার করা আছে। ভার্সেলে হোস্টিং করার নিয়ম:
+এই প্রজেক্টটি **Netlify** এবং **Vercel** উভয়ের সাথেই সরাসরি গিটহাব সিআই/সিডি (CI/CD)-র মাধ্যমে সংযুক্ত:
 
-1. আপনার গিটহাব অ্যাকাউন্টে কোড পুশ করুন (নিচের নির্দেশিকা দেখুন)।
-2. [Vercel](https://vercel.com) এ লগইন করে **"Add New Project"** এ ক্লিক করুন।
-3. আপনার গিটহাব রিপোজিটরিটি সিলেক্ট করুন।
-4. **Build Command:** `npm run build`
-5. **Output Directory:** `dist`
-6. **"Deploy"** বাটনে ক্লিক করুন। ২ মিনিটের মধ্যে সম্পূর্ণ অ্যাপটি বিশ্বব্যাপী লাইভ হয়ে যাবে!
+- 🚀 **Netlify লাইভ লিংক:** [https://hisabkitab360.netlify.app](https://hisabkitab360.netlify.app)
+  - কনফিগারেশন: [`netlify.toml`](./netlify.toml) (স্বয়ংক্রিয় এসপিএ রিডাইরেক্ট ও এজ ক্যাশিং সক্রিয়)
+- 🚀 **Vercel লাইভ লিংক:** [https://hisabkitab-360.vercel.app](https://hisabkitab-360.vercel.app)
+  - কনফিগারেশন: [`vercel.json`](./vercel.json)
+- 🔄 **ডুয়েল অটো-ডিপ্লয়:** গিটহাবের `main` ব্রাঞ্চে কোড পুশ (`git push origin main`) হওয়ামাত্রই Netlify এবং Vercel উভয়েই স্বয়ংক্রিয়ভাবে ক্লাউডে লাইভ বিল্ড তৈরি করে নেয়।
 
 ---
 
