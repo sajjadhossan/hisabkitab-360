@@ -114,9 +114,14 @@ import { generateQrDataUrl } from '../../services/qrService';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { broadcastLiveEvent, subscribeLiveSync } from '../../services/liveSyncService';
+import { useSamityTranslator, translateSamityText } from '../../utils/samityDictionary';
 
-// Bengali Numeral Converter
+// Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
 export const toBanglaNum = (num) => {
+  try {
+    const l = typeof window !== 'undefined' && (localStorage.getItem('samity_lang') || localStorage.getItem('hisabkitab_lang') || localStorage.getItem('somiti360_lang'));
+    if (l === 'en') return String(num ?? '');
+  } catch {}
   const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
   return String(num ?? '').replace(/[0-9]/g, (d) => bn[d]);
 };
@@ -298,8 +303,30 @@ export const CircularOfficialSeal = ({
 };
 
 export const SamityManagementHub = ({ onClose }) => {
-  const { lang = 'bn', setLang, showToast = () => { }, businessSettings } = useApp() || {};
-  const t = (bn, en) => (lang === 'en' ? en : bn);
+  const appContext = useApp() || {};
+  const [localLang, setLocalLang] = useState(() => {
+    return appContext.lang || (typeof window !== 'undefined' ? (localStorage.getItem('samity_lang') || localStorage.getItem('somiti360_lang') || localStorage.getItem('hisabkitab_lang') || 'bn') : 'bn');
+  });
+
+  const activeLang = appContext.lang || localLang;
+
+  const handleToggleLanguage = (newLang) => {
+    const target = newLang || (activeLang === 'en' ? 'bn' : 'en');
+    setLocalLang(target);
+    try {
+      localStorage.setItem('samity_lang', target);
+      localStorage.setItem('somiti360_lang', target);
+      localStorage.setItem('hisabkitab_lang', target);
+    } catch {}
+    if (appContext.setLang) {
+      appContext.setLang(target);
+    }
+    appContext.showToast?.(target === 'en' ? 'Switched to English' : 'বাংলা ভাষায় পরিবর্তিত হয়েছে', 'info');
+  };
+
+  const hubContainerRef = useRef(null);
+  const { t } = useSamityTranslator(hubContainerRef, activeLang);
+  const { showToast = () => { }, businessSettings } = appContext;
 
   // Core Data State
   const [data, setData] = useState(() => loadSamityData());
@@ -3033,6 +3060,8 @@ export const SamityManagementHub = ({ onClose }) => {
 
   return (
     <div
+      ref={hubContainerRef}
+      id="samity-hub-root"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -3217,34 +3246,32 @@ export const SamityManagementHub = ({ onClose }) => {
             <span>{t('নতুন সদস্য', 'New Member')}</span>
           </button>
 
-          {setLang && (
-            <button
-              onClick={() => {
-                playButtonClick?.();
-                triggerHaptic();
-                const nextLang = lang === 'en' ? 'bn' : 'en';
-                setLang(nextLang);
-                showToast?.(nextLang === 'en' ? 'Switched to English' : 'বাংলা ভাষায় পরিবর্তিত হয়েছে', 'info');
-              }}
-              style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                color: '#38bdf8',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                fontWeight: '800',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }}
-              title={t('ইংরেজি / বাংলায় পরিবর্তন করুন', 'Switch English / Bengali')}
-            >
-              <Globe size={15} />
-              <span>{lang === 'en' ? 'বাংলা' : 'English'}</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              playButtonClick?.();
+              triggerHaptic();
+              handleToggleLanguage();
+            }}
+            style={{
+              background: activeLang === 'en' ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.35))' : 'rgba(56, 189, 248, 0.15)',
+              color: activeLang === 'en' ? '#34d399' : '#38bdf8',
+              border: '1px solid ' + (activeLang === 'en' ? 'rgba(52, 211, 153, 0.45)' : 'rgba(56, 189, 248, 0.35)'),
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: '800',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: activeLang === 'en' ? '0 0 10px rgba(52, 211, 153, 0.2)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title={activeLang === 'en' ? 'বাংলা ভাষায় পরিবর্তন করুন' : 'Switch to English'}
+          >
+            <Globe size={15} />
+            <span>{activeLang === 'en' ? '🇧🇩 বাংলা' : '🇬🇧 English'}</span>
+          </button>
 
           {onClose && (
             <button

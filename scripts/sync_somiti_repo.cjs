@@ -48,6 +48,7 @@ const filesToSync = [
   { from: 'src/services/supabaseClient.js', to: 'src/services/supabaseClient.js' },
   { from: 'src/services/deviceManagerService.js', to: 'src/services/deviceManagerService.js' },
   { from: 'src/utils/tenantHelper.js', to: 'src/utils/tenantHelper.js' },
+  { from: 'src/utils/samityDictionary.js', to: 'src/utils/samityDictionary.js' },
   { from: 'src/index.css', to: 'src/index.css' }
 ];
 
@@ -313,7 +314,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { SamityManagementHub } from './components/samity/SamityManagementHub';
 import { SamityDocVerificationView } from './components/samity/SamityDocVerificationView';
 import { SomitiAuthView } from './components/auth/SomitiAuthView';
-import { Users, ShieldCheck, RefreshCw, AlertTriangle, LogOut } from 'lucide-react';
+import { Users, ShieldCheck, RefreshCw, AlertTriangle, LogOut, Globe } from 'lucide-react';
 
 // Error Boundary to prevent any blank screen
 class ErrorBoundary extends Component {
@@ -361,7 +362,7 @@ class ErrorBoundary extends Component {
 function MainView() {
   const [viewMode, setViewMode] = useState('hub'); // 'hub' | 'verify'
   const [verifyData, setVerifyData] = useState(null);
-  const { user, isAuthenticated, authLoading, logout } = useApp();
+  const { user, isAuthenticated, authLoading, logout, lang = 'bn', setLang } = useApp();
 
   useEffect(() => {
     // Check if query string contains verify parameters
@@ -429,17 +430,34 @@ function MainView() {
                 PRO v1.0
               </span>
             </div>
-            <p className="text-xs text-slate-400">সমিতি, সমবায় সংস্থা, সঞ্চয় ও ঋণদান ব্যবস্থাপনা প্ল্যাটফর্ম</p>
+            <p className="text-xs text-slate-400">{lang === 'en' ? 'Samity, Cooperative, Savings & Microcredit Platform' : 'সমিতি, সমবায় সংস্থা, সঞ্চয় ও ঋণদান ব্যবস্থাপনা প্ল্যাটফর্ম'}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           <button
+            onClick={() => {
+              const next = lang === 'en' ? 'bn' : 'en';
+              if (setLang) setLang(next);
+              try {
+                localStorage.setItem('samity_lang', next);
+                localStorage.setItem('somiti360_lang', next);
+                localStorage.setItem('hisabkitab_lang', next);
+              } catch {}
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 transition cursor-pointer shadow-sm"
+            title={lang === 'en' ? 'বাংলা ভাষায় পরিবর্তন করুন' : 'Switch to English'}
+          >
+            <Globe className="w-3.5 h-3.5 text-teal-400" />
+            <span>{lang === 'en' ? '🇧🇩 বাংলা' : '🇬🇧 English'}</span>
+          </button>
+
+          <button
             onClick={() => setViewMode(viewMode === 'verify' ? 'hub' : 'verify')}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
           >
             <ShieldCheck className="w-4 h-4 text-teal-400" />
-            <span className="hidden sm:inline">ভেরিফিকেশন পোর্টাল</span>
+            <span className="hidden sm:inline">{lang === 'en' ? 'Verification Portal' : 'ভেরিফিকেশন পোর্টাল'}</span>
           </button>
 
           {user && (
