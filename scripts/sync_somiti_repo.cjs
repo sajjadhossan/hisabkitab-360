@@ -21,7 +21,9 @@ const dirsToCreate = [
   path.join(SOMITI_DIR, 'public'),
   path.join(SOMITI_DIR, 'src'),
   path.join(SOMITI_DIR, 'src', 'components'),
+  path.join(SOMITI_DIR, 'src', 'components', 'auth'),
   path.join(SOMITI_DIR, 'src', 'components', 'samity'),
+  path.join(SOMITI_DIR, 'src', 'context'),
   path.join(SOMITI_DIR, 'src', 'services'),
   path.join(SOMITI_DIR, 'src', 'utils')
 ];
@@ -36,6 +38,8 @@ dirsToCreate.forEach(d => {
 const filesToSync = [
   { from: 'src/components/samity/SamityManagementHub.jsx', to: 'src/components/samity/SamityManagementHub.jsx' },
   { from: 'src/components/samity/SamityDocVerificationView.jsx', to: 'src/components/samity/SamityDocVerificationView.jsx' },
+  { from: 'src/components/auth/SomitiAuthView.jsx', to: 'src/components/auth/SomitiAuthView.jsx' },
+  { from: 'src/services/somitiAuthService.js', to: 'src/services/somitiAuthService.js' },
   { from: 'src/services/samityService.js', to: 'src/services/samityService.js' },
   { from: 'src/services/qrService.js', to: 'src/services/qrService.js' },
   { from: 'src/services/soundFeedback.js', to: 'src/services/soundFeedback.js' },
@@ -195,12 +199,119 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 `;
 fs.writeFileSync(path.join(SOMITI_DIR, 'src', 'main.jsx'), mainJsxContent, 'utf8');
 
-// 7. Standalone src/App.jsx with ErrorBoundary & AppProvider
+// 7. Standalone src/context/AppContext.jsx
+const appContextContent = `import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getCachedAuthUser, signOutUser, subscribeToAuthState } from '../services/somitiAuthService';
+
+const AppContext = createContext(null);
+
+export const AppProvider = ({ children }) => {
+  const [lang, setLang] = useState(() => {
+    return localStorage.getItem('somiti360_lang') || 'bn';
+  });
+
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Authentication State
+  const [user, setUser] = useState(() => getCachedAuthUser());
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthState((authUser) => {
+      setUser(authUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const logout = async () => {
+    await signOutUser();
+    setUser(null);
+  };
+
+  const [businessSettings, setBusinessSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('somiti360_settings');
+      return saved ? JSON.parse(saved) : {
+        companyName: 'সমিতি ৩৬০',
+        phone: '',
+        address: '',
+        companyLogo: ''
+      };
+    } catch {
+      return {
+        companyName: 'সমিতি ৩৬০',
+        phone: '',
+        address: '',
+        companyLogo: ''
+      };
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('somiti360_lang', lang);
+  }, [lang]);
+
+  const showToast = (message, type = 'info') => {
+    setToastMessage({ message, type, id: Date.now() });
+    setTimeout(() => {
+      setToastMessage(prev => (prev?.id === toastMessage?.id ? null : prev));
+    }, 3500);
+  };
+
+  const value = {
+    lang,
+    setLang,
+    showToast,
+    businessSettings,
+    setBusinessSettings,
+    user,
+    setUser,
+    isAuthenticated: Boolean(user),
+    authLoading,
+    logout
+  };
+
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 border border-teal-500/40 text-teal-300 px-4 py-3 rounded-xl shadow-2xl shadow-teal-500/20 animate-fade-in text-sm font-medium">
+          <span>{toastMessage.message}</span>
+        </div>
+      )}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    return {
+      lang: 'bn',
+      setLang: () => {},
+      showToast: () => {},
+      businessSettings: { companyName: 'সমিতি ৩৬০', phone: '', address: '', companyLogo: '' },
+      user: null,
+      isAuthenticated: false,
+      authLoading: false,
+      logout: () => {}
+    };
+  }
+  return context;
+};
+
+export default AppContext;
+`;
+fs.writeFileSync(path.join(SOMITI_DIR, 'src', 'context', 'AppContext.jsx'), appContextContent, 'utf8');
+
+// 8. Standalone src/App.jsx with ErrorBoundary, AppProvider & Auth Gate
 const appJsxContent = `import React, { useState, useEffect, Component } from 'react';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 import { SamityManagementHub } from './components/samity/SamityManagementHub';
 import { SamityDocVerificationView } from './components/samity/SamityDocVerificationView';
-import { Users, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
+import { SomitiAuthView } from './components/auth/SomitiAuthView';
+import { Users, ShieldCheck, RefreshCw, AlertTriangle, LogOut } from 'lucide-react';
 
 // Error Boundary to prevent any blank screen
 class ErrorBoundary extends Component {
@@ -248,6 +359,7 @@ class ErrorBoundary extends Component {
 function MainView() {
   const [viewMode, setViewMode] = useState('hub'); // 'hub' | 'verify'
   const [verifyData, setVerifyData] = useState(null);
+  const { user, isAuthenticated, authLoading, logout } = useApp();
 
   useEffect(() => {
     // Check if query string contains verify parameters
@@ -268,6 +380,7 @@ function MainView() {
     }
   }, []);
 
+  // Public QR Document Verification View
   if (viewMode === 'verify') {
     return (
       <SamityDocVerificationView 
@@ -280,6 +393,24 @@ function MainView() {
         }} 
       />
     );
+  }
+
+  // Loading Session State
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="w-14 h-14 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mb-4">
+          <RefreshCw className="w-6 h-6 animate-spin text-teal-400" />
+        </div>
+        <h3 className="text-base font-bold text-white mb-1">সমিতি ৩৬০</h3>
+        <p className="text-xs text-slate-400">নিরাপদ সেশন যাচাই করা হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  // Strict Authentication Gate (Rule 7)
+  if (!isAuthenticated) {
+    return <SomitiAuthView onAuthSuccess={() => {}} />;
   }
 
   return (
@@ -300,7 +431,7 @@ function MainView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => setViewMode(viewMode === 'verify' ? 'hub' : 'verify')}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
@@ -308,6 +439,30 @@ function MainView() {
             <ShieldCheck className="w-4 h-4 text-teal-400" />
             <span className="hidden sm:inline">ভেরিফিকেশন পোর্টাল</span>
           </button>
+
+          {user && (
+            <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-800">
+              <div className="hidden md:flex flex-col text-right">
+                <span className="text-xs font-semibold text-white leading-tight">
+                  {user.name || user.email?.split('@')[0]}
+                </span>
+                <span className="text-[10px] text-teal-400 truncate max-w-[130px]">
+                  {user.samityName || user.email}
+                </span>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 font-bold text-xs uppercase shadow-sm">
+                {user.name ? user.name[0] : (user.email ? user.email[0] : 'U')}
+              </div>
+              <button
+                onClick={logout}
+                title="লগআউট করুন"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">লগআউট</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
