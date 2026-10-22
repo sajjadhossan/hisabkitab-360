@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -16,7 +16,13 @@ import {
   Edit2,
   Save,
   HelpCircle,
-  Headphones
+  Headphones,
+  Info,
+  Globe,
+  Layers,
+  Cpu,
+  Smartphone,
+  Laptop
 } from 'lucide-react';
 import {
   normalizeWhatsAppPhone,
@@ -30,15 +36,23 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
     lang,
     showToast,
     isHelpSupportOpen,
-    closeHelpSupport
+    closeHelpSupport,
+    helpSupportInitialTab
   } = useApp();
   const { user, isOwner, isSuperAdmin } = useAuth();
 
   const showModal = isOpen !== undefined ? isOpen : isHelpSupportOpen;
   const handleClose = onClose || closeHelpSupport;
 
+  const [activeModalTab, setActiveModalTab] = useState('support'); // 'support' | 'about'
   const [isEditing, setIsEditing] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
+
+  useEffect(() => {
+    if (helpSupportInitialTab && showModal) {
+      setActiveModalTab(helpSupportInitialTab);
+    }
+  }, [helpSupportInitialTab, showModal]);
 
   const vendorSupport = businessSettings?.vendorSupport || {
     whatsapp: businessSettings?.phone || '8801700000000',
@@ -152,16 +166,20 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)' }}>
-                {lang === 'bn' ? 'গ্রাহক সেবা ও ভেন্ডর সহায়তা' : 'Customer Support & Helpdesk'}
+                {activeModalTab === 'about'
+                  ? (lang === 'bn' ? 'ℹ️ অ্যাপ সম্পর্কে ও লাইভ ক্লাউড' : 'ℹ️ About & Live Web App')
+                  : (lang === 'bn' ? '📞 গ্রাহক সেবা ও ভেন্ডর সহায়তা' : 'Customer Support & Helpdesk')}
               </h2>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                {vendorSupport.supportName || 'HisabKitab 360 Official Support Desk'}
+                {activeModalTab === 'about'
+                  ? 'HisabKitab 360 v1.0.258 • Netlify & Vercel Live Portals'
+                  : (vendorSupport.supportName || 'HisabKitab 360 Official Support Desk')}
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {(isOwner || isSuperAdmin) && !isEditing && (
+            {activeModalTab === 'support' && (isOwner || isSuperAdmin) && !isEditing && (
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
@@ -196,9 +214,373 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Sub-tab Navigation Bar: Support vs About */}
+        <div
+          style={{
+            display: 'flex',
+            background: 'var(--bg-primary)',
+            padding: '4px',
+            margin: '12px 20px 0',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)',
+            gap: '6px'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => { setActiveModalTab('support'); setIsEditing(false); }}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeModalTab === 'support' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+              color: activeModalTab === 'support' ? '#fff' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+              boxShadow: activeModalTab === 'support' ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none'
+            }}
+          >
+            <Headphones size={15} />
+            <span>{lang === 'bn' ? 'গ্রাহক সেবা ও সহায়তা' : 'Support Desk'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveModalTab('about'); setIsEditing(false); }}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              background: activeModalTab === 'about' ? 'linear-gradient(135deg, #00c7b7, #0284c7)' : 'transparent',
+              color: activeModalTab === 'about' ? '#fff' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+              boxShadow: activeModalTab === 'about' ? '0 2px 8px rgba(0, 199, 183, 0.35)' : 'none'
+            }}
+          >
+            <Info size={15} />
+            <span>{lang === 'bn' ? 'অ্যাপ সম্পর্কে ও লাইভ সাইট' : 'About & Live Web'}</span>
+            <span style={{ fontSize: '0.62rem', background: '#fff', color: '#0284c7', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
+              NETLIFY
+            </span>
+          </button>
+        </div>
+
         {/* Modal Body */}
-        <div style={{ padding: '20px', maxHeight: '78vh', overflowY: 'auto' }}>
-          {isEditing ? (
+        <div style={{ padding: '16px 20px 20px', maxHeight: '76vh', overflowY: 'auto' }}>
+          {activeModalTab === 'about' ? (
+            /* =========================================================================
+               ABOUT SECTION (FEATURING NETLIFY & VERCEL LIVE CLOUD WEBSITES)
+               ========================================================================= */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Brand Card */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0, 199, 183, 0.12) 0%, rgba(2, 132, 199, 0.14) 100%)',
+                  border: '1.5px solid rgba(0, 199, 183, 0.35)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 16px rgba(0, 199, 183, 0.1)'
+                }}
+              >
+                <div style={{ fontSize: '36px', marginBottom: '6px' }}>💼</div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '1.2rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                  হিসাবকিতাব ৩৬০ | HisabKitab 360
+                </h3>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  পরিপূর্ণ ব্যক্তিগত ও ব্যবসায়িক অপারেটিং সিস্টেম (Enterprise ERP OS)
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(0, 199, 183, 0.2)', padding: '3px 10px', borderRadius: '20px', border: '1px solid #00c7b7' }}>
+                  <Sparkles size={13} style={{ color: '#00c7b7' }} />
+                  <span style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                    v1.0.258 Production Stable Release
+                  </span>
+                </div>
+              </div>
+
+              {/* SECTION: Official Live Cloud Web Portals */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Globe size={15} style={{ color: '#00c7b7' }} />
+                  <span>{lang === 'bn' ? 'অফিশিয়াল লাইভ ক্লাউড ওয়েবসাইট ও পোর্টালসমূহ:' : 'Official Live Web Portals:'}</span>
+                </div>
+
+                {/* 1. Netlify Live Cloud Portal (HERO) */}
+                <div
+                  style={{
+                    background: 'var(--bg-primary)',
+                    border: '1.5px solid #00c7b7',
+                    borderRadius: '14px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxShadow: '0 4px 14px rgba(0, 199, 183, 0.15)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(0, 199, 183, 0.2)', color: '#00c7b7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Globe size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Netlify লাইভ ক্লাউড ওয়েবসাইট</span>
+                          <span style={{ fontSize: '0.62rem', background: '#00c7b7', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                            PRIMARY LIVE
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          গ্লোবাল এজ সিডিএন • সুপারফাস্ট রেসপন্স
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '800', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                      🟢 সক্রিয় ও লাইভ
+                    </span>
+                  </div>
+
+                  <code style={{ fontSize: '0.8rem', color: '#00c7b7', fontWeight: 'bold', background: 'rgba(0, 0, 0, 0.25)', padding: '6px 10px', borderRadius: '8px', wordBreak: 'break-all' }}>
+                    https://hisabkitab360.netlify.app
+                  </code>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://hisabkitab360.netlify.app', '_blank')}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'linear-gradient(135deg, #00c7b7, #0284c7)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '800',
+                        fontSize: '0.76rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <ExternalLink size={14} />
+                      <span>{lang === 'bn' ? 'ওয়েবসাইট খুলুন' : 'Open Website'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy('https://hisabkitab360.netlify.app', 'netlify_live')}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: '0.76rem',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      {copiedKey === 'netlify_live' ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                      <span>{copiedKey === 'netlify_live' ? 'কপি হয়েছে' : 'লিংক কপি'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Samity Dedicated Portal Link */}
+                <div
+                  style={{
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🏛️ সমিতি ইআরপি সরাসরি পোর্টাল</span>
+                      <span style={{ fontSize: '0.62rem', background: '#6366f1', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                        SAMITY ERP
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => window.open('https://hisabkitab360.netlify.app/?portal=samity', '_blank')}
+                        style={{
+                          padding: '5px 10px',
+                          background: '#6366f1',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontWeight: '700',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <ExternalLink size={12} />
+                        <span>প্রবেশ করুন</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy('https://hisabkitab360.netlify.app/?portal=samity', 'samity_url')}
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 8px', fontSize: '0.72rem' }}
+                      >
+                        {copiedKey === 'samity_url' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  </div>
+                  <code style={{ fontSize: '0.74rem', color: '#818cf8', wordBreak: 'break-all' }}>
+                    https://hisabkitab360.netlify.app/?portal=samity
+                  </code>
+                </div>
+
+                {/* 3. Vercel Cloud Link */}
+                <div
+                  style={{
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>⚡ Vercel ক্লাউড লাইভ ওয়েবসাইট</span>
+                      <span style={{ fontSize: '0.62rem', background: '#8b5cf6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                        VERCEL
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => window.open('https://hisabkitab-360.vercel.app', '_blank')}
+                        style={{
+                          padding: '5px 10px',
+                          background: '#8b5cf6',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontWeight: '700',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <ExternalLink size={12} />
+                        <span>প্রবেশ করুন</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy('https://hisabkitab-360.vercel.app', 'vercel_url')}
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 8px', fontSize: '0.72rem' }}
+                      >
+                        {copiedKey === 'vercel_url' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  </div>
+                  <code style={{ fontSize: '0.74rem', color: '#c084fc', wordBreak: 'break-all' }}>
+                    https://hisabkitab-360.vercel.app
+                  </code>
+                </div>
+
+                {/* 4. GitHub Repository Link */}
+                <div
+                  style={{
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                      🐙 GitHub অফিসিয়াল রিপোজিটরি ও রিলিজ
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => window.open('https://github.com/sajjadhossan/hisabkitab-360', '_blank')}
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 10px', fontSize: '0.72rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <ExternalLink size={12} />
+                        <span>গিটহাব খুলুন</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy('https://github.com/sajjadhossan/hisabkitab-360', 'github_url')}
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 8px', fontSize: '0.72rem' }}
+                      >
+                        {copiedKey === 'github_url' ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  </div>
+                  <code style={{ fontSize: '0.74rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                    https://github.com/sajjadhossan/hisabkitab-360
+                  </code>
+                </div>
+              </div>
+
+              {/* Architecture & Specs */}
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '14px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Cpu size={14} style={{ color: '#10b981' }} />
+                  <span>সিস্টেম স্পেসিফিকেশন ও ইঞ্জিন তথ্য:</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.74rem' }}>
+                  <div style={{ color: 'var(--text-muted)' }}>📱 প্যাকেজ আইডি: <b style={{ color: 'var(--text-main)' }}>com.hisabkitab360.app</b></div>
+                  <div style={{ color: 'var(--text-muted)' }}>🖥️ আর্কিটেকচার: <b style={{ color: 'var(--text-main)' }}>React 19 + Capacitor 8</b></div>
+                  <div style={{ color: 'var(--text-muted)' }}>💾 স্টোরেজ: <b style={{ color: 'var(--text-main)' }}>IndexedDB Offline First</b></div>
+                  <div style={{ color: 'var(--text-muted)' }}>☁️ অটো-সিঙ্ক: <b style={{ color: 'var(--text-main)' }}>Google Drive + Supabase</b></div>
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '8px', marginTop: '4px' }}>
+                  © ২০২৬ হিসাবকিতাব ৩৬০ টেকনোলজিস | সর্বস্বত্ব সংরক্ষিত।
+                </div>
+              </div>
+            </div>
+          ) : isEditing ? (
             /* Vendor Contact Settings Form (For Owner / Vendor) */
             <form onSubmit={handleSaveSupportConfig} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>

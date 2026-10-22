@@ -35,6 +35,7 @@ import {
   HardDrive,
   CheckCircle2,
   HelpCircle,
+  Info,
   LogIn,
   LogOut,
   Database,
@@ -707,7 +708,8 @@ export const Navbar = () => {
         { id: 'tool_calc', label: lang === 'bn' ? 'ডিজিটাল ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত হিসাব ও যোগ-বিয়োগ' : 'Popup calculator', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটবুক' : 'Quick Scratchpad', desc: lang === 'bn' ? 'জরুরি খসড়া ও মেমো' : 'Autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
         { id: 'tool_shortcuts', label: lang === 'bn' ? '⌨️ কীবোর্ড শর্টকাট' : 'Keyboard Shortcuts', desc: lang === 'bn' ? 'F1-F8 ও দ্রুত হটকি গাইড' : 'Desktop hotkey guide', icon: Keyboard, color: '#6366f1', badge: 'PC', isAction: () => { setShowMobileDrawer(false); if (window.__openShortcutsGuide) window.__openShortcutsGuide(); } },
-        { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp, FB, Telegram সাপোর্ট' : 'WhatsApp, FB & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport(), badge: '24/7' },
+        { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp, FB, Telegram সাপোর্ট' : 'WhatsApp, FB & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport('support'), badge: '24/7' },
+        { id: 'about_software', label: lang === 'bn' ? 'ℹ️ অ্যাপ সম্পর্কে ও নেটলিফাই সাইট' : 'ℹ️ About & Netlify Live', desc: lang === 'bn' ? 'Netlify ও Vercel লাইভ পোর্টাল' : 'Netlify & Vercel live links', icon: Info, color: '#00c7b7', isAction: () => { setShowMobileDrawer(false); openHelpSupport('about'); }, badge: 'LIVE' },
         ...(isSuperAdmin ? [{ id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও লাইসেন্স' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
       ]
     }
@@ -744,7 +746,8 @@ export const Navbar = () => {
         { id: 'tool_calc', label: lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator', desc: lang === 'bn' ? 'দ্রুত যোগ-বিয়োগ' : 'Fast digital math', icon: Calculator, color: '#a855f7', isTool: 'calculator' },
         { id: 'tool_notes', label: lang === 'bn' ? 'চিরকুট ও নোটপ্যাড' : 'Sticky Notes', desc: lang === 'bn' ? 'বাজারের ফর্দ ও জরুরি নোট' : 'Quick autosaved notes', icon: FileText, color: '#f59e0b', isTool: 'notes' },
         { id: 'tool_shortcuts_personal', label: lang === 'bn' ? '⌨️ কীবোর্ড শর্টকাট' : 'Keyboard Shortcuts', desc: lang === 'bn' ? 'F1-F8 ও দ্রুত হটকি গাইড' : 'Desktop hotkey guide', icon: Keyboard, color: '#6366f1', badge: 'PC', isAction: () => { setShowMobileDrawer(false); if (window.__openShortcutsGuide) window.__openShortcutsGuide(); } },
-        { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp ও জরুরি সাপোর্ট' : 'WhatsApp & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport(), badge: '24/7' },
+        { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'WhatsApp ও জরুরি সাপোর্ট' : 'WhatsApp & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport('support'), badge: '24/7' },
+        { id: 'about_software_personal', label: lang === 'bn' ? 'ℹ️ অ্যাপ সম্পর্কে ও নেটলিফাই সাইট' : 'ℹ️ About & Netlify Live', desc: lang === 'bn' ? 'Netlify ও Vercel লাইভ পোর্টাল' : 'Netlify & Vercel live links', icon: Info, color: '#00c7b7', isAction: () => { setShowMobileDrawer(false); openHelpSupport('about'); }, badge: 'LIVE' },
         ...(isSuperAdmin ? [{ id: 'super_admin_personal_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম মোড' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
       ]
     }

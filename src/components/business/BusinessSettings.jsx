@@ -4130,9 +4130,17 @@ export const BusinessSettings = () => {
                   </div>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 10px' }}>
                     {lang === 'bn'
-                      ? 'Vercel অথবা Netlify তে ফ্রি ডিপ্লয় করে কাস্টমারকে লিঙ্ক দিয়ে দেওয়া যায়। দোকানদার যেকোনো কম্পিউটার, ট্যাব বা মোবাইল থেকে চালাতে পারবেন।'
-                      : 'Deploy on Vercel/Netlify. Accessible from any computer, tablet or mobile phone.'}
+                      ? 'Netlify এবং Vercel ক্লাউডে অ্যাপটি সম্পূর্ণ লাইভ ডিপ্লয় করা আছে। দোকানদার যেকোনো কম্পিউটার, ট্যাব বা মোবাইল থেকে সরাসরি চালাতে পারবেন।'
+                      : 'Live hosted on Netlify and Vercel. Accessible instantly from any computer, tablet or mobile phone.'}
                   </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', background: 'rgba(0, 0, 0, 0.2)', padding: '8px 12px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#00c7b7', fontWeight: 'bold' }}>
+                      🚀 Netlify লাইভ: <a href="https://hisabkitab360.netlify.app" target="_blank" rel="noreferrer" style={{ color: '#00c7b7', textDecoration: 'underline' }}>https://hisabkitab360.netlify.app</a>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#8b5cf6', fontWeight: 'bold' }}>
+                      ⚡ Vercel লাইভ: <a href="https://hisabkitab-360.vercel.app" target="_blank" rel="noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline' }}>https://hisabkitab-360.vercel.app</a>
+                    </div>
+                  </div>
                   <div style={{ fontSize: '0.78rem', color: '#6366f1', fontWeight: '600' }}>
                     ✓ গুগল ড্রাইভ অটো-ব্যাকআপ কানেক্টেড<br />
                     ✓ মাসিক ৫০০-১,০০০ টাকা সাবস্ক্রিপশন মডেল

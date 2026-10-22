@@ -1225,6 +1225,7 @@ export const AppProvider = ({ children }) => {
   const [activeBarcodePrint, setActiveBarcodePrint] = useState(null);
   const [activeShareInvoice, setActiveShareInvoice] = useState(null);
   const [isHelpSupportOpen, setIsHelpSupportOpen] = useState(false);
+  const [helpSupportInitialTab, setHelpSupportInitialTab] = useState('support');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerCallback, setScannerCallback] = useState(null);
   const [scannerContext, setScannerContext] = useState('pos');
@@ -4157,7 +4158,10 @@ export const AppProvider = ({ children }) => {
   const closeBarcodePrint = () => setActiveBarcodePrint(null);
   const openShareInvoice = (invoice) => setActiveShareInvoice(invoice);
   const closeShareInvoice = () => setActiveShareInvoice(null);
-  const openHelpSupport = () => setIsHelpSupportOpen(true);
+  const openHelpSupport = (tab = 'support') => {
+    setHelpSupportInitialTab(tab || 'support');
+    setIsHelpSupportOpen(true);
+  };
   const closeHelpSupport = () => setIsHelpSupportOpen(false);
 
   // Settings & SaaS White-label
@@ -6470,6 +6474,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         openShareInvoice,
         closeShareInvoice,
         isHelpSupportOpen,
+        helpSupportInitialTab,
         openHelpSupport,
         closeHelpSupport,
 
