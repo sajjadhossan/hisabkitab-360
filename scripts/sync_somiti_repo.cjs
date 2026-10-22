@@ -281,6 +281,49 @@ dist-ssr
 `;
 fs.writeFileSync(path.join(SOMITI_DIR, '.gitignore'), somitiGitignore, 'utf8');
 
+// 10. Standalone vercel.json (Vercel deployment & SPA rewrites)
+const vercelConfig = {
+  framework: "vite",
+  buildCommand: "npm run build",
+  outputDirectory: "dist",
+  cleanUrls: true,
+  rewrites: [
+    {
+      source: "/((?!assets/).*)",
+      destination: "/index.html"
+    }
+  ],
+  headers: [
+    {
+      source: "/assets/(.*)",
+      headers: [
+        {
+          key: "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      source: "/(.*)",
+      headers: [
+        {
+          key: "X-Content-Type-Options",
+          value: "nosniff"
+        },
+        {
+          key: "X-Frame-Options",
+          value: "DENY"
+        },
+        {
+          key: "X-XSS-Protection",
+          value: "1; mode=block"
+        }
+      ]
+    }
+  ]
+};
+fs.writeFileSync(path.join(SOMITI_DIR, 'vercel.json'), JSON.stringify(vercelConfig, null, 2), 'utf8');
+
 console.log('====================================================');
 console.log('✅ সমিতি ৩৬০ (Somiti 360) স্বতন্ত্র রিপো প্যাকেজিং সফল!');
 console.log(`📁 ডিরেক্টরি: ${SOMITI_DIR}`);
