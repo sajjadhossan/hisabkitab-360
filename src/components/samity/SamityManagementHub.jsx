@@ -505,9 +505,15 @@ export const SamityManagementHub = ({ onClose }) => {
           setActiveTab(sub.id);
         }}
         style={{
-          background: isSubActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.07)',
-          color: isSubActive ? '#0f172a' : '#f8fafc',
-          border: '1px solid ' + (isSubActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.12)'),
+          background: isSubActive
+            ? (isLight ? '#0f766e' : '#2dd4bf')
+            : (isLight ? '#ffffff' : 'rgba(255, 255, 255, 0.07)'),
+          color: isSubActive
+            ? '#ffffff'
+            : (isLight ? '#0f172a' : '#f8fafc'),
+          border: '1px solid ' + (isSubActive
+            ? (isLight ? '#0f766e' : '#2dd4bf')
+            : (isLight ? '#cbd5e1' : 'rgba(255, 255, 255, 0.12)')),
           borderRadius: '20px',
           padding: '4px 12px',
           fontSize: '0.76rem',
@@ -516,6 +522,7 @@ export const SamityManagementHub = ({ onClose }) => {
           display: 'inline-flex',
           alignItems: 'center',
           gap: '6px',
+          boxShadow: isLight && !isSubActive ? '0 1px 3px rgba(0,0,0,0.04)' : 'none',
           transition: 'all 0.15s ease'
         }}
       >
@@ -523,8 +530,12 @@ export const SamityManagementHub = ({ onClose }) => {
         {sub.count !== undefined && (
           <span
             style={{
-              background: isSubActive ? '#0f172a' : 'rgba(255, 255, 255, 0.2)',
-              color: isSubActive ? '#2dd4bf' : '#fff',
+              background: isSubActive
+                ? (isLight ? 'rgba(255, 255, 255, 0.25)' : '#0f172a')
+                : (isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.2)'),
+              color: isSubActive
+                ? '#ffffff'
+                : (isLight ? '#0f172a' : '#fff'),
               padding: '1px 5px',
               borderRadius: '8px',
               fontSize: '0.65rem',
@@ -3310,9 +3321,9 @@ export const SamityManagementHub = ({ onClose }) => {
             onClick={() => handleOpenMemberModal()}
             className="btn"
             style={{
-              background: 'rgba(59, 130, 246, 0.15)',
-              color: '#3b82f6',
-              border: '1px solid rgba(59, 130, 246, 0.35)',
+              background: isLight ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.15)',
+              color: isLight ? '#1d4ed8' : '#3b82f6',
+              border: isLight ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(59, 130, 246, 0.35)',
               padding: '6px 12px',
               borderRadius: '8px',
               fontSize: '0.8rem',
@@ -3327,40 +3338,13 @@ export const SamityManagementHub = ({ onClose }) => {
             <span>{t('নতুন সদস্য', 'New Member')}</span>
           </button>
 
-          <button
-            onClick={() => {
-              playButtonClick?.();
-              triggerHaptic();
-              handleToggleLanguage();
-            }}
-            style={{
-              background: activeLang === 'en' ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.35))' : 'rgba(56, 189, 248, 0.15)',
-              color: activeLang === 'en' ? '#34d399' : '#38bdf8',
-              border: '1px solid ' + (activeLang === 'en' ? 'rgba(52, 211, 153, 0.45)' : 'rgba(56, 189, 248, 0.35)'),
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
-              fontWeight: '800',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              boxShadow: activeLang === 'en' ? '0 0 10px rgba(52, 211, 153, 0.2)' : 'none',
-              transition: 'all 0.15s ease'
-            }}
-            title={activeLang === 'en' ? 'বাংলা ভাষায় পরিবর্তন করুন' : 'Switch to English'}
-          >
-            <Globe size={15} />
-            <span>{activeLang === 'en' ? '🇧🇩 বাংলা' : '🇬🇧 English'}</span>
-          </button>
-
           {onClose && (
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: '#fff',
+                background: isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.08)',
+                border: isLight ? '1px solid #cbd5e1' : 'none',
+                color: isLight ? '#0f172a' : '#fff',
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
@@ -3382,8 +3366,8 @@ export const SamityManagementHub = ({ onClose }) => {
       {/* Tier 1: 6 Master Clusters + All Modules Directory Quick Access */}
       <div
         style={{
-          background: 'rgba(15, 23, 42, 0.9)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.9)',
+          borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)',
           padding: '4px 16px',
           display: 'flex',
           alignItems: 'center',
@@ -3410,13 +3394,13 @@ export const SamityManagementHub = ({ onClose }) => {
               }}
               style={{
                 background: isClusterActive
-                  ? (cluster.isDirectory ? 'rgba(59, 130, 246, 0.25)' : 'rgba(20, 184, 166, 0.2)')
+                  ? (cluster.isDirectory ? (isLight ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.25)') : (isLight ? 'rgba(20, 184, 166, 0.12)' : 'rgba(20, 184, 166, 0.2)'))
                   : 'transparent',
                 color: isClusterActive
-                  ? (cluster.isDirectory ? '#60a5fa' : '#2dd4bf')
-                  : 'var(--text-muted, #94a3b8)',
+                  ? (cluster.isDirectory ? (isLight ? '#2563eb' : '#60a5fa') : (isLight ? '#047857' : '#2dd4bf'))
+                  : (isLight ? '#475569' : 'var(--text-muted, #94a3b8)'),
                 border: 'none',
-                borderBottom: `2.5px solid ${isClusterActive ? (cluster.isDirectory ? '#3b82f6' : '#2dd4bf') : 'transparent'}`,
+                borderBottom: `2.5px solid ${isClusterActive ? (cluster.isDirectory ? (isLight ? '#2563eb' : '#3b82f6') : (isLight ? '#047857' : '#2dd4bf')) : 'transparent'}`,
                 padding: '10px 14px',
                 fontSize: '0.82rem',
                 fontWeight: isClusterActive ? '800' : '600',
@@ -3431,8 +3415,8 @@ export const SamityManagementHub = ({ onClose }) => {
               {cluster.count !== undefined && (
                 <span
                   style={{
-                    background: isClusterActive ? '#2dd4bf' : 'rgba(255, 255, 255, 0.1)',
-                    color: isClusterActive ? '#0f172a' : '#fff',
+                    background: isClusterActive ? (isLight ? '#047857' : '#2dd4bf') : (isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)'),
+                    color: isClusterActive ? '#ffffff' : (isLight ? '#0f172a' : '#fff'),
                     padding: '1px 6px',
                     borderRadius: '10px',
                     fontSize: '0.68rem',
@@ -3451,8 +3435,8 @@ export const SamityManagementHub = ({ onClose }) => {
       {activeCluster !== 'all_modules' && (
         <div
           style={{
-            background: 'rgba(30, 41, 59, 0.75)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            background: isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.75)',
+            borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.06)',
             padding: '8px 16px',
             display: 'flex',
             gap: '8px',
@@ -3461,7 +3445,7 @@ export const SamityManagementHub = ({ onClose }) => {
             alignItems: 'center'
           }}
         >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', marginRight: '4px' }}>
+          <span style={{ fontSize: '0.72rem', color: isLight ? '#475569' : 'var(--text-muted)', fontWeight: '800', marginRight: '4px' }}>
             {t('সেকশন:', 'Section:')}
           </span>
           {activeCluster === 'fin_operations' && [
@@ -3628,65 +3612,71 @@ export const SamityManagementHub = ({ onClose }) => {
                   background: 'rgba(16, 185, 129, 0.08)',
                   border: '1px solid rgba(16, 185, 129, 0.25)',
                   borderRadius: '14px',
-                  padding: '16px'
+                  padding: '16px',
+                  background: isLight ? '#ffffff' : 'rgba(16, 185, 129, 0.08)',
+                  border: isLight ? '1px solid #10b981' : '1px solid rgba(16, 185, 129, 0.25)',
+                  boxShadow: isLight ? '0 2px 8px rgba(16, 185, 129, 0.08)' : 'none'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: '700' }}>{t('চলতি মাসের মোট আদায়', 'Current Month Collections')}</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#10b981', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.76rem', color: isLight ? '#047857' : '#10b981', fontWeight: '800' }}>{t('চলতি মাসের মোট আদায়', 'Current Month Collections')}</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: isLight ? '#047857' : '#10b981', marginTop: '4px' }}>
                   ৳ {effectiveMetrics.totalCurrentMonthCollected.toLocaleString()}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#34d399', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.74rem', color: isLight ? '#065f46' : '#34d399', fontWeight: '600', marginTop: '4px' }}>
                   {t('পরিশোধিত সদস্য:', 'Paid Members:')} {effectiveMetrics.paidMembersCount} {t('জন', '')} ({effectiveMetrics.collectionPercentage}%)
                 </div>
               </div>
 
               <div
                 style={{
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
                   borderRadius: '14px',
-                  padding: '16px'
+                  padding: '16px',
+                  background: isLight ? '#ffffff' : 'rgba(239, 68, 68, 0.08)',
+                  border: isLight ? '1px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.25)',
+                  boxShadow: isLight ? '0 2px 8px rgba(239, 68, 68, 0.08)' : 'none'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#ef4444', fontWeight: '700' }}>{t('বাকি / অনাদায়ী চাঁদা', 'Dues / Unpaid Fees')}</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#ef4444', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.76rem', color: isLight ? '#b91c1c' : '#ef4444', fontWeight: '800' }}>{t('বাকি / অনাদায়ী চাঁদা', 'Dues / Unpaid Fees')}</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: isLight ? '#b91c1c' : '#ef4444', marginTop: '4px' }}>
                   ৳ {effectiveMetrics.totalCurrentMonthDue.toLocaleString()}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#f87171', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.74rem', color: isLight ? '#991b1b' : '#f87171', fontWeight: '600', marginTop: '4px' }}>
                   {t('বাকি সদস্য:', 'Unpaid Members:')} {effectiveMetrics.unpaidMembersCount} {t('জন', '')}
                 </div>
               </div>
 
               <div
                 style={{
-                  background: 'rgba(20, 184, 166, 0.08)',
-                  border: '1px solid rgba(20, 184, 166, 0.25)',
                   borderRadius: '14px',
-                  padding: '16px'
+                  padding: '16px',
+                  background: isLight ? '#ffffff' : 'rgba(20, 184, 166, 0.08)',
+                  border: isLight ? '1px solid #0d9488' : '1px solid rgba(20, 184, 166, 0.25)',
+                  boxShadow: isLight ? '0 2px 8px rgba(20, 184, 166, 0.08)' : 'none'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#2dd4bf', fontWeight: '700' }}>{t('সমিতির নীট জমা তহবিল (Fund)', 'Net Samity Fund Balance')}</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#2dd4bf', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.76rem', color: isLight ? '#0f766e' : '#2dd4bf', fontWeight: '800' }}>{t('সমিতির নীট জমা তহবিল (Fund)', 'Net Samity Fund Balance')}</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: isLight ? '#0f766e' : '#2dd4bf', marginTop: '4px' }}>
                   ৳ {effectiveMetrics.availableFund.toLocaleString()}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#5eead4', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.74rem', color: isLight ? '#115e59' : '#5eead4', fontWeight: '600', marginTop: '4px' }}>
                   {t('মোট জমা:', 'Total In:')} ৳{effectiveMetrics.totalApprovedDeposits.toLocaleString()} | {t('খরচ:', 'Out:')} ৳{effectiveMetrics.totalApprovedExpenses.toLocaleString()}
                 </div>
               </div>
 
               <div
                 style={{
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.25)',
                   borderRadius: '14px',
-                  padding: '16px'
+                  padding: '16px',
+                  background: isLight ? '#ffffff' : 'rgba(59, 130, 246, 0.08)',
+                  border: isLight ? '1px solid #3b82f6' : '1px solid rgba(59, 130, 246, 0.25)',
+                  boxShadow: isLight ? '0 2px 8px rgba(59, 130, 246, 0.08)' : 'none'
                 }}
               >
-                <div style={{ fontSize: '0.76rem', color: '#3b82f6', fontWeight: '700' }}>{t('ব্যাংক ব্যালেন্স', 'Bank Balance')}</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#3b82f6', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.76rem', color: isLight ? '#1d4ed8' : '#3b82f6', fontWeight: '800' }}>{t('ব্যাংক ব্যালেন্স', 'Bank Balance')}</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '900', color: isLight ? '#1d4ed8' : '#3b82f6', marginTop: '4px' }}>
                   ৳ {effectiveMetrics.bankBalance.toLocaleString()}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: '#93c5fd', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.74rem', color: isLight ? '#1e40af' : '#93c5fd', fontWeight: '600', marginTop: '4px' }}>
                   {t('ক্যাশ:', 'Cash:')} ৳{effectiveMetrics.cashBalance.toLocaleString()} | {t('মোবাইল:', 'MFS:')} ৳{effectiveMetrics.mobileBalance.toLocaleString()}
                 </div>
               </div>
@@ -3703,23 +3693,24 @@ export const SamityManagementHub = ({ onClose }) => {
               {/* Collection Progress Card */}
               <div
                 style={{
-                  background: 'rgba(30, 41, 59, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.7)',
+                  border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '14px',
-                  padding: '18px'
+                  padding: '18px',
+                  boxShadow: isLight ? '0 4px 16px rgba(0,0,0,0.04)' : 'none'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                  <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800' }}>
+                  <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '900', color: isLight ? '#0f172a' : '#f8fafc' }}>
                     🎯 {targetMonth} {t('মাসের চাঁদা আদায়ের অগ্রগতি', 'Subscription Collection Progress')}
                   </h3>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#2dd4bf' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: '800', color: isLight ? '#047857' : '#2dd4bf' }}>
                     {metrics.collectionPercentage}%
                   </span>
                 </div>
 
                 {/* Progress bar */}
-                <div style={{ width: '100%', height: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '10px', background: isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
                   <div
                     style={{
                       width: `${metrics.collectionPercentage}%`,
@@ -3733,16 +3724,16 @@ export const SamityManagementHub = ({ onClose }) => {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '14px', fontSize: '0.78rem' }}>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('লক্ষ্যমাত্রা:', 'Target:')} </span>
-                    <span style={{ fontWeight: '800' }}>৳ {metrics.expectedMonthly.toLocaleString()}</span>
+                    <span style={{ color: isLight ? '#475569' : 'var(--text-muted)', fontWeight: '600' }}>{t('লক্ষ্যমাত্রা:', 'Target:')} </span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>৳ {metrics.expectedMonthly.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('আদায়:', 'Collected:')} </span>
-                    <span style={{ fontWeight: '800', color: '#10b981' }}>৳ {metrics.totalCurrentMonthCollected.toLocaleString()}</span>
+                    <span style={{ color: isLight ? '#047857' : 'var(--text-muted)', fontWeight: '600' }}>{t('আদায়:', 'Collected:')} </span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#047857' : '#10b981' }}>৳ {metrics.totalCurrentMonthCollected.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('ঘাটতি:', 'Shortfall:')} </span>
-                    <span style={{ fontWeight: '800', color: '#ef4444' }}>৳ {metrics.totalCurrentMonthDue.toLocaleString()}</span>
+                    <span style={{ color: isLight ? '#b91c1c' : 'var(--text-muted)', fontWeight: '600' }}>{t('ঘাটতি:', 'Shortfall:')} </span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#b91c1c' : '#ef4444' }}>৳ {metrics.totalCurrentMonthDue.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -3752,9 +3743,9 @@ export const SamityManagementHub = ({ onClose }) => {
                     className="btn"
                     style={{
                       flex: 1,
-                      background: 'rgba(20, 184, 166, 0.2)',
-                      color: '#2dd4bf',
-                      border: '1px solid rgba(20, 184, 166, 0.4)',
+                      background: isLight ? 'rgba(20, 184, 166, 0.12)' : 'rgba(20, 184, 166, 0.2)',
+                      color: isLight ? '#0f766e' : '#2dd4bf',
+                      border: isLight ? '1px solid rgba(20, 184, 166, 0.4)' : '1px solid rgba(20, 184, 166, 0.4)',
                       padding: '8px',
                       borderRadius: '8px',
                       fontSize: '0.78rem',
@@ -3769,9 +3760,9 @@ export const SamityManagementHub = ({ onClose }) => {
                     className="btn"
                     style={{
                       flex: 1,
-                      background: 'rgba(59, 130, 246, 0.2)',
-                      color: '#3b82f6',
-                      border: '1px solid rgba(59, 130, 246, 0.4)',
+                      background: isLight ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.2)',
+                      color: isLight ? '#1d4ed8' : '#3b82f6',
+                      border: isLight ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(59, 130, 246, 0.4)',
                       padding: '8px',
                       borderRadius: '8px',
                       fontSize: '0.78rem',
@@ -3787,35 +3778,38 @@ export const SamityManagementHub = ({ onClose }) => {
               {/* Samity Bank Account Details Card */}
               <div
                 style={{
-                  background: 'rgba(30, 41, 59, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.7)',
+                  border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '14px',
-                  padding: '18px'
+                  padding: '18px',
+                  boxShadow: isLight ? '0 4px 16px rgba(0,0,0,0.04)' : 'none'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800' }}>
+                  <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '900', color: isLight ? '#0f172a' : '#f8fafc' }}>
                     🏦 {t('সমিতির ব্যাংক ও মোবাইল ব্যাংকিং তথ্য', 'Society Bank & MFS Accounts')}
                   </h3>
-                  <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>{t('সক্রিয় একাউন্ট', 'Active Account')}</span>
+                  <span style={{ fontSize: '0.72rem', background: isLight ? '#dcfce7' : 'rgba(16, 185, 129, 0.15)', color: isLight ? '#15803d' : '#10b981', border: isLight ? '1px solid #bbf7d0' : 'none', padding: '2px 8px', borderRadius: '10px', fontWeight: '800' }}>
+                    {t('সক্রিয় একাউন্ট', 'Active Account')}
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('ব্যাংকের নাম:', 'Bank Name:')}</span>
-                    <span style={{ fontWeight: '800' }}>{currentSamity.bankDetails?.bankName} ({currentSamity.bankDetails?.branchName})</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <span style={{ color: isLight ? '#475569' : 'var(--text-muted)', fontWeight: '600' }}>{t('ব্যাংকের নাম:', 'Bank Name:')}</span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>{currentSamity.bankDetails?.bankName} ({currentSamity.bankDetails?.branchName})</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('হিসাব নম্বর:', 'Account No:')}</span>
-                    <span style={{ fontWeight: '800', color: '#38bdf8' }}>{currentSamity.bankDetails?.accNo}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <span style={{ color: isLight ? '#475569' : 'var(--text-muted)', fontWeight: '600' }}>{t('হিসাব নম্বর:', 'Account No:')}</span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#0284c7' : '#38bdf8' }}>{currentSamity.bankDetails?.accNo}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('রাউটিং নম্বর:', 'Routing No:')}</span>
-                    <span style={{ fontWeight: '800' }}>{currentSamity.bankDetails?.routingNo || t('প্রযোজ্য নয়', 'N/A')}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <span style={{ color: isLight ? '#475569' : 'var(--text-muted)', fontWeight: '600' }}>{t('রাউটিং নম্বর:', 'Routing No:')}</span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>{currentSamity.bankDetails?.routingNo || t('প্রযোজ্য নয়', 'N/A')}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{t('বিকাশ/নগদ মার্চেন্ট:', 'bKash/Nagad MFS:')}</span>
-                    <span style={{ fontWeight: '800', color: '#ec4899' }}>{currentSamity.mobileBanking?.number} ({currentSamity.mobileBanking?.provider})</span>
+                    <span style={{ color: isLight ? '#475569' : 'var(--text-muted)', fontWeight: '600' }}>{t('বিকাশ/নগদ মার্চেন্ট:', 'bKash/Nagad MFS:')}</span>
+                    <span style={{ fontWeight: '800', color: isLight ? '#be185d' : '#ec4899' }}>{currentSamity.mobileBanking?.number} ({currentSamity.mobileBanking?.provider})</span>
                   </div>
                 </div>
 
@@ -3825,9 +3819,9 @@ export const SamityManagementHub = ({ onClose }) => {
                     className="btn"
                     style={{
                       flex: 1,
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      color: '#10b981',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      background: isLight ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      color: isLight ? '#047857' : '#10b981',
+                      border: isLight ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(16, 185, 129, 0.3)',
                       padding: '8px',
                       borderRadius: '8px',
                       fontSize: '0.78rem',
@@ -3842,9 +3836,9 @@ export const SamityManagementHub = ({ onClose }) => {
                     className="btn"
                     style={{
                       flex: 1,
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      color: '#fff',
-                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      background: isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.08)',
+                      color: isLight ? '#0f172a' : '#fff',
+                      border: isLight ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)',
                       padding: '8px',
                       borderRadius: '8px',
                       fontSize: '0.78rem',
