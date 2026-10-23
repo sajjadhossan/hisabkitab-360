@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="shopnoGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+
+    <linearGradient id="shopnoEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <linearGradient id="shopnoBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <filter id="crestShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.55" />
+    </filter>
+  </defs>
+
+  <!-- Circular Outer Rosette Ring -->
+  <circle cx="256" cy="256" r="236" fill="url(#shopnoBg)" stroke="url(#shopnoGold)" stroke-width="10" filter="url(#crestShadow)" />
+  <circle cx="256" cy="256" r="218" fill="none" stroke="rgba(251, 191, 36, 0.4)" stroke-width="2" stroke-dasharray="8 6" />
+
+  <!-- Cooperative Leaves & Sunburst of Dreams (স্বপ্ন) -->
+  <g transform="translate(256, 210)">
+    <!-- Rising Sun Rays -->
+    <path d="M-80 -40 Q0 -90 80 -40 Q0 -60 -80 -40 Z" fill="url(#shopnoGold)" opacity="0.85" />
+    <circle cx="0" cy="-20" r="38" fill="url(#shopnoGold)" />
+    
+    <!-- Twin Hands of Cooperation & Prosperity -->
+    <path d="M-100 60 C-60 10 -20 20 0 40 C20 20 60 10 100 60 C50 95 -50 95 -100 60 Z" fill="url(#shopnoEmerald)" />
+  </g>
+
+  <!-- Central 'স্ব' (Swa for Shopnochoa) Bengali Monogram -->
+  <g text-anchor="middle" dominant-baseline="central">
+    <circle cx="256" cy="265" r="54" fill="#0f172a" stroke="url(#shopnoGold)" stroke-width="4" />
+    <text x="256" y="267" 
+          font-family="'SolaimanLipi', 'Inter', sans-serif" 
+          font-weight="900" 
+          font-size="64" 
+          fill="#fbbf24">স্ব</text>
+  </g>
+
+  <!-- Ribbon Banner at Bottom with Society Name -->
+  <g filter="url(#crestShadow)">
+    <path d="M80 395 L140 375 L372 375 L432 395 L402 435 L372 415 L140 415 L110 435 Z" fill="#b45309" />
+    <path d="M120 370 L392 370 L372 415 L140 415 Z" fill="url(#shopnoGold)" />
+    <text x="256" y="394" 
+          text-anchor="middle" 
+          dominant-baseline="central"
+          font-family="'SolaimanLipi', sans-serif" 
+          font-weight="900" 
+          font-size="20" 
+          letter-spacing="1"
+          fill="#0f172a">স্বপ্নছোঁয়া সমবায় সমিতি</text>
+  </g>
+
+  <!-- Estd 2024 Arch Text -->
+  <text x="256" y="95" 
+        text-anchor="middle" 
+        font-family="'Inter', sans-serif" 
+        font-weight="800" 
+        font-size="14" 
+        letter-spacing="4" 
+        fill="#94a3b8">ESTD • 2024</text>
+</svg>

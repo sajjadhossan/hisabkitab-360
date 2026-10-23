@@ -345,16 +345,20 @@ export const SamityManagementHub = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   // 'dashboard' | 'members' | 'deposits' | 'bulk_deposit' | 'payment_status' | 'reminders' | 'expenses' | 'fund_balance' | 'letterhead' | 'signatures' | 'documents' | 'reports' | 'sql_schema' | 'setup'
 
-  // Current active Samity with Multi-tier Smart Logo Fallback (guarantees logo is visible on APK & PC)
+  // Current active Samity with dedicated Society Logo fallback (ensures Shopnochoa has its own logo distinct from 360 platform)
   const currentSamity = useMemo(() => {
     const samity = data.samities.find(s => s.id === activeSamityId) || data.samities[0] || {};
+    let samityLogo = samity.logo;
+    if (!samityLogo || samityLogo === '/somiti-emblem.svg' || samityLogo === '/logo.png') {
+      samityLogo = '/shopnochoa-logo.svg';
+    }
     return {
       ...samity,
-      logo: samity.logo || businessSettings?.companyLogo || '/somiti-emblem.svg',
+      logo: samityLogo,
       status: samity.status || 'Active',
       isLaunched: samity.isLaunched !== undefined ? samity.isLaunched : (samity.status === 'Active')
     };
-  }, [data.samities, activeSamityId, businessSettings?.companyLogo]);
+  }, [data.samities, activeSamityId]);
 
   // Derived Metrics with Zero Premature Debt Guard
   const metrics = useMemo(() => {
@@ -3096,47 +3100,110 @@ export const SamityManagementHub = ({ onClose }) => {
           zIndex: 40
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(15, 23, 42, 0.95))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 14px rgba(20, 184, 166, 0.25)',
-              overflow: 'hidden',
-              padding: '2px',
-              border: '1.5px solid rgba(45, 212, 191, 0.45)',
-              flexShrink: 0
-            }}
-          >
-            <img
-              src={currentSamity.logo || '/somiti-emblem.svg'}
-              alt={currentSamity.nameBn}
-              onError={(e) => { e.currentTarget.src = '/somiti-emblem.svg'; }}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Active Samity Logo with Instant 1-Click Upload */}
+          <div style={{ position: 'relative' }}>
+            <input
+              type="file"
+              id="header-active-samity-logo-input"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  showToast?.(activeLang === 'en' ? 'Optimizing Samity logo...' : 'সমিতির লোগো প্রসেস করা হচ্ছে...', 'info');
+                  const base64Logo = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.9 });
+                  updateAndSave(prev => ({
+                    ...prev,
+                    samities: prev.samities.map(s => s.id === activeSamityId ? { ...s, logo: base64Logo } : s)
+                  }), {
+                    action: 'UPDATE_SAMITY_LOGO',
+                    module: 'Samity Setup',
+                    details: { samityId: activeSamityId, name: currentSamity.nameBn }
+                  });
+                  showToast?.(activeLang === 'en' ? 'Samity logo updated successfully!' : 'সমিতির লোগো সফলভাবে আপডেট হয়েছে!', 'success');
+                } catch (err) {
+                  showToast?.(activeLang === 'en' ? 'Failed to update logo' : 'লোগো আপডেট ব্যর্থ হয়েছে', 'error');
+                }
+              }}
             />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#f8fafc' }}>
-                {activeLang === 'en'
-                  ? (currentSamity.nameEn || currentSamity.nameBn || businessSettings?.companyName || 'Samity & Cooperative Management Hub')
-                  : (currentSamity.nameBn || businessSettings?.companyName || 'সমিতি ও সমবায় ব্যবস্থাপনা হাব')}
-              </h1>
-              {currentSamity.nameEn && activeLang !== 'en' && (
-                <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: '600' }}>
-                  ({currentSamity.nameEn})
-                </span>
-              )}
+            <div
+              onClick={() => document.getElementById('header-active-samity-logo-input')?.click()}
+              title={activeLang === 'en' ? 'Click to change Samity Logo' : 'সমিতির নিজস্ব লোগো পরিবর্তন করতে ক্লিক করুন'}
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(15, 23, 42, 0.95))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)',
+                overflow: 'hidden',
+                padding: '3px',
+                border: '2px solid rgba(245, 158, 11, 0.65)',
+                flexShrink: 0,
+                cursor: 'pointer',
+                position: 'relative'
+              }}
+            >
+              <img
+                src={currentSamity.logo || '/shopnochoa-logo.svg'}
+                alt={currentSamity.nameBn}
+                onError={(e) => { e.currentTarget.src = '/shopnochoa-logo.svg'; }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  background: 'rgba(245, 158, 11, 0.9)',
+                  color: '#0f172a',
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: '6px 0 10px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '8px',
+                  fontWeight: '900'
+                }}
+              >
+                ✎
+              </div>
             </div>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', letterSpacing: '-0.02em', color: '#f8fafc' }}>
+                {activeLang === 'en'
+                  ? (currentSamity.nameEn || currentSamity.nameBn || 'Samity & Cooperative Hub')
+                  : (currentSamity.nameBn || 'সমিতি ও সমবায় হাব')}
+              </h1>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: '800',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  color: '#fbbf24',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                🏛️ {activeLang === 'en' ? 'Registered Society' : 'নিবন্ধিত সমবায় সমিতি'}
+              </span>
+            </div>
+            <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted, #94a3b8)' }}>
               {activeLang === 'en'
-                ? (currentSamity.sloganEn || 'Transparency, Efficiency & Automated Accounts')
-                : (currentSamity.sloganBn || businessSettings?.tagline || 'স্বচ্ছতা, গতিশীলতা ও স্বয়ংক্রিয় হিসাব ব্যবস্থাপনা')}
+                ? (currentSamity.sloganEn || 'Building Dreams, Securing the Future')
+                : (currentSamity.sloganBn || 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি')}
             </p>
           </div>
         </div>

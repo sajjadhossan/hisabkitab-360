@@ -313,7 +313,7 @@ export const createDefaultSamityObject = (id = 'SAMITY-001', customFields = {}) 
     type: 'Savings Samity',
     regNo: 'REG-2026/DHK-482',
     establishedDate: '2024-01-01',
-    logo: '/logo.png',
+    logo: '/shopnochoa-logo.svg',
     letterpadImage: '',
     sloganBn: 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি',
     sloganEn: 'Building Dreams, Securing the Future',
