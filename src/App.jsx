@@ -147,31 +147,31 @@ function MainView() {
           <div
             title="Somiti 360 Master Logo"
             style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              background: isLight ? 'rgba(5, 150, 105, 0.1)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(15, 23, 42, 0.95))',
-              border: isLight ? '1.5px solid #059669' : '1.5px solid rgba(45, 212, 191, 0.5)',
+              width: '52px',
+              height: '52px',
+              borderRadius: '13px',
+              background: isLight ? '#ffffff' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(15, 23, 42, 0.95))',
+              border: isLight ? '1.5px solid #059669' : '1.5px solid rgba(45, 212, 191, 0.45)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
               padding: '2px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+              boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.06)' : '0 4px 14px rgba(0,0,0,0.3)',
               cursor: 'pointer'
             }}
           >
             <img
-              src="/somiti-emblem.svg"
+              src="/somiti-emblem.png"
               alt="Somiti 360 Logo"
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+              onError={(e) => { e.currentTarget.src = '/Somiti_360_Official_Logo.png'; }}
             />
           </div>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', color: isLight ? '#0f172a' : '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', color: isLight ? '#0f172a' : '#f8fafc', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
                 {lang === 'en' ? 'Somiti 360' : 'সমিতি ৩৬০'}
               </h1>
               <span
@@ -181,7 +181,7 @@ function MainView() {
                   background: isLight ? '#e0f2fe' : 'rgba(16, 185, 129, 0.15)',
                   color: isLight ? '#0369a1' : '#34d399',
                   border: isLight ? '1px solid #bae6fd' : '1px solid rgba(16, 185, 129, 0.3)',
-                  padding: '1px 6px',
+                  padding: '1px 7px',
                   borderRadius: '10px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
@@ -190,8 +190,8 @@ function MainView() {
                 PRO v1.0
               </span>
             </div>
-            <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: isLight ? '#475569' : '#94a3b8', fontWeight: '600' }}>
-              {lang === 'en' ? 'Smart Cooperative & Savings ERP Platform' : 'স্মার্ট সমবায়, সঞ্চয় ও ঋণদান ইআরপি প্ল্যাটফর্ম'}
+            <p style={{ margin: '3px 0 0', fontSize: '0.74rem', color: isLight ? '#475569' : '#94a3b8', fontWeight: '700' }}>
+              {lang === 'en' ? 'Smart Cooperative & Savings ERP' : 'হিসাব ও ব্যবস্থাপনা প্ল্যাটফর্ম'}
             </p>
           </div>
         </div>
