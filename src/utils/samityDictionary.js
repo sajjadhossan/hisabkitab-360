@@ -8,7 +8,7 @@ export const SAMITY_DICTIONARY = {
   "লাইভ ড্যাশবোর্ড": "Live Dashboard",
   "সদস্য ও সমাজকল্যাণ": "Members & Welfare",
   "সদস্য তালিকা ও ভর্তি": "Members Roster & Admission",
-  "দৈনন্দিন ক্যাশ ও লেনদেন": "Daily Cash & Transactions",
+  "দৈনন্দিন ক্যাশ ও লেনদেন": "Daily Cash & Financials",
   "ক্যাশ ও আর্থিক কার্যক্রম": "Cash & Financial Operations",
   "অফিসিয়াল সচিবালয় ও প্যাড": "Secretariat & Official Pad",
   "অফিসিয়াল প্যাড ও নোটিশ": "Official Pad & Notices",
@@ -17,6 +17,12 @@ export const SAMITY_DICTIONARY = {
   "পূর্ণাঙ্গ অডিট ও বিজনেস রিপোর্ট": "Audit & Business Reports",
   "সকল ফিচার সূচি": "All Modules Directory",
   "সকল মডিউল": "All Modules",
+  "পূর্ণাঙ্গ বিজনেস সার্ভিস ও ফিচার ডিরেক্টরি": "Full Business Services & Features Directory",
+  "সমিতির দৈনন্দিন কার্যক্রম, ব্যাংকিং, হিসাব ও প্রশাসনের সকল সার্ভিস লাইভ ও সম্পূর্ণ প্রস্তুত অবস্থায় নিচে তালিকাভুক্ত রয়েছে।": "All services for samity daily operations, banking, accounts, and administration are live and fully operational below.",
+  "সম্পূর্ণ এন্টারপ্রাইজ সার্ভিস সক্রিয় (Enterprise Active)": "Full Enterprise Suite Active",
+  "সম্পূর্ণ এন্টারপ্রাইজ সার্ভিস সক্রিয়": "Full Enterprise Suite Active",
+  "স্বপ্ন সাজাই ভবিষ্যৎ গড়ি": "Building Dreams, Securing the Future",
+  "স্বপ্নছোঁয়া সমবায় সমিতি": "Shopnochoa Co-operative Samity",
 
   // Top Bar & Controls
   "সমিতি ৩৬০": "Somiti 360",
@@ -27,15 +33,56 @@ export const SAMITY_DICTIONARY = {
   "সক্রিয় সমিতি": "Active Samity",
   "সমিতি পরিবর্তন": "Switch Samity",
   "নতুন সমিতি যোগ": "Add New Samity",
+  "নতুন সমিতি": "New Samity",
+  "সমিতি ও শাখা": "Branches & Samity",
+  "শাখা / সমিতি": "Branch / Samity",
+  "শাখা / সমিতি:": "Branch / Samity:",
   "সমিতি নির্বাচন করুন": "Select Samity",
   "প্রোফাইল": "Profile",
   "সেটিংস": "Settings",
 
+  // Quick Action Buttons
+  "জমা এন্ট্রি": "Deposit Entry",
+  "নতুন সদস্য": "New Member",
+  "নতুন সদস্য যোগ": "Add Member",
+  "বাল্ক জমা": "Bulk Deposit",
+  "ভাউচার হাব": "Voucher Hub",
+  "খরচ এন্ট্রি": "Expense Entry",
+  "ফান্ড ব্যালেন্স": "Fund Balance",
+
+  // 28 Modules List Full Titles
+  "১. সমিতি সেটআপ মডিউল": "1. Samity Setup Module",
+  "২. সদস্য ব্যবস্থাপনা মডিউল": "2. Member Management Module",
+  "৩. সাবস্ক্রিপশন / চাঁদা কনফিগারেশন": "3. Subscription Policy & Config Module",
+  "৪. ব্যাংক ও নগদ জমা মডিউল": "4. Bank & Cash Deposit Module",
+  "৫. বাল্ক ব্যাংক জমা মডিউল": "5. Bulk Bank Deposit Module",
+  "৬. পেমেন্ট স্ট্যাটাস ড্যাশবোর্ড": "6. Payment Status Module",
+  "৭. বকেয়া / ডিউ ব্যবস্থাপনা ও মওকুফ": "7. Due Defaulters & Waiver Module",
+  "৮. পেইড রশিদ ও ভাউচার মডিউল": "8. Paid Receipt & Voucher Module",
+  "৯. সেন্ট্রাল রিমাইন্ডার ইঞ্জিন": "9. Central Reminder Engine",
+  "১০. হোয়াটসঅ্যাপ রিমাইন্ডার মডিউল": "10. WhatsApp Reminder Module",
+  "১১. এসএমএস রিমাইন্ডার মডিউল": "11. SMS Reminder Module",
+  "১২. টেলিগ্রাম রিমাইন্ডার মডিউল": "12. Telegram Reminder Module",
+  "১৩. ফেসবুক / মেসেঞ্জার রিমাইন্ডার": "13. Facebook / Messenger Reminder Module",
+  "১৪. ব্যয় / খরচ ব্যবস্থাপনা মডিউল": "14. Expense Management Module",
+  "১৫. ফান্ড ও একাউন্টস ব্যালেন্স": "15. Fund & Balance Module",
+  "১৬. ২৮টি পূর্ণাঙ্গ রিপোর্ট মডিউল": "16. 28 Full Reports Module",
+  "১৭. লেটারহেড ও প্রিন্ট টেমপ্লেট": "17. Letterhead & Print Template Module",
+  "১৮. স্বাক্ষর ও সিল ব্যবস্থাপনা": "18. Signature & Seal Management Module",
+  "১৯. ডকুমেন্ট জেনারেটর মডিউল": "19. Document Generator Module",
+  "২০. ইউজার, রোল ও পারমিশন মডিউল": "20. User, Role & Permission Module",
+  "২১. অনুমোদন ওয়ার্কফ্লো মডিউল": "21. Approval Workflow Module",
+  "২২. অডিট ট্রেইল ও হিস্টোরি লগ": "22. Audit Trail & History Module",
+  "২৩. নোটিফিকেশন সেন্টার মডিউল": "23. Notification Center Module",
+  "২৪. লাইভ এক্সিকিউটিভ ড্যাশবোর্ড": "24. Live Executive Dashboard",
+  "২৫. কনফিগারেশন ও সেটিংস মডিউল": "25. Configuration & Settings Module",
+  "২৬. রেস্ট এপিআই ও ওয়েবহুক মডিউল": "26. REST API & Webhook Module",
+  "২৭. মাল্টি-ল্যাঙ্গুয়েজ মডিউল": "27. Multi-language Module",
+  "২৮. ব্যাকআপ, এক্সপোর্ট ও ইমপোর্ট": "28. Backup, Export & Import Module",
+
   // Tabs & Sub-Tabs
   "সদস্য তালিকা": "Member List",
-  "নতুন সদস্য": "New Member",
   "নতুন সদস্য ভর্তি": "New Member Admission",
-  "নতুন সদস্য যোগ": "Add New Member",
   "সদস্য বিবরণী": "Member Details",
   "সদস্য প্রোফাইল": "Member Profile",
   "সদস্যের তথ্য": "Member Information",
@@ -51,7 +98,7 @@ export const SAMITY_DICTIONARY = {
   "চাঁদা ও পলিসি কনফিগ": "Fee Policy & Config",
   "চাঁদা পলিসি ও অটো-বিলিং": "Subscription Policy & Auto-Billing",
   "বকেয়া ও ডিউ ব্যবস্থাপনা": "Due Management",
-  "বকেয়া খাতা": "Due Ledger",
+  "বকেয়া খাতা": "Due Defaulters",
   "স্মার্ট তাগাদা ও নোটিশ": "Smart Reminders & Notices",
   "অফিসিয়াল লেটারহেড প্যাড": "Official Letterhead Pad",
   "নথি ও রেজুলেশন খাতা": "Documents & Resolutions",
@@ -123,7 +170,7 @@ export const SAMITY_DICTIONARY = {
   "সদস্যপদ শ্রেণি": "Membership Type",
   "সাধারণ সদস্য": "General Member",
   "স্থায়ী সদস্য": "Permanent Member",
-  "সহযোগী সদস্য": "Associate Member",
+  "सहযোগী সদস্য": "Associate Member",
   "আজীবন সদস্য": "Life Member",
   "নির্বাহী সদস্য": "Executive Member",
   "প্রতিষ্ঠাতা সদস্য": "Founder Member",
@@ -140,12 +187,14 @@ export const SAMITY_DICTIONARY = {
   "ধর্ম বিষয়ক সম্পাদক": "Religious Affairs Secretary",
   "ক্রীড়া ও সাংস্কৃতিক সম্পাদক": "Sports & Cultural Secretary",
   "মহিলা বিষয়ক সম্পাদক": "Women Affairs Secretary",
+  "কার্যনির্বাহী সদস্য": "Executive Member",
   "উপদেষ্টা": "Advisor",
   "পিতার নাম": "Father's Name",
   "মাতার নাম": "Mother's Name",
   "স্বামীর নাম": "Husband's Name",
   "জাতীয় পরিচয়পত্র": "National ID (NID)",
   "এনআইডি নম্বর": "NID Number",
+  "এনআইডি নম্বর (NID)": "NID Number",
   "পাসপোর্ট নম্বর": "Passport Number",
   "মোবাইল নম্বর": "Mobile Number",
   "বিকল্প মোবাইল": "Alternative Mobile",
@@ -345,20 +394,18 @@ export const SAMITY_DICTIONARY = {
   "Switch to English": "Switch to English"
 };
 
-// Word-level fallback dictionary
-export const SAMITY_WORD_MAP = {
+// Standalone whole-word fallback map (ONLY applied to full standalone words, NEVER as sub-strings)
+export const SAMITY_WHOLE_WORD_MAP = {
   "সদস্য": "Member",
   "সদস্যগণ": "Members",
   "সদস্যদের": "Members'",
   "সমিতি": "Samity",
   "সমিতির": "Samity's",
-  "টাকা": "BDT",
   "চাঁদা": "Subscription",
   "সঞ্চয়": "Savings",
   "কিস্তি": "Installment",
   "জমা": "Deposit",
   "খরচ": "Expense",
-  "খরচের": "Expense",
   "বকেয়া": "Due",
   "মোট": "Total",
   "আদায়": "Collected",
@@ -371,15 +418,12 @@ export const SAMITY_WORD_MAP = {
   "নিষ্ক্রিয়": "Inactive",
   "খসড়া": "Draft",
   "তারিখ": "Date",
-  "মাসের": "Month's",
-  "মাস": "Month",
-  "বছর": "Year",
-  "অর্থবছর": "Financial Year",
   "শাখা": "Branch",
   "ব্যাংক": "Bank",
   "নগদ": "Cash",
   "ভাউচার": "Voucher",
   "রসিদ": "Receipt",
+  "রশিদ": "Receipt",
   "নাম": "Name",
   "মোবাইল": "Mobile",
   "নম্বর": "Number",
@@ -392,7 +436,6 @@ export const SAMITY_WORD_MAP = {
   "সংরক্ষণ": "Save",
   "সম্পাদনা": "Edit",
   "মুছুন": "Delete",
-  "মুছে": "Delete",
   "প্রিন্ট": "Print",
   "ডাউনলোড": "Download",
   "এক্সপোর্ট": "Export",
@@ -406,9 +449,7 @@ export const SAMITY_WORD_MAP = {
   "রিপোর্ট": "Report",
   "নোটিশ": "Notice",
   "স্বাক্ষর": "Signature",
-  "সিল": "Seal",
-  "জন": "Persons",
-  "দিন": "Days"
+  "সিল": "Seal"
 };
 
 // Convert Bengali numerals to English numerals
@@ -434,7 +475,7 @@ export function formatLocalizedNumber(num, lang = 'bn') {
   return toBengaliDigits(num);
 }
 
-// Translate a Bengali phrase or sentence to English
+// Translate a Bengali phrase or sentence to English cleanly without corrupting words
 export function translateSamityText(text, targetLang = 'en') {
   if (targetLang === 'bn' || !text || typeof text !== 'string') return text;
 
@@ -452,23 +493,33 @@ export function translateSamityText(text, targetLang = 'en') {
     return text.replace(cleanKey, SAMITY_DICTIONARY[cleanKey]);
   }
 
-  // 3. Multi-phrase longest-match substitution
+  // 3. Multi-phrase longest-match substitution (phrases > 3 characters)
   let translated = trimmed;
   let hasReplaced = false;
 
   const sortedKeys = Object.keys(SAMITY_DICTIONARY).sort((a, b) => b.length - a.length);
   for (const k of sortedKeys) {
-    if (k.length > 2 && translated.includes(k)) {
+    if (k.length >= 3 && translated.includes(k)) {
       translated = translated.split(k).join(SAMITY_DICTIONARY[k]);
       hasReplaced = true;
     }
   }
 
-  // 4. Word-by-word fallback
-  for (const [bnWord, enWord] of Object.entries(SAMITY_WORD_MAP)) {
-    if (translated.includes(bnWord)) {
-      translated = translated.split(bnWord).join(enWord);
-      hasReplaced = true;
+  // 4. Strict whole-word replacement using Unicode letter boundary checking
+  // (Prevents "বিজনেস" -> "বিPersonsসেস" or "দৈনন্দিন" -> "দৈনন্দDays")
+  for (const [bnWord, enWord] of Object.entries(SAMITY_WHOLE_WORD_MAP)) {
+    try {
+      const regex = new RegExp('(?:^|(?<=[^\\p{L}\\p{M}]))' + bnWord + '(?=[^\\p{L}\\p{M}]|$)', 'gu');
+      if (regex.test(translated)) {
+        translated = translated.replace(regex, enWord);
+        hasReplaced = true;
+      }
+    } catch {
+      // Fallback if environment doesn't support unicode property escapes
+      if (translated === bnWord) {
+        translated = enWord;
+        hasReplaced = true;
+      }
     }
   }
 

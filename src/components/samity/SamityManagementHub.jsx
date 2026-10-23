@@ -12631,16 +12631,18 @@ export const SamityManagementHub = ({ onClose }) => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Award size={22} color="#2dd4bf" />
                     <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', letterSpacing: '-0.02em', color: '#f8fafc' }}>
-                      📋 পূর্ণাঙ্গ বিজনেস সার্ভিস ও ফিচার ডিরেক্টরি
+                      📋 {activeLang === 'en' ? 'Full Business Services & Features Directory' : 'পূর্ণাঙ্গ বিজনেস সার্ভিস ও ফিচার ডিরেক্টরি'}
                     </h2>
                   </div>
                   <p style={{ margin: '6px 0 0 0', fontSize: '0.84rem', color: '#94a3b8' }}>
-                    সমিতির দৈনন্দিন কার্যক্রম, ব্যাংকিং, হিসাব ও প্রশাসনের সকল সার্ভিস লাইভ ও সম্পূর্ণ প্রস্তুত অবস্থায় নিচে তালিকাভুক্ত রয়েছে।
+                    {activeLang === 'en'
+                      ? 'All services for samity daily operations, banking, accounts, and administration are live and fully operational below.'
+                      : 'সমিতির দৈনন্দিন কার্যক্রম, ব্যাংকিং, হিসাব ও প্রশাসনের সকল সার্ভিস লাইভ ও সম্পূর্ণ প্রস্তুত অবস্থায় নিচে তালিকাভুক্ত রয়েছে।'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <div style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '6px 14px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: '800' }}>
-                    ✓ সম্পূর্ণ এন্টারপ্রাইজ সার্ভিস সক্রিয় (Enterprise Active)
+                    {activeLang === 'en' ? '✓ Enterprise Services Active' : '✓ সম্পূর্ণ এন্টারপ্রাইজ সার্ভিস সক্রিয় (Enterprise Active)'}
                   </div>
                 </div>
               </div>
@@ -12717,7 +12719,7 @@ export const SamityManagementHub = ({ onClose }) => {
                               module: 'SERVICES',
                               details: { service: m.nameBn, status: !isServiceEnabled ? 'Enabled' : 'Disabled' }
                             });
-                            showToast?.(`সার্ভিস #${m.num} (${m.nameBn}) ${currentlyDisabled.includes(m.id) ? 'সক্রিয় করা হয়েছে' : 'নিষ্ক্রিয় করা হয়েছে'}`, 'info');
+                            showToast?.(`সার্ভিস #${m.num} (${activeLang === 'en' ? (m.nameEn || m.nameBn) : m.nameBn}) ${currentlyDisabled.includes(m.id) ? (activeLang === 'en' ? 'Enabled' : 'সক্রিয় করা হয়েছে') : (activeLang === 'en' ? 'Disabled' : 'নিষ্ক্রিয় করা হয়েছে')}`, 'info');
                           }}
                           style={{
                             background: isServiceEnabled ? 'rgba(16, 185, 129, 0.18)' : 'rgba(239, 68, 68, 0.18)',
@@ -12732,18 +12734,18 @@ export const SamityManagementHub = ({ onClose }) => {
                             alignItems: 'center',
                             gap: '5px'
                           }}
-                          title="ট্যাপ করে এই সার্ভিসটি সক্রিয় অথবা নিষ্ক্রিয় করুন"
+                          title={activeLang === 'en' ? 'Tap to toggle this service' : 'ট্যাপ করে এই সার্ভিসটি সক্রিয় অথবা নিষ্ক্রিয় করুন'}
                         >
                           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isServiceEnabled ? '#10b981' : '#ef4444' }}></span>
-                          <span>{isServiceEnabled ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span>
+                          <span>{isServiceEnabled ? (activeLang === 'en' ? 'Active' : 'সক্রিয়') : (activeLang === 'en' ? 'Inactive' : 'নিষ্ক্রিয়')}</span>
                         </button>
                       </div>
 
                       <h4 style={{ margin: '0 0 4px 0', fontSize: '0.94rem', fontWeight: '800', color: isServiceEnabled ? '#f8fafc' : '#94a3b8' }}>
-                        {m.nameBn}
+                        {activeLang === 'en' ? (m.nameEn || m.nameBn) : m.nameBn}
                       </h4>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '600', marginBottom: '6px' }}>
-                        {m.nameEn}
+                      <div style={{ fontSize: '0.72rem', color: isServiceEnabled ? '#2dd4bf' : '#64748b', fontWeight: '600', marginBottom: '6px' }}>
+                        {activeLang === 'en' ? m.nameBn : m.nameEn}
                       </div>
                       <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.4' }}>
                         {m.desc}
