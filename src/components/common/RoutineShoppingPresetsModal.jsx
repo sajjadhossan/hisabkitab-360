@@ -8,7 +8,14 @@ import {
   Edit2,
   Zap,
   RotateCcw,
-  Tag
+  Tag,
+  Folder,
+  Layers,
+  User,
+  CheckSquare,
+  Square,
+  Check,
+  Filter
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
 
@@ -20,6 +27,9 @@ const DEFAULT_PRESETS = [
     name: 'সাপ্তাহিক পারিবারিক বাজার',
     profile: 'personal',
     folder: 'গৃহস্থালি ও নিত্য কেনাকাটা',
+    subFolder: 'কাঁচা শাকসবজি',
+    familyMember: 'পুরো পরিবার (সবার জন্য)',
+    type: 'daily',
     items: [
       { id: 'it-1', name: 'মিনিকেট চাল', unit: '৫ কেজি', defaultAmount: 400 },
       { id: 'it-2', name: 'সয়াবিন তেল', unit: '২ লিটার', defaultAmount: 380 },
@@ -33,7 +43,10 @@ const DEFAULT_PRESETS = [
     id: 'preset-fam-daily',
     name: 'দৈনন্দিন নিত্য মুদি বাজার',
     profile: 'personal',
-    folder: 'গৃহস্থালি ও নিত্য কেনাকাটা',
+    folder: 'দৈনন্দিন বাজার খরচ',
+    subFolder: 'কাঁচা শাকসবজি',
+    familyMember: 'নিজে (Self)',
+    type: 'daily',
     items: [
       { id: 'it-7', name: 'দুধ ও পাউরুটি', unit: '১ প্যাকেট', defaultAmount: 120 },
       { id: 'it-8', name: 'কাঁচাবাজার ও কাঁচামরিচ', unit: 'বাজার', defaultAmount: 150 },
@@ -45,6 +58,9 @@ const DEFAULT_PRESETS = [
     name: 'দোকানের নিয়মিত সাপ্লাই ও টিফিন',
     profile: 'business',
     folder: 'দোকান ও টিফিন খরচ',
+    subFolder: 'স্টাফ নাস্তা ও টিফিন',
+    familyMember: 'দোকান স্টাফ',
+    type: 'business',
     items: [
       { id: 'it-10', name: 'স্টাফ চা, বিস্কুট ও নাস্তা', unit: 'দৈনিক', defaultAmount: 180 },
       { id: 'it-11', name: 'দোকান পরিষ্কারের সামগ্রী', unit: 'প্যাক', defaultAmount: 120 },
@@ -62,6 +78,8 @@ export const RoutineShoppingPresetsModal = ({
     profile,
     addPersonalExpense,
     addBusinessExpense,
+    categories = {},
+    addCategory,
     showToast,
     lang
   } = useApp();
@@ -80,6 +98,57 @@ export const RoutineShoppingPresetsModal = ({
   const [selectedPresetId, setSelectedPresetId] = useState(null);
   const [executionItems, setExecutionItems] = useState([]);
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Destination Categories & Setup for Routine Purchases
+  const availableFolders = useMemo(() => {
+    return categories.familyExpenseFolders || [
+      'গৃহস্থালি ও নিত্য কেনাকাটা',
+      'দৈনন্দিন বাজার খরচ',
+      'বাসা ও ফ্ল্যাট খরচ',
+      'বিদ্যুৎ, গ্যাস ও ইউটিলিটি',
+      'সন্তানের পড়াশোনা ও স্কুল',
+      'পারিবারিক চিকিৎসা ও ওষুধ',
+      'অন্যান্য পারিবারিক খরচ'
+    ];
+  }, [categories.familyExpenseFolders]);
+
+  const availableSubFolders = useMemo(() => {
+    return categories.expenseSubCategories || [
+      'কাঁচা শাকসবজি',
+      'তাজা মাছ',
+      'মুরগি / গরুর মাংস',
+      'চাল ও আটা',
+      'ডাল ও সয়াবিন তেল',
+      'ডিম ও দুধ',
+      'ফলমূল'
+    ];
+  }, [categories.expenseSubCategories]);
+
+  const availableMembers = useMemo(() => {
+    return categories.familyMembers || [
+      'নিজে (Self)',
+      'পুরো পরিবার (সবার জন্য)',
+      'স্ত্রী (Wife)',
+      'ছেলে (Son)',
+      'মেয়ে (Daughter)',
+      'বাবা (Father)',
+      'মা (Mother)'
+    ];
+  }, [categories.familyMembers]);
+
+  // Target Destination States
+  const [targetExpenseType, setTargetExpenseType] = useState('daily'); // 'daily' or 'family'
+  const [targetFolder, setTargetFolder] = useState('গৃহস্থালি ও নিত্য কেনাকাটা');
+  const [targetSubFolder, setTargetSubFolder] = useState('কাঁচা শাকসবজি');
+  const [targetMember, setTargetMember] = useState('নিজে (Self)');
+
+  // Inline Add Category/Folder/Member States
+  const [isAddingNewFolder, setIsAddingNewFolder] = useState(false);
+  const [newFolderInput, setNewFolderInput] = useState('');
+  const [isAddingNewSubFolder, setIsAddingNewSubFolder] = useState(false);
+  const [newSubFolderInput, setNewSubFolderInput] = useState('');
+  const [isAddingNewMember, setIsAddingNewMember] = useState(false);
+  const [newMemberInput, setNewMemberInput] = useState('');
 
   // New Preset / Edit State
   const [isEditingPreset, setIsEditingPreset] = useState(false);
@@ -114,8 +183,12 @@ export const RoutineShoppingPresetsModal = ({
           setExecutionItems(matched.items.map(it => ({
             ...it,
             amount: it.defaultAmount || 0,
-            selected: true
+            selected: false // Default unchecked: user checks what they want!
           })));
+          setTargetFolder(matched.folder || (activeProfile === 'business' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা'));
+          if (matched.subFolder) setTargetSubFolder(matched.subFolder);
+          if (matched.familyMember || matched.person) setTargetMember(matched.familyMember || matched.person);
+          if (matched.type) setTargetExpenseType(matched.type);
         }
       }
     }
@@ -128,8 +201,12 @@ export const RoutineShoppingPresetsModal = ({
     setExecutionItems(preset.items.map(it => ({
       ...it,
       amount: it.defaultAmount || 0,
-      selected: true
+      selected: false // Default unchecked!
     })));
+    setTargetFolder(preset.folder || (preset.profile === 'business' ? 'দোকান ও টিফিন খরচ' : 'গৃহস্থালি ও নিত্য কেনাকাটা'));
+    if (preset.subFolder) setTargetSubFolder(preset.subFolder);
+    if (preset.familyMember || preset.person) setTargetMember(preset.familyMember || preset.person);
+    if (preset.type) setTargetExpenseType(preset.type);
   };
 
   // Quick Amount Adjustment Chips (+50, +100, +500)
@@ -153,6 +230,13 @@ export const RoutineShoppingPresetsModal = ({
     setExecutionItems(prev => prev.map(it => it.id === itemId ? { ...it, selected: !it.selected } : it));
   };
 
+  // Toggle Select All / Unselect All
+  const allSelected = executionItems.length > 0 && executionItems.every(i => i.selected);
+  const handleToggleSelectAll = () => {
+    hapticFeedback.light();
+    setExecutionItems(prev => prev.map(it => ({ ...it, selected: !allSelected })));
+  };
+
   // Grand Total of Execution Items
   const currentTotal = useMemo(() => {
     return executionItems
@@ -168,13 +252,20 @@ export const RoutineShoppingPresetsModal = ({
   const handleExecuteRoutineShopping = () => {
     const selected = executionItems.filter(it => it.selected && Number(it.amount) > 0);
     if (selected.length === 0) {
-      showToast(lang === 'bn' ? 'কমপক্ষে একটি আইটেমের টাকার পরিমাণ দিন' : 'Enter amount for at least one item', 'warning');
+      showToast(
+        lang === 'bn'
+          ? 'কমপক্ষে একটি আইটেমে টিক চিহ্ন দিয়ে টাকার পরিমাণ দিন'
+          : 'Select at least one item with an amount',
+        'warning'
+      );
       return;
     }
 
     hapticFeedback.medium();
     let count = 0;
-    const destFolder = activePreset?.folder || 'গৃহস্থালি ও নিত্য কেনাকাটা';
+    const destFolder = (targetFolder || activePreset?.folder || (targetExpenseType === 'family' ? 'অন্যান্য পারিবারিক খরচ' : 'দৈনন্দিন বাজার খরচ')).trim();
+    const destSub = (targetSubFolder || activePreset?.subFolder || '').trim();
+    const destMember = (targetMember || activePreset?.familyMember || 'নিজে (Self)').trim();
 
     selected.forEach(it => {
       if (activeProfile === 'business') {
@@ -182,6 +273,7 @@ export const RoutineShoppingPresetsModal = ({
           title: it.name,
           amount: Number(it.amount),
           category: destFolder,
+          subCategory: destSub,
           date: expenseDate,
           note: `⚡ নিয়মিত কেনাকাটা প্রি-সেট (${activePreset?.name || 'রুটিন'})`
         });
@@ -194,7 +286,12 @@ export const RoutineShoppingPresetsModal = ({
           unit: it.unit || '',
           folder: destFolder,
           category: destFolder,
-          type: 'family',
+          subFolder: destSub,
+          subCategory: destSub,
+          familyMember: destMember,
+          person: destMember,
+          member: destMember,
+          type: targetExpenseType || 'daily', // Directly assigns to chosen type (daily vs family)
           date: expenseDate,
           note: `⚡ নিয়মিত কেনাকাটা প্রি-সেট (${activePreset?.name || 'রুটিন'})`
         });
@@ -202,9 +299,13 @@ export const RoutineShoppingPresetsModal = ({
       count++;
     });
 
+    const destinationLabel = activeProfile === 'business'
+      ? 'দোকান/ব্যবসায়িক'
+      : (targetExpenseType === 'daily' ? 'ব্যক্তিগত / দৈনন্দিন' : 'পারিবারিক');
+
     showToast(
       lang === 'bn'
-        ? `🎉 সফলভাবে ${count}টি নিয়মিত খরচ (মোট ৳${currentTotal.toLocaleString('en-IN')}) রানিং হিসাবে যুক্ত হয়েছে!`
+        ? `🎉 সফলভাবে ${count}টি কেনাকাটা (মোট ৳${currentTotal.toLocaleString('en-IN')}) সরাসরি "${destFolder}" ফোল্ডারে ${destinationLabel} খরচে যুক্ত হয়েছে!`
         : `Added ${count} routine expenses (৳${currentTotal.toLocaleString('en-IN')})!`,
       'success'
     );
@@ -269,7 +370,7 @@ export const RoutineShoppingPresetsModal = ({
         setExecutionItems(cleanItems.map(it => ({
           ...it,
           amount: it.defaultAmount || 0,
-          selected: true
+          selected: false
         })));
       }
       showToast(lang === 'bn' ? 'প্রি-সেট সফলভাবে আপডেট করা হয়েছে!' : 'Preset updated!', 'success');
@@ -286,7 +387,7 @@ export const RoutineShoppingPresetsModal = ({
       setExecutionItems(cleanItems.map(it => ({
         ...it,
         amount: it.defaultAmount || 0,
-        selected: true
+        selected: false
       })));
       showToast(lang === 'bn' ? 'নতুন প্রি-সেট তৈরি হয়েছে!' : 'Preset created!', 'success');
     }
@@ -342,7 +443,7 @@ export const RoutineShoppingPresetsModal = ({
         setExecutionItems(nextPreset.items.map(it => ({
           ...it,
           amount: it.defaultAmount || 0,
-          selected: true
+          selected: false
         })));
       }
     }
@@ -369,7 +470,7 @@ export const RoutineShoppingPresetsModal = ({
       setExecutionItems(first.items.map(it => ({
         ...it,
         amount: it.defaultAmount || 0,
-        selected: true
+        selected: false
       })));
     }
     showToast(lang === 'bn' ? 'ডিফল্ট প্রি-সেট সফলভাবে ফিরিয়ে আনা হয়েছে' : 'Default presets restored', 'info');
@@ -878,6 +979,300 @@ export const RoutineShoppingPresetsModal = ({
               style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '0.75rem', fontWeight: '700' }}
             />
           </div>
+        </div>
+
+        {/* Destination Setup: Expense Type, Folder, Sub-Folder & Person */}
+        <div
+          style={{
+            background: 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '12px',
+            marginBottom: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Folder size={15} style={{ color: '#0ea5e9' }} />
+              <span>{lang === 'bn' ? 'খরচের ফোল্ডার, সাব-ফোল্ডার ও ব্যক্তি সেটআপ:' : 'Destination Setup (Folder, Sub-Folder & Person):'}</span>
+            </span>
+
+            {/* Profile/Scope Selector (When personal profile active) */}
+            {activeProfile === 'personal' && (
+              <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-card)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  onClick={() => setTargetExpenseType('daily')}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: targetExpenseType === 'daily' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+                    color: targetExpenseType === 'daily' ? '#fff' : 'var(--text-muted)'
+                  }}
+                >
+                  🛒 {lang === 'bn' ? 'ব্যক্তিগত / দৈনন্দিন' : 'Daily'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetExpenseType('family')}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: targetExpenseType === 'family' ? 'linear-gradient(135deg, #f97316, #ea580c)' : 'transparent',
+                    color: targetExpenseType === 'family' ? '#fff' : 'var(--text-muted)'
+                  }}
+                >
+                  🏠 {lang === 'bn' ? 'পারিবারিক' : 'Family'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 3 Selectors Grid: Folder, Sub-Folder, Member */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px' }}>
+            {/* 1. Folder */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, fontWeight: '700' }}>
+                  📁 {lang === 'bn' ? 'খরচের ফোল্ডার' : 'Folder'}
+                </label>
+                {!isAddingNewFolder && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewFolder(true)}
+                    style={{ background: 'transparent', border: 'none', color: '#0ea5e9', fontSize: '0.68rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    + {lang === 'bn' ? 'নতুন' : 'New'}
+                  </button>
+                )}
+              </div>
+              {isAddingNewFolder ? (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <input
+                    type="text"
+                    placeholder={lang === 'bn' ? 'নতুন ফোল্ডার...' : 'New folder...'}
+                    value={newFolderInput}
+                    onChange={(e) => setNewFolderInput(e.target.value)}
+                    autoFocus
+                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clean = newFolderInput.trim();
+                      if (clean) {
+                        addCategory('familyExpenseFolders', clean);
+                        setTargetFolder(clean);
+                        setNewFolderInput('');
+                        setIsAddingNewFolder(false);
+                      }
+                    }}
+                    style={{ background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 8px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddingNewFolder(false); setNewFolderInput(''); }}
+                    style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 6px', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={targetFolder}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new__') setIsAddingNewFolder(true);
+                    else setTargetFolder(e.target.value);
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: '700' }}
+                >
+                  {availableFolders.map((f, i) => (
+                    <option key={i} value={f}>📁 {f}</option>
+                  ))}
+                  <option value="__add_new__" style={{ color: '#0ea5e9', fontWeight: '800' }}>➕ {lang === 'bn' ? 'নতুন ফোল্ডার যোগ করুন...' : 'Add Folder...'}</option>
+                </select>
+              )}
+            </div>
+
+            {/* 2. Sub-Folder */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, fontWeight: '700' }}>
+                  🔀 {lang === 'bn' ? 'সাব-ফোল্ডার / খাত' : 'Sub-Category'}
+                </label>
+                {!isAddingNewSubFolder && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewSubFolder(true)}
+                    style={{ background: 'transparent', border: 'none', color: '#10b981', fontSize: '0.68rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    + {lang === 'bn' ? 'নতুন' : 'New'}
+                  </button>
+                )}
+              </div>
+              {isAddingNewSubFolder ? (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <input
+                    type="text"
+                    placeholder={lang === 'bn' ? 'যেমন: চাল ও ডাল...' : 'Sub-category...'}
+                    value={newSubFolderInput}
+                    onChange={(e) => setNewSubFolderInput(e.target.value)}
+                    autoFocus
+                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clean = newSubFolderInput.trim();
+                      if (clean) {
+                        addCategory('expenseSubCategories', clean);
+                        setTargetSubFolder(clean);
+                        setNewSubFolderInput('');
+                        setIsAddingNewSubFolder(false);
+                      }
+                    }}
+                    style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 8px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddingNewSubFolder(false); setNewSubFolderInput(''); }}
+                    style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 6px', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={targetSubFolder}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new__') setIsAddingNewSubFolder(true);
+                    else setTargetSubFolder(e.target.value);
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '0.78rem' }}
+                >
+                  <option value="">-- {lang === 'bn' ? 'সাধারণ কেনাকাটা' : 'General'} --</option>
+                  {availableSubFolders.map((sf, i) => (
+                    <option key={i} value={sf}>🔀 {sf}</option>
+                  ))}
+                  <option value="__add_new__" style={{ color: '#10b981', fontWeight: '800' }}>➕ {lang === 'bn' ? 'নতুন সাব-ফোল্ডার...' : 'Add Sub-Folder...'}</option>
+                </select>
+              )}
+            </div>
+
+            {/* 3. Member / Person */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, fontWeight: '700' }}>
+                  👤 {lang === 'bn' ? 'কার জন্য / ব্যক্তি' : 'Person / Member'}
+                </label>
+                {!isAddingNewMember && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewMember(true)}
+                    style={{ background: 'transparent', border: 'none', color: '#f59e0b', fontSize: '0.68rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    + {lang === 'bn' ? 'নতুন' : 'New'}
+                  </button>
+                )}
+              </div>
+              {isAddingNewMember ? (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <input
+                    type="text"
+                    placeholder={lang === 'bn' ? 'সদস্যের নাম...' : 'Member name...'}
+                    value={newMemberInput}
+                    onChange={(e) => setNewMemberInput(e.target.value)}
+                    autoFocus
+                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clean = newMemberInput.trim();
+                      if (clean) {
+                        addCategory('familyMembers', clean);
+                        setTargetMember(clean);
+                        setNewMemberInput('');
+                        setIsAddingNewMember(false);
+                      }
+                    }}
+                    style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 8px', fontSize: '0.74rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddingNewMember(false); setNewMemberInput(''); }}
+                    style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0 6px', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={targetMember}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new__') setIsAddingNewMember(true);
+                    else setTargetMember(e.target.value);
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '0.78rem' }}
+                >
+                  {availableMembers.map((m, i) => (
+                    <option key={i} value={m}>👤 {m}</option>
+                  ))}
+                  <option value="__add_new__" style={{ color: '#f59e0b', fontWeight: '800' }}>➕ {lang === 'bn' ? 'নতুন ব্যক্তি যোগ করুন...' : 'Add Person...'}</option>
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Item Selection Toolbar: Checkbox info + Toggle All */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 4px', flexWrap: 'wrap', gap: '6px' }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🛒</span>
+            <span>{lang === 'bn' ? 'যে পণ্যগুলো কিনেছেন শুধু সেগুলোতে টিক দিন:' : 'Check the items you want to add:'}</span>
+            <span style={{ fontSize: '0.72rem', padding: '2px 7px', borderRadius: '10px', background: executionItems.filter(i => i.selected).length > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)', color: executionItems.filter(i => i.selected).length > 0 ? '#10b981' : 'var(--text-muted)', fontWeight: '800' }}>
+              {executionItems.filter(i => i.selected).length} / {executionItems.length}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleToggleSelectAll}
+            style={{
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)',
+              background: allSelected ? 'rgba(239, 68, 68, 0.12)' : 'rgba(14, 165, 233, 0.12)',
+              color: allSelected ? '#ef4444' : '#0ea5e9',
+              fontSize: '0.74rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            {allSelected ? <Square size={13} /> : <CheckSquare size={13} />}
+            <span>{allSelected ? (lang === 'bn' ? 'সব আনচেক করুন' : 'Uncheck All') : (lang === 'bn' ? 'সব নির্বাচন করুন' : 'Select All')}</span>
+          </button>
         </div>
 
         {/* Execution Items Interactive Fast-Tender List */}

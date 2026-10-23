@@ -48,6 +48,7 @@ export const FamilyExpenses = () => {
     trashBin = [],
     categories = {},
     addCategory,
+    showToast,
     t,
     lang
   } = useApp();
@@ -156,6 +157,7 @@ export const FamilyExpenses = () => {
     subCategory: '',
     familyMember: availableMembers[0] || 'নিজে (Self)',
     purpose: '',
+    type: 'family',
     date: new Date().toISOString().split('T')[0],
     note: '',
     eventId: ''
@@ -308,6 +310,7 @@ export const FamilyExpenses = () => {
       subCategory: '',
       familyMember: availableMembers[0] || 'নিজে (Self)',
       purpose: '',
+      type: 'family',
       date: new Date().toISOString().split('T')[0],
       note: '',
       eventId: ''
@@ -330,9 +333,10 @@ export const FamilyExpenses = () => {
       amount: expense.amount || '',
       folder: expense.folder || availableFolders[0] || 'অন্যান্য পারিবারিক খরচ',
       category: expense.category || 'other',
-      subCategory: expense.subCategory || '',
-      familyMember: expense.familyMember || availableMembers[0] || 'নিজে (Self)',
+      subCategory: expense.subCategory || expense.subFolder || '',
+      familyMember: expense.familyMember || expense.person || expense.member || availableMembers[0] || 'নিজে (Self)',
       purpose: expense.purpose || '',
+      type: expense.type || 'family',
       date: expense.date || new Date().toISOString().split('T')[0],
       note: expense.note || '',
       eventId: expense.eventId || ''
@@ -357,9 +361,12 @@ export const FamilyExpenses = () => {
       folder: formData.folder,
       category: formData.folder,
       subCategory: formData.subCategory || '',
+      subFolder: formData.subCategory || '',
       familyMember: formData.familyMember || 'নিজে (Self)',
+      person: formData.familyMember || 'নিজে (Self)',
+      member: formData.familyMember || 'নিজে (Self)',
       purpose: formData.purpose || '',
-      type: 'family',
+      type: formData.type || 'family',
       date: formData.date || new Date().toISOString().split('T')[0],
       note: formData.note.trim(),
       eventId: formData.eventId || '',
@@ -368,6 +375,14 @@ export const FamilyExpenses = () => {
 
     if (editingExpense) {
       updatePersonalExpense(editingExpense.id, payload);
+      if (editingExpense.type !== payload.type && payload.type === 'daily') {
+        showToast(
+          lang === 'bn'
+            ? '✓ খরচটি সফলভাবে ব্যক্তিগত / দৈনন্দিন খরচ তালিকায় স্থানান্তরিত হয়েছে!'
+            : '✓ Expense moved to Personal / Daily expenses!',
+          'success'
+        );
+      }
     } else {
       addPersonalExpense(payload);
     }
@@ -1554,6 +1569,77 @@ export const FamilyExpenses = () => {
             />
 
             <form id="family-expense-modal-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Scope & Type Selector (Daily/Personal vs Family) */}
+              <div
+                style={{
+                  background: 'var(--bg-main)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Filter size={14} style={{ color: '#0ea5e9' }} />
+                    <span>{lang === 'bn' ? 'খরচের প্রধান ধরন নির্বাচন:' : 'Expense Type:'}</span>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {formData.type === 'daily'
+                      ? (lang === 'bn' ? '🛒 এটি আপনার ব্যক্তিগত / দৈনন্দিন খরচে যুক্ত থাকবে' : 'Personal Daily Expense')
+                      : (lang === 'bn' ? '🏠 এটি পারিবারিক খরচ ফোল্ডারে যুক্ত থাকবে' : 'Family Expense')}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, type: 'daily' }))}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      border: formData.type === 'daily' ? '2px solid #10b981' : '1px solid var(--border-color)',
+                      background: formData.type === 'daily' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-card)',
+                      color: formData.type === 'daily' ? '#10b981' : 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <span>🛒</span>
+                    <span>{lang === 'bn' ? 'ব্যক্তিগত / দৈনন্দিন' : 'Daily'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, type: 'family' }))}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      border: formData.type === 'family' ? '2px solid #f97316' : '1px solid var(--border-color)',
+                      background: formData.type === 'family' ? 'rgba(249, 115, 22, 0.15)' : 'var(--bg-card)',
+                      color: formData.type === 'family' ? '#f97316' : 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <span>🏠</span>
+                    <span>{lang === 'bn' ? 'পারিবারিক' : 'Family'}</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Folder Selection with Manage Button */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
