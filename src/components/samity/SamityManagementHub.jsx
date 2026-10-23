@@ -315,6 +315,7 @@ export const SamityManagementHub = ({ onClose }) => {
   });
 
   const activeLang = appContext.lang || localLang;
+  const isLight = appContext.theme === 'light' || appContext.theme === 'nordic_clean';
 
   const handleToggleLanguage = (newLang) => {
     const target = newLang || (activeLang === 'en' ? 'bn' : 'en');
@@ -3076,8 +3077,8 @@ export const SamityManagementHub = ({ onClose }) => {
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        background: 'var(--bg-primary, #0f172a)',
-        color: 'var(--text-main, #f8fafc)',
+        background: isLight ? '#f1f5f9' : 'var(--bg-primary, #0f172a)',
+        color: isLight ? '#0f172a' : 'var(--text-main, #f8fafc)',
         fontFamily: "'Inter', 'SolaimanLipi', sans-serif"
       }}
     >
@@ -3086,10 +3087,10 @@ export const SamityManagementHub = ({ onClose }) => {
       {/* ==================================================================== */}
       <div
         style={{
-          background: 'rgba(15, 23, 42, 0.95)',
+          background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.95)',
           backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          padding: '12px 20px',
+          borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '10px 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -3097,7 +3098,8 @@ export const SamityManagementHub = ({ onClose }) => {
           gap: '12px',
           position: 'sticky',
           top: 0,
-          zIndex: 40
+          zIndex: 40,
+          boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.03)' : 'none'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -3132,14 +3134,14 @@ export const SamityManagementHub = ({ onClose }) => {
               onClick={() => document.getElementById('header-active-samity-logo-input')?.click()}
               title={activeLang === 'en' ? 'Click to change Samity Logo' : 'সমিতির নিজস্ব লোগো পরিবর্তন করতে ক্লিক করুন'}
               style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '14px',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(15, 23, 42, 0.95))',
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: isLight ? 'rgba(245, 158, 11, 0.12)' : 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(15, 23, 42, 0.95))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.25)',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.2)',
                 overflow: 'hidden',
                 padding: '3px',
                 border: '2px solid rgba(245, 158, 11, 0.65)',
@@ -3178,7 +3180,7 @@ export const SamityManagementHub = ({ onClose }) => {
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', letterSpacing: '-0.02em', color: '#f8fafc' }}>
+              <h1 style={{ margin: 0, fontSize: '1.12rem', fontWeight: '900', letterSpacing: '-0.02em', color: isLight ? '#0f172a' : '#f8fafc' }}>
                 {activeLang === 'en'
                   ? (currentSamity.nameEn || currentSamity.nameBn || 'Samity & Cooperative Hub')
                   : (currentSamity.nameBn || 'সমিতি ও সমবায় হাব')}
@@ -3187,9 +3189,9 @@ export const SamityManagementHub = ({ onClose }) => {
                 style={{
                   fontSize: '0.68rem',
                   fontWeight: '800',
-                  background: 'rgba(245, 158, 11, 0.15)',
-                  color: '#fbbf24',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  background: isLight ? '#fef3c7' : 'rgba(245, 158, 11, 0.15)',
+                  color: isLight ? '#b45309' : '#fbbf24',
+                  border: isLight ? '1px solid #fde68a' : '1px solid rgba(245, 158, 11, 0.35)',
                   padding: '2px 8px',
                   borderRadius: '12px',
                   display: 'inline-flex',
@@ -3200,7 +3202,7 @@ export const SamityManagementHub = ({ onClose }) => {
                 🏛️ {activeLang === 'en' ? 'Registered Society' : 'নিবন্ধিত সমবায় সমিতি'}
               </span>
             </div>
-            <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: 'var(--text-muted, #94a3b8)' }}>
+            <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: isLight ? '#475569' : 'var(--text-muted, #94a3b8)', fontWeight: '600' }}>
               {activeLang === 'en'
                 ? (currentSamity.sloganEn || 'Building Dreams, Securing the Future')
                 : (currentSamity.sloganBn || 'স্বপ্ন সাজাই, ভবিষ্যৎ গড়ি')}
@@ -3211,7 +3213,7 @@ export const SamityManagementHub = ({ onClose }) => {
         {/* Multi-Samity Selector & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>{t('🏛️ শাখা/সমিতি:', '🏛️ Branch / Society:')}</span>
+            <span style={{ fontSize: '0.78rem', color: isLight ? '#475569' : 'var(--text-muted, #94a3b8)', fontWeight: '700' }}>{t('🏛️ শাখা/সমিতি:', '🏛️ Branch / Society:')}</span>
             <select
               value={activeSamityId}
               onChange={(e) => {
@@ -3219,14 +3221,15 @@ export const SamityManagementHub = ({ onClose }) => {
                 setActiveSamityId(e.target.value);
               }}
               style={{
-                background: 'rgba(30, 41, 59, 0.9)',
-                color: '#fff',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.9)',
+                color: isLight ? '#0f172a' : '#fff',
+                border: isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)',
                 borderRadius: '8px',
                 padding: '6px 10px',
                 fontSize: '0.8rem',
                 fontWeight: '700',
-                outline: 'none'
+                outline: 'none',
+                boxShadow: isLight ? '0 1px 3px rgba(0,0,0,0.05)' : 'none'
               }}
             >
               {data.samities.map(s => (
@@ -3241,9 +3244,9 @@ export const SamityManagementHub = ({ onClose }) => {
                 setActiveTab('samity_setup');
               }}
               style={{
-                background: activeTab === 'samity_setup' ? '#2dd4bf' : 'rgba(255, 255, 255, 0.08)',
-                color: activeTab === 'samity_setup' ? '#0f172a' : '#fff',
-                border: '1px solid ' + (activeTab === 'samity_setup' ? '#2dd4bf' : 'rgba(255, 255, 255, 0.15)'),
+                background: activeTab === 'samity_setup' ? (isLight ? '#059669' : '#2dd4bf') : (isLight ? '#ffffff' : 'rgba(255, 255, 255, 0.08)'),
+                color: activeTab === 'samity_setup' ? '#ffffff' : (isLight ? '#0f172a' : '#fff'),
+                border: isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)',
                 borderRadius: '8px',
                 padding: '6px 10px',
                 fontSize: '0.78rem',
