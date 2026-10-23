@@ -583,6 +583,128 @@ export function formatLocalizedNumber(num, lang = 'bn') {
   return toBengaliDigits(num);
 }
 
+// Pre-built base lookup map
+const MASTER_BASE_MAP = new Map();
+for (const [k, v] of Object.entries(SAMITY_WHOLE_WORD_MAP)) {
+  MASTER_BASE_MAP.set(k, v);
+}
+for (const [k, v] of Object.entries(SAMITY_DICTIONARY)) {
+  if (!k.includes(' ') && k.length >= 2) {
+    MASTER_BASE_MAP.set(k, v);
+  }
+}
+
+// Extra common stems for inflection handling
+MASTER_BASE_MAP.set("একাউন্ট", "Account");
+MASTER_BASE_MAP.set("অ্যাকাউন্ট", "Account");
+MASTER_BASE_MAP.set("সদস্য", "Member");
+MASTER_BASE_MAP.set("মাস", "Month");
+MASTER_BASE_MAP.set("খরচ", "Expense");
+MASTER_BASE_MAP.set("আদায়", "Collection");
+MASTER_BASE_MAP.set("অফিস", "Office");
+MASTER_BASE_MAP.set("কিস্তি", "Installment");
+MASTER_BASE_MAP.set("জমা", "Deposit");
+MASTER_BASE_MAP.set("বকেয়া", "Due");
+MASTER_BASE_MAP.set("টাকা", "Tk");
+MASTER_BASE_MAP.set("তারিখ", "Date");
+MASTER_BASE_MAP.set("শাখা", "Branch");
+MASTER_BASE_MAP.set("ব্যাংক", "Bank");
+MASTER_BASE_MAP.set("যাবতীয়", "All");
+MASTER_BASE_MAP.set("চলতি", "Current");
+MASTER_BASE_MAP.set("রিমাইন্ডার", "Reminder");
+MASTER_BASE_MAP.set("মেম্বার", "Member");
+MASTER_BASE_MAP.set("ফর্ম", "Form");
+MASTER_BASE_MAP.set("তালিকা", "List");
+MASTER_BASE_MAP.set("খতিয়ান", "Ledger");
+MASTER_BASE_MAP.set("বিবরণী", "Statement");
+MASTER_BASE_MAP.set("কমিটি", "Committee");
+MASTER_BASE_MAP.set("মিটিং", "Meeting");
+MASTER_BASE_MAP.set("ও", "&");
+MASTER_BASE_MAP.set("এবং", "and");
+MASTER_BASE_MAP.set("অনুমোদন", "Approval");
+MASTER_BASE_MAP.set("ডিপিএস", "DPS");
+MASTER_BASE_MAP.set("এফডিআর", "FDR");
+MASTER_BASE_MAP.set("তথ্য", "Information");
+MASTER_BASE_MAP.set("হ্যাঁ", "Yes");
+MASTER_BASE_MAP.set("না", "No");
+MASTER_BASE_MAP.set("চাঁদা আদায়ের তালিকা", "Subscription Collection List");
+MASTER_BASE_MAP.set("চাঁদা আদায়ের", "Subscription Collection's");
+MASTER_BASE_MAP.set("আদায়ের", "Collection's");
+MASTER_BASE_MAP.set("কোষাধ্যক্ষ", "Treasurer");
+MASTER_BASE_MAP.set("সম্পাদক", "Secretary");
+MASTER_BASE_MAP.set("সভাপতি", "President");
+
+// Bengali inflection suffixes ordered by longest first
+const SUFFIX_RULES = [
+  { suffix: 'সমূহের', transform: (base) => `${base}s'` },
+  { suffix: 'গুলোর', transform: (base) => `${base}s'` },
+  { suffix: 'গুলির', transform: (base) => `${base}s'` },
+  { suffix: 'সমূহ', transform: (base) => `${base}s` },
+  { suffix: 'গুলো', transform: (base) => `${base}s` },
+  { suffix: 'গুলি', transform: (base) => `${base}s` },
+  { suffix: 'দের', transform: (base) => `${base}s'` },
+  { suffix: 'গণের', transform: (base) => `${base}s'` },
+  { suffix: 'গণ', transform: (base) => `${base}s` },
+  { suffix: 'টির', transform: (base) => `${base}'s` },
+  { suffix: 'টার', transform: (base) => `${base}'s` },
+  { suffix: 'টি', transform: (base) => `${base}` },
+  { suffix: 'টা', transform: (base) => `${base}` },
+  { suffix: 'ের', transform: (base) => `${base}'s` },   // e-kar + ra
+  { suffix: 'এর', transform: (base) => `${base}'s` },   // independent E + ra
+  { suffix: 'র', transform: (base) => `${base}'s` },    // ra
+  { suffix: 'কে', transform: (base) => `${base}` },     // ka + e-kar
+  { suffix: 'তে', transform: (base) => `${base}` },     // ta + e-kar
+  { suffix: 'ে', transform: (base) => `${base}` },      // e-kar
+  { suffix: 'ায়', transform: (base) => `${base}` },     // a-kar + ya
+  { suffix: 'য়ে', transform: (base) => `${base}` },     // ya + e-kar
+  { suffix: 'য়', transform: (base) => `${base}` }       // ya
+];
+
+function stemAndTranslateWord(word) {
+  if (MASTER_BASE_MAP.has(word)) return MASTER_BASE_MAP.get(word);
+
+  for (const rule of SUFFIX_RULES) {
+    if (word.endsWith(rule.suffix) && word.length > rule.suffix.length) {
+      const stem = word.slice(0, -rule.suffix.length);
+      if (MASTER_BASE_MAP.has(stem)) {
+        return rule.transform(MASTER_BASE_MAP.get(stem));
+      }
+    }
+  }
+
+  return word;
+}
+
+// Pre-sort multi-word dictionary phrases once for high performance
+const MULTI_WORD_PHRASES = Object.keys(SAMITY_DICTIONARY)
+  .filter(k => k.includes(' ') && k.length >= 3)
+  .sort((a, b) => b.length - a.length);
+
+// Safe whole-phrase common actions (ordered longest first to prevent prefix splitting)
+const COMMON_ACTION_PHRASES = [
+  { bn: "চাঁদা আদায়ের তালিকা", en: "Subscription Collection List" },
+  { bn: "চাঁদা আদায়ের", en: "Subscription Collection's" },
+  { bn: "চাঁদা আদায়", en: "Subscription Collection" },
+  { bn: "পাঠানো হয়েছে", en: "has been sent" },
+  { bn: "দেওয়া হয়েছে", en: "has been given" },
+  { bn: "হালনাগাদ করা হয়েছে", en: "has been updated" },
+  { bn: "সংরক্ষণ করা হয়েছে", en: "has been saved" },
+  { bn: "অনুমোদন করা হয়েছে", en: "has been approved" },
+  { bn: "বাতিল করা হয়েছে", en: "has been cancelled" },
+  { bn: "যাবতীয় খরচসমূহ", en: "All Expenses" },
+  { bn: "যাবতীয় খরচ", en: "All Expenses" },
+  { bn: "বকেয়া খতিয়ান", en: "Due Ledger" },
+  { bn: "বকেয়া তালিকা", en: "Defaulters List" },
+  { bn: "নতুন সদস্যের", en: "New Member's" },
+  { bn: "নতুন সদস্য", en: "New Member" },
+  { bn: "চলতি মাসের", en: "Current Month's" },
+  { bn: "মাসিক কিস্তির", en: "Monthly Installment's" },
+  { bn: "মাসিক সঞ্চয়", en: "Monthly Savings" },
+  { bn: "ব্যাংক একাউন্টে", en: "to Bank Account" },
+  { bn: "জমা দিন", en: "Make Deposit" },
+  { bn: "জমা করুন", en: "Submit Deposit" }
+].sort((a, b) => b.bn.length - a.bn.length);
+
 // Translate a Bengali phrase or sentence to English cleanly without corrupting words
 export function translateSamityText(text, targetLang = 'en') {
   if (targetLang === 'bn' || !text || typeof text !== 'string') return text;
@@ -601,37 +723,52 @@ export function translateSamityText(text, targetLang = 'en') {
     return text.replace(cleanKey, SAMITY_DICTIONARY[cleanKey]);
   }
 
-  // 3. Multi-phrase longest-match substitution (phrases > 3 characters)
   let translated = trimmed;
   let hasReplaced = false;
 
-  const sortedKeys = Object.keys(SAMITY_DICTIONARY).sort((a, b) => b.length - a.length);
-  for (const k of sortedKeys) {
-    if (k.length >= 3 && translated.includes(k)) {
-      translated = translated.split(k).join(SAMITY_DICTIONARY[k]);
+  // 3. Safe whole-phrase common actions
+  for (const action of COMMON_ACTION_PHRASES) {
+    if (translated.includes(action.bn)) {
+      translated = translated.split(action.bn).join(action.en);
       hasReplaced = true;
     }
   }
 
-  // 4. Strict whole-word replacement using Unicode letter boundary checking
-  // (Prevents "বিজনেস" -> "বিPersonsসেস" or "দৈনন্দিন" -> "দৈনন্দDays")
-  for (const [bnWord, enWord] of Object.entries(SAMITY_WHOLE_WORD_MAP)) {
-    try {
-      const regex = new RegExp('(?:^|(?<=[^\\p{L}\\p{M}]))' + bnWord + '(?=[^\\p{L}\\p{M}]|$)', 'gu');
-      if (regex.test(translated)) {
-        translated = translated.replace(regex, enWord);
-        hasReplaced = true;
-      }
-    } catch {
-      // Fallback if environment doesn't support unicode property escapes
-      if (translated === bnWord) {
-        translated = enWord;
-        hasReplaced = true;
-      }
+  // 4. Multi-word phrase matching with automatic inflection support (ordered by length, longest phrase first)
+  for (const phrase of MULTI_WORD_PHRASES) {
+    const en = SAMITY_DICTIONARY[phrase];
+    if (translated.includes(phrase + 'ের')) {
+      translated = translated.split(phrase + 'ের').join(en + "'s");
+      hasReplaced = true;
+    } else if (translated.includes(phrase + 'র')) {
+      translated = translated.split(phrase + 'র').join(en + "'s");
+      hasReplaced = true;
+    } else if (translated.includes(phrase + 'দের')) {
+      translated = translated.split(phrase + 'দের').join(en + "s'");
+      hasReplaced = true;
+    } else if (translated.includes(phrase + 'সমূহ')) {
+      translated = translated.split(phrase + 'সমূহ').join(en + "s");
+      hasReplaced = true;
+    } else if (translated.includes(phrase + 'গুলো')) {
+      translated = translated.split(phrase + 'গুলো').join(en + "s");
+      hasReplaced = true;
+    } else if (translated.includes(phrase)) {
+      translated = translated.split(phrase).join(en);
+      hasReplaced = true;
     }
   }
 
-  // 5. Convert any remaining Bengali digits to English digits in English mode
+  // 5. Morphological stemming & word-boundary translation for remaining Bengali words
+  // (Prevents "Memberের", "Installmentর", "Monthের", etc.)
+  if (/[\u0980-\u09FF]/.test(translated)) {
+    translated = translated.replace(/[\u0980-\u09FF]+/g, (match) => {
+      const stemmed = stemAndTranslateWord(match);
+      if (stemmed !== match) hasReplaced = true;
+      return stemmed;
+    });
+  }
+
+  // 6. Convert any remaining Bengali digits to English digits in English mode
   if (/[০-৯]/.test(translated)) {
     translated = toEnglishDigits(translated);
     hasReplaced = true;
@@ -652,10 +789,11 @@ export function useSamityTranslator(containerRef, lang = 'bn') {
   }, [lang]);
 
   useEffect(() => {
-    if (!containerRef?.current) return;
-    const root = containerRef.current;
+    if (typeof document === 'undefined') return;
+    const root = containerRef?.current || document.body;
 
     const translateElementTree = (node) => {
+      if (!node) return;
       if (node.nodeType === 3) { // Text node
         const val = node.nodeValue;
         if (!val || !val.trim()) return;
@@ -677,6 +815,13 @@ export function useSamityTranslator(containerRef, lang = 'bn') {
       } else if (node.nodeType === 1) { // Element node
         const tag = node.tagName?.toLowerCase();
         if (tag === 'script' || tag === 'style' || tag === 'pre' || tag === 'code') return;
+
+        // Translate select option text
+        if (tag === 'option') {
+          if (node.__originalBnText === undefined) node.__originalBnText = node.textContent;
+          const optTranslated = lang === 'en' ? translateSamityText(node.__originalBnText, 'en') : node.__originalBnText;
+          if (optTranslated !== node.textContent) node.textContent = optTranslated;
+        }
 
         // Translate placeholders
         if (node.placeholder) {
@@ -703,8 +848,12 @@ export function useSamityTranslator(containerRef, lang = 'bn') {
       }
     };
 
-    // Initial translation execution
+    // Initial translation execution across both root and any active modal dialogs in document.body
     translateElementTree(root);
+    if (document.body && root !== document.body) {
+      const modals = document.querySelectorAll('.modal, .modal-backdrop, [role="dialog"], [data-modal="true"]');
+      modals.forEach(m => translateElementTree(m));
+    }
 
     // Dynamic Mutation Observer for state changes, tabs switching, modals opening
     let isUpdating = false;
@@ -726,7 +875,9 @@ export function useSamityTranslator(containerRef, lang = 'bn') {
       }
     });
 
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    // Observe document.body so modals and portals outside root are also caught
+    const targetToObserve = document.body || root;
+    observer.observe(targetToObserve, { childList: true, subtree: true, characterData: true });
 
     return () => observer.disconnect();
   }, [containerRef, lang]);
