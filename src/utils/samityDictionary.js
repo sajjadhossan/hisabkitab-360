@@ -633,6 +633,38 @@ MASTER_BASE_MAP.set("আদায়ের", "Collection's");
 MASTER_BASE_MAP.set("কোষাধ্যক্ষ", "Treasurer");
 MASTER_BASE_MAP.set("সম্পাদক", "Secretary");
 MASTER_BASE_MAP.set("সভাপতি", "President");
+MASTER_BASE_MAP.set("ডাচ্-বাংলা ব্যাংক", "Dutch-Bangla Bank");
+MASTER_BASE_MAP.set("ডাচ্-বাংলা ব্যাংক পিএলসি", "Dutch-Bangla Bank PLC");
+MASTER_BASE_MAP.set("ডাচ-বাংলা ব্যাংক", "Dutch-Bangla Bank");
+MASTER_BASE_MAP.set("ডাচ-বাংলা ব্যাংক পিএলসি", "Dutch-Bangla Bank PLC");
+MASTER_BASE_MAP.set("মিরপুর শাখা", "Mirpur Branch");
+MASTER_BASE_MAP.set("ঢাকা শাখা", "Dhaka Branch");
+MASTER_BASE_MAP.set("প্রধান শাখা", "Main Branch");
+MASTER_BASE_MAP.set("ডাচ্-বাংলা", "Dutch-Bangla");
+MASTER_BASE_MAP.set("ডাচ-বাংলা", "Dutch-Bangla");
+MASTER_BASE_MAP.set("ডাচ্", "Dutch");
+MASTER_BASE_MAP.set("ডাচ", "Dutch");
+MASTER_BASE_MAP.set("মিরপুর", "Mirpur");
+MASTER_BASE_MAP.set("বকেয়া", "Due");
+MASTER_BASE_MAP.set("পদবি", "Designation");
+MASTER_BASE_MAP.set("পদবী", "Designation");
+MASTER_BASE_MAP.set("অবস্থা", "Status");
+MASTER_BASE_MAP.set("সময়কাল", "Period");
+MASTER_BASE_MAP.set("সময়কাল", "Period");
+MASTER_BASE_MAP.set("জন", "Members");
+MASTER_BASE_MAP.set("মওকুফ", "Waiver");
+MASTER_BASE_MAP.set("বিলম্ব", "Late");
+MASTER_BASE_MAP.set("ফি", "Fee");
+MASTER_BASE_MAP.set("গণনা", "Calculation");
+MASTER_BASE_MAP.set("নোটিশ", "Notice");
+MASTER_BASE_MAP.set("প্রিন্ট", "Print");
+MASTER_BASE_MAP.set("বিশেষ", "Special");
+MASTER_BASE_MAP.set("আমানত", "Deposit");
+MASTER_BASE_MAP.set("আমানতকারী", "Depositor");
+MASTER_BASE_MAP.set("ব্যবস্থাপনা", "Management");
+MASTER_BASE_MAP.set("পূর্ণাঙ্গ", "Full");
+MASTER_BASE_MAP.set("পরিশোধিত", "Paid");
+MASTER_BASE_MAP.set("রসিদ", "Receipt");
 
 // Bengali inflection suffixes ordered by longest first
 const SUFFIX_RULES = [
@@ -682,6 +714,30 @@ const MULTI_WORD_PHRASES = Object.keys(SAMITY_DICTIONARY)
 
 // Safe whole-phrase common actions (ordered longest first to prevent prefix splitting)
 const COMMON_ACTION_PHRASES = [
+  { bn: "ভাউচার নম্বর, ব্যাংক রসিদ, চেক, অনলাইন TrxID, স্লিপ ইমেজ ও অনুমোদনসহ পূর্ণাঙ্গ আমানত ব্যবস্থাপনা", en: "Full deposit management with vouchers, bank receipts, cheques, online TrxIDs, slip images & approvals" },
+  { bn: "ব্যাংক ও নগদ জমা এন্ট্রি মডিউল (Bank Deposit Entry Module)", en: "Bank & Cash Deposit Entry Module" },
+  { bn: "মাসিক বকেয়া গণনা, বিলম্ব ফি, বকেয়া নোটিশ প্রিন্ট ও বিশেষ মওকুফ (Waiver)", en: "Monthly due calculation, late fees, due notices printing & special waivers" },
+  { bn: "Due / বকেয়া Management Module", en: "Due Defaulters & Waiver Module" },
+  { bn: "Subscription / চাঁদা Configuration Module", en: "Subscription Policy & Config Module" },
+  { bn: "Expense / ব্যয় Management Module", en: "Expense Management Module" },
+  { bn: "চলতি মাসে বকেয়া", en: "Current Month Due" },
+  { bn: "চলতি মাসে বকেয়া", en: "Current Month Due" },
+  { bn: "চলতি মাসে পরিশোধিত", en: "Paid This Month" },
+  { bn: "মোট নিবন্ধিত সদস্য", en: "Total Registered Members" },
+  { bn: "সক্রিয় সদস্য", en: "Active Members" },
+  { bn: "পেইড সময়কাল", en: "Paid Period" },
+  { bn: "পেইড সময়কাল", en: "Paid Period" },
+  { bn: "পরিশোধিত সময়কাল", en: "Paid Period" },
+  { bn: "পরিশোধিত সময়কাল", en: "Paid Period" },
+  { bn: "ভাউচার ও রসিদ নং", en: "Voucher & Receipt No." },
+  { bn: "তারিখ ও সময়", en: "Date & Time" },
+  { bn: "তারিখ ও সময়", en: "Date & Time" },
+  { bn: "ডকুমেন্ট / স্লিপ", en: "Document / Slip" },
+  { bn: "সব জমার ধরন (All Types)", en: "All Deposit Types" },
+  { bn: "সব মাধ্যম (All Methods)", en: "All Methods" },
+  { bn: "সব সদস্য পদবি", en: "All Member Designations" },
+  { bn: "সব পেমেন্ট অবস্থা", en: "All Payment Statuses" },
+  { bn: "সব স্ট্যাটাস", en: "All Statuses" },
   { bn: "চাঁদা আদায়ের তালিকা", en: "Subscription Collection List" },
   { bn: "চাঁদা আদায়ের", en: "Subscription Collection's" },
   { bn: "চাঁদা আদায়", en: "Subscription Collection" },
@@ -771,6 +827,16 @@ export function translateSamityText(text, targetLang = 'en') {
   // 6. Convert any remaining Bengali digits to English digits in English mode
   if (/[০-৯]/.test(translated)) {
     translated = toEnglishDigits(translated);
+    hasReplaced = true;
+  }
+
+  // 7. Convert "{count} জন" or "{count} টি" to English in English mode
+  if (/([0-9]+)\s*জন/.test(translated)) {
+    translated = translated.replace(/([0-9]+)\s*জন/g, '$1 Members');
+    hasReplaced = true;
+  }
+  if (/([0-9]+)\s*টি/.test(translated)) {
+    translated = translated.replace(/([0-9]+)\s*টি/g, '$1 Items');
     hasReplaced = true;
   }
 

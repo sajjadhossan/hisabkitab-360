@@ -4425,8 +4425,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   <Users size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>মোট নিবন্ধিত সদস্য</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#fff' }}>{metrics.totalMembers} জন</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {activeLang === 'en' ? 'Total Registered Members' : 'মোট নিবন্ধিত সদস্য'}
+                  </div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#fff' }}>
+                    {metrics.totalMembers} {activeLang === 'en' ? 'Members' : 'জন'}
+                  </div>
                 </div>
               </div>
 
@@ -4445,8 +4449,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   <CheckCircle2 size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>সক্রিয় সদস্য</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981' }}>{metrics.activeMembers} জন</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {activeLang === 'en' ? 'Active Members' : 'সক্রিয় সদস্য'}
+                  </div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981' }}>
+                    {metrics.activeMembers} {activeLang === 'en' ? 'Members' : 'জন'}
+                  </div>
                 </div>
               </div>
 
@@ -4465,8 +4473,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   <Receipt size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>চলতি মাসে পরিশোধিত</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#22c55e' }}>{metrics.paidMembersCount} জন</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {activeLang === 'en' ? 'Paid This Month' : 'চলতি মাসে পরিশোধিত'}
+                  </div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#22c55e' }}>
+                    {metrics.paidMembersCount} {activeLang === 'en' ? 'Members' : 'জন'}
+                  </div>
                 </div>
               </div>
 
@@ -4485,8 +4497,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   <Clock size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>চলতি মাসে বকেয়া</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#ef4444' }}>{metrics.unpaidMembersCount + metrics.partiallyPaidCount} জন</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {activeLang === 'en' ? 'Due This Month' : 'চলতি মাসে বকেয়া'}
+                  </div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#ef4444' }}>
+                    {metrics.unpaidMembersCount + metrics.partiallyPaidCount} {activeLang === 'en' ? 'Members' : 'জন'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -4548,9 +4564,11 @@ export const SamityManagementHub = ({ onClose }) => {
                   outline: 'none'
                 }}
               >
-                <option value="all">সব সদস্য পদবি ({data.members.filter(m => m.samityId === activeSamityId).length})</option>
+                <option value="all">
+                  {activeLang === 'en' ? 'All Member Designations' : 'সব সদস্য পদবি'} ({data.members.filter(m => m.samityId === activeSamityId).length})
+                </option>
                 {MEMBER_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.labelBn}</option>
+                  <option key={t.value} value={t.value}>{activeLang === 'en' ? (t.labelEn || t.labelBn) : t.labelBn}</option>
                 ))}
               </select>
 
@@ -4569,9 +4587,9 @@ export const SamityManagementHub = ({ onClose }) => {
                   outline: 'none'
                 }}
               >
-                <option value="all">সব স্ট্যাটাস</option>
+                <option value="all">{activeLang === 'en' ? 'All Statuses' : 'সব স্ট্যাটাস'}</option>
                 {MEMBER_STATUSES.map(s => (
-                  <option key={s.value} value={s.value}>{s.labelBn}</option>
+                  <option key={s.value} value={s.value}>{activeLang === 'en' ? (s.labelEn || s.labelBn) : s.labelBn}</option>
                 ))}
               </select>
 
@@ -4590,11 +4608,11 @@ export const SamityManagementHub = ({ onClose }) => {
                   outline: 'none'
                 }}
               >
-                <option value="all">সব পেমেন্ট অবস্থা</option>
-                <option value="paid">✓ পরিশোধিত (Paid)</option>
-                <option value="partially_paid">⏳ আংশিক পরিশোধ (Partial)</option>
-                <option value="unpaid">⚠️ বকেয়া (Unpaid)</option>
-                <option value="advance_paid">🌟 অগ্রিম পরিশোধ (Advance)</option>
+                <option value="all">{activeLang === 'en' ? 'All Payment Statuses' : 'সব পেমেন্ট অবস্থা'}</option>
+                <option value="paid">{activeLang === 'en' ? '✓ Paid' : '✓ পরিশোধিত (Paid)'}</option>
+                <option value="partially_paid">{activeLang === 'en' ? '⏳ Partial' : '⏳ আংশিক পরিশোধ (Partial)'}</option>
+                <option value="unpaid">{activeLang === 'en' ? '⚠️ Unpaid' : '⚠️ বকেয়া (Unpaid)'}</option>
+                <option value="advance_paid">{activeLang === 'en' ? '🌟 Advance' : '🌟 অগ্রিম পরিশোধ (Advance)'}</option>
               </select>
 
               {/* Month Selector */}
@@ -5082,10 +5100,12 @@ export const SamityManagementHub = ({ onClose }) => {
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Landmark size={20} color="#10b981" />
-                  <span>ব্যাংক ও নগদ জমা এন্ট্রি মডিউল (Bank Deposit Entry Module)</span>
+                  <span>{activeLang === 'en' ? 'Bank & Cash Deposit Entry Module' : 'ব্যাংক ও নগদ জমা এন্ট্রি মডিউল (Bank Deposit Entry Module)'}</span>
                 </h3>
                 <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  ভাউচার নম্বর, ব্যাংক রসিদ, চেক, অনলাইন TrxID, স্লিপ ইমেজ ও অনুমোদনসহ পূর্ণাঙ্গ আমানত ব্যবস্থাপনা
+                  {activeLang === 'en'
+                    ? 'Comprehensive deposit management with vouchers, bank receipts, cheques, online TrxIDs, slip images and approvals'
+                    : 'ভাউচার নম্বর, ব্যাংক রসিদ, চেক, অনলাইন TrxID, স্লিপ ইমেজ ও অনুমোদনসহ পূর্ণাঙ্গ আমানত ব্যবস্থাপনা'}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -5107,7 +5127,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Layers size={15} />
-                  <span>📑 বাল্ক জমা এন্ট্রি</span>
+                  <span>{activeLang === 'en' ? '📑 Bulk Deposit Entry' : '📑 বাল্ক জমা এন্ট্রি'}</span>
                 </button>
                 <button
                   onClick={() => handleOpenDepositModal()}
@@ -5128,7 +5148,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Plus size={16} />
-                  <span>+ নতুন জমা এন্ট্রি</span>
+                  <span>{activeLang === 'en' ? '+ New Deposit Entry' : '+ নতুন জমা এন্ট্রি'}</span>
                 </button>
               </div>
             </div>
@@ -5233,9 +5253,9 @@ export const SamityManagementHub = ({ onClose }) => {
                   onChange={(e) => setDepositTypeFilter(e.target.value)}
                   style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
                 >
-                  <option value="all">সব জমার ধরন (All Types)</option>
+                  <option value="all">{activeLang === 'en' ? 'All Deposit Types' : 'সব জমার ধরন (All Types)'}</option>
                   {DEPOSIT_TYPES.map(t => (
-                    <option key={t.value} value={t.value}>{t.labelBn}</option>
+                    <option key={t.value} value={t.value}>{activeLang === 'en' ? (t.labelEn || t.labelBn) : t.labelBn}</option>
                   ))}
                 </select>
               </div>
@@ -5247,9 +5267,9 @@ export const SamityManagementHub = ({ onClose }) => {
                   onChange={(e) => setDepositMethodFilter(e.target.value)}
                   style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
                 >
-                  <option value="all">সব মাধ্যম (All Methods)</option>
+                  <option value="all">{activeLang === 'en' ? 'All Methods' : 'সব মাধ্যম (All Methods)'}</option>
                   {DEPOSIT_METHODS.map(m => (
-                    <option key={m.value} value={m.value}>{m.labelBn}</option>
+                    <option key={m.value} value={m.value}>{activeLang === 'en' ? (m.labelEn || m.labelBn) : m.labelBn}</option>
                   ))}
                 </select>
               </div>
@@ -5261,9 +5281,9 @@ export const SamityManagementHub = ({ onClose }) => {
                   onChange={(e) => setDepositApprovalFilter(e.target.value)}
                   style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.8rem' }}
                 >
-                  <option value="all">সব স্ট্যাটাস</option>
+                  <option value="all">{activeLang === 'en' ? 'All Statuses' : 'সব স্ট্যাটাস'}</option>
                   {DEPOSIT_APPROVAL_STATUSES.map(s => (
-                    <option key={s.value} value={s.value}>{s.labelBn}</option>
+                    <option key={s.value} value={s.value}>{activeLang === 'en' ? (s.labelEn || s.labelBn) : s.labelBn}</option>
                   ))}
                 </select>
               </div>
@@ -5280,11 +5300,11 @@ export const SamityManagementHub = ({ onClose }) => {
                     }}
                     style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: '700', cursor: 'pointer' }}
                   >
-                    রিসেট ফিল্টার
+                    {activeLang === 'en' ? 'Reset Filters' : 'রিসেট ফিল্টার'}
                   </button>
                 )}
                 <span style={{ fontSize: '0.74rem', color: '#94a3b8', background: 'rgba(15, 23, 42, 0.8)', padding: '6px 10px', borderRadius: '6px' }}>
-                  ফিল্টারকৃত: <strong style={{ color: '#fff' }}>{filteredDeposits.length}</strong> টি
+                  {activeLang === 'en' ? 'Filtered:' : 'ফিল্টারকৃত:'} <strong style={{ color: '#fff' }}>{filteredDeposits.length}</strong> {activeLang === 'en' ? 'Items' : 'টি'}
                 </span>
               </div>
             </div>
@@ -5301,16 +5321,16 @@ export const SamityManagementHub = ({ onClose }) => {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.81rem' }}>
                 <thead>
                   <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার ও রসিদ নং</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>তারিখ ও সময়</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>আমানতকারী / সদস্য</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ধরন ও মাধ্যম</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ব্যাংক ও হিসাব / TrxID</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>পরিশোধিত সময়কাল</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>পরিমাণ (টাকা)</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>ডকুমেন্ট / স্লিপ</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>স্ট্যাটাস</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>অ্যাকশন</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Voucher & Receipt No.' : 'ভাউচার ও রসিদ নং'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Date & Time' : 'তারিখ ও সময়'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Depositor / Member' : 'আমানতকারী / সদস্য'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Type & Method' : 'ধরন ও মাধ্যম'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Bank & Account / TrxID' : 'ব্যাংক ও হিসাব / TrxID'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Paid Period' : 'পরিশোধিত সময়কাল'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>{activeLang === 'en' ? 'Amount (Tk)' : 'পরিমাণ (টাকা)'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>{activeLang === 'en' ? 'Document / Slip' : 'ডকুমেন্ট / স্লিপ'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>{activeLang === 'en' ? 'Status' : 'স্ট্যাটাস'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>{activeLang === 'en' ? 'Action' : 'অ্যাকশন'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -12746,14 +12766,16 @@ export const SamityManagementHub = ({ onClose }) => {
                         </button>
                       </div>
 
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.94rem', fontWeight: '800', color: isServiceEnabled ? '#f8fafc' : '#94a3b8' }}>
+                      <h4 style={{ margin: '0 0 6px 0', fontSize: '0.94rem', fontWeight: '800', color: isServiceEnabled ? '#f8fafc' : '#94a3b8' }}>
                         {activeLang === 'en' ? (m.nameEn || m.nameBn) : m.nameBn}
                       </h4>
-                      <div style={{ fontSize: '0.72rem', color: isServiceEnabled ? '#2dd4bf' : '#64748b', fontWeight: '600', marginBottom: '6px' }}>
-                        {activeLang === 'en' ? m.nameBn : m.nameEn}
-                      </div>
+                      {activeLang !== 'en' && m.nameEn && (
+                        <div style={{ fontSize: '0.72rem', color: isServiceEnabled ? '#2dd4bf' : '#64748b', fontWeight: '600', marginBottom: '6px' }}>
+                          {m.nameEn}
+                        </div>
+                      )}
                       <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.4' }}>
-                        {m.desc}
+                        {activeLang === 'en' ? (m.descEn || m.desc) : m.desc}
                       </p>
                     </div>
 
