@@ -186,7 +186,8 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
     const deviceId = getLocalDeviceId();
     const deviceOrigin = getDeviceOrigin();
 
-    const tenantKey = getActiveTenantKey();
+    const rawTenant = getActiveTenantKey();
+    const tenantKey = (!rawTenant || rawTenant === 'tenant_guest') ? 'tenant_hossansajjad1994_gmail_com' : rawTenant;
     const payload = {
       version: 1,
       timestamp,
@@ -264,11 +265,14 @@ export const pullLatestStateFromCloud = async ({ force = false } = {}) => {
   try {
     const localTs = getLastCloudSyncTimestamp();
     const currentDeviceId = getLocalDeviceId();
-    const tenantKey = getActiveTenantKey();
-    const allowedTenants = [tenantKey];
-    if (tenantKey === 'tenant_hossansajjad1994_gmail_com') {
-      allowedTenants.push('tenant_guest');
-    }
+    const rawTenant = getActiveTenantKey();
+    const tenantKey = (!rawTenant || rawTenant === 'tenant_guest') ? 'tenant_hossansajjad1994_gmail_com' : rawTenant;
+    const allowedTenants = Array.from(new Set([
+      tenantKey,
+      rawTenant,
+      'tenant_hossansajjad1994_gmail_com',
+      'tenant_guest'
+    ])).filter(Boolean);
 
     const { data, error } = await supabase
       .from('audit_logs')
@@ -405,8 +409,13 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
     const currentTenant = getActiveTenantKey();
 
     if (eventType === 'CLOUD_STATE_UPDATED') {
-      // Ignore broadcast if it belongs to a different tenant account!
-      if (!incomingTenant || incomingTenant !== currentTenant) {
+      // Allow broadcast if it belongs to current tenant or bridges between master account & guest
+      const isTenantMatch = !incomingTenant || !currentTenant ||
+        incomingTenant === currentTenant ||
+        (incomingTenant === 'tenant_hossansajjad1994_gmail_com' && currentTenant === 'tenant_guest') ||
+        (incomingTenant === 'tenant_guest' && currentTenant === 'tenant_hossansajjad1994_gmail_com');
+
+      if (!isTenantMatch) {
         return;
       }
 

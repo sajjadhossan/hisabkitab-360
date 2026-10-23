@@ -52,7 +52,8 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
     return null;
   }
 
-  const currentTenant = terminalMeta.tenantKey || getActiveTenantKey();
+  const rawTenant = terminalMeta.tenantKey || getActiveTenantKey();
+  const currentTenant = (!rawTenant || rawTenant === 'tenant_guest') ? 'tenant_hossansajjad1994_gmail_com' : rawTenant;
   const targetChannelName = `hk360_live_${currentTenant}`;
 
   if (activeChannel) {

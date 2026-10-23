@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 // আপনি আপনার Supabase Project URL এবং Anon Key এখানে প্রদান করতে পারেন,
 // অথবা .env ফাইলে VITE_SUPABASE_URL ও VITE_SUPABASE_ANON_KEY হিসেবে সেট করতে পারেন।
 // ============================================================================
-export const PERMANENT_SUPABASE_URL = 'https://ygigujzrnghxtcwykhjo.supabase.co';
-export const PERMANENT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnaWd1anpybmdoeHRjd3lraGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NzQxOTEsImV4cCI6MjEwODI1MDE5MX0.BsVJwFbKv3LUzgZZkwubbX5jl2-mOv_p1umNJ9fxn5E';
+export const PERMANENT_SUPABASE_URL = 'https://juahukfvwbwupsamqzyo.supabase.co';
+export const PERMANENT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1YWh1a2Z2d2J3dXBzYW1xenlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2OTEyMDIsImV4cCI6MjEwNjI2NzIwMn0.Fl7iA3Ns6C2s87WW_CAFaxAwghn9LnoIzTvMFvTl9l4';
 
 const STORAGE_KEY_SUPABASE = 'hk360_supabase_config';
 
@@ -17,6 +17,14 @@ const STORAGE_KEY_SUPABASE = 'hk360_supabase_config';
  * 3. LocalStorage persistence
  */
 export const getSupabaseConfig = () => {
+  // Purge poisoned old project config from localStorage if present
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_SUPABASE);
+    if (saved && (saved.includes('ygigujzrnghxtcwykhjo') || saved.includes('undefined'))) {
+      localStorage.removeItem(STORAGE_KEY_SUPABASE);
+    }
+  } catch (e) {}
+
   // 1. Permanent code constants
   if (PERMANENT_SUPABASE_URL && PERMANENT_SUPABASE_ANON_KEY) {
     return {

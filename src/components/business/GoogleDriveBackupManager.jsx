@@ -1151,11 +1151,11 @@ export const GoogleDriveBackupManager = ({
                               <div style={{ background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                                 <div>
                                   <div style={{ fontSize: '0.74rem', fontWeight: '800', color: '#10b981' }}>Supabase OAuth Callback URL:</div>
-                                  <code style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 'bold', wordBreak: 'break-all' }}>https://ygigujzrnghxtcwykhjo.supabase.co/auth/v1/callback</code>
+                                  <code style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 'bold', wordBreak: 'break-all' }}>https://juahukfvwbwupsamqzyo.supabase.co/auth/v1/callback</code>
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => handleCopyUri('https://ygigujzrnghxtcwykhjo.supabase.co/auth/v1/callback', 'supabase_callback')}
+                                  onClick={() => handleCopyUri('https://juahukfvwbwupsamqzyo.supabase.co/auth/v1/callback', 'supabase_callback')}
                                   className="btn btn-secondary"
                                   style={{ padding: '4px 12px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700', borderColor: '#10b981' }}
                                 >
