@@ -385,6 +385,7 @@ export const parseBioDataText = (raw) => {
 
 export const SamityManagementHub = ({ onClose }) => {
   const appContext = useApp() || {};
+  const currentUser = appContext.currentUser || appContext.user || { name: 'মো: সভাপতি', role: 'সভাপতি (President)' };
   const [localLang, setLocalLang] = useState(() => {
     return appContext.lang || (typeof window !== 'undefined' ? (localStorage.getItem('samity_lang') || localStorage.getItem('somiti360_lang') || localStorage.getItem('hisabkitab_lang') || 'bn') : 'bn');
   });

@@ -45,8 +45,8 @@ export const SamityInternalChatHub = ({
 
   const [messageText, setMessageText] = useState('');
   const [messageType, setMessageType] = useState('message'); // 'message' | 'notice'
-  const [senderRole, setSenderRole] = useState('সভাপতি (President)');
-  const [senderName, setSenderName] = useState(currentUser?.name || 'মো: সভাপতি');
+  const [senderRole, setSenderRole] = useState((currentUser && currentUser.role) ? currentUser.role : 'সভাপতি (President)');
+  const [senderName, setSenderName] = useState((currentUser && currentUser.name) ? currentUser.name : 'মো: সভাপতি');
   const [attachedFile, setAttachedFile] = useState(null); // { name, type, data }
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'pinned' | 'notices'
