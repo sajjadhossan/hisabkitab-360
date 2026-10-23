@@ -86,6 +86,7 @@ import { InternalCommunicationHubModal } from './common/InternalCommunicationHub
 import { getUnreadCount } from '../services/internalChatService';
 import { getStaffMenuPermissions, isMenuItemAllowedForRole } from '../services/staffRolePermissionEngine';
 import { StaffPermissionsModal } from './common/StaffPermissionsModal';
+import { translations } from '../data/translations';
 import appBrandLogo from '../assets/logo.png';
 
 export const Navbar = () => {
@@ -103,7 +104,7 @@ export const Navbar = () => {
     openThemeCustomizer,
     activeTab,
     setActiveTab,
-    t,
+    t: rawT,
     exportAllData,
     importAllData,
     resetToDemo,
@@ -125,7 +126,9 @@ export const Navbar = () => {
     branches = [],
     activeBranch = null,
     activeCounter = null
-  } = useApp();
+  } = useApp() || {};
+
+  const t = rawT || (translations && (translations[lang] || translations.bn)) || {};
 
   const {
     user,
@@ -428,14 +431,14 @@ export const Navbar = () => {
   };
 
   const personalNavItems = useMemo(() => [
-    { id: 'dashboard', label: t.personalNav?.dashboard || 'ড্যাশবোর্ড', icon: LayoutDashboard },
-    { id: 'daily', label: t.personalNav?.daily || 'দৈনন্দিন খরচ', icon: ShoppingCart },
-    { id: 'family', label: t.personalNav?.family || 'পারিবারিক বাজেট', icon: Home },
-    { id: 'events', label: t.personalNav?.events || (lang === 'bn' ? 'ইভেন্ট ও অনুষ্ঠান' : 'Events & Occasions'), icon: Sparkles },
-    { id: 'debts', label: t.personalNav?.debts || (lang === 'bn' ? 'দেনা-পাওনা খাতা' : 'Debt Ledger'), icon: HandCoins },
-    { id: 'income', label: t.personalNav?.income || 'আয় ও সঞ্চয়', icon: Wallet },
-    { id: 'analytics', label: t.personalNav?.analytics || 'বিশ্লেষণ', icon: PieChart }
-  ], [t.personalNav, lang]);
+    { id: 'dashboard', label: t?.personalNav?.dashboard || 'ড্যাশবোর্ড', icon: LayoutDashboard },
+    { id: 'daily', label: t?.personalNav?.daily || 'দৈনন্দিন খরচ', icon: ShoppingCart },
+    { id: 'family', label: t?.personalNav?.family || 'পারিবারিক বাজেট', icon: Home },
+    { id: 'events', label: t?.personalNav?.events || (lang === 'bn' ? 'ইভেন্ট ও অনুষ্ঠান' : 'Events & Occasions'), icon: Sparkles },
+    { id: 'debts', label: t?.personalNav?.debts || (lang === 'bn' ? 'দেনা-পাওনা খাতা' : 'Debt Ledger'), icon: HandCoins },
+    { id: 'income', label: t?.personalNav?.income || 'আয় ও সঞ্চয়', icon: Wallet },
+    { id: 'analytics', label: t?.personalNav?.analytics || 'বিশ্লেষণ', icon: PieChart }
+  ], [t?.personalNav, lang]);
 
   const isModEnabled = useCallback((modId) => {
     if (!modId) return true;
@@ -467,7 +470,7 @@ export const Navbar = () => {
         { id: 'samity', label: lang === 'bn' ? '🤝 সমিতি ড্যাশবোর্ড ও হাব' : '🤝 Samity Hub', icon: Users, highlight: true },
         ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 সমিতি আয়-ব্যয় ও ফান্ড' : 'Fund Accounts', icon: Calculator }] : []),
         ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 বার্ষিক ও অডিট রিপোর্ট' : 'Reports', icon: BarChart3 }] : []),
-        { id: 'settings', label: t.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
+        { id: 'settings', label: t?.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
         ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
       ];
     }
@@ -477,7 +480,7 @@ export const Navbar = () => {
         { id: 'healthcare', label: lang === 'bn' ? '🏥 হেলথকেয়ার ও ক্লিনিক হাব' : '🏥 Healthcare Hub', icon: Activity, highlight: true },
         ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 ক্লিনিক আয়-ব্যয় ও ফি' : 'Clinic Accounts', icon: Calculator }] : []),
         ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 ডায়াগনস্টিক রিপোর্ট' : 'Reports', icon: BarChart3 }] : []),
-        { id: 'settings', label: t.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
+        { id: 'settings', label: t?.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
         ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
       ];
     }
@@ -487,29 +490,29 @@ export const Navbar = () => {
         { id: 'cattle', label: lang === 'bn' ? '🐄 ডেইরি ও খামার হাব' : '🐄 Cattle & Dairy Hub', icon: Wheat, highlight: true },
         ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 খামার লাভ-ক্ষতি' : 'Farm Accounts', icon: Calculator }] : []),
         ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 দুধ ও উৎপাদন রিপোর্ট' : 'Reports', icon: BarChart3 }] : []),
-        { id: 'settings', label: t.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
+        { id: 'settings', label: t?.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
         ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
       ];
     }
 
     return [
-      ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t.businessNav?.dashboard || '📊 ড্যাশবোর্ড', icon: LayoutDashboard }] : []),
+      ...(isModEnabled('dashboard') ? [{ id: 'dashboard', label: t?.businessNav?.dashboard || '📊 ড্যাশবোর্ড', icon: LayoutDashboard }] : []),
       ...(isModEnabled('branch_control') ? [{ id: 'branch_control', label: lang === 'bn' ? '🏢 ব্রাঞ্চ ও ক্যাশ' : '🏢 Branch & Cash Hub', icon: Building2, highlight: true }] : []),
-      ...((!businessSettings?.hideRetailPos && isModEnabled('pos')) ? [{ id: 'pos', label: t.businessNav?.pos || '⚡ পিওএস সেলস', icon: ScanLine, highlight: true }] : []),
-      ...(isModEnabled('debts') ? [{ id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
-      ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t.businessNav?.invoices || '🧾 বিক্রয় মেমো', icon: FileText }] : []),
-      ...(isModEnabled('quotations') ? [{ id: 'quotations', label: t.businessNav?.quotations || '📑 কোটেশন', icon: FileCheck }] : []),
-      ...(isModEnabled('inventory') ? [{ id: 'inventory', label: t.businessNav?.inventory || '📦 ইনভেন্টরি স্টক', icon: Boxes }] : []),
+      ...((!businessSettings?.hideRetailPos && isModEnabled('pos')) ? [{ id: 'pos', label: t?.businessNav?.pos || '⚡ পিওএস সেলস', icon: ScanLine, highlight: true }] : []),
+      ...(isModEnabled('debts') ? [{ id: 'debts', label: t?.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : 'Cash Debts'), icon: HandCoins }] : []),
+      ...(isModEnabled('invoices') ? [{ id: 'invoices', label: t?.businessNav?.invoices || '🧾 বিক্রয় মেমো', icon: FileText }] : []),
+      ...(isModEnabled('quotations') ? [{ id: 'quotations', label: t?.businessNav?.quotations || '📑 কোটেশন', icon: FileCheck }] : []),
+      ...(isModEnabled('inventory') ? [{ id: 'inventory', label: t?.businessNav?.inventory || '📦 ইনভেন্টরি স্টক', icon: Boxes }] : []),
       ...(isModEnabled('master_hub') ? [{ id: 'master_hub', label: lang === 'bn' ? '📁 মাস্টার ডাটা' : '📁 Master Setup Hub', icon: FolderOpen, highlight: true }] : []),
-      ...(isModEnabled('erp') ? [{ id: 'erp', label: t.businessNav?.erp || '💹 হিসাব ও লাভ-ক্ষতি', icon: Calculator }] : []),
+      ...(isModEnabled('erp') ? [{ id: 'erp', label: t?.businessNav?.erp || '💹 হিসাব ও লাভ-ক্ষতি', icon: Calculator }] : []),
       ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট' : '📊 Periodic Reports', icon: BarChart3, highlight: true }] : []),
-      ...(isModEnabled('crm') ? [{ id: 'crm', label: t.businessNav?.crm || '👥 কাস্টমার ডিরেক্টরি', icon: Users }] : []),
-      ...(isModEnabled('hr') ? [{ id: 'hr', label: t.businessNav?.hr || '👔 স্টাফ ও বেতন', icon: BadgeDollarSign }] : []),
+      ...(isModEnabled('crm') ? [{ id: 'crm', label: t?.businessNav?.crm || '👥 কাস্টমার ডিরেক্টরি', icon: Users }] : []),
+      ...(isModEnabled('hr') ? [{ id: 'hr', label: t?.businessNav?.hr || '👔 স্টাফ ও বেতন', icon: BadgeDollarSign }] : []),
       ...(isModEnabled('sr') ? [{ id: 'sr', label: lang === 'bn' ? '🛵 এসআর ফিল্ড' : 'SR Field', icon: Users }] : []),
-      { id: 'settings', label: t.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
+      { id: 'settings', label: t?.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
       ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
     ];
-  }, [isModEnabled, t.businessNav, lang, isSuperAdmin, businessSettings?.primaryOperatingMode, businessSettings?.hideRetailPos]);
+  }, [isModEnabled, t?.businessNav, lang, isSuperAdmin, businessSettings?.primaryOperatingMode, businessSettings?.hideRetailPos]);
 
   const filteredBusinessNavItems = useMemo(() => {
     if (isOwner || isSuperAdmin || !isAuthenticated || !role || role === 'owner' || role === 'admin') {
@@ -552,13 +555,13 @@ export const Navbar = () => {
       }
 
       const candidates = [
-        { id: 'dashboard', label: t.businessNav?.dashboard || (lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'), icon: LayoutDashboard },
-        { id: 'pos', label: t.businessNav?.pos || (lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'), icon: ScanLine },
-        { id: 'inventory', label: t.businessNav?.inventory || (lang === 'bn' ? '📦 ইনভেন্টরি স্টক' : '📦 Inventory'), icon: Boxes },
+        { id: 'dashboard', label: t?.businessNav?.dashboard || (lang === 'bn' ? '📊 ড্যাশবোর্ড' : '📊 Dashboard'), icon: LayoutDashboard },
+        { id: 'pos', label: t?.businessNav?.pos || (lang === 'bn' ? '⚡ পিওএস সেলস' : '⚡ POS Terminal'), icon: ScanLine },
+        { id: 'inventory', label: t?.businessNav?.inventory || (lang === 'bn' ? '📦 ইনভেন্টরি স্টক' : '📦 Inventory'), icon: Boxes },
         { id: 'salesman_order', label: lang === 'bn' ? '📝 অর্ডার বুকিং' : '📝 Order Booking', icon: FileText },
         { id: 'sr_delivery', label: lang === 'bn' ? '🚚 ডেলিভারি হাব' : '🚚 SR Delivery', icon: Truck },
-        { id: 'debts', label: t.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger'), icon: HandCoins },
-        { id: 'invoices', label: t.businessNav?.invoices || (lang === 'bn' ? '🧾 বিক্রয় মেমো' : '🧾 Invoices'), icon: FileText }
+        { id: 'debts', label: t?.businessNav?.debts || (lang === 'bn' ? '📒 দেনা-পাওনা' : '📒 Debt Ledger'), icon: HandCoins },
+        { id: 'invoices', label: t?.businessNav?.invoices || (lang === 'bn' ? '🧾 বিক্রয় মেমো' : '🧾 Invoices'), icon: FileText }
       ];
       return candidates.filter(c => {
         const modOk = isModEnabled(c.id) || c.id === 'salesman_order' || c.id === 'sr_delivery';
@@ -573,7 +576,7 @@ export const Navbar = () => {
         { id: 'income', label: lang === 'bn' ? '💵 ব্যক্তিগত আয়' : '💵 Income', icon: Wallet }
       ];
     }
-  }, [profile, isModEnabled, t.businessNav, lang, role, staffMenuPermissions, isOwner, isSuperAdmin, businessSettings?.primaryOperatingMode]);
+  }, [profile, isModEnabled, t?.businessNav, lang, role, staffMenuPermissions, isOwner, isSuperAdmin, businessSettings?.primaryOperatingMode]);
 
   // Mobile Categorized Drawer Groups
   const businessDrawerGroups = [
@@ -936,7 +939,7 @@ export const Navbar = () => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h1 style={{ fontSize: '1.2rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0, color: 'var(--text-main)' }}>
-                  {t.appName}
+                  {t?.appName || 'হিসাব-কিতাব ৩৬০'}
                 </h1>
                 <span className="badge badge-mode">
                   {profile === 'personal' ? (lang === 'bn' ? 'ব্যক্তিগত মোড' : 'Personal Mode') : (lang === 'bn' ? 'ব্যবসায়িক ইআরপি' : 'Business ERP')}
@@ -1118,7 +1121,7 @@ export const Navbar = () => {
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 {typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
                   ? (lang === 'bn' ? 'সমবায় ও সমিতি ইআরপি ক্লাউড প্ল্যাটফর্ম' : 'Cooperative & Samity Management Cloud')
-                  : t.tagline}
+                  : (t?.tagline || '')}
               </p>
             </div>
           </div>
@@ -1145,7 +1148,7 @@ export const Navbar = () => {
                 }}
               >
                 <User size={16} />
-                <span>{t.personalMode}</span>
+                <span>{t?.personalMode || (lang === 'bn' ? 'ব্যক্তিগত মোড' : 'Personal Mode')}</span>
               </button>
 
               <button
@@ -1167,7 +1170,7 @@ export const Navbar = () => {
                 }}
               >
                 <Briefcase size={16} />
-                <span>{t.businessMode}</span>
+                <span>{t?.businessMode || (lang === 'bn' ? 'ব্যবসায়িক মোড' : 'Business Mode')}</span>
               </button>
             </div>
           ) : (
@@ -1583,7 +1586,7 @@ export const Navbar = () => {
             <button
               className="btn-icon press-scale"
               onClick={toggleTheme}
-              title={t.themeToggle}
+              title={t?.themeToggle || (lang === 'bn' ? 'থিম পরিবর্তন' : 'Toggle Theme')}
               style={{ transition: 'transform 0.1s ease', flexShrink: 0 }}
             >
               {theme === 'dark' ? <Sun size={17} color="#fbbf24" /> : <Moon size={17} color="#6366f1" />}
