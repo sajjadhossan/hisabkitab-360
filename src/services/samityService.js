@@ -1368,14 +1368,14 @@ export const EXPENSE_APPROVAL_STATUSES = [
 ];
 
 export const EXPENSE_SUB_REPORTS = [
-  { id: 'daily', titleBn: '১. দৈনিক খরচ রিপোর্ট (Daily Expense Report)' },
-  { id: 'monthly', titleBn: '২. মাসিক খরচ রিপোর্ট (Monthly Expense Report)' },
-  { id: 'yearly', titleBn: '৩. বার্ষিক খরচ রিপোর্ট (Yearly Expense Report)' },
-  { id: 'category', titleBn: '৪. খাতওয়ারি খরচ রিপোর্ট (Category-wise Expense Report)' },
-  { id: 'event', titleBn: '৫. সদস্য/ইভেন্টভিত্তিক খরচ রিপোর্ট (Member/Event-wise Expense Report)' },
-  { id: 'bank', titleBn: '৬. ব্যাংকভিত্তিক খরচ রিপোর্ট (Bank-wise Expense Report)' },
-  { id: 'cash', titleBn: '৭. নগদ ক্যাশ খরচ রিপোর্ট (Cash-wise Expense Report)' },
-  { id: 'status', titleBn: '৮. অনুমোদিত ও অপেক্ষমাণ রিপোর্ট (Approved & Pending Expense Report)' }
+  { id: 'daily', titleBn: '১. দৈনিক খরচ রিপোর্ট (Daily Expense Report)', titleEn: 'Daily Expenses' },
+  { id: 'monthly', titleBn: '২. মাসিক খরচ রিপোর্ট (Monthly Expense Report)', titleEn: 'Monthly Expenses' },
+  { id: 'yearly', titleBn: '৩. বার্ষিক খরচ রিপোর্ট (Yearly Expense Report)', titleEn: 'Yearly Expenses' },
+  { id: 'category', titleBn: '৪. খাতওয়ারি খরচ রিপোর্ট (Category-wise Expense Report)', titleEn: 'Category-wise' },
+  { id: 'event', titleBn: '৫. সদস্য/ইভেন্টভিত্তিক খরচ রিপোর্ট (Member/Event-wise Expense Report)', titleEn: 'Event-wise' },
+  { id: 'bank', titleBn: '৬. ব্যাংকভিত্তিক খরচ রিপোর্ট (Bank-wise Expense Report)', titleEn: 'Bank-wise' },
+  { id: 'cash', titleBn: '৭. নগদ ক্যাশ খরচ রিপোর্ট (Cash-wise Expense Report)', titleEn: 'Cash-wise' },
+  { id: 'status', titleBn: '৮. অনুমোদিত ও অপেক্ষমাণ রিপোর্ট (Approved & Pending Expense Report)', titleEn: 'Status-wise' }
 ];
 
 // ============================================================================

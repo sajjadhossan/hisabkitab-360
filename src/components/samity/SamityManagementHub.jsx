@@ -4655,12 +4655,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Plus size={15} />
-                  <span>+ নতুন সদস্য নিবন্ধন</span>
+                  <span>{activeLang === 'en' ? '+ Register New Member' : '+ নতুন সদস্য নিবন্ধন'}</span>
                 </button>
 
                 <button
                   onClick={handleOpenBulkImportModal}
-                  title="এক্সেল বা CSV ফাইল থেকে বাল্ক সদস্য ইমপোর্ট"
+                  title={activeLang === 'en' ? 'Bulk import members from Excel or CSV' : 'এক্সেল বা CSV ফাইল থেকে বাল্ক সদস্য ইমপোর্ট'}
                   style={{
                     background: 'rgba(59, 130, 246, 0.15)',
                     color: '#3b82f6',
@@ -4676,7 +4676,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Upload size={14} />
-                  <span>বাল্ক ইমপোর্ট (CSV)</span>
+                  <span>{activeLang === 'en' ? 'Bulk Import (CSV)' : 'বাল্ক ইমপোর্ট (CSV)'}</span>
                 </button>
 
                 <button
@@ -4684,9 +4684,9 @@ export const SamityManagementHub = ({ onClose }) => {
                     playButtonClick?.();
                     triggerHaptic();
                     exportMembersCsv(filteredMembers, currentSamity);
-                    showToast?.('সদস্য তালিকা CSV ফাইল ডাউনলোড শুরু হয়েছে', 'success');
+                    showToast?.(activeLang === 'en' ? 'Member list CSV download initiated' : 'সদস্য তালিকা CSV ফাইল ডাউনলোড শুরু হয়েছে', 'success');
                   }}
-                  title="এক্সেল বা CSV ফাইল ডাউনলোড করুন"
+                  title={activeLang === 'en' ? 'Download member list CSV file' : 'এক্সেল বা CSV ফাইল ডাউনলোড করুন'}
                   style={{
                     background: 'rgba(255, 255, 255, 0.08)',
                     color: '#fff',
@@ -4702,7 +4702,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Download size={14} />
-                  <span>CSV এক্সপোর্ট ({filteredMembers.length})</span>
+                  <span>{activeLang === 'en' ? `CSV Export (${filteredMembers.length})` : `CSV এক্সপোর্ট (${filteredMembers.length})`}</span>
                 </button>
 
                 <button
@@ -4710,9 +4710,9 @@ export const SamityManagementHub = ({ onClose }) => {
                     playButtonClick?.();
                     triggerHaptic();
                     exportMembersToExcel(XLSX, filteredMembers, currentSamity);
-                    showToast?.('সদস্য তালিকা Excel (.xlsx) স্প্রেডশিট ডাউনলোড শুরু হয়েছে', 'success');
+                    showToast?.(activeLang === 'en' ? 'Member list Excel spreadsheet download initiated' : 'সদস্য তালিকা Excel (.xlsx) স্প্রেডশিট ডাউনলোড শুরু হয়েছে', 'success');
                   }}
-                  title="ফিল্টারকৃত সদস্যদের প্রফেশনাল Excel (.xlsx) স্প্রেডশিট ফাইল ডাউনলোড করুন"
+                  title={activeLang === 'en' ? 'Download professional Excel spreadsheet of filtered members' : 'ফিল্টারকৃত সদস্যদের প্রফেশনাল Excel (.xlsx) স্প্রেডশিট ফাইল ডাউনলোড করুন'}
                   style={{
                     background: 'rgba(16, 185, 129, 0.15)',
                     color: '#10b981',
@@ -4728,7 +4728,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <FileSpreadsheet size={14} color="#10b981" />
-                  <span>Excel (.xlsx) এক্সপোর্ট</span>
+                  <span>{activeLang === 'en' ? 'Excel (.xlsx) Export' : 'Excel (.xlsx) এক্সপোর্ট'}</span>
                 </button>
 
                 <button
@@ -4737,7 +4737,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     triggerHaptic();
                     setIsPrintMemberListOpen(true);
                   }}
-                  title="সদস্য তালিকা প্রিন্ট বা PDF হিসেবে সংরক্ষণ করুন"
+                  title={activeLang === 'en' ? 'Print or save member directory as PDF' : 'সদস্য তালিকা প্রিন্ট বা PDF হিসেবে সংরক্ষণ করুন'}
                   style={{
                     background: 'rgba(168, 85, 247, 0.15)',
                     color: '#c084fc',
@@ -4753,7 +4753,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Printer size={14} />
-                  <span>প্রিন্ট / PDF</span>
+                  <span>{activeLang === 'en' ? 'Print / PDF' : 'প্রিন্ট / PDF'}</span>
                 </button>
               </div>
             </div>
@@ -4771,13 +4771,13 @@ export const SamityManagementHub = ({ onClose }) => {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                 <thead>
                   <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255, 255, 255, 0.12)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', width: '120px' }}>ছবি ও আইডি</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>সদস্যের নাম ও পদবি</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>যোগাযোগ ও সোশ্যাল</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ঠিকানা ও পেশা</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>চাঁদা পলিসি</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{targetMonth} এর অবস্থা</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', width: '210px' }}>অ্যাকশন</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800', width: '120px' }}>{activeLang === 'en' ? 'Photo & ID' : 'ছবি ও আইডি'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Name & Designation' : 'সদস্যের নাম ও পদবি'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Contact & Social' : 'যোগাযোগ ও সোশ্যাল'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Address & Profession' : 'ঠিকানা ও পেশা'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Subscription Policy' : 'চাঁদা পলিসি'}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? `${targetMonth} Status` : `${targetMonth} এর অবস্থা`}</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800', width: '210px' }}>{activeLang === 'en' ? 'Action' : 'অ্যাকশন'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5610,10 +5610,12 @@ export const SamityManagementHub = ({ onClose }) => {
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Layers size={22} color="#3b82f6" />
-                  <span>এক ব্যাংক স্লিপে বহু সদস্যের চাঁদা এন্ট্রি (Bulk Bank Deposit)</span>
+                  <span>{activeLang === 'en' ? 'Single Bank Slip, Multi-Member Subscription Entry (Bulk Deposit)' : 'এক ব্যাংক স্লিপে বহু সদস্যের চাঁদা এন্ট্রি (Bulk Bank Deposit)'}</span>
                 </h3>
                 <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  একটি ব্যাংক রসিদ নম্বরের বিপরীতে একাধিক সদস্যের চাঁদা জমা, স্বয়ংক্রিয় পৃথক রসিদ ও একীভূত প্রতিবেদন
+                  {activeLang === 'en'
+                    ? 'Single bank receipt with multiple member subscriptions, automatic individual receipts & consolidated report'
+                    : 'একটি ব্যাংক রসিদ নম্বরের বিপরীতে একাধিক সদস্যের চাঁদা জমা, স্বয়ংক্রিয় পৃথক রসিদ ও একীভূত প্রতিবেদন'}
                 </p>
               </div>
 
@@ -5637,7 +5639,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <Plus size={14} />
-                  <span>{editingBulkDeposit ? '✏️ এন্ট্রি সম্পাদনা' : '📝 নতুন বাল্ক জমা এন্ট্রি'}</span>
+                  <span>{editingBulkDeposit ? (activeLang === 'en' ? '✏️ Edit Entry' : '✏️ এন্ট্রি সম্পাদনা') : (activeLang === 'en' ? '📝 New Bulk Deposit Entry' : '📝 নতুন বাল্ক জমা এন্ট্রি')}</span>
                 </button>
                 <button
                   type="button"
@@ -5657,7 +5659,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   }}
                 >
                   <FileText size={14} />
-                  <span>📑 পূর্ববর্তী রেকর্ড ও রিপোর্ট ({(data.bulkDeposits || []).length})</span>
+                  <span>{activeLang === 'en' ? `📑 Previous Records & Reports (${(data.bulkDeposits || []).length})` : `📑 পূর্ববর্তী রেকর্ড ও রিপোর্ট (${(data.bulkDeposits || []).length})`}</span>
                 </button>
               </div>
             </div>
@@ -5753,13 +5755,13 @@ export const SamityManagementHub = ({ onClose }) => {
 
                     <div>
                       <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '800', color: '#10b981', marginBottom: '4px' }}>
-                        ব্যাংক স্লিপের মোট টাকা (Total Slip Amount BDT) *
+                        {activeLang === 'en' ? 'Total Slip Amount (BDT) *' : 'ব্যাংক স্লিপের মোট টাকা (Total Slip Amount BDT) *'}
                       </label>
                       <input
                         type="number"
                         min="1"
                         required
-                        placeholder="যেমন: 50000"
+                        placeholder={activeLang === 'en' ? 'e.g. 50000' : 'যেমন: 50000'}
                         value={bulkDepositHead.totalSlipAmount}
                         onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, totalSlipAmount: e.target.value })}
                         style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '2px solid #10b981', color: '#34d399', fontSize: '1rem', fontWeight: '900' }}
@@ -5768,11 +5770,11 @@ export const SamityManagementHub = ({ onClose }) => {
 
                     <div>
                       <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
-                        জমাদানকারী / কোষাধ্যক্ষের নাম (Depositor Name)
+                        {activeLang === 'en' ? 'Depositor / Treasurer Name' : 'জমাদানকারী / কোষাধ্যক্ষের নাম (Depositor Name)'}
                       </label>
                       <input
                         type="text"
-                        placeholder="যেমন: তারেক হাসান (কোষাধ্যক্ষ)"
+                        placeholder={activeLang === 'en' ? 'e.g. Tariq Hasan (Treasurer)' : 'যেমন: তারেক হাসান (কোষাধ্যক্ষ)'}
                         value={bulkDepositHead.depositorName}
                         onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, depositorName: e.target.value })}
                         style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem' }}
@@ -5781,7 +5783,7 @@ export const SamityManagementHub = ({ onClose }) => {
 
                     <div>
                       <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>
-                        জমাদানকারীর মোবাইল নম্বর (Depositor Phone)
+                        {activeLang === 'en' ? 'Depositor Phone Number' : 'জমাদানকারীর মোবাইল নম্বর (Depositor Phone)'}
                       </label>
                       <input
                         type="tel"
@@ -5797,7 +5799,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '10px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
-                        📎 ব্যাংক ডিপোজিট স্লিপ ছবি আপলোড (Deposit Slip Attachment)
+                        {activeLang === 'en' ? '📎 Bank Deposit Slip Photo (Upload Attachment)' : '📎 ব্যাংক ডিপোজিট স্লিপ ছবি আপলোড (Deposit Slip Attachment)'}
                       </label>
                       <input
                         type="file"
@@ -5812,13 +5814,13 @@ export const SamityManagementHub = ({ onClose }) => {
                             alt="Slip Attachment"
                             style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' }}
                           />
-                          <span style={{ fontSize: '0.72rem', color: '#10b981' }}>✓ স্লিপ সংযুক্ত হয়েছে</span>
+                          <span style={{ fontSize: '0.72rem', color: '#10b981' }}>{activeLang === 'en' ? '✓ Slip attached' : '✓ স্লিপ সংযুক্ত হয়েছে'}</span>
                           <button
                             type="button"
                             onClick={() => setBulkDepositHead({ ...bulkDepositHead, slipImage: '' })}
                             style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer' }}
                           >
-                            মুছুন
+                            {activeLang === 'en' ? 'Remove' : 'মুছুন'}
                           </button>
                         </div>
                       )}
@@ -6032,7 +6034,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     </div>
 
                     <div>
-                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>ব্যাংক স্লিপের মোট টাকা:</div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? 'Total Amount on Slip:' : 'ব্যাংক স্লিপের মোট টাকা:'}</div>
                       <div style={{ fontSize: '1.15rem', fontWeight: '900', color: '#fff' }}>
                         ৳ {Number(bulkDepositHead.totalSlipAmount || 0).toLocaleString()}
                       </div>
@@ -6042,13 +6044,13 @@ export const SamityManagementHub = ({ onClose }) => {
                       {calculatedBulkSum === Number(bulkDepositHead.totalSlipAmount) && calculatedBulkSum > 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '900', fontSize: '0.95rem' }}>
                           <CheckCircle2 size={18} />
-                          <span>✓ সম্পূর্ণ মিলেছে (100% Matched)</span>
+                          <span>{activeLang === 'en' ? '✓ 100% Matched' : '✓ সম্পূর্ণ মিলেছে (100% Matched)'}</span>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: '900', fontSize: '0.95rem' }}>
                           <AlertTriangle size={18} />
                           <span>
-                            ব্যবধান / অমিল: ৳ {Math.abs(calculatedBulkSum - Number(bulkDepositHead.totalSlipAmount || 0)).toLocaleString()}
+                            {activeLang === 'en' ? 'Mismatch / Variance: ৳' : 'ব্যবধান / অমিল: ৳'} {Math.abs(calculatedBulkSum - Number(bulkDepositHead.totalSlipAmount || 0)).toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -6065,18 +6067,18 @@ export const SamityManagementHub = ({ onClose }) => {
                           onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, allowPartialMatch: e.target.checked })}
                           style={{ width: '16px', height: '16px', accentColor: '#f59e0b' }}
                         />
-                        <span>বিশেষ অনুমতিতে আংশিক অমিল সত্ত্বেও জমা সম্পন্ন করুন (Allow partial matching with special permission)</span>
+                        <span>{activeLang === 'en' ? 'Special Approval: Complete deposit despite partial mismatch' : 'বিশেষ অনুমতিতে আংশিক অমিল সত্ত্বেও জমা সম্পন্ন করুন (Allow partial matching with special permission)'}</span>
                       </label>
 
                       {bulkDepositHead.allowPartialMatch && (
                         <div style={{ marginTop: '10px' }}>
                           <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '4px' }}>
-                            অমিলের অনুমোদিত কারণ উল্লেখ করুন (Mismatch Reason) *
+                            {activeLang === 'en' ? 'Authorized Mismatch Reason *' : 'অমিলের অনুমোদিত কারণ উল্লেখ করুন (Mismatch Reason) *'}
                           </label>
                           <input
                             type="text"
                             required
-                            placeholder="যেমন: ব্যাংক চার্জ বা সার্ভিস ফি কর্তন / বাকি টাকা সমিতির সাধারণ তহবিলে জমা"
+                            placeholder={activeLang === 'en' ? 'e.g. Bank charge deducted / remaining deposited to general fund' : 'যেমন: ব্যাংক চার্জ বা সার্ভিস ফি কর্তন / বাকি টাকা সমিতির সাধারণ তহবিলে জমা'}
                             value={bulkDepositHead.mismatchReason}
                             onChange={(e) => setBulkDepositHead({ ...bulkDepositHead, mismatchReason: e.target.value })}
                             style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid rgba(245, 158, 11, 0.5)', color: '#fff', fontSize: '0.82rem' }}
@@ -6094,7 +6096,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         onClick={handleCancelEditBulkDeposit}
                         style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '10px', fontSize: '0.86rem', fontWeight: '700', cursor: 'pointer' }}
                       >
-                        বাতিল করুন
+                        {activeLang === 'en' ? 'Cancel' : 'বাতিল করুন'}
                       </button>
                     )}
                     <button
@@ -6116,7 +6118,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       }}
                     >
                       <Check size={18} />
-                      <span>{editingBulkDeposit ? '✓ বাল্ক জমা আপডেট ও রসিদ রি-জেনারেট করুন' : '✓ বাল্ক ডিপোজিট সংরক্ষণ ও সকল সদস্যের পৃথক রিসিট তৈরি করুন'}</span>
+                      <span>{editingBulkDeposit ? (activeLang === 'en' ? '✓ Update Bulk Deposit & Regenerate Receipts' : '✓ বাল্ক জমা আপডেট ও রসিদ রি-জেনারেট করুন') : (activeLang === 'en' ? '✓ Save Bulk Deposit & Generate Individual Receipts for All Members' : '✓ বাল্ক ডিপোজিট সংরক্ষণ ও সকল সদস্যের পৃথক রিসিট তৈরি করুন')}</span>
                     </button>
                   </div>
                 </form>
@@ -9911,13 +9913,15 @@ export const SamityManagementHub = ({ onClose }) => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>💸 সমিতির ব্যয় / খরচ ব্যবস্থাপনা (Expense Management)</span>
+                    <span>{activeLang === 'en' ? '💸 Samity Expense Management' : '💸 সমিতির ব্যয় / খরচ ব্যবস্থাপনা (Expense Management)'}</span>
                     <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '12px' }}>
-                      {samityExpenses.length} টি ভাউচার
+                      {samityExpenses.length} {activeLang === 'en' ? 'Vouchers' : 'টি ভাউচার'}
                     </span>
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    অফিস ভাড়া, ইউটিলিটি বিল, ইভেন্ট খরচ, ত্রাণ ও সমাজসেবামূলক ব্যয়ের খতিয়ান ও ৮টি পূর্ণাঙ্গ সাব-রিপোর্ট
+                    {activeLang === 'en'
+                      ? 'Ledgers for office rent, utilities, event expenses, relief & social welfare and 8 full sub-reports'
+                      : 'অফিস ভাড়া, ইউটিলিটি বিল, ইভেন্ট খরচ, ত্রাণ ও সমাজসেবামূলক ব্যয়ের খতিয়ান ও ৮টি পূর্ণাঙ্গ সাব-রিপোর্ট'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -9940,7 +9944,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     }}
                   >
                     <Plus size={16} />
-                    <span>+ খরচ এন্ট্রি করুন</span>
+                    <span>{activeLang === 'en' ? '+ New Expense Entry' : '+ খরচ এন্ট্রি করুন'}</span>
                   </button>
                 </div>
               </div>
@@ -9948,35 +9952,35 @@ export const SamityManagementHub = ({ onClose }) => {
               {/* 4 Summary Metrics Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                 <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '12px', padding: '14px' }}>
-                  <div style={{ fontSize: '0.74rem', color: '#f87171', fontWeight: '700' }}>সর্বমোট খরচ (Total Expenses)</div>
+                  <div style={{ fontSize: '0.74rem', color: '#f87171', fontWeight: '700' }}>{activeLang === 'en' ? 'Total Expenses' : 'সর্বমোট খরচ (Total Expenses)'}</div>
                   <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>
                     ৳ {totalExpenseAmt.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মোট {samityExpenses.length} টি ভাউচার রেকর্ড</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? `Total ${samityExpenses.length} Voucher Records` : `মোট ${samityExpenses.length} টি ভাউচার রেকর্ড`}</div>
                 </div>
 
                 <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '14px' }}>
-                  <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: '700' }}>অনুমোদিত ব্যয় (Approved)</div>
+                  <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: '700' }}>{activeLang === 'en' ? 'Approved Expenses' : 'অনুমোদিত ব্যয় (Approved)'}</div>
                   <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
                     ৳ {approvedExpenseAmt.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>মূল ফান্ড থেকে কর্তনযোগ্য খরচ</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? 'Deductible from Main Fund' : 'মূল ফান্ড থেকে কর্তনযোগ্য খরচ'}</div>
                 </div>
 
                 <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '12px', padding: '14px' }}>
-                  <div style={{ fontSize: '0.74rem', color: '#fbbf24', fontWeight: '700' }}>অপেক্ষমাণ ব্যয় (Pending)</div>
+                  <div style={{ fontSize: '0.74rem', color: '#fbbf24', fontWeight: '700' }}>{activeLang === 'en' ? 'Pending Expenses' : 'অপেক্ষমাণ ব্যয় (Pending)'}</div>
                   <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#f59e0b', marginTop: '2px' }}>
                     ৳ {pendingExpenseAmt.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>অ্যাডমিন অনুমোদনের অপেক্ষায়</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? 'Awaiting Admin Approval' : 'অ্যাডমিন অনুমোদনের অপেক্ষায়'}</div>
                 </div>
 
                 <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '14px' }}>
-                  <div style={{ fontSize: '0.74rem', color: '#60a5fa', fontWeight: '700' }}>ব্যাংক থেকে পরিশোধ (Bank Paid)</div>
+                  <div style={{ fontSize: '0.74rem', color: '#60a5fa', fontWeight: '700' }}>{activeLang === 'en' ? 'Bank Paid Expenses' : 'ব্যাংক থেকে পরিশোধ (Bank Paid)'}</div>
                   <div style={{ fontSize: '1.3rem', fontWeight: '900', color: '#3b82f6', marginTop: '2px' }}>
                     ৳ {samityExpenses.filter(e => e.paymentMethod === 'Bank').reduce((s, e) => s + Number(e.amount || 0), 0).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>চেক ও অনলাইন ব্যাংক ডেবিট</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? 'Cheque & Online Bank Debits' : 'চেক ও অনলাইন ব্যাংক ডেবিট'}</div>
                 </div>
               </div>
 
@@ -9996,7 +10000,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  📋 সকল খরচের খতিয়ান
+                  {activeLang === 'en' ? '📋 All Expense Ledgers' : '📋 সকল খরচের খতিয়ান'}
                 </button>
                 {EXPENSE_SUB_REPORTS.map(rep => (
                   <button
@@ -10014,7 +10018,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {rep.titleBn.split(' ')[0]} {rep.titleBn.split(' ')[1]}
+                    {activeLang === 'en' ? (rep.titleEn || rep.id) : `${rep.titleBn.split(' ')[0]} ${rep.titleBn.split(' ')[1]}`}
                   </button>
                 ))}
               </div>
@@ -10028,7 +10032,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
                       <input
                         type="text"
-                        placeholder="শিরোনাম, ভাউচার নং বা গ্রহীতার নাম..."
+                        placeholder={activeLang === 'en' ? 'Title, voucher no. or payee name...' : 'শিরোনাম, ভাউচার নং বা গ্রহীতার নাম...'}
                         value={expenseSearchQuery}
                         onChange={(e) => setExpenseSearchQuery(e.target.value)}
                         style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
@@ -10040,8 +10044,8 @@ export const SamityManagementHub = ({ onClose }) => {
                       onChange={(e) => setExpenseCategoryFilter(e.target.value)}
                       style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
                     >
-                      <option value="all">সকল খাত (All Categories)</option>
-                      {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.labelBn}</option>)}
+                      <option value="all">{activeLang === 'en' ? 'All Categories' : 'সকল খাত (All Categories)'}</option>
+                      {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{activeLang === 'en' ? (c.labelEn || c.labelBn) : c.labelBn}</option>)}
                     </select>
 
                     <select
@@ -10049,7 +10053,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       onChange={(e) => setExpenseMethodFilter(e.target.value)}
                       style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
                     >
-                      <option value="all">সকল মাধ্যম (All Methods)</option>
+                      <option value="all">{activeLang === 'en' ? 'All Methods' : 'সকল মাধ্যম (All Methods)'}</option>
                       {EXPENSE_PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
 
@@ -10058,10 +10062,10 @@ export const SamityManagementHub = ({ onClose }) => {
                       onChange={(e) => setExpenseApprovalFilter(e.target.value)}
                       style={{ padding: '6px 10px', borderRadius: '6px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '0.78rem' }}
                     >
-                      <option value="all">সকল স্ট্যাটাস</option>
-                      <option value="approved">অনুমোদিত (Approved)</option>
-                      <option value="pending">অপেক্ষমাণ (Pending)</option>
-                      <option value="rejected">প্রত্যাখ্যাত (Rejected)</option>
+                      <option value="all">{activeLang === 'en' ? 'All Statuses' : 'সকল স্ট্যাটাস'}</option>
+                      <option value="approved">{activeLang === 'en' ? 'Approved' : 'অনুমোদিত (Approved)'}</option>
+                      <option value="pending">{activeLang === 'en' ? 'Pending' : 'অপেক্ষমাণ (Pending)'}</option>
+                      <option value="rejected">{activeLang === 'en' ? 'Rejected' : 'প্রত্যাখ্যাত (Rejected)'}</option>
                     </select>
 
                     {(expenseSearchQuery || expenseCategoryFilter !== 'all' || expenseMethodFilter !== 'all' || expenseApprovalFilter !== 'all') && (
@@ -10074,7 +10078,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         }}
                         style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#94a3b8', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer' }}
                       >
-                        রিসেট
+                        {activeLang === 'en' ? 'Reset' : 'রিসেট'}
                       </button>
                     )}
                   </div>
@@ -10084,15 +10088,15 @@ export const SamityManagementHub = ({ onClose }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                       <thead>
                         <tr style={{ background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>ভাউচার নং</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>তারিখ</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>শিরোনাম ও বিবরণ</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>খাত</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>পেমেন্ট মাধ্যম</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>গ্রহীতা ও বিল নং</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>পরিমাণ (৳)</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>অনুমোদন</th>
-                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>অ্যাকশন</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Voucher No.' : 'ভাউচার নং'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>{activeLang === 'en' ? 'Date' : 'তারিখ'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Title & Description' : 'শিরোনাম ও বিবরণ'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Category' : 'খাত'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>{activeLang === 'en' ? 'Payment Method' : 'পেমেন্ট মাধ্যম'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '800' }}>{activeLang === 'en' ? 'Payee & Bill No.' : 'গ্রহীতা ও বিল নং'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: '800' }}>{activeLang === 'en' ? 'Amount (Tk)' : 'পরিমাণ (৳)'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>{activeLang === 'en' ? 'Approval' : 'অনুমোদন'}</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>{activeLang === 'en' ? 'Action' : 'অ্যাকশন'}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -10349,7 +10353,7 @@ export const SamityManagementHub = ({ onClose }) => {
               <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    ⚖️ তহবিল ও হিসাব সমীকরণ (Fund & Balance Calculation System)
+                    <span>{activeLang === 'en' ? '⚖️ Fund & Balance Accounting System' : '⚖️ তহবিল ও হিসাব সমীকরণ (Fund & Balance Calculation System)'}</span>
                   </h3>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
@@ -10365,7 +10369,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         cursor: 'pointer'
                       }}
                     >
-                      তহবিল ওভারভিউ
+                      {activeLang === 'en' ? 'Fund Overview' : 'তহবিল ওভারভিউ'}
                     </button>
                     <button
                       onClick={() => setFundViewTab('summary')}
@@ -10380,7 +10384,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         cursor: 'pointer'
                       }}
                     >
-                      মাসিক ও বার্ষিক সারসংক্ষেপ
+                      {activeLang === 'en' ? 'Monthly & Annual Summary' : 'মাসিক ও বার্ষিক সারসংক্ষেপ'}
                     </button>
                     <button
                       onClick={() => setFundViewTab('reconciliation')}
@@ -10395,7 +10399,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         cursor: 'pointer'
                       }}
                     >
-                      🏦 ব্যাংক রিকনসিলেশন
+                      {activeLang === 'en' ? '🏦 Bank Reconciliation' : '🏦 ব্যাংক রিকনসিলেশন'}
                     </button>
                   </div>
                 </div>
@@ -10413,48 +10417,50 @@ export const SamityManagementHub = ({ onClose }) => {
                     textAlign: 'center'
                   }}
                 >
-                  মোট ফান্ড = মোট অনুমোদিত জমা (৳{totalApprovedDepositsAmount.toLocaleString()}) - মোট অনুমোদিত খরচ (৳{totalApprovedExpensesAmount.toLocaleString()}) = ৳{totalSamityFund.toLocaleString()}
+                  {activeLang === 'en'
+                    ? `Total Fund = Total Approved Deposits (৳${totalApprovedDepositsAmount.toLocaleString()}) - Total Approved Expenses (৳${totalApprovedExpensesAmount.toLocaleString()}) = ৳${totalSamityFund.toLocaleString()}`
+                    : `মোট ফান্ড = মোট অনুমোদিত জমা (৳${totalApprovedDepositsAmount.toLocaleString()}) - মোট অনুমোদিত খরচ (৳${totalApprovedExpensesAmount.toLocaleString()}) = ৳${totalSamityFund.toLocaleString()}`}
                 </div>
 
                 {/* Separate Breakdown Metric Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginTop: '16px' }}>
                   <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#60a5fa', fontWeight: '700' }}>১. মোট ব্যাংক জমা (Bank Deposit)</div>
+                    <div style={{ fontSize: '0.74rem', color: '#60a5fa', fontWeight: '700' }}>{activeLang === 'en' ? '1. Total Bank Deposits' : '১. মোট ব্যাংক জমা (Bank Deposit)'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#3b82f6', marginTop: '2px' }}>
                       ৳ {totalBankDep.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>খরচ: ৳{totalBankExp.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? `Expense: ৳${totalBankExp.toLocaleString()}` : `খরচ: ৳${totalBankExp.toLocaleString()}`}</div>
                   </div>
 
                   <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: '700' }}>২. মোট নগদ ক্যাশ জমা (Cash Deposit)</div>
+                    <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: '700' }}>{activeLang === 'en' ? '2. Total Cash Deposits' : '২. মোট নগদ ক্যাশ জমা (Cash Deposit)'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
                       ৳ {totalCashDep.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>খরচ: ৳{totalCashExp.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? `Expense: ৳${totalCashExp.toLocaleString()}` : `খরচ: ৳${totalCashExp.toLocaleString()}`}</div>
                   </div>
 
                   <div style={{ background: 'rgba(236, 72, 153, 0.08)', border: '1px solid rgba(236, 72, 153, 0.3)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#f472b6', fontWeight: '700' }}>৩. মোট মোবাইল ব্যাংকিং জমা</div>
+                    <div style={{ fontSize: '0.74rem', color: '#f472b6', fontWeight: '700' }}>{activeLang === 'en' ? '3. Total Mobile Banking Deposits' : '৩. মোট মোবাইল ব্যাংকিং জমা'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ec4899', marginTop: '2px' }}>
                       ৳ {totalMobDep.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>খরচ: ৳{totalMobExp.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? `Expense: ৳${totalMobExp.toLocaleString()}` : `খরচ: ৳${totalMobExp.toLocaleString()}`}</div>
                   </div>
 
                   <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#f87171', fontWeight: '700' }}>৪. মোট অনুমোদিত ব্যয় (Total Expense)</div>
+                    <div style={{ fontSize: '0.74rem', color: '#f87171', fontWeight: '700' }}>{activeLang === 'en' ? '4. Total Approved Expenses' : '৪. মোট অনুমোদিত ব্যয় (Total Expense)'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ef4444', marginTop: '2px' }}>
                       ৳ {totalApprovedExpensesAmount.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>সকল অনুমোদিত ভাউচার</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeLang === 'en' ? 'All approved vouchers' : 'সকল অনুমোদিত ভাউচার'}</div>
                   </div>
                 </div>
 
                 {/* Available Net Balances */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginTop: '12px' }}>
                   <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>৫. বিদ্যমান নিট ব্যাংক ব্যালেন্স</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{activeLang === 'en' ? '5. Available Net Bank Balance' : '৫. বিদ্যমান নিট ব্যাংক ব্যালেন্স'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#38bdf8', marginTop: '2px' }}>
                       ৳ {availBankBalance.toLocaleString()}
                     </div>
@@ -10462,15 +10468,15 @@ export const SamityManagementHub = ({ onClose }) => {
                   </div>
 
                   <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>৬. বিদ্যমান নিট নগদ ক্যাশ ব্যালেন্স</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{activeLang === 'en' ? '6. Available Net Cash Balance' : '৬. বিদ্যমান নিট নগদ ক্যাশ ব্যালেন্স'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
                       ৳ {availCashBalance.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>কোষাধ্যক্ষের নিকট সংরক্ষিত ক্যাশ</div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{activeLang === 'en' ? 'Cash kept with Treasurer' : 'কোষাধ্যক্ষের নিকট সংরক্ষিত ক্যাশ'}</div>
                   </div>
 
                   <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(236, 72, 153, 0.4)', borderRadius: '10px', padding: '14px' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>৭. বিদ্যমান নিট মোবাইল ব্যালেন্স</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{activeLang === 'en' ? '7. Available Net Mobile Balance' : '৭. বিদ্যমান নিট মোবাইল ব্যালেন্স'}</div>
                     <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ec4899', marginTop: '2px' }}>
                       ৳ {availMobBalance.toLocaleString()}
                     </div>
@@ -10564,10 +10570,10 @@ export const SamityManagementHub = ({ onClose }) => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: '#38bdf8' }}>
-                        🏦 ব্যাংক রিকনসিলেশন বিবরণী (Bank Reconciliation Module)
+                        {activeLang === 'en' ? '🏦 Bank Reconciliation Statement' : '🏦 ব্যাংক রিকনসিলেশন বিবরণী (Bank Reconciliation Module)'}
                       </h4>
                       <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        সফটওয়্যারের ব্যাংক জমা বনাম ব্যাংকের মূল পাসবুক / স্টেটমেন্ট মিলকরণ
+                        {activeLang === 'en' ? 'Matching software bank records against physical bank passbook or statement' : 'সফটওয়্যারের ব্যাংক জমা বনাম ব্যাংকের মূল পাসবুক / স্টেটমেন্ট মিলকরণ'}
                       </p>
                     </div>
 
@@ -10582,11 +10588,11 @@ export const SamityManagementHub = ({ onClose }) => {
                             { date: today, reference: 'TRX-ONLINE-99', credit: 500, chequeNo: '' }
                           ];
                           setManualStatementRows(prev => [...newSample, ...prev]);
-                          showToast?.('টেস্ট ব্যাংক স্টেটমেন্ট এন্ট্রি সফলভাবে যুক্ত করা হয়েছে', 'success');
+                          showToast?.(activeLang === 'en' ? 'Sample bank statement entries added successfully' : 'টেস্ট ব্যাংক স্টেটমেন্ট এন্ট্রি সফলভাবে যুক্ত করা হয়েছে', 'success');
                         }}
                         style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#38bdf8', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
                       >
-                        + নমুনা স্টেটমেন্ট এন্ট্রি
+                        {activeLang === 'en' ? '+ Sample Statement Entry' : '+ নমুনা স্টেটমেন্ট এন্ট্রি'}
                       </button>
                     </div>
                   </div>
@@ -10594,28 +10600,28 @@ export const SamityManagementHub = ({ onClose }) => {
                   {/* Reconciliation Stats Card */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                     <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>সফটওয়্যারের মোট ব্যাংক জমা</div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{activeLang === 'en' ? 'Software Total Bank Deposit' : 'সফটওয়্যারের মোট ব্যাংক জমা'}</div>
                       <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#3b82f6', marginTop: '2px' }}>
                         ৳ {reconResult.summary.totalSoftwareBankDeposit.toLocaleString()}
                       </div>
                     </div>
 
                     <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>স্টেটমেন্টের মোট ক্রেডিট</div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{activeLang === 'en' ? 'Statement Total Credit' : 'স্টেটমেন্টের মোট ক্রেডিট'}</div>
                       <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981', marginTop: '2px' }}>
                         ৳ {reconResult.summary.totalStatementCredit.toLocaleString()}
                       </div>
                     </div>
 
                     <div style={{ background: 'rgba(15, 23, 42, 0.8)', padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>মিলকরণ স্থিতি (Matched)</div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{activeLang === 'en' ? 'Reconciliation Status (Matched)' : 'মিলকরণ স্থিতি (Matched)'}</div>
                       <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#34d399', marginTop: '2px' }}>
-                        {reconResult.summary.matchedCount} টি রেকর্ড মিলেছে
+                        {reconResult.summary.matchedCount} {activeLang === 'en' ? 'Records Matched' : 'টি রেকর্ড মিলেছে'}
                       </div>
                     </div>
 
                     <div style={{ background: reconResult.summary.discrepancy === 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', padding: '12px 14px', borderRadius: '10px', border: `1px solid ${reconResult.summary.discrepancy === 0 ? '#10b981' : '#ef4444'}` }}>
-                      <div style={{ fontSize: '0.72rem', color: reconResult.summary.discrepancy === 0 ? '#10b981' : '#f87171', fontWeight: '800' }}>পার্থক্য / অমিল (Discrepancy)</div>
+                      <div style={{ fontSize: '0.72rem', color: reconResult.summary.discrepancy === 0 ? '#10b981' : '#f87171', fontWeight: '800' }}>{activeLang === 'en' ? 'Discrepancy / Variance' : 'পার্থক্য / অমিল (Discrepancy)'}</div>
                       <div style={{ fontSize: '1.2rem', fontWeight: '900', color: reconResult.summary.discrepancy === 0 ? '#10b981' : '#ef4444', marginTop: '2px' }}>
                         ৳ {reconResult.summary.discrepancy.toLocaleString()}
                       </div>
@@ -10742,10 +10748,12 @@ export const SamityManagementHub = ({ onClose }) => {
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: '#f8fafc' }}>
-                      অফিসিয়াল বিজনেস প্যাড ও হেডার কনফিগারেশন
+                      {activeLang === 'en' ? 'Official Business Letterhead & Header Configuration' : 'অফিসিয়াল বিজনেস প্যাড ও হেডার কনফিগারেশন'}
                     </h3>
                     <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-muted, #94a3b8)' }}>
-                      সমিতির নাম, লোগো আপলোড, প্যাডের হেডার প্লেসমেন্ট ও প্রিন্ট ফরম্যাট কাস্টমাইজ করুন
+                      {activeLang === 'en'
+                        ? 'Customize Samity name, logo upload, pad header placement and print layout'
+                        : 'সমিতির নাম, লোগো আপলোড, প্যাডের হেডার প্লেসমেন্ট ও প্রিন্ট ফরম্যাট কাস্টমাইজ করুন'}
                     </p>
                   </div>
                 </div>
@@ -10755,7 +10763,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     onClick={() => {
                       playSuccessChime?.();
                       triggerHaptic();
-                      showToast?.('বিজনেস প্যাড ও হেডারের সেটিংস সফলভাবে সংরক্ষিত হয়েছে!', 'success');
+                      showToast?.(activeLang === 'en' ? 'Letterhead & header settings saved successfully!' : 'বিজনেস প্যাড ও হেডারের সেটিংস সফলভাবে সংরক্ষিত হয়েছে!', 'success');
                     }}
                     style={{
                       background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -10773,7 +10781,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     }}
                   >
                     <Check size={15} />
-                    <span>সেটিংস সংরক্ষণ করুন</span>
+                    <span>{activeLang === 'en' ? 'Save Settings' : 'সেটিংস সংরক্ষণ করুন'}</span>
                   </button>
                 </div>
               </div>
@@ -10784,7 +10792,7 @@ export const SamityManagementHub = ({ onClose }) => {
                 <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '8px' }}>
                     <ImageIcon size={16} color="#2dd4bf" />
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>সমিতির লোগো ও অবস্থান</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>{activeLang === 'en' ? 'Samity Logo & Placement' : 'সমিতির লোগো ও অবস্থান'}</span>
                   </div>
 
                   {/* Logo Preview & Action */}
@@ -10857,7 +10865,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         }}
                       >
                         <Upload size={14} />
-                        <span>{currentSamity.logo ? 'লোগো পরিবর্তন করুন' : 'লোগো ফাইল আপলোড'}</span>
+                        <span>{currentSamity.logo ? (activeLang === 'en' ? 'Change Logo' : 'লোগো পরিবর্তন করুন') : (activeLang === 'en' ? 'Upload Logo File' : 'লোগো ফাইল আপলোড')}</span>
                       </button>
 
                       {currentSamity.logo && (
@@ -10871,7 +10879,7 @@ export const SamityManagementHub = ({ onClose }) => {
                               module: 'BUSINESS_PAD',
                               details: { samityId: activeSamityId }
                             });
-                            showToast?.('লোগো মুছে ফেলা হয়েছে', 'info');
+                            showToast?.(activeLang === 'en' ? 'Logo removed' : 'লোগো মুছে ফেলা হয়েছে', 'info');
                           }}
                           style={{
                             background: 'rgba(239, 68, 68, 0.12)',
@@ -10889,7 +10897,7 @@ export const SamityManagementHub = ({ onClose }) => {
                           }}
                         >
                           <Trash2 size={12} />
-                          <span>লোগো রিমুভ</span>
+                          <span>{activeLang === 'en' ? 'Remove Logo' : 'লোগো রিমুভ'}</span>
                         </button>
                       )}
                     </div>
@@ -10898,13 +10906,13 @@ export const SamityManagementHub = ({ onClose }) => {
                   {/* Logo Placement Buttons */}
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '5px' }}>
-                      প্যাডে লোগোর অবস্থান (Placement):
+                      {activeLang === 'en' ? 'Logo Placement on Pad:' : 'প্যাডে লোগোর অবস্থান (Placement):'}
                     </label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                       {[
-                        { id: 'left', label: 'বামে (Left)' },
-                        { id: 'center', label: 'মাঝে (Center)' },
-                        { id: 'right', label: 'ডানে (Right)' }
+                        { id: 'left', label: activeLang === 'en' ? 'Left' : 'বামে (Left)' },
+                        { id: 'center', label: activeLang === 'en' ? 'Center' : 'মাঝে (Center)' },
+                        { id: 'right', label: activeLang === 'en' ? 'Right' : 'ডানে (Right)' }
                       ].map(pos => {
                         const isSelected = (data.letterhead?.logoPosition || 'left') === pos.id;
                         return (
@@ -10938,7 +10946,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   {/* Logo Size Range */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      <span>লোগোর আকার (Size):</span>
+                      <span>{activeLang === 'en' ? 'Logo Size:' : 'লোগোর আকার (Size):'}</span>
                       <strong style={{ color: '#2dd4bf' }}>{data.letterhead?.logoSize || 64} px</strong>
                     </div>
                     <input
@@ -10964,7 +10972,7 @@ export const SamityManagementHub = ({ onClose }) => {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <FileText size={16} color="#10b981" />
-                      <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>কাস্টম লেটারপ্যাড ব্যানার</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>{activeLang === 'en' ? 'Custom Letterpad Banner' : 'কাস্টম লেটারপ্যাড ব্যানার'}</span>
                     </div>
                     {currentSamity.letterpadImage && (
                       <button
@@ -10977,7 +10985,7 @@ export const SamityManagementHub = ({ onClose }) => {
                             module: 'BUSINESS_PAD',
                             details: { samityId: activeSamityId }
                           });
-                          showToast?.('লেটারপ্যাড ব্যানার মুছে ফেলা হয়েছে', 'info');
+                          showToast?.(activeLang === 'en' ? 'Letterpad banner removed' : 'লেটারপ্যাড ব্যানার মুছে ফেলা হয়েছে', 'info');
                         }}
                         style={{
                           background: 'rgba(239, 68, 68, 0.12)',
@@ -10990,7 +10998,7 @@ export const SamityManagementHub = ({ onClose }) => {
                           cursor: 'pointer'
                         }}
                       >
-                        রিমুভ
+                        {activeLang === 'en' ? 'Remove' : 'রিমুভ'}
                       </button>
                     )}
                   </div>
@@ -11006,7 +11014,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       </div>
                     ) : (
                       <div style={{ padding: '8px', textAlign: 'center', color: '#64748b', fontSize: '0.72rem', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
-                        রেডিমেড প্যাডের ছবি থাকলে আপলোড করুন
+                        {activeLang === 'en' ? 'Upload pre-printed pad graphic banner if available' : 'রেডিমেড প্যাডের ছবি থাকলে আপলোড করুন'}
                       </div>
                     )}
                   </div>
@@ -11020,7 +11028,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       try {
-                        showToast?.('লেটারপ্যাড অপটিমাইজ করা হচ্ছে...', 'info');
+                        showToast?.(activeLang === 'en' ? 'Optimizing letterpad banner...' : 'লেটারপ্যাড অপটিমাইজ করা হচ্ছে...', 'info');
                         const compressed = await compressImageFile(file, { maxWidth: 1400, maxHeight: 600, quality: 0.86 });
                         updateAndSave(prev => ({
                           ...prev,
@@ -11030,9 +11038,9 @@ export const SamityManagementHub = ({ onClose }) => {
                           module: 'BUSINESS_PAD',
                           details: { samityId: activeSamityId, name: currentSamity.nameBn }
                         });
-                        showToast?.('কাস্টম লেটারপ্যাড ব্যানার সফলভাবে সংরক্ষিত হয়েছে!', 'success');
+                        showToast?.(activeLang === 'en' ? 'Custom letterpad banner saved successfully!' : 'কাস্টম লেটারপ্যাড ব্যানার সফলভাবে সংরক্ষিত হয়েছে!', 'success');
                       } catch (err) {
-                        showToast?.('লেটারপ্যাড আপলোড ব্যর্থ হয়েছে', 'error');
+                        showToast?.(activeLang === 'en' ? 'Failed to upload letterpad' : 'লেটারপ্যাড আপলোড ব্যর্থ হয়েছে', 'error');
                       }
                     }}
                   />
@@ -11055,7 +11063,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     }}
                   >
                     <Upload size={13} />
-                    <span>{currentSamity.letterpadImage ? 'লেটারপ্যাড ছবি পরিবর্তন' : 'লেটারপ্যাড ছবি আপলোড'}</span>
+                    <span>{currentSamity.letterpadImage ? (activeLang === 'en' ? 'Change Letterpad Image' : 'লেটারপ্যাড ছবি পরিবর্তন') : (activeLang === 'en' ? 'Upload Letterpad Image' : 'লেটারপ্যাড ছবি আপলোড')}</span>
                   </button>
                 </div>
 
@@ -11063,13 +11071,13 @@ export const SamityManagementHub = ({ onClose }) => {
                 <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '8px' }}>
                     <Edit3 size={16} color="#38bdf8" />
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>প্যাড হেডার তথ্য এডিটর</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>{activeLang === 'en' ? 'Letterpad Header Info Editor' : 'প্যাড হেডার তথ্য এডিটর'}</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                        সমিতির নাম (বাংলায়) *
+                        {activeLang === 'en' ? 'Samity Name (Bengali) *' : 'সমিতির নাম (বাংলায়) *'}
                       </label>
                       <input
                         type="text"
@@ -11087,7 +11095,7 @@ export const SamityManagementHub = ({ onClose }) => {
 
                     <div>
                       <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                        সমিতির নাম (ইংরেজিতে) *
+                        {activeLang === 'en' ? 'Samity Name (English) *' : 'সমিতির নাম (ইংরেজিতে) *'}
                       </label>
                       <input
                         type="text"
@@ -11106,7 +11114,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                          স্লোগান (Slogan)
+                          {activeLang === 'en' ? 'Slogan / Motto' : 'স্লোগান (Slogan)'}
                         </label>
                         <input
                           type="text"
@@ -11124,7 +11132,7 @@ export const SamityManagementHub = ({ onClose }) => {
 
                       <div>
                         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                          সরকারি নিবন্ধন নং
+                          {activeLang === 'en' ? 'Govt Reg. No.' : 'সরকারি নিবন্ধন নং'}
                         </label>
                         <input
                           type="text"
@@ -11144,7 +11152,7 @@ export const SamityManagementHub = ({ onClose }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                          ঠিকানা
+                          {activeLang === 'en' ? 'Address' : 'ঠিকানা'}
                         </label>
                         <input
                           type="text"
@@ -11162,7 +11170,7 @@ export const SamityManagementHub = ({ onClose }) => {
 
                       <div>
                         <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                          মোবাইল / হেল্পলাইন
+                          {activeLang === 'en' ? 'Mobile / Helpline' : 'মোবাইল / হেল্পলাইন'}
                         </label>
                         <input
                           type="text"
@@ -11185,21 +11193,21 @@ export const SamityManagementHub = ({ onClose }) => {
                 <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '8px' }}>
                     <Sliders size={16} color="#f59e0b" />
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>প্যাড স্টাইল ও বর্ডার</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc' }}>{activeLang === 'en' ? 'Letterpad Style & Theme' : 'প্যাড স্টাইল ও বর্ডার'}</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '5px' }}>
-                        প্যাড বর্ডার ও থিম কালার:
+                        {activeLang === 'en' ? 'Pad Border & Theme Color:' : 'প্যাড বর্ডার ও থিম কালার:'}
                       </label>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {[
-                          { color: '#0f172a', name: 'ডার্ক নেভি' },
-                          { color: '#2563eb', name: 'রয়্যাল ব্লু' },
-                          { color: '#059669', name: 'এমারেল্ড গ্রিন' },
-                          { color: '#b45309', name: 'গোল্ডেন ব্রোঞ্জ' },
-                          { color: '#7c3aed', name: 'পার্পল' }
+                          { color: '#0f172a', name: activeLang === 'en' ? 'Dark Navy' : 'ডার্ক নেভি' },
+                          { color: '#2563eb', name: activeLang === 'en' ? 'Royal Blue' : 'রয়্যাল ব্লু' },
+                          { color: '#059669', name: activeLang === 'en' ? 'Emerald Green' : 'এমারেল্ড গ্রিন' },
+                          { color: '#b45309', name: activeLang === 'en' ? 'Golden Bronze' : 'গোল্ডেন ব্রোঞ্জ' },
+                          { color: '#7c3aed', name: activeLang === 'en' ? 'Purple' : 'পার্পল' }
                         ].map(c => (
                           <div
                             key={c.color}
@@ -12805,7 +12813,7 @@ export const SamityManagementHub = ({ onClose }) => {
                         gap: '6px'
                       }}
                     >
-                      <span>{isServiceEnabled ? 'সার্ভিস খুলুন' : 'লকড / নিষ্ক্রিয়'}</span>
+                      <span>{isServiceEnabled ? (activeLang === 'en' ? 'Open Service' : 'সার্ভিস খুলুন') : (activeLang === 'en' ? 'Locked / Inactive' : 'লকড / নিষ্ক্রিয়')}</span>
                       <ArrowUpRight size={13} />
                     </button>
                   </div>
