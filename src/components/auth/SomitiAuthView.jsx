@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Users,
   Lock,
@@ -15,7 +15,8 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
-  X
+  X,
+  Globe
 } from 'lucide-react';
 import {
   signInWithEmail,
@@ -24,8 +25,14 @@ import {
   sendPasswordResetEmail
 } from '../../services/somitiAuthService';
 import { isSupabaseReady } from '../../services/supabaseClient';
+import { useApp } from '../../context/AppContext';
+import { useSamityTranslator } from '../../utils/samityDictionary';
 
 export const SomitiAuthView = ({ onAuthSuccess }) => {
+  const { lang = 'bn', setLang } = useApp() || {};
+  const authContainerRef = useRef(null);
+  const { t } = useSamityTranslator(authContainerRef, lang);
+
   const [authView, setAuthView] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [loginMethod, setLoginMethod] = useState('email'); // 'email' | 'pin'
   const [loading, setLoading] = useState(false);
@@ -186,6 +193,7 @@ export const SomitiAuthView = ({ onAuthSuccess }) => {
       }}
     >
       <div
+        ref={authContainerRef}
         className="modal-content animate-fade-in android-scroll-view"
         style={{
           maxWidth: '480px',
@@ -244,7 +252,7 @@ export const SomitiAuthView = ({ onAuthSuccess }) => {
                     letterSpacing: '-0.01em'
                   }}
                 >
-                  সমিতি ৩৬০
+                  {lang === 'en' ? 'Somiti 360' : 'সমিতি ৩৬০'}
                 </h3>
                 <span
                   style={{
@@ -283,11 +291,45 @@ export const SomitiAuthView = ({ onAuthSuccess }) => {
                   }}
                 />
                 <span style={{ color: isSupabaseActive ? '#10b981' : '#ef4444', fontWeight: '700' }}>
-                  {isSupabaseActive ? 'সুপাবেস ক্লাউড সক্রিয়' : 'সুপাবেস অফলাইন মোড'}
+                  {isSupabaseActive 
+                    ? (lang === 'en' ? 'Supabase Cloud Active' : 'সুপাবেস ক্লাউড সক্রিয়') 
+                    : (lang === 'en' ? 'Supabase Offline Mode' : 'সুপাবেস অফলাইন মোড')}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Bilingual Language Switcher Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = lang === 'en' ? 'bn' : 'en';
+              if (setLang) setLang(next);
+              try {
+                localStorage.setItem('samity_lang', next);
+                localStorage.setItem('somiti360_lang', next);
+                localStorage.setItem('hisabkitab_lang', next);
+              } catch {}
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(20, 184, 166, 0.15)',
+              border: '1px solid rgba(20, 184, 166, 0.35)',
+              color: '#5eead4',
+              fontSize: '0.78rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title={lang === 'en' ? 'বাংলা ভাষায় পরিবর্তন করুন' : 'Switch to English'}
+          >
+            <Globe size={14} />
+            <span>{lang === 'en' ? '🇧🇩 বাংলা' : '🇬🇧 English'}</span>
+          </button>
         </div>
 
         {/* ========================================================= */}

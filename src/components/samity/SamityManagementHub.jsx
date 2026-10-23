@@ -117,14 +117,20 @@ import { broadcastLiveEvent, subscribeLiveSync } from '../../services/liveSyncSe
 import { useSamityTranslator, translateSamityText } from '../../utils/samityDictionary';
 
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
+// Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
 export const toBanglaNum = (num) => {
+  if (num === null || num === undefined) return '';
   try {
     const l = typeof window !== 'undefined' && (localStorage.getItem('samity_lang') || localStorage.getItem('hisabkitab_lang') || localStorage.getItem('somiti360_lang'));
-    if (l === 'en') return String(num ?? '');
+    if (l === 'en') {
+      const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+      return String(num).replace(/[০-৯]/g, (d) => bnDigits.indexOf(d));
+    }
   } catch {}
   const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-  return String(num ?? '').replace(/[0-9]/g, (d) => bn[d]);
+  return String(num).replace(/[0-9]/g, (d) => bn[d]);
 };
+
 
 // Member List Excel (.xlsx) Exporter with Unicode Support
 export const exportMembersToExcel = (xlsx, members = [], samity = {}) => {

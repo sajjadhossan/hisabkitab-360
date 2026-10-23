@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   CheckCircle2,
@@ -11,8 +11,10 @@ import {
   ExternalLink,
   Award,
   Hash,
-  Download
+  Download,
+  Globe
 } from 'lucide-react';
+import { useSamityTranslator } from '../../utils/samityDictionary';
 
 /**
  * SamityDocVerificationView
@@ -23,6 +25,11 @@ import {
  */
 export const SamityDocVerificationView = ({ verifyData, onBackToApp }) => {
   const [copied, setCopied] = useState(false);
+  const [lang, setLang] = useState(() => {
+    return (typeof window !== 'undefined' && (localStorage.getItem('samity_lang') || localStorage.getItem('somiti360_lang') || localStorage.getItem('hisabkitab_lang'))) || 'bn';
+  });
+  const containerRef = useRef(null);
+  const { t } = useSamityTranslator(containerRef, lang);
 
   // Parse parameters from props or window URL
   const query = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -50,6 +57,7 @@ export const SamityDocVerificationView = ({ verifyData, onBackToApp }) => {
 
   return (
     <div
+      ref={containerRef}
       style={{
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
@@ -62,7 +70,7 @@ export const SamityDocVerificationView = ({ verifyData, onBackToApp }) => {
         justifyContent: 'flex-start'
       }}
     >
-      {/* Top Bar with Back and Print */}
+      {/* Top Bar with Back, Language and Print */}
       <div
         style={{
           width: '100%',
@@ -92,10 +100,39 @@ export const SamityDocVerificationView = ({ verifyData, onBackToApp }) => {
           }}
         >
           <ArrowLeft size={16} />
-          <span>মূল সফটওয়্যারে ফিরুন</span>
+          <span>{lang === 'en' ? 'Back to Application' : 'মূল সফটওয়্যারে ফিরুন'}</span>
         </button>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              const next = lang === 'en' ? 'bn' : 'en';
+              setLang(next);
+              try {
+                localStorage.setItem('samity_lang', next);
+                localStorage.setItem('somiti360_lang', next);
+                localStorage.setItem('hisabkitab_lang', next);
+              } catch {}
+            }}
+            style={{
+              background: 'rgba(20, 184, 166, 0.15)',
+              border: '1px solid rgba(20, 184, 166, 0.35)',
+              color: '#5eead4',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '0.82rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title={lang === 'en' ? 'বাংলা ভাষায় পরিবর্তন করুন' : 'Switch to English'}
+          >
+            <Globe size={15} />
+            <span>{lang === 'en' ? '🇧🇩 বাংলা' : '🇬🇧 English'}</span>
+          </button>
+
           <button
             onClick={handleCopyLink}
             style={{
@@ -113,7 +150,7 @@ export const SamityDocVerificationView = ({ verifyData, onBackToApp }) => {
             }}
           >
             <Copy size={15} />
-            <span>{copied ? '✓ লিংক কপি হয়েছে' : 'লিংক কপি'}</span>
+            <span>{copied ? (lang === 'en' ? '✓ Link Copied' : '✓ লিংক কপি হয়েছে') : (lang === 'en' ? 'Copy Link' : 'লিংক কপি')}</span>
           </button>
 
           <button
@@ -134,7 +171,7 @@ export const SamityDocVerificationView = ({ verifyData, onBackToApp }) => {
             }}
           >
             <Printer size={15} />
-            <span>প্রিন্ট / সেভ</span>
+            <span>{lang === 'en' ? 'Print / Save' : 'প্রিন্ট / সেভ'}</span>
           </button>
         </div>
       </div>
