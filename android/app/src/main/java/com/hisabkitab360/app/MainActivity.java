@@ -16,6 +16,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 
+public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQ_CODE = 1001;
     private static final int FILE_CHOOSER_REQ_CODE = 2001;
     private android.webkit.ValueCallback<android.net.Uri[]> mUploadCallback;

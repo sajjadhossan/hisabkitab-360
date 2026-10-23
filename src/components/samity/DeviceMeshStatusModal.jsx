@@ -191,7 +191,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
         </div>
 
         {/* 1. Synced Device Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '14px' }}>
           {platforms.map(p => {
             const isThis = currentPlatform === p.id || (currentPlatform === 'mobile' && p.id === 'apk');
             return (
@@ -229,9 +229,15 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
                     <span style={{ fontSize: '0.85rem', fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>
                       {p.name}
                     </span>
-                    <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '8px' }}>
-                      🟢 {t('কানেক্টেড', 'Connected')}
-                    </span>
+                    {isThis ? (
+                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px' }}>
+                        🟢 {t('এই ডিভাইস (সক্রিয়)', 'This Device (Active)')}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)', color: isLight ? '#64748b' : '#94a3b8', padding: '2px 7px', borderRadius: '8px' }}>
+                        ⚪ {t('স্ট্যান্ডবাই (রেডি)', 'Standby (Ready)')}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.tag}
@@ -240,6 +246,11 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
               </div>
             );
           })}
+        </div>
+
+        {/* Real-time Architecture Notice */}
+        <div style={{ background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.5)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '10px 14px', marginBottom: '18px', fontSize: '0.74rem', color: isLight ? '#475569' : '#94a3b8', lineHeight: 1.5 }}>
+          💡 <strong style={{ color: isLight ? '#0f172a' : '#f8fafc' }}>{t('ডিভাইস মেশ স্ট্যাটাস ব্যাখ্যা:', 'Device Mesh Explanation:')}</strong> {t('বর্তমানে আপনি যে ডিভাইসে আছেন সেটি সক্রিয়ভাবে লাইভ ডাটা পাঠাচ্ছে ও গ্রহণ করছে। বাকি প্ল্যাটফর্মগুলো স্ট্যান্ডবাই রেডি মোডে রয়েছে—মোবাইল বা পিসিতে অ্যাপ ওপেন করা মাত্রই সিঙ্ক হয়ে যাবে।', 'The device you are currently on is active. Other platforms are in Standby Ready mode and will sync instantly once opened.')}
         </div>
 
         {/* 2. Telegram Cloud Auto-Backup & Exact Timestamp Card */}

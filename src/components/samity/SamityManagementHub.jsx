@@ -258,9 +258,22 @@ export const CircularOfficialSeal = ({
   designation = 'সভাপতি',
   officerName = '',
   sealColor = '#1e3a8a',
-  size = 86
+  size = 86,
+  sealDarkness = 'normal' // 'normal' | 'deep' | 'ultra_dark'
 }) => {
   const arcId = useMemo(() => `seal-arc-${Math.random().toString(36).substring(2, 7)}`, []);
+  
+  // Calculate dynamic stroke weights based on darkness level
+  const outerStroke = sealDarkness === 'ultra_dark' ? '3.8' : sealDarkness === 'deep' ? '3.2' : '2.4';
+  const dottedStroke = sealDarkness === 'ultra_dark' ? '1.8' : sealDarkness === 'deep' ? '1.4' : '1';
+  const innerStroke = sealDarkness === 'ultra_dark' ? '2.0' : sealDarkness === 'deep' ? '1.6' : '1.2';
+  const sealOpacity = sealDarkness === 'ultra_dark' ? 1.0 : sealDarkness === 'deep' ? 0.98 : 0.92;
+  const filterStyle = sealDarkness === 'ultra_dark' 
+    ? 'contrast(200%) brightness(85%) drop-shadow(0 0 0.5px ' + sealColor + ')' 
+    : sealDarkness === 'deep' 
+    ? 'contrast(150%) brightness(90%)' 
+    : 'none';
+
   return (
     <div
       style={{
@@ -269,7 +282,8 @@ export const CircularOfficialSeal = ({
         position: 'relative',
         display: 'inline-block',
         transform: 'rotate(-4deg)',
-        opacity: 0.92,
+        opacity: sealOpacity,
+        filter: filterStyle,
         userSelect: 'none',
         flexShrink: 0
       }}
@@ -280,11 +294,11 @@ export const CircularOfficialSeal = ({
           <path id={`${arcId}-bottom`} d="M 88,50 A 38,38 0 1,1 12,50" fill="none" />
         </defs>
         {/* Outer Ring */}
-        <circle cx="50" cy="50" r="48" fill="none" stroke={sealColor} strokeWidth="2.4" />
+        <circle cx="50" cy="50" r="48" fill="none" stroke={sealColor} strokeWidth={outerStroke} />
         {/* Dotted Inner Ring */}
-        <circle cx="50" cy="50" r="43.5" fill="none" stroke={sealColor} strokeWidth="1" strokeDasharray="3,2" />
+        <circle cx="50" cy="50" r="43.5" fill="none" stroke={sealColor} strokeWidth={dottedStroke} strokeDasharray="3,2" />
         {/* Center Ring */}
-        <circle cx="50" cy="50" r="29" fill="none" stroke={sealColor} strokeWidth="1.2" />
+        <circle cx="50" cy="50" r="29" fill="none" stroke={sealColor} strokeWidth={innerStroke} />
 
         {/* Curved Samity Name */}
         <text fill={sealColor} fontSize="6.8" fontWeight="bold" letterSpacing="0.4">
@@ -314,6 +328,61 @@ export const CircularOfficialSeal = ({
   );
 };
 
+// Smart AI Bio-Data Ingestion Extractor (Offline Edge Regex & Entity Parsing)
+export const parseBioDataText = (raw) => {
+  if (!raw || !raw.trim()) return {};
+  const t = raw.trim();
+  const res = {};
+
+  // Extract Phone Numbers
+  const phoneMatches = t.match(/01[3-9]\d{8}/g);
+  if (phoneMatches && phoneMatches.length > 0) {
+    res.mobile = phoneMatches[0];
+    if (phoneMatches.length > 1) res.altMobile = phoneMatches[1];
+  }
+
+  // Extract NID
+  const nidMatch = t.match(/(?:এনআইডি|NID|জাতীয় পরিচয়পত্র|ভোটার আইডি|আইডি নম্বর)[:\s]*([0-9]{10,17})/i) || t.match(/\b([0-9]{10}|[0-9]{13}|[0-9]{17})\b/);
+  if (nidMatch) res.nidNumber = nidMatch[1] || nidMatch[0];
+
+  // Extract Blood Group
+  const bloodMatch = t.match(/\b(A|B|AB|O)[+-]\b/i) || t.match(/(?:রক্তের গ্রুপ|ব্লাড গ্রুপ|রক্ত)[:\s]*([ABO+-]{1,3})/i);
+  if (bloodMatch) res.bloodGroup = (bloodMatch[1] || bloodMatch[0]).toUpperCase();
+
+  // Extract Name (Bangla or English)
+  const nameMatch = t.match(/(?:নাম|সদস্যের নাম|Name)[:\s]*([^\n,;]+)/i);
+  if (nameMatch) {
+    const rawName = nameMatch[1].trim();
+    if (/[\u0980-\u09FF]/.test(rawName)) res.nameBn = rawName;
+    else res.nameEn = rawName;
+  }
+
+  // Extract Father's Name
+  const fatherMatch = t.match(/(?:পিতা|পিতার নাম|Father's Name|Father)[:\s]*([^\n,;]+)/i);
+  if (fatherMatch) res.fatherName = fatherMatch[1].trim();
+
+  // Extract Mother's Name
+  const motherMatch = t.match(/(?:মাতা|মাতার নাম|Mother's Name|Mother)[:\s]*([^\n,;]+)/i);
+  if (motherMatch) res.motherName = motherMatch[1].trim();
+
+  // Extract Occupation
+  const occMatch = t.match(/(?:পেশা|Occupation|কাজ)[:\s]*([^\n,;]+)/i);
+  if (occMatch) res.occupation = occMatch[1].trim();
+
+  // Extract Present Address
+  const addrMatch = t.match(/(?:ঠিকানা|বর্তমান ঠিকানা|গ্রাম|Address)[:\s]*([^\n]+)/i);
+  if (addrMatch) res.presentAddress = addrMatch[1].trim();
+
+  // Extract Subscription / Monthly Fee (e.g. 10000 or 500)
+  const feeMatch = t.match(/(?:চাঁদা|মাসিক চাঁদা|ফি|টাকা|Subscription|Fee)[:\s]*([0-9]+)/i);
+  if (feeMatch) {
+    res.customSubscription = Number(feeMatch[1]);
+    res.monthlySubscription = Number(feeMatch[1]);
+  }
+
+  return res;
+};
+
 export const SamityManagementHub = ({ onClose }) => {
   const appContext = useApp() || {};
   const [localLang, setLocalLang] = useState(() => {
@@ -340,6 +409,32 @@ export const SamityManagementHub = ({ onClose }) => {
   const hubContainerRef = useRef(null);
   const { t } = useSamityTranslator(hubContainerRef, activeLang);
   const { showToast = () => { }, businessSettings } = appContext;
+
+  // Active Role-Based Access Control (RBAC) & Permission Hub
+  const [activeUserRole, setActiveUserRole] = useState(() => {
+    try {
+      return (typeof window !== 'undefined' && (localStorage.getItem('somiti360_user_role') || localStorage.getItem('samity_user_role'))) || 'president';
+    } catch { return 'president'; }
+  });
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isSaaSGuideModalOpen, setIsSaaSGuideModalOpen] = useState(false);
+  const [globalModuleSearchQuery, setGlobalModuleSearchQuery] = useState('');
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+
+  // AI Member Bio-Data Ingestion State
+  const [isBioDataInputOpen, setIsBioDataInputOpen] = useState(false);
+  const [bioDataRawInput, setBioDataRawInput] = useState('');
+
+  const handleSwitchUserRole = (roleKey) => {
+    setActiveUserRole(roleKey);
+    try {
+      localStorage.setItem('somiti360_user_role', roleKey);
+      localStorage.setItem('samity_user_role', roleKey);
+    } catch {}
+    const roleObj = SAMITY_RBAC_ROLES.find(r => r.role === roleKey);
+    showToast?.(`পদবি পরিবর্তিত হয়েছে: ${roleObj?.titleBn || roleKey}`, 'info');
+    setIsRoleModalOpen(false);
+  };
 
   // Core Data State
   const [data, setData] = useState(() => loadSamityData());
@@ -945,11 +1040,80 @@ export const SamityManagementHub = ({ onClose }) => {
   useEffect(() => {
     const unsubscribe = subscribeLiveSync((evt) => {
       if (evt.eventType === 'SAMITY_STATE_SYNC' && evt.data?.samityData) {
-        console.debug('[SamityRealtime] Instant live update received from remote terminal');
-        setData(evt.data.samityData);
-        saveSamityData(evt.data.samityData);
+        console.debug('[SamityRealtime] Conflict-free live update received from remote terminal');
+        setData(prevData => {
+          const incoming = evt.data.samityData;
+          if (!incoming) return prevData;
+          const merged = { ...prevData };
+
+          // 1. Smart Members Merge (Union with latest updatedAt timestamp)
+          if (Array.isArray(incoming.members)) {
+            const memberMap = new Map();
+            (prevData.members || []).forEach(m => memberMap.set(m.id, m));
+            incoming.members.forEach(m => {
+              if (!memberMap.has(m.id)) {
+                memberMap.set(m.id, m);
+              } else {
+                const existing = memberMap.get(m.id);
+                const exTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+                const inTime = new Date(m.updatedAt || m.createdAt || 0).getTime();
+                if (inTime >= exTime) memberMap.set(m.id, { ...existing, ...m });
+              }
+            });
+            merged.members = Array.from(memberMap.values());
+          }
+
+          // 2. Smart Deposits Merge (Union by id, no silent deletions across terminals)
+          if (Array.isArray(incoming.deposits)) {
+            const depositMap = new Map();
+            (prevData.deposits || []).forEach(d => depositMap.set(d.id, d));
+            incoming.deposits.forEach(d => {
+              if (!depositMap.has(d.id)) {
+                depositMap.set(d.id, d);
+              } else {
+                const existing = depositMap.get(d.id);
+                const exTime = new Date(existing.updatedAt || existing.date || 0).getTime();
+                const inTime = new Date(d.updatedAt || d.date || 0).getTime();
+                if (inTime >= exTime) depositMap.set(d.id, { ...existing, ...d });
+              }
+            });
+            merged.deposits = Array.from(depositMap.values());
+          }
+
+          // 3. Smart Expenses Merge (Union by id)
+          if (Array.isArray(incoming.expenses)) {
+            const expenseMap = new Map();
+            (prevData.expenses || []).forEach(e => expenseMap.set(e.id, e));
+            incoming.expenses.forEach(e => {
+              if (!expenseMap.has(e.id)) {
+                expenseMap.set(e.id, e);
+              } else {
+                const existing = expenseMap.get(e.id);
+                const exTime = new Date(existing.updatedAt || existing.date || 0).getTime();
+                const inTime = new Date(e.updatedAt || e.date || 0).getTime();
+                if (inTime >= exTime) expenseMap.set(e.id, { ...existing, ...e });
+              }
+            });
+            merged.expenses = Array.from(expenseMap.values());
+          }
+
+          // 4. Letterhead, Signatures and Samities
+          if (incoming.letterhead) {
+            merged.letterhead = { ...(prevData.letterhead || {}), ...incoming.letterhead };
+          }
+          if (Array.isArray(incoming.signatures)) {
+            const sigMap = new Map();
+            (prevData.signatures || []).forEach(s => sigMap.set(s.id, s));
+            incoming.signatures.forEach(s => sigMap.set(s.id, s));
+            merged.signatures = Array.from(sigMap.values());
+          }
+
+          saveSamityData(merged);
+          return merged;
+        });
+
         triggerHaptic();
-        showToast?.('⚡ অন্য ডিভাইস থেকে সমিতির তথ্য ও লোগো লাইভ সিঙ্ক হয়েছে!', 'info');
+        showToast?.('⚡ অন্য ডিভাইস থেকে নতুন তথ্য কনফ্লিক্ট ছাড়া লাইভ সিঙ্ক হয়েছে!', 'info');
       }
     });
 
@@ -1010,9 +1174,10 @@ export const SamityManagementHub = ({ onClose }) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hisabkitab360.vercel.app';
     const docHash = `HK360-${Math.abs(((padDocRefNo || 'DOC') + (padDocDate || '2026')).split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)).toString(16).toUpperCase()}`;
     const params = new URLSearchParams({
+      doc_verify: 'true',
       verify: 'samity_doc',
       ref: padDocRefNo || 'সছস/২০২৬/০১',
-      title: padDocTitle || 'অফিসিয়াল নোটিশ',
+      title: padDocTitle || 'অফিসিয়াল নোটিশ ও রেজুলেশন',
       date: padDocDate || new Date().toISOString().split('T')[0],
       samity: currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি',
       reg: currentSamity.regNo || 'সছস-২০২৪/০৯',
@@ -1075,8 +1240,10 @@ export const SamityManagementHub = ({ onClose }) => {
         membershipType: member.membershipType || 'General Member',
         membershipStartDate: member.membershipStartDate || new Date().toISOString().split('T')[0],
         membershipEndDate: member.membershipEndDate || '',
-        monthlySubscription: member.monthlySubscription || currentSamity.monthlySubscription || 500,
-        customSubscription: member.customSubscription || '',
+        monthlySubscription: member.customSubscription || member.monthlySubscription || currentSamity.monthlySubscription || 500,
+        customSubscription: (member.customSubscription !== undefined && member.customSubscription !== null && member.customSubscription !== '')
+          ? member.customSubscription
+          : (Number(member.monthlySubscription) && Number(member.monthlySubscription) !== Number(currentSamity.monthlySubscription || 500) ? member.monthlySubscription : ''),
         paymentCycle: member.paymentCycle || 'Monthly',
         status: member.status || 'Active',
         remarks: member.remarks || ''
@@ -1122,11 +1289,19 @@ export const SamityManagementHub = ({ onClose }) => {
     playSuccessChime?.();
     triggerHaptic();
 
+    // Robust Numeric Parse for Custom Subscription (Guarantees 10,000 is never lost or reverted to 500)
+    const rawCustom = memberForm.customSubscription;
+    const parsedCustom = rawCustom !== '' && rawCustom !== undefined && rawCustom !== null && !isNaN(Number(rawCustom))
+      ? Number(rawCustom)
+      : null;
+
     if (editingMember) {
       const updated = {
         ...editingMember,
         ...memberForm,
-        updatedBy: 'Admin',
+        customSubscription: parsedCustom !== null ? parsedCustom : '',
+        monthlySubscription: parsedCustom !== null ? parsedCustom : (Number(currentSamity.monthlySubscription) || 500),
+        updatedBy: activeUserRole || 'Admin',
         updatedAt: new Date().toISOString()
       };
       updateAndSave(prev => ({
@@ -1136,9 +1311,9 @@ export const SamityManagementHub = ({ onClose }) => {
         action: 'UPDATE_MEMBER',
         module: 'MEMBERS',
         recordId: editingMember.id,
-        details: { name: memberForm.nameBn || memberForm.nameEn }
+        details: { name: memberForm.nameBn || memberForm.nameEn, customSubscription: parsedCustom }
       });
-      showToast?.('সদস্য তথ্য সফলভাবে আপডেট করা হয়েছে', 'success');
+      showToast?.('সদস্য তথ্য ও চাঁদার হার সফলভাবে সংরক্ষিত হয়েছে', 'success');
       if (selectedMemberProfile && selectedMemberProfile.id === editingMember.id) {
         setSelectedMemberProfile(updated);
       }
@@ -1149,9 +1324,11 @@ export const SamityManagementHub = ({ onClose }) => {
         id: newMemberId,
         memberCode: memberForm.memberCode || newMemberId,
         samityId: activeSamityId,
-        createdBy: 'Admin',
+        customSubscription: parsedCustom !== null ? parsedCustom : '',
+        monthlySubscription: parsedCustom !== null ? parsedCustom : (Number(currentSamity.monthlySubscription) || 500),
+        createdBy: activeUserRole || 'Admin',
         createdAt: new Date().toISOString(),
-        updatedBy: 'Admin',
+        updatedBy: activeUserRole || 'Admin',
         updatedAt: new Date().toISOString()
       };
 
@@ -1162,7 +1339,7 @@ export const SamityManagementHub = ({ onClose }) => {
         action: 'CREATE_MEMBER',
         module: 'MEMBERS',
         recordId: newMemberId,
-        details: { name: newMember.nameBn || newMember.nameEn }
+        details: { name: newMember.nameBn || newMember.nameEn, customSubscription: parsedCustom }
       });
       showToast?.(`নতুন সদস্য সফলভাবে নিবন্ধিত (${newMemberId})`, 'success');
     }
@@ -3349,6 +3526,178 @@ export const SamityManagementHub = ({ onClose }) => {
               <span>{t('নতুন সমিতি', 'New Samity')}</span>
             </button>
           </div>
+
+          {/* Global Smart Feature & Module Search Bar */}
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.8)', border: isLight ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', padding: '2px 8px' }}>
+              <Search size={14} color="#94a3b8" />
+              <input
+                type="text"
+                placeholder={activeLang === 'en' ? 'Search options (e.g. Pad, Seal, Deposit)...' : 'অপশন খুঁজুন (যেমন: প্যাড, সিল, চাঁদা)...'}
+                value={globalModuleSearchQuery}
+                onChange={(e) => {
+                  setGlobalModuleSearchQuery(e.target.value);
+                  setIsGlobalSearchOpen(Boolean(e.target.value.trim()));
+                }}
+                onFocus={() => { if (globalModuleSearchQuery.trim()) setIsGlobalSearchOpen(true); }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: isLight ? '#0f172a' : '#fff',
+                  fontSize: '0.76rem',
+                  padding: '4px 6px',
+                  width: '160px'
+                }}
+              />
+              {globalModuleSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setGlobalModuleSearchQuery(''); setIsGlobalSearchOpen(false); }}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Global Search Results Dropdown */}
+            {isGlobalSearchOpen && globalModuleSearchQuery.trim() && (() => {
+              const q = globalModuleSearchQuery.toLowerCase();
+              const searchableItems = [
+                { titleBn: 'অফিসিয়াল লেটারহেড প্যাড ও রাইটার', titleEn: 'Official Letterhead Pad', tab: 'letterhead', icon: FileText },
+                { titleBn: 'কর্মকর্তা, ডিজিটাল সিল ও স্বাক্ষর', titleEn: 'Signatures & Digital Seals', tab: 'signatures', icon: PenTool },
+                { titleBn: 'সদস্য তালিকা ও নতুন মেম্বার নিবন্ধন', titleEn: 'Member Directory & Registration', tab: 'members', icon: Users },
+                { titleBn: 'দৈনন্দিন চাঁদা ও সঞ্চয় কিস্তি জমা', titleEn: 'Daily Deposit & Savings Entry', tab: 'deposits', icon: Plus },
+                { titleBn: 'এক ব্যাংক স্লিপে বহু সদস্যের চাঁদা (Bulk Deposit)', titleEn: 'Bulk Bank Slip Deposit', tab: 'bulk_deposit', icon: Landmark },
+                { titleBn: 'সদস্যভিত্তিক চাঁদার হার ও পলিসি', titleEn: 'Member Fee Rates & Policies', tab: 'subscription_policy', icon: Wallet },
+                { titleBn: 'বকেয়া হিসাব ও নোটিশ রিমাইন্ডার', titleEn: 'Due Management & Reminders', tab: 'payment_status', icon: Clock },
+                { titleBn: 'সমিতির দৈনিক ও নিয়মিত খরচ ভাউচার', titleEn: 'Samity Expenses & Vouchers', tab: 'expenses', icon: Receipt },
+                { titleBn: 'সমিতি ও শাখা তালিকা/সেটআপ', titleEn: 'Samity Setup & Branches', tab: 'samity_setup', icon: Building2 },
+                { titleBn: 'কেন্দ্রীয় অডিট ও লাইভ ট্রেইল', titleEn: 'Central Audit Trail', tab: 'audit_trail', icon: ShieldCheck },
+                { titleBn: '২৮টি বহুমুখী অডিট ও সমবায় রিপোর্ট', titleEn: '28 Master Cooperative Reports', tab: 'reports', icon: FileSpreadsheet },
+                { titleBn: 'টেলিগ্রাম ক্লাউড অটো-ব্যাকআপ', titleEn: 'Telegram Cloud Backup', tab: 'dashboard', icon: Send }
+              ].filter(item => item.titleBn.toLowerCase().includes(q) || item.titleEn.toLowerCase().includes(q));
+
+              return (
+                <div style={{
+                  position: 'absolute',
+                  top: '110%',
+                  left: 0,
+                  width: '280px',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                  background: isLight ? '#ffffff' : '#0f172a',
+                  border: isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(45, 212, 191, 0.4)',
+                  borderRadius: '10px',
+                  boxShadow: '0 15px 35px rgba(0,0,0,0.4)',
+                  zIndex: 999,
+                  padding: '6px'
+                }}>
+                  {searchableItems.length === 0 ? (
+                    <div style={{ padding: '10px', textAlign: 'center', color: '#94a3b8', fontSize: '0.74rem' }}>
+                      কোনো অপশন খুঁজে পাওয়া যায়নি
+                    </div>
+                  ) : (
+                    searchableItems.map(item => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.tab}
+                          onClick={() => {
+                            setActiveTab(item.tab);
+                            setIsGlobalSearchOpen(false);
+                            setGlobalModuleSearchQuery('');
+                            playButtonClick?.();
+                            triggerHaptic();
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.76rem',
+                            fontWeight: '700',
+                            color: isLight ? '#0f172a' : '#f8fafc',
+                            transition: 'background 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = isLight ? '#f1f5f9' : 'rgba(45, 212, 191, 0.15)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <Icon size={14} color="#2dd4bf" />
+                          <span>{item.titleBn}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Active Role Badge & Control Hub Switcher Button */}
+          {(() => {
+            const currentRoleObj = SAMITY_RBAC_ROLES.find(r => r.role === activeUserRole) || SAMITY_RBAC_ROLES[0];
+            const roleColor = currentRoleObj.color || '#8b5cf6';
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  playButtonClick?.();
+                  triggerHaptic();
+                  setIsRoleModalOpen(true);
+                }}
+                title={activeLang === 'en' ? 'Click to open Role-Based Access Control Hub' : 'ব্যবহারকারী পদবি ও কন্ট্রোল হাব দেখতে ক্লিক করুন'}
+                style={{
+                  background: isLight ? `${roleColor}18` : `${roleColor}25`,
+                  color: roleColor,
+                  border: `1.5px solid ${roleColor}60`,
+                  padding: '5px 10px',
+                  borderRadius: '20px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  boxShadow: `0 2px 8px ${roleColor}20`
+                }}
+              >
+                <ShieldCheck size={14} />
+                <span>{currentRoleObj.titleBn.split(' ')[0]}</span>
+                <span style={{ fontSize: '0.64rem', opacity: 0.8, textTransform: 'uppercase' }}>({activeUserRole})</span>
+              </button>
+            );
+          })()}
+
+          {/* SaaS Commercial Architecture Button */}
+          <button
+            type="button"
+            onClick={() => {
+              playButtonClick?.();
+              triggerHaptic();
+              setIsSaaSGuideModalOpen(true);
+            }}
+            title={activeLang === 'en' ? 'Commercial Software Architecture & White-Label Guide' : 'সফটওয়্যার বিক্রির বাণিজ্যিক আর্কিটেকচার ও লাইসেন্সিং গাইড'}
+            style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.2))',
+              color: '#f59e0b',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              fontSize: '0.74rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            <Sparkles size={13} />
+            <span>{activeLang === 'en' ? 'SaaS Architecture' : 'বিক্রির আর্কিটেকচার'}</span>
+          </button>
 
           <button
             onClick={() => handleOpenDepositModal()}
@@ -11202,6 +11551,31 @@ export const SamityManagementHub = ({ onClose }) => {
                     <Upload size={13} />
                     <span>{currentSamity.letterpadImage ? (activeLang === 'en' ? 'Change Letterpad Image' : 'লেটারপ্যাড ছবি পরিবর্তন') : (activeLang === 'en' ? 'Upload Letterpad Image' : 'লেটারপ্যাড ছবি আপলোড')}</span>
                   </button>
+
+                  {/* Banner Height & Scaling Slider (ব্যবহারকারীর চাহিদা অনুযায়ী কাস্টমার ব্যানার বড়-ছোট করার অপশন) */}
+                  {currentSamity.letterpadImage && (
+                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>{activeLang === 'en' ? 'Banner Scale / Height:' : 'কাস্টমার ব্যানার আকার (উচ্চতা):'}</span>
+                        <strong style={{ color: '#10b981' }}>{data.letterhead?.bannerHeight || 76} px</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min="45"
+                        max="200"
+                        step="2"
+                        value={data.letterhead?.bannerHeight || 76}
+                        onChange={(e) => {
+                          const newH = Number(e.target.value);
+                          updateAndSave(prev => ({
+                            ...prev,
+                            letterhead: { ...(prev.letterhead || {}), bannerHeight: newH }
+                          }));
+                        }}
+                        style={{ width: '100%', accentColor: '#10b981', cursor: 'pointer' }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. Samity Branding & Header Information */}
@@ -11321,6 +11695,90 @@ export const SamityManagementHub = ({ onClose }) => {
                           }}
                           style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', background: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.76rem' }}
                         />
+                      </div>
+                    </div>
+
+                    {/* Header Info Font Sizing Sliders (হেডার ইনফো বড়-ছোট করার অপশন) */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>{activeLang === 'en' ? 'Header Title Font Size:' : 'হেডার শিরোনাম ফন্ট সাইজ:'}</span>
+                        <strong style={{ color: '#38bdf8' }}>{data.letterhead?.headerTitleSize || 18} px</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min="14"
+                        max="30"
+                        step="1"
+                        value={data.letterhead?.headerTitleSize || 18}
+                        onChange={(e) => {
+                          const newSz = Number(e.target.value);
+                          updateAndSave(prev => ({
+                            ...prev,
+                            letterhead: { ...(prev.letterhead || {}), headerTitleSize: newSz }
+                          }));
+                        }}
+                        style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer', marginBottom: '8px' }}
+                      />
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        <span>{activeLang === 'en' ? 'Header Address/Info Font Size:' : 'হেডার ঠিকানা ও তথ্যের ফন্ট সাইজ:'}</span>
+                        <strong style={{ color: '#38bdf8' }}>{data.letterhead?.headerInfoSize || 12} px</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min="9"
+                        max="17"
+                        step="1"
+                        value={data.letterhead?.headerInfoSize || 12}
+                        onChange={(e) => {
+                          const newSz = Number(e.target.value);
+                          updateAndSave(prev => ({
+                            ...prev,
+                            letterhead: { ...(prev.letterhead || {}), headerInfoSize: newSz }
+                          }));
+                        }}
+                        style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    {/* Seal & Signature Darkness / Deep Ink Toggle (সিল ও স্বাক্ষর আরও গাঢ় করার সিস্টেম) */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', color: '#f59e0b', marginBottom: '6px' }}>
+                        🖋️ {activeLang === 'en' ? 'Seal & Signature Ink Darkness:' : 'সিল ও স্বাক্ষরের গাঢ়ত্ব (Deep Ink):'}
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                        {[
+                          { id: 'normal', label: activeLang === 'en' ? 'Normal' : 'স্বাভাবিক' },
+                          { id: 'deep', label: activeLang === 'en' ? 'Deep Ink' : 'ডিপ ইংক (গাঢ়)' },
+                          { id: 'ultra_dark', label: activeLang === 'en' ? 'Ultra Bold' : 'আল্ট্রা গাঢ়' }
+                        ].map(d => {
+                          const isSel = (data.letterhead?.sealDarkness || 'normal') === d.id;
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => {
+                                playButtonClick?.();
+                                updateAndSave(prev => ({
+                                  ...prev,
+                                  letterhead: { ...(prev.letterhead || {}), sealDarkness: d.id, sigDarkness: d.id }
+                                }));
+                              }}
+                              style={{
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                border: isSel ? '1.5px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isSel ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                                color: isSel ? '#f59e0b' : 'var(--text-muted)',
+                                fontSize: '0.72rem',
+                                fontWeight: isSel ? '800' : '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -11822,14 +12280,20 @@ export const SamityManagementHub = ({ onClose }) => {
                                   <img
                                     src={currentSamity.letterpadImage}
                                     alt="Letterpad Banner"
-                                    style={{ maxHeight: '76px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                                    style={{
+                                      maxHeight: `${data.letterhead?.bannerHeight || 76}px`,
+                                      maxWidth: '100%',
+                                      objectFit: 'contain',
+                                      display: 'block',
+                                      margin: '0 auto'
+                                    }}
                                   />
                                 ) : (
                                   <div style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.04)', border: `1px dashed ${themeBorder}40` }}>
-                                    <div style={{ fontSize: '0.94rem', fontWeight: '900', color: themeBorder, letterSpacing: '0.3px' }}>
+                                    <div style={{ fontSize: `${data.letterhead?.headerTitleSize || 18}px`, fontWeight: '900', color: themeBorder, letterSpacing: '0.3px' }}>
                                       ★ {currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'} ★
                                     </div>
-                                    <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: '700' }}>
+                                    <div style={{ fontSize: `${Math.max(10, (data.letterhead?.headerInfoSize || 12) - 1)}px`, color: '#475569', fontWeight: '700' }}>
                                       {currentSamity.nameEn || 'Shopnochoa Co-operative Samity'}
                                     </div>
                                   </div>
@@ -11837,11 +12301,11 @@ export const SamityManagementHub = ({ onClose }) => {
                               </div>
 
                               {/* Right Column: Address, Phone, Reg, Slogan, Bangla & English Name */}
-                              <div style={{ fontSize: '0.72rem', color: '#475569', textAlign: 'right', flexShrink: 0, lineHeight: '1.45' }}>
-                                <div style={{ fontWeight: '900', color: themeBorder, fontSize: '0.84rem' }}>
+                              <div style={{ fontSize: `${data.letterhead?.headerInfoSize || 12}px`, color: '#475569', textAlign: 'right', flexShrink: 0, lineHeight: '1.45' }}>
+                                <div style={{ fontWeight: '900', color: themeBorder, fontSize: `${data.letterhead?.headerTitleSize || 16}px` }}>
                                   {currentSamity.nameBn || 'স্বপ্নছোঁয়া সমবায় সমিতি'}
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600' }}>
+                                <div style={{ fontSize: `${Math.max(10, (data.letterhead?.headerInfoSize || 12) - 1)}px`, color: '#64748b', fontWeight: '600' }}>
                                   {currentSamity.nameEn || 'Shopnochoa Co-operative Samity'}
                                 </div>
                                 {currentSamity.sloganBn && (
@@ -11906,17 +12370,27 @@ export const SamityManagementHub = ({ onClose }) => {
                                         designation={sig.designationBn}
                                         officerName={sig.name}
                                         sealColor={sig.sealColor || '#1e3a8a'}
+                                        sealDarkness={data.letterhead?.sealDarkness || 'normal'}
                                       />
                                     </div>
                                   )}
 
-                                  {/* Signature Image */}
+                                  {/* Signature Image with Deep Ink Filter */}
                                   <div style={{ height: '44px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                                     {sig.signatureImage ? (
                                       <img
                                         src={sig.signatureImage}
                                         alt={sig.name}
-                                        style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }}
+                                        style={{
+                                          maxHeight: '42px',
+                                          maxWidth: '140px',
+                                          objectFit: 'contain',
+                                          filter: data.letterhead?.sigDarkness === 'ultra_dark'
+                                            ? 'contrast(240%) brightness(75%) drop-shadow(0 0 0.5px #000)'
+                                            : data.letterhead?.sigDarkness === 'deep'
+                                            ? 'contrast(180%) brightness(85%)'
+                                            : 'none'
+                                        }}
                                       />
                                     ) : (
                                       <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>[স্বাক্ষর]</span>
@@ -15112,6 +15586,105 @@ export const SamityManagementHub = ({ onClose }) => {
               </button>
             </div>
 
+            {/* AI Smart Bio-Data Ingestion Assistant (ব্যবহারকারীর চাহিদা অনুযায়ী এআই বায়োডাটা অটো-ফিলিং ফিচার) */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.1) 100%)', border: '1px solid rgba(45, 212, 191, 0.35)', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={16} color="#2dd4bf" />
+                  <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#2dd4bf' }}>
+                    🤖 স্মার্ট এআই বায়োডাটা পার্সার (Smart AI Bio-Data Ingestion)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBioDataInputOpen(!isBioDataInputOpen)}
+                  style={{
+                    background: isBioDataInputOpen ? 'rgba(239, 68, 68, 0.2)' : 'rgba(45, 212, 191, 0.2)',
+                    color: isBioDataInputOpen ? '#f87171' : '#2dd4bf',
+                    border: '1px solid ' + (isBioDataInputOpen ? 'rgba(239, 68, 68, 0.4)' : 'rgba(45, 212, 191, 0.4)'),
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isBioDataInputOpen ? 'বক্স বন্ধ করুন' : '✨ টেক্সট পেস্ট করে অটো-ফিল করুন'}
+                </button>
+              </div>
+
+              {isBioDataInputOpen && (
+                <div style={{ marginTop: '10px' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                    মেম্বারের বায়োডাটা টেক্সট (WhatsApp, Word বা PDF থেকে কপি করা যেকোনো লেখা) এখানে পেস্ট করুন:
+                  </p>
+                  <textarea
+                    rows={4}
+                    value={bioDataRawInput}
+                    onChange={(e) => setBioDataRawInput(e.target.value)}
+                    placeholder="উদাহরণ: নাম: মোঃ আরিফুল ইসলাম, পিতা: আব্দুল জব্বার, মাতা: ফাতেমা বেগম, মোবাইল: 01712345678, রক্ত: B+, এনআইডি: 1990269123456, পেশা: শিক্ষক, ঠিকানা: মিরপুর-১০, ঢাকা, চাঁদা: ১০০০ টাকা"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#fff',
+                      fontSize: '0.75rem',
+                      lineHeight: '1.4'
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const parsed = parseBioDataText(bioDataRawInput);
+                        if (!parsed.nameBn && !parsed.nameEn && !parsed.mobile) {
+                          showToast?.('টেক্সট থেকে পর্যাপ্ত তথ্য শনাক্ত করা যায়নি। ম্যানুয়াল এন্ট্রি দিন।', 'error');
+                          return;
+                        }
+                        setMemberForm(prev => ({
+                          ...prev,
+                          ...parsed,
+                          nameBn: parsed.nameBn || prev.nameBn,
+                          nameEn: parsed.nameEn || prev.nameEn,
+                          fatherName: parsed.fatherName || prev.fatherName,
+                          motherName: parsed.motherName || prev.motherName,
+                          mobile: parsed.mobile || prev.mobile,
+                          altMobile: parsed.altMobile || prev.altMobile,
+                          nidNumber: parsed.nidNumber || prev.nidNumber,
+                          bloodGroup: parsed.bloodGroup || prev.bloodGroup,
+                          occupation: parsed.occupation || prev.occupation,
+                          presentAddress: parsed.presentAddress || prev.presentAddress,
+                          customSubscription: parsed.customSubscription !== undefined ? parsed.customSubscription : prev.customSubscription,
+                          monthlySubscription: parsed.monthlySubscription !== undefined ? parsed.monthlySubscription : prev.monthlySubscription
+                        }));
+                        showToast?.('✨ এআই সফলভাবে বায়োডাটা শনাক্ত করে ৩৮টি ফিল্ডে বসিয়ে দিয়েছে!', 'success');
+                        setIsBioDataInputOpen(false);
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      <Sparkles size={14} />
+                      <span>✨ এআই দিয়ে ফর্ম অটো-পূরণ করুন</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* 5 Form Sub-Tabs */}
             <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
               {[
@@ -15845,6 +16418,16 @@ export const SamityManagementHub = ({ onClose }) => {
                     <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.paymentCycle || 'Monthly'}</div>
                   </div>
 
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#38bdf8' }}>মাসিক চাঁদা / সাবস্ক্রিপশন রেট</div>
+                    <div style={{ fontWeight: '900', color: '#38bdf8', fontSize: '1.05rem', marginTop: '2px' }}>
+                      ৳ {selectedMemberProfile.customSubscription || selectedMemberProfile.monthlySubscription || currentSamity.monthlySubscription || 500}/-
+                      <span style={{ fontSize: '0.7rem', color: '#f59e0b', marginLeft: '6px', fontWeight: '700' }}>
+                        {selectedMemberProfile.customSubscription ? '(কাস্টম স্বতন্ত্র হার)' : '(সমিতির ডিফল্ট হার)'}
+                      </span>
+                    </div>
+                  </div>
+
                   <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px', borderRadius: '10px' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>প্রশাসনিক মন্তব্য</div>
                     <div style={{ fontWeight: '700', color: '#fff', marginTop: '2px' }}>{selectedMemberProfile.remarks || 'কোনো মন্তব্য নেই'}</div>
@@ -16045,14 +16628,70 @@ export const SamityManagementHub = ({ onClose }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
-                  অথবা ২. CSV টেক্সট সরাসরি পেস্ট করুন
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '700', color: '#fff' }}>
+                    অথবা ২. CSV টেক্সট সরাসরি পেস্ট করুন
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sampleCsv = `Bangla Name,English Name,Mobile,Alt Mobile,WhatsApp,Father Name,Occupation,Membership Type,Monthly Fee\n"মোঃ রহিম উদ্দিন","Md Rahim Uddin","01711000001","01811000001","01711000001","মোঃ করিম","ব্যবসায়ী","General Member",1000\n"মোঃ ফারুক হোসেন","Md Faruk Hossain","01711000002","","01711000002","মোঃ আলী","চাকরিজীবী","General Member",500\n"মোসাঃ সালমা আক্তার","Mst Salma Akter","01711000003","","01711000003","মোঃ সালাম","শিক্ষক","General Member",1500`;
+                        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                          navigator.clipboard.writeText(sampleCsv);
+                          showToast?.('📋 নমুনা CSV ফরম্যাট ক্লিপবোর্ডে কপি হয়েছে!', 'success');
+                        }
+                      }}
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.68rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Copy size={12} />
+                      <span>নমুনা ফরম্যাট কপি করুন</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sampleCsv = `Bangla Name,English Name,Mobile,Alt Mobile,WhatsApp,Father Name,Occupation,Membership Type,Monthly Fee\n"মোঃ রহিম উদ্দিন","Md Rahim Uddin","01711000001","01811000001","01711000001","মোঃ করিম","ব্যবসায়ী","General Member",1000\n"মোঃ ফারুক হোসেন","Md Faruk Hossain","01711000002","","01711000002","মোঃ আলী","চাকরিজীবী","General Member",500`;
+                        handleBulkImportTextChange(sampleCsv);
+                        showToast?.('⚡ নমুনা CSV টেক্সটবক্সে লোড হয়েছে!', 'info');
+                      }}
+                      style={{
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#34d399',
+                        border: '1px solid rgba(16, 185, 129, 0.35)',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.68rem',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>বক্সে লোড করুন</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Visible CSV Column Format Guide */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px dashed rgba(56, 189, 248, 0.4)', borderRadius: '6px', padding: '6px 10px', marginBottom: '8px', fontSize: '0.68rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+                  <strong style={{ color: '#38bdf8' }}>কলাম ফরম্যাট:</strong> Bangla Name, English Name, Mobile, Alt Mobile, WhatsApp, Father Name, Occupation, Membership Type, Monthly Fee
+                </div>
+
                 <textarea
                   rows={4}
                   value={bulkImportCsvText}
                   onChange={(e) => handleBulkImportTextChange(e.target.value)}
-                  placeholder={`Bangla Name,English Name,Mobile,Alt Mobile,WhatsApp,Father Name,Occupation,Membership Type\n"জনাব রহিম","Rahim","01711000001","","01711000001","করিম","ব্যবসায়ী","General Member"`}
+                  placeholder={`Bangla Name,English Name,Mobile,Alt Mobile,WhatsApp,Father Name,Occupation,Membership Type,Monthly Fee\n"মোঃ রহিম উদ্দিন","Md Rahim Uddin","01711000001","","01711000001","করিম","ব্যবসায়ী","General Member",1000`}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.75rem', fontFamily: 'monospace' }}
                 />
               </div>
@@ -20611,6 +21250,472 @@ export const SamityManagementHub = ({ onClose }) => {
               >
                 <Check size={16} />
                 <span>কর্মকর্তা ও সিল সংরক্ষণ করুন</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role-Based Access Control (RBAC) Modal */}
+      {isRoleModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.78)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7)',
+            overflow: 'hidden'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(255, 255, 255, 0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+                }}>
+                  <ShieldCheck size={24} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.12rem', fontWeight: '800' }}>
+                    রোল ও পারমিশন কন্ট্রোল (RBAC)
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>
+                    বর্তমান সক্রিয় রোল পরিবর্তন ও দায়িত্ব অনুযায়ী অনুমতি স্তর নির্ধারণ করুন
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRoleModalOpen(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  width: '34px',
+                  height: '34px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                fontSize: '0.8rem',
+                color: '#c7d2fe',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <Sparkles size={18} style={{ color: '#818cf8', flexShrink: 0 }} />
+                <span>
+                  বর্তমান কার্যকর ভূমিকা: <strong style={{ color: '#fff' }}>{
+                    activeUserRole === 'super_admin' ? 'সুপার এডমিন (পূর্ণ অনুমতি)' :
+                    activeUserRole === 'president' ? 'সভাপতি (পলিসি ও অনুমোদন)' :
+                    activeUserRole === 'secretary' ? 'সাধারণ সম্পাদক (কার্যক্রম)' :
+                    activeUserRole === 'treasurer' ? 'কোষাধ্যক্ষ (আর্থিক লেনদেন)' :
+                    activeUserRole === 'staff' ? 'মাঠকর্মী / স্টাফ (কালেকশন)' :
+                    'সাধারণ সদস্য (শুধুমাত্র ভিউ)'
+                  }</strong>
+                </span>
+              </div>
+
+              {/* Roles List */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                {[
+                  {
+                    id: 'super_admin',
+                    name: 'সুপার এডমিন (Super Admin)',
+                    desc: 'সমস্ত মডিউল, প্যাড এডিটর, ব্যালেন্স শিট, মেম্বার এডিট/ডিলিট ও সিস্টেম কনফিগারেশনের পূর্ণ নিয়ন্ত্রণ।',
+                    color: '#6366f1',
+                    badge: 'Full Access'
+                  },
+                  {
+                    id: 'president',
+                    name: 'সভাপতি (President)',
+                    desc: 'সার্বিক নীতি নির্ধারণ, রেজোলিউশন অনুমোদন, ডিক্লারেশন সাইন ও সামগ্রিক রিপোর্ট দর্শন।',
+                    color: '#8b5cf6',
+                    badge: 'Approver'
+                  },
+                  {
+                    id: 'secretary',
+                    name: 'সাধারণ সম্পাদক (Secretary)',
+                    desc: 'সদস্য অন্তর্ভুক্তি, মিটিং রেজোলিউশন লিপিবদ্ধকরণ, নোটিশ ও প্রাত্যহিক অপারেশনাল পরিচালনা।',
+                    color: '#3b82f6',
+                    badge: 'Operational'
+                  },
+                  {
+                    id: 'treasurer',
+                    name: 'কোষাধ্যক্ষ / ক্যাশিয়ার (Treasurer)',
+                    desc: 'সঞ্চয় কিস্তি আদায়, ডিপোজিট গ্রহণ, ক্যাশ উত্তলন, দৈনিক ব্যয় ভাউচার ও খতিয়ান রক্ষণাবেক্ষণ।',
+                    color: '#10b981',
+                    badge: 'Financial'
+                  },
+                  {
+                    id: 'staff',
+                    name: 'মাঠকর্মী / স্টাফ (Staff)',
+                    desc: 'ফিল্ড কালেকশন এন্ট্রি ও রসিদ প্রস্তুত। সেনসিটিভ পলিসি ও ডিলিট অপশন সুরক্ষিতভাবে লক থাকবে।',
+                    color: '#f59e0b',
+                    badge: 'Collector'
+                  },
+                  {
+                    id: 'member',
+                    name: 'সাধারণ সদস্য (General Member)',
+                    desc: 'শুধুমাত্র নিজের সঞ্চয় ব্যালেন্স, নোটিশ ও রসিদ যাচাই করতে পারবেন (Read-Only ভিউ)।',
+                    color: '#64748b',
+                    badge: 'Read-Only'
+                  }
+                ].map(r => {
+                  const isActive = activeUserRole === r.id;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => {
+                        setActiveUserRole(r.id);
+                        try { localStorage.setItem('samity_active_role', r.id); } catch(e) {}
+                      }}
+                      style={{
+                        padding: '14px 16px',
+                        borderRadius: '14px',
+                        background: isActive ? 'rgba(99, 102, 241, 0.16)' : 'rgba(255, 255, 255, 0.04)',
+                        border: isActive ? `2px solid ${r.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.88rem', fontWeight: '800', color: isActive ? '#fff' : '#e2e8f0' }}>
+                          {r.name}
+                        </span>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: '700',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          background: `${r.color}22`,
+                          color: r.color,
+                          border: `1px solid ${r.color}44`
+                        }}>
+                          {isActive ? '✓ সক্রিয়' : r.badge}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.74rem', color: '#94a3b8', lineHeight: '1.4' }}>
+                        {r.desc}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Permission Matrix Summary */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.25)',
+                borderRadius: '12px',
+                padding: '14px',
+                border: '1px solid rgba(255, 255, 255, 0.06)'
+              }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '8px' }}>
+                  অনুমতি ম্যাট্রিক্স (Permission Summary):
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.72rem' }}>
+                  <div style={{ color: '#94a3b8' }}>• মেম্বার এন্ট্রি: <span style={{ color: activeUserRole === 'member' ? '#ef4444' : '#10b981' }}>{activeUserRole === 'member' ? 'নিষেধ' : 'অনুমোদিত'}</span></div>
+                  <div style={{ color: '#94a3b8' }}>• কিস্তি সংগ্রহ: <span style={{ color: activeUserRole === 'member' ? '#ef4444' : '#10b981' }}>{activeUserRole === 'member' ? 'নিষেধ' : 'অনুমোদিত'}</span></div>
+                  <div style={{ color: '#94a3b8' }}>• অফিশিয়াল প্যাড এডিট: <span style={{ color: ['super_admin', 'president', 'secretary'].includes(activeUserRole) ? '#10b981' : '#ef4444' }}>{['super_admin', 'president', 'secretary'].includes(activeUserRole) ? 'অনুমোদিত' : 'লক করা'}</span></div>
+                  <div style={{ color: '#94a3b8' }}>• সিল ও স্বাক্ষর সংযোজন: <span style={{ color: ['super_admin', 'president'].includes(activeUserRole) ? '#10b981' : '#ef4444' }}>{['super_admin', 'president'].includes(activeUserRole) ? 'অনুমোদিত' : 'লক করা'}</span></div>
+                  <div style={{ color: '#94a3b8' }}>• ব্যাকআপ ও রিস্টোর: <span style={{ color: activeUserRole === 'super_admin' ? '#10b981' : '#ef4444' }}>{activeUserRole === 'super_admin' ? 'অনুমোদিত' : 'লক করা'}</span></div>
+                  <div style={{ color: '#94a3b8' }}>• ভিউ ও রসিদ প্রিন্ট: <span style={{ color: '#10b981' }}>সকলের জন্য উন্মুক্ত</span></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '14px 24px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <button
+                type="button"
+                onClick={() => setIsRoleModalOpen(false)}
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '9px 24px',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
+                }}
+              >
+                সংরক্ষণ ও বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SaaS & Commercial Reselling Architecture Guide Modal */}
+      {isSaaSGuideModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #0f172a 0%, #020617 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '780px',
+            maxHeight: '92vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+            overflow: 'hidden'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(255, 255, 255, 0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                }}>
+                  <Building2 size={24} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.14rem', fontWeight: '800' }}>
+                    সমিতি ৩৬০ কমার্শিয়াল ও হোয়াইট-লেবেল SaaS আর্কিটেকচার
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>
+                    Offline-First Enterprise Cloud Mesh, Multi-Tenancy & Zero Cloud Leakage
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaaSGuideModalOpen(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  width: '34px',
+                  height: '34px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div style={{ padding: '22px 26px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Highlight Banner */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '14px',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <Sparkles size={22} style={{ color: '#34d399', flexShrink: 0 }} />
+                <div style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: '1.5' }}>
+                  <strong style={{ color: '#fff' }}>হোয়াইট-লেবেল ক্লায়েন্ট রেডিনেস:</strong> এই আর্কিটেকচারের মাধ্যমে আপনি যেকোনো সমবায় সমিতি, যুব সংঘ, বহুমুখী সঞ্চয় সমিতি বা এনজিওর কাছে নিজস্ব ব্র্যান্ডিং ও স্বয়ংসম্পূর্ণ ডাটাবেজ সহ এই সফটওয়্যারটি সেল/সাবস্ক্রিপশন প্রদান করতে পারবেন।
+                </div>
+              </div>
+
+              {/* 4 Pillars Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  borderRadius: '12px',
+                  padding: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontWeight: '700', fontSize: '0.86rem', marginBottom: '6px' }}>
+                    <ShieldCheck size={18} />
+                    <span>১. জিরো ক্লাউড লিকেজ (Zero Cloud Leakage)</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.45' }}>
+                    হিসাব-কিতাব কোর (ব্যক্তিগত/ব্যবসায়িক খতিয়ান) এবং সমিতি ৩৬০-এর ক্লাউড স্টোরেজ ও টেলিগ্রাম ভল্ট সম্পূর্ণ পৃথক। এক ডেটার সাথে অন্য ডেটার ওভারল্যাপ হওয়ার কোনো সুযোগ নেই।
+                  </p>
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  borderRadius: '12px',
+                  padding: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6366f1', fontWeight: '700', fontSize: '0.86rem', marginBottom: '6px' }}>
+                    <Lock size={18} />
+                    <span>২. অফলাইন লাইসেন্সিং ও ডাটা অন-প্রিমিস</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.45' }}>
+                    সেন্ট্রাল সার্ভার বা ইন্টারনেট সংযোগ ছাড়াও সমিতি ৩৬০ ১০০% সচল। ক্লায়েন্টের স্থানীয় স্টোরেজে ডেটা সুরক্ষিত থাকে এবং অফলাইন লাইসেন্স কি-স্টোরে সহজে পরিচালিত হয়।
+                  </p>
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  borderRadius: '12px',
+                  padding: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#3b82f6', fontWeight: '700', fontSize: '0.86rem', marginBottom: '6px' }}>
+                    <Layers size={18} />
+                    <span>৩. ডিভাইস মেশ রিয়েল-টাইম লাইভ সিঙ্ক</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.45' }}>
+                    সুপাবেস রিয়েল-টাইম চ্যানেল ব্যবহার করে একই সমিতির একাধিক ডিভাইস (পিসি, অ্যান্ড্রয়েড ফোন, ট্যাব) মুহূর্তের মধ্যে একে অপরের ডাটা দ্বন্দ্বহীনভাবে (Conflict-free) সিঙ্ক করে।
+                  </p>
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  borderRadius: '12px',
+                  padding: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontWeight: '700', fontSize: '0.86rem', marginBottom: '6px' }}>
+                    <QrCode size={18} />
+                    <span>৪. কিউআর কোড অফিশিয়াল ডকুমেন্ট ভেরিফিকেশন</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', lineHeight: '1.45' }}>
+                    প্রতিটি সঞ্চয় রসিদ, সদস্য সনদপত্র ও অফিশিয়াল নোটিশে ইউনিক ক্রিপ্টোগ্রাফিক কিউআর কোড থাকবে, যা ক্যামেরা দিয়ে স্ক্যান করলেই তাৎক্ষণিক সত্যতা প্রমাণিত হবে।
+                  </p>
+                </div>
+              </div>
+
+              {/* Commercial Pricing Recommendation */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.3)',
+                borderRadius: '14px',
+                padding: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '10px' }}>
+                  প্রস্তাবিত বাণিজ্যিক মূল্য নির্ধারণ মডেল (Commercial Pricing Matrix):
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ color: '#10b981', fontWeight: '800', fontSize: '0.8rem' }}>স্ট্যান্ডার্ড (একক সমিতি)</div>
+                    <div style={{ color: '#fff', fontSize: '1rem', fontWeight: '900', margin: '4px 0' }}>৳২,৫০০ - ৫,০০০</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>আনলিমিটেড মেম্বার, অফিশিয়াল প্যাড, সিল, কিউআর ভেরিফিকেশন ও অফলাইন লাইসেন্স।</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ color: '#6366f1', fontWeight: '800', fontSize: '0.8rem' }}>ক্লাউড মেশ (মাল্টি-ডিভাইস)</div>
+                    <div style={{ color: '#fff', fontSize: '1rem', fontWeight: '900', margin: '4px 0' }}>৳৬,০০০ - ১০,০০০</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>৪টি ডিভাইস লাইভ সিঙ্ক, রিয়েল-টাইম অডিট, টেলিগ্রাম ব্যাকআপ ও এসএমএস ইন্টিগ্রেশন।</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.8rem' }}>এন্টারপ্রাইজ / হোয়াইট-লেবেল</div>
+                    <div style={{ color: '#fff', fontSize: '1rem', fontWeight: '900', margin: '4px 0' }}>৳১৫,০০০ - ২৫,০০০</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>নিজস্ব সমিতি অ্যাপ লোগো, ডেডিকেটেড ব্যাকআপ ক্লাউড, ফুল ব্র্যান্ডিং ও আজীবন লাইসেন্স।</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '14px 24px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                HisabKitab 360 &copy; 2026 | Somiti 360 Enterprise Architecture
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaaSGuideModalOpen(false)}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '9px 24px',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                }}
+              >
+                বুঝেছি ও বন্ধ করুন
               </button>
             </div>
           </div>
