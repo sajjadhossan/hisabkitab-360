@@ -16,9 +16,33 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 
-public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQ_CODE = 1001;
+    private static final int FILE_CHOOSER_REQ_CODE = 2001;
+    private android.webkit.ValueCallback<android.net.Uri[]> mUploadCallback;
     private boolean bridgesConfigured = false;
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+        if (requestCode == FILE_CHOOSER_REQ_CODE) {
+            if (mUploadCallback != null) {
+                android.net.Uri[] results = null;
+                if (resultCode == android.app.Activity.RESULT_OK && intent != null) {
+                    if (intent.getData() != null) {
+                        results = new android.net.Uri[]{intent.getData()};
+                    } else if (intent.getClipData() != null) {
+                        int count = intent.getClipData().getItemCount();
+                        results = new android.net.Uri[count];
+                        for (int i = 0; i < count; i++) {
+                            results[i] = intent.getClipData().getItemAt(i).getUri();
+                        }
+                    }
+                }
+                mUploadCallback.onReceiveValue(results);
+                mUploadCallback = null;
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,7 +113,7 @@ public class MainActivity extends BridgeActivity {
                 webView.getSettings().setGeolocationEnabled(true);
                 webView.getSettings().setGeolocationDatabasePath(getFilesDir().getPath());
 
-                // Auto-grant Web Geolocation and Permission requests inside APK
+                // Auto-grant Web Geolocation and Permission requests inside APK & Native File/Logo Chooser
                 webView.setWebChromeClient(new WebChromeClient() {
                     @Override
                     public void onGeolocationPermissionsShowPrompt(String origin, android.webkit.GeolocationPermissions.Callback callback) {
@@ -99,6 +123,23 @@ public class MainActivity extends BridgeActivity {
                     @Override
                     public void onPermissionRequest(final PermissionRequest request) {
                         request.grant(request.getResources());
+                    }
+
+                    @Override
+                    public boolean onShowFileChooser(WebView webView, android.webkit.ValueCallback<android.net.Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
+                        if (mUploadCallback != null) {
+                            mUploadCallback.onReceiveValue(null);
+                        }
+                        mUploadCallback = filePathCallback;
+
+                        android.content.Intent intent = fileChooserParams.createIntent();
+                        try {
+                            startActivityForResult(intent, FILE_CHOOSER_REQ_CODE);
+                        } catch (android.content.ActivityNotFoundException e) {
+                            mUploadCallback = null;
+                            return false;
+                        }
+                        return true;
                     }
                 });
 

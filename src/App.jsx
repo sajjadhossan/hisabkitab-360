@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { SamityManagementHub } from './components/samity/SamityManagementHub';
 import { SamityDocVerificationView } from './components/samity/SamityDocVerificationView';
 import { SomitiAuthView } from './components/auth/SomitiAuthView';
+import { DeviceMeshStatusModal } from './components/samity/DeviceMeshStatusModal';
 import { Users, ShieldCheck, RefreshCw, AlertTriangle, LogOut, Globe, Sun, Moon, Palette, Check } from 'lucide-react';
 
 // Error Boundary to prevent any blank screen
@@ -62,6 +63,7 @@ function MainView() {
   const [viewMode, setViewMode] = useState('hub'); // 'hub' | 'verify'
   const [verifyData, setVerifyData] = useState(null);
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
+  const [isDeviceMeshModalOpen, setIsDeviceMeshModalOpen] = useState(false);
 
   const isLight = theme === 'light' || theme === 'nordic_clean';
 
@@ -196,8 +198,31 @@ function MainView() {
           </div>
         </div>
 
-        {/* Right: Executive Controls (Day/Night, Theme, Lang, Verify, User, Logout) */}
+        {/* Right: Executive Controls (Device Mesh, Day/Night, Theme, Lang, Verify, User, Logout) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* 0. Live Cross-Platform Device Mesh Status Button */}
+          <button
+            onClick={() => setIsDeviceMeshModalOpen(true)}
+            title={lang === 'en' ? 'Cross-Platform Mesh Status' : '৪টি প্ল্যাটফর্ম লাইভ সিঙ্ক স্ট্যাটাস (APK, Web, PC, Mac)'}
+            style={{
+              background: isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.15)',
+              color: isLight ? '#15803d' : '#34d399',
+              border: isLight ? '1.5px solid #86efac' : '1px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: '9px',
+              padding: '6px 11px',
+              fontSize: '0.74rem',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.15)'
+            }}
+          >
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+            <span>{lang === 'en' ? '4 Platforms Synced ⚡' : '৪টি প্ল্যাটফর্ম সিঙ্কড ⚡'}</span>
+          </button>
+
           {/* 1. Day / Night Toggle Button */}
           <button
             onClick={toggleTheme}
@@ -408,6 +433,14 @@ function MainView() {
       <main style={{ flex: 1, width: '100%' }}>
         <SamityManagementHub />
       </main>
+
+      {/* Cross-Platform Device Mesh Status & Telegram Timestamp Modal */}
+      <DeviceMeshStatusModal
+        isOpen={isDeviceMeshModalOpen}
+        onClose={() => setIsDeviceMeshModalOpen(false)}
+        isLight={isLight}
+        t={(bn, en) => lang === 'en' ? (en || bn) : bn}
+      />
     </div>
   );
 }

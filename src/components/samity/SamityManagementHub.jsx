@@ -120,6 +120,7 @@ import {
   getSomitiTelegramConfig,
   saveSomitiTelegramConfig
 } from '../../services/somitiTelegramBackupService';
+import { SamityInternalChatHub } from './SamityInternalChatHub';
 
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
@@ -493,9 +494,11 @@ export const SamityManagementHub = ({ onClose }) => {
     if (['deposits', 'bulk_deposit', 'paid_receipt', 'expenses', 'fund_balance'].includes(activeTab)) return 'fin_operations';
     // Tier 2: Member & Welfare Wing
     if (['members', 'due_mgmt', 'payment_status', 'reminders', 'settings', 'subscription_cfg'].includes(activeTab)) return 'members_welfare';
-    // Tier 3: Official Secretariat & Document Pad
+    // Tier 3: Internal Communication & Notices Hub
+    if (['internal_chat'].includes(activeTab)) return 'communication';
+    // Tier 4: Official Secretariat & Document Pad
     if (['letterhead', 'documents', 'signatures', 'approvals'].includes(activeTab)) return 'secretariat';
-    // Tier 4: Audit, Reports & Governance
+    // Tier 5: Audit, Reports & Governance
     return 'audit_governance';
   }, [activeTab]);
 
@@ -901,24 +904,39 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   // Telegram Cloud Backup State & Manual 1-Click Trigger Handler
-  const [telegramBackupStatus, setTelegramBackupStatus] = useState({ loading: false, lastSuccess: null });
+  const [telegramBackupStatus, setTelegramBackupStatus] = useState(() => {
+    const cfg = getSomitiTelegramConfig();
+    let initialTime = null;
+    if (cfg?.lastBackupTime) {
+      try {
+        const d = new Date(cfg.lastBackupTime);
+        initialTime = d.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) + ' - ' + d.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      } catch {
+        initialTime = cfg.lastBackupTime;
+      }
+    }
+    return { loading: false, lastSuccess: initialTime };
+  });
+
   const handleManualTelegramBackup = async () => {
     playButtonClick?.();
     triggerHaptic();
-    setTelegramBackupStatus({ loading: true, lastSuccess: null });
+    setTelegramBackupStatus(prev => ({ ...prev, loading: true }));
     showToast?.(t('টেলিগ্রাম ক্লাউড বটে (@Backup_Somiti_bot) ব্যাকআপ পাঠানো হচ্ছে...', 'Uploading backup to Telegram bot (@Backup_Somiti_bot)...'), 'info');
     try {
       const res = await backupToTelegram(data, { action: 'MANUAL_BACKUP' }, true);
       if (res.success) {
-        setTelegramBackupStatus({ loading: false, lastSuccess: new Date().toLocaleTimeString('bn-BD') });
+        const now = new Date();
+        const formatted = now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) + ' - ' + now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        setTelegramBackupStatus({ loading: false, lastSuccess: formatted });
         playSuccessChime?.();
         showToast?.(t('✅ সম্পূর্ণ ডাটাবেজ ব্যাকআপ সফলভাবে টেলিগ্রাম বটে সেন্ট হয়েছে!', '✅ Full database backup sent to Telegram successfully!'), 'success');
       } else {
-        setTelegramBackupStatus({ loading: false, lastSuccess: null });
+        setTelegramBackupStatus(prev => ({ ...prev, loading: false }));
         showToast?.(t('টেলিগ্রাম ব্যাকআপ সমস্যা: ', 'Telegram backup error: ') + (res.error || 'Network error'), 'error');
       }
     } catch (err) {
-      setTelegramBackupStatus({ loading: false, lastSuccess: null });
+      setTelegramBackupStatus(prev => ({ ...prev, loading: false }));
       showToast?.(t('টেলিগ্রাম ব্যাকআপ ত্রুটি: ', 'Telegram backup error: ') + err.message, 'error');
     }
   };
@@ -3416,6 +3434,7 @@ export const SamityManagementHub = ({ onClose }) => {
         {[
           { id: 'fin_operations', label: t('💳 দৈনন্দিন ক্যাশ ও লেনদেন', '💳 Cash & Financial Operations'), defaultTab: 'deposits', count: data.deposits.length },
           { id: 'members_welfare', label: t('👥 সদস্য ও সমাজকল্যাণ', '👥 Members & Welfare'), defaultTab: 'members', count: effectiveMetrics.totalMembers },
+          { id: 'communication', label: t('💬 অভ্যন্তরীণ চ্যাট ও নোটিস', '💬 Internal Chat & Notices'), defaultTab: 'internal_chat', count: (data.chatMessages || []).length },
           { id: 'secretariat', label: t('🏛️ অফিশিয়াল প্যাড ও নোটিশ', '🏛️ Official Pad & Notices'), defaultTab: 'letterhead' },
           { id: 'audit_governance', label: t('⚖️ অডিট, ব্যাকআপ ও সেটিংস', '⚖️ Audit, Backup & Settings'), defaultTab: 'dashboard' },
           { id: 'all_modules', label: t('📋 সকল ফিচার সূচি', '📋 All Features Index'), defaultTab: 'all_modules', isDirectory: true }
@@ -3501,6 +3520,10 @@ export const SamityManagementHub = ({ onClose }) => {
             { id: 'subscription_cfg', label: t('⚙️ চাঁদা পলিসি ও অটো-বিলিং', '⚙️ Fee Policy & Billing') }
           ].map(renderSubPill)}
 
+          {activeCluster === 'communication' && [
+            { id: 'internal_chat', label: t('💬 লাইভ চ্যাট ও নোটিস হাব', '💬 Live Chat & Notice Hub'), count: (data.chatMessages || []).length }
+          ].map(renderSubPill)}
+
           {activeCluster === 'secretariat' && [
             { id: 'letterhead', label: t('📜 অফিশিয়াল প্যাড ও নোটিশ কম্পোজার', '📜 Official Pad & Notice Composer') },
             { id: 'documents', label: t('📝 অফিসিয়াল চিঠি ও রেজুলেশন দলিল', '📝 Official Docs & Resolutions') },
@@ -3525,6 +3548,19 @@ export const SamityManagementHub = ({ onClose }) => {
       {/* 3. MAIN WORKSPACE / CONTENT AREA */}
       {/* ==================================================================== */}
       <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+        {/* TAB 0: SAMITY INTERNAL CHAT & NOTICE HUB */}
+        {activeTab === 'internal_chat' && (
+          <SamityInternalChatHub
+            samityData={data}
+            updateAndSave={updateAndSave}
+            activeSamityId={activeSamityId}
+            isLight={isLight}
+            showToast={showToast}
+            t={t}
+            currentUser={currentUser}
+          />
+        )}
+
         {/* TAB 1: DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -14635,11 +14671,9 @@ export const SamityManagementHub = ({ onClose }) => {
                   <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: isLight ? '#475569' : 'var(--text-muted)' }}>
                     {t('বট:', 'Bot:')} <strong style={{ color: '#0284c7' }}>@Backup_Somiti_bot</strong> | {t('চ্যাট আইডি:', 'Chat ID:')} <code>7928605566</code> | {t('প্রতিটি সদস্য ও লেনদেনের সাথে সাথে আনলিমিটেড ফ্রি ব্যাকআপ ক্লাউডে জমা হয়।', 'Auto-syncs encrypted database snapshot to Telegram bot on every new member, fee deposit, or expense.')}
                   </p>
-                  {telegramBackupStatus.lastSuccess && (
-                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
-                      ✓ {t('সর্বশেষ ব্যাকআপ সফল হয়েছে:', 'Last backup succeeded at:')} {telegramBackupStatus.lastSuccess}
-                    </p>
-                  )}
+                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: telegramBackupStatus.lastSuccess ? '#10b981' : (isLight ? '#64748b' : '#94a3b8'), fontWeight: '800' }}>
+                    ⏰ {t('সর্বশেষ ব্যাকআপ যাওয়ার সময়:', 'Last Backup Sent Time:')} <strong style={{ color: telegramBackupStatus.lastSuccess ? '#10b981' : '#f59e0b' }}>{telegramBackupStatus.lastSuccess || t('এখনো কোনো ব্যাকআপ পাঠানো হয়নি', 'No backup sent yet')}</strong>
+                  </p>
                 </div>
               </div>
 
