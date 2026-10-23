@@ -350,7 +350,7 @@ export const SamityManagementHub = ({ onClose }) => {
     const samity = data.samities.find(s => s.id === activeSamityId) || data.samities[0] || {};
     return {
       ...samity,
-      logo: samity.logo || businessSettings?.companyLogo || '/logo.png',
+      logo: samity.logo || businessSettings?.companyLogo || '/somiti-emblem.svg',
       status: samity.status || 'Active',
       isLaunched: samity.isLaunched !== undefined ? samity.isLaunched : (samity.status === 'Active')
     };
@@ -3101,37 +3101,42 @@ export const SamityManagementHub = ({ onClose }) => {
             style={{
               width: '44px',
               height: '44px',
-              borderRadius: '10px',
-              background: '#ffffff',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(15, 23, 42, 0.95))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 14px rgba(20, 184, 166, 0.35)',
+              boxShadow: '0 4px 14px rgba(20, 184, 166, 0.25)',
               overflow: 'hidden',
-              padding: '3px',
-              border: '1.5px solid rgba(45, 212, 191, 0.5)'
+              padding: '2px',
+              border: '1.5px solid rgba(45, 212, 191, 0.45)',
+              flexShrink: 0
             }}
           >
             <img
-              src={currentSamity.logo || '/logo.png'}
+              src={currentSamity.logo || '/somiti-emblem.svg'}
               alt={currentSamity.nameBn}
-              onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+              onError={(e) => { e.currentTarget.src = '/somiti-emblem.svg'; }}
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#f8fafc' }}>
-                {currentSamity.nameBn || businessSettings?.companyName || 'সমিতি ও সমবায় ব্যবস্থাপনা হাব'}
+                {activeLang === 'en'
+                  ? (currentSamity.nameEn || currentSamity.nameBn || businessSettings?.companyName || 'Samity & Cooperative Management Hub')
+                  : (currentSamity.nameBn || businessSettings?.companyName || 'সমিতি ও সমবায় ব্যবস্থাপনা হাব')}
               </h1>
-              {currentSamity.nameEn && (
+              {currentSamity.nameEn && activeLang !== 'en' && (
                 <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: '600' }}>
                   ({currentSamity.nameEn})
                 </span>
               )}
             </div>
             <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>
-              {currentSamity.sloganBn || businessSettings?.tagline || 'স্বচ্ছতা, গতিশীলতা ও স্বয়ংক্রিয় হিসাব ব্যবস্থাপনা'}
+              {activeLang === 'en'
+                ? (currentSamity.sloganEn || 'Transparency, Efficiency & Automated Accounts')
+                : (currentSamity.sloganBn || businessSettings?.tagline || 'স্বচ্ছতা, গতিশীলতা ও স্বয়ংক্রিয় হিসাব ব্যবস্থাপনা')}
             </p>
           </div>
         </div>
@@ -3139,7 +3144,7 @@ export const SamityManagementHub = ({ onClose }) => {
         {/* Multi-Samity Selector & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>🏛️ শাখা/সমিতি:</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)' }}>{t('🏛️ শাখা/সমিতি:', '🏛️ Branch / Society:')}</span>
             <select
               value={activeSamityId}
               onChange={(e) => {
@@ -3636,7 +3641,7 @@ export const SamityManagementHub = ({ onClose }) => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                   <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800' }}>
-                    🎯 {targetMonth} মাসের চাঁদা আদায়ের অগ্রগতি
+                    🎯 {targetMonth} {t('মাসের চাঁদা আদায়ের অগ্রগতি', 'Subscription Collection Progress')}
                   </h3>
                   <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#2dd4bf' }}>
                     {metrics.collectionPercentage}%
@@ -3658,15 +3663,15 @@ export const SamityManagementHub = ({ onClose }) => {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '14px', fontSize: '0.78rem' }}>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>লক্ষ্যমাত্রা: </span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('লক্ষ্যমাত্রা:', 'Target:')} </span>
                     <span style={{ fontWeight: '800' }}>৳ {metrics.expectedMonthly.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>আদায়: </span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('আদায়:', 'Collected:')} </span>
                     <span style={{ fontWeight: '800', color: '#10b981' }}>৳ {metrics.totalCurrentMonthCollected.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)' }}>ঘাটতি: </span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('ঘাটতি:', 'Shortfall:')} </span>
                     <span style={{ fontWeight: '800', color: '#ef4444' }}>৳ {metrics.totalCurrentMonthDue.toLocaleString()}</span>
                   </div>
                 </div>
@@ -3687,7 +3692,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       cursor: 'pointer'
                     }}
                   >
-                    বকেয়া সদস্যদের তালিকা দেখুন
+                    {t('বকেয়া সদস্যদের তালিকা দেখুন', 'View Defaulters List')}
                   </button>
                   <button
                     onClick={() => setActiveTab('reminders')}
@@ -3704,7 +3709,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       cursor: 'pointer'
                     }}
                   >
-                    রিমাইন্ডার পাঠান
+                    {t('রিমাইন্ডার পাঠান', 'Send Reminder')}
                   </button>
                 </div>
               </div>
@@ -3720,26 +3725,26 @@ export const SamityManagementHub = ({ onClose }) => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800' }}>
-                    🏦 সমিতির ব্যাংক ও মোবাইল ব্যাংকিং তথ্য
+                    🏦 {t('সমিতির ব্যাংক ও মোবাইল ব্যাংকিং তথ্য', 'Society Bank & MFS Accounts')}
                   </h3>
-                  <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>সক্রিয় একাউন্ট</span>
+                  <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>{t('সক্রিয় একাউন্ট', 'Active Account')}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>ব্যাংকের নাম:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('ব্যাংকের নাম:', 'Bank Name:')}</span>
                     <span style={{ fontWeight: '800' }}>{currentSamity.bankDetails?.bankName} ({currentSamity.bankDetails?.branchName})</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>হিসাব নম্বর:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('হিসাব নম্বর:', 'Account No:')}</span>
                     <span style={{ fontWeight: '800', color: '#38bdf8' }}>{currentSamity.bankDetails?.accNo}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>রাউটিং নম্বর:</span>
-                    <span style={{ fontWeight: '800' }}>{currentSamity.bankDetails?.routingNo || 'প্রযোজ্য নয়'}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('রাউটিং নম্বর:', 'Routing No:')}</span>
+                    <span style={{ fontWeight: '800' }}>{currentSamity.bankDetails?.routingNo || t('প্রযোজ্য নয়', 'N/A')}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>বিকাশ/নগদ মার্চেন্ট:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('বিকাশ/নগদ মার্চেন্ট:', 'bKash/Nagad MFS:')}</span>
                     <span style={{ fontWeight: '800', color: '#ec4899' }}>{currentSamity.mobileBanking?.number} ({currentSamity.mobileBanking?.provider})</span>
                   </div>
                 </div>
@@ -3760,7 +3765,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       cursor: 'pointer'
                     }}
                   >
-                    + বাল্ক ডিপোজিট এন্ট্রি
+                    {t('+ বাল্ক ডিপোজিট এন্ট্রি', '+ Bulk Deposit Entry')}
                   </button>
                   <button
                     onClick={() => handleOpenDepositModal()}
@@ -3777,7 +3782,7 @@ export const SamityManagementHub = ({ onClose }) => {
                       cursor: 'pointer'
                     }}
                   >
-                    + সিঙ্গেল জমা
+                    {t('+ সিঙ্গেল জমা', '+ Single Deposit')}
                   </button>
                 </div>
               </div>
@@ -3801,18 +3806,18 @@ export const SamityManagementHub = ({ onClose }) => {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>📥 সাম্প্রতিক ব্যাংক ও নগদ জমা</h3>
+                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>📥 {t('সাম্প্রতিক ব্যাংক ও নগদ জমা', 'Recent Bank & Cash Deposits')}</h3>
                   <button
                     onClick={() => setActiveTab('deposits')}
                     style={{ background: 'transparent', border: 'none', color: '#2dd4bf', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                   >
-                    সব দেখুন &rarr;
+                    {t('সব দেখুন', 'View All')} &rarr;
                   </button>
                 </div>
 
                 {data.deposits.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                    এখনো কোনো জমা লিপিবদ্ধ হয়নি। উপরে "জমা এন্ট্রি" বাটনে ক্লিক করে প্রথম জমা যোগ করুন।
+                    {t('এখনো কোনো জমা লিপিবদ্ধ হয়নি। উপরে "জমা এন্ট্রি" বাটনে ক্লিক করে প্রথম জমা যোগ করুন।', 'No deposits recorded yet. Click "Deposit Entry" above to add the first record.')}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -3853,7 +3858,7 @@ export const SamityManagementHub = ({ onClose }) => {
                               marginTop: '2px'
                             }}
                           >
-                            রিসিট প্রিন্ট
+                            {t('রিসিট প্রিন্ট', 'Print Receipt')}
                           </button>
                         </div>
                       </div>
@@ -3872,18 +3877,18 @@ export const SamityManagementHub = ({ onClose }) => {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>📤 সাম্প্রতিক খরচের বিবরণ</h3>
+                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800' }}>📤 {t('সাম্প্রতিক খরচের বিবরণ', 'Recent Expense Records')}</h3>
                   <button
                     onClick={() => setActiveTab('expenses')}
                     style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                   >
-                    সব দেখুন &rarr;
+                    {t('সব দেখুন', 'View All')} &rarr;
                   </button>
                 </div>
 
                 {data.expenses.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                    এখনো কোনো খরচ রেকর্ড করা হয়নি। "সমিতির খরচ" ট্যাব থেকে অফিস বা ইভেন্ট খরচ রেকর্ড করুন।
+                    {t('এখনো কোনো খরচ রেকর্ড করা হয়নি। "সমিতির খরচ" ট্যাব থেকে অফিস বা ইভেন্ট খরচ রেকর্ড করুন।', 'No expenses recorded yet. Record office or event expenses from the "Society Expenses" tab.')}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
