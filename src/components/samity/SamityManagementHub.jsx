@@ -115,6 +115,11 @@ import { playButtonClick, playSuccessChime } from '../../services/soundFeedback'
 import { hapticFeedback } from '../../services/nativeAppService';
 import { broadcastLiveEvent, subscribeLiveSync } from '../../services/liveSyncService';
 import { useSamityTranslator, translateSamityText } from '../../utils/samityDictionary';
+import {
+  backupToTelegram,
+  getSomitiTelegramConfig,
+  saveSomitiTelegramConfig
+} from '../../services/somitiTelegramBackupService';
 
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
@@ -882,8 +887,40 @@ export const SamityManagementHub = ({ onClose }) => {
         console.debug('[SamityRealtime] Broadcast notice:', broadcastErr);
       }
 
+      // Automatic Real-Time Telegram Cloud Backup on Every Action!
+      try {
+        backupToTelegram(nextData, auditMeta || { action: 'DATA_UPDATE' }).catch((err) => {
+          console.debug('[TelegramBackup] Auto-sync notice:', err);
+        });
+      } catch (tgErr) {
+        console.debug('[TelegramBackup] Auto-sync notice:', tgErr);
+      }
+
       return nextData;
     });
+  };
+
+  // Telegram Cloud Backup State & Manual 1-Click Trigger Handler
+  const [telegramBackupStatus, setTelegramBackupStatus] = useState({ loading: false, lastSuccess: null });
+  const handleManualTelegramBackup = async () => {
+    playButtonClick?.();
+    triggerHaptic();
+    setTelegramBackupStatus({ loading: true, lastSuccess: null });
+    showToast?.(t('টেলিগ্রাম ক্লাউড বটে (@Backup_Somiti_bot) ব্যাকআপ পাঠানো হচ্ছে...', 'Uploading backup to Telegram bot (@Backup_Somiti_bot)...'), 'info');
+    try {
+      const res = await backupToTelegram(data, { action: 'MANUAL_BACKUP' }, true);
+      if (res.success) {
+        setTelegramBackupStatus({ loading: false, lastSuccess: new Date().toLocaleTimeString('bn-BD') });
+        playSuccessChime?.();
+        showToast?.(t('✅ সম্পূর্ণ ডাটাবেজ ব্যাকআপ সফলভাবে টেলিগ্রাম বটে সেন্ট হয়েছে!', '✅ Full database backup sent to Telegram successfully!'), 'success');
+      } else {
+        setTelegramBackupStatus({ loading: false, lastSuccess: null });
+        showToast?.(t('টেলিগ্রাম ব্যাকআপ সমস্যা: ', 'Telegram backup error: ') + (res.error || 'Network error'), 'error');
+      }
+    } catch (err) {
+      setTelegramBackupStatus({ loading: false, lastSuccess: null });
+      showToast?.(t('টেলিগ্রাম ব্যাকআপ ত্রুটি: ', 'Telegram backup error: ') + err.message, 'error');
+    }
   };
 
   // Real-time Supabase WebSocket Listener: receive live updates from other devices (PC / Mobile)
@@ -14542,6 +14579,98 @@ export const SamityManagementHub = ({ onClose }) => {
                 <Download size={16} />
                 <span>{t('১-ক্লিক সম্পূর্ণ ডাটাবেজ ব্যাকআপ (JSON)', '1-Click Full Backup (JSON)')}</span>
               </button>
+            </div>
+
+            {/* Dedicated Telegram Cloud Auto-Backup & Sync Engine Card */}
+            <div
+              style={{
+                background: isLight ? '#ffffff' : 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                padding: '20px 24px',
+                borderRadius: '16px',
+                border: isLight ? '1.5px solid #0284c7' : '1.5px solid rgba(56, 189, 248, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                boxShadow: isLight ? '0 4px 16px rgba(2, 132, 199, 0.08)' : '0 8px 24px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: isLight ? 'rgba(2, 132, 199, 0.1)' : 'rgba(56, 189, 248, 0.15)',
+                    border: '1.5px solid #0284c7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#0284c7',
+                    fontSize: '1.5rem'
+                  }}
+                >
+                  ✈️
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', color: isLight ? '#0f172a' : '#f8fafc' }}>
+                      {t('টেলিগ্রাম ক্লাউড অটো-ব্যাকআপ ইঞ্জিন', 'Telegram Cloud Auto-Backup Engine')}
+                    </h3>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: '800',
+                        background: isLight ? '#dcfce7' : 'rgba(16, 185, 129, 0.15)',
+                        color: isLight ? '#15803d' : '#10b981',
+                        border: '1px solid #10b981',
+                        padding: '2px 8px',
+                        borderRadius: '10px'
+                      }}
+                    >
+                      🟢 {t('সক্রিয় ও সংযুক্ত', 'Active & Connected')}
+                    </span>
+                  </div>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: isLight ? '#475569' : 'var(--text-muted)' }}>
+                    {t('বট:', 'Bot:')} <strong style={{ color: '#0284c7' }}>@Backup_Somiti_bot</strong> | {t('চ্যাট আইডি:', 'Chat ID:')} <code>7928605566</code> | {t('প্রতিটি সদস্য ও লেনদেনের সাথে সাথে আনলিমিটেড ফ্রি ব্যাকআপ ক্লাউডে জমা হয়।', 'Auto-syncs encrypted database snapshot to Telegram bot on every new member, fee deposit, or expense.')}
+                  </p>
+                  {telegramBackupStatus.lastSuccess && (
+                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
+                      ✓ {t('সর্বশেষ ব্যাকআপ সফল হয়েছে:', 'Last backup succeeded at:')} {telegramBackupStatus.lastSuccess}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  onClick={handleManualTelegramBackup}
+                  disabled={telegramBackupStatus.loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 18px',
+                    borderRadius: '10px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: telegramBackupStatus.loading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    opacity: telegramBackupStatus.loading ? 0.7 : 1,
+                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)'
+                  }}
+                >
+                  <Send size={15} />
+                  <span>
+                    {telegramBackupStatus.loading
+                      ? t('আপলোড হচ্ছে...', 'Uploading...')
+                      : t('📤 এখনই টেলিগ্রামে ব্যাকআপ পাঠান', 'Backup Now to Telegram')}
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Step-by-Step Modular Export Cards */}
