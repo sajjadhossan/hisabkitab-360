@@ -4919,13 +4919,26 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     const tgConfig = getTelegramBackupConfig();
-    if (!tgConfig?.botToken) return;
+    if (!tgConfig?.botToken || tgConfig.enabled === false) return;
+
+    // Avoid dual-polling 409 conflict: check if preview_server.cjs is already running the daemon
+    let isServerDaemonActive = false;
+    if (typeof window !== 'undefined') {
+      fetch('/api/telegram/config')
+        .then(res => res.json())
+        .then(d => {
+          if (d?.success && d?.config?.enabled !== false) {
+            isServerDaemonActive = true;
+          }
+        })
+        .catch(() => {});
+    }
 
     let isPolling = false;
     const pollTimer = setInterval(async () => {
-      if (isPolling) return;
+      if (isPolling || isServerDaemonActive) return;
       const liveConfig = getTelegramBackupConfig();
-      if (!liveConfig?.botToken) return;
+      if (!liveConfig?.botToken || liveConfig.enabled === false) return;
 
       isPolling = true;
       try {

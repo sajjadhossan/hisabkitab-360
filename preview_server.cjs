@@ -343,7 +343,10 @@ function startTelegramDaemon() {
   }
 
   const config = loadTelegramConfig();
-  if (!config || !config.botToken) return;
+  if (!config || !config.botToken || config.enabled === false) {
+    console.log('[TelegramDaemon] ⏸️ টেলিগ্রাম বট কনফিগারেশন নিষ্ক্রিয় (Disabled).');
+    return;
+  }
 
   const token = config.botToken.trim().replace(/^bot/i, '');
   const authorizedChatId = (config.chatId || '').trim();
@@ -352,15 +355,18 @@ function startTelegramDaemon() {
   initTelegramBot(token);
 
   let isPolling = false;
+  let backoffMs = 2500;
+
   telegramDaemonTimer = setInterval(async () => {
     if (isPolling) return;
     isPolling = true;
 
     try {
-      const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId ? lastUpdateId + 1 : 0}&timeout=5`;
+      const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId ? lastUpdateId + 1 : 0}&timeout=0`;
       const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 409) {
+          // Temporarily back off if another instance triggered conflict
           await fetch(`https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=false`).catch(() => {});
         }
         return;
@@ -838,6 +844,91 @@ function serveStatic(req, res) {
       });
       return;
     }
+  }
+
+  // Telegram Send Test Message API
+  if (req.url === '/api/telegram/send_test' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const cfg = loadTelegramConfig() || {};
+        const token = (cfg.botToken || '').trim().replace(/^bot/i, '');
+        const chatId = (cfg.chatId || '').trim();
+        if (!token || !chatId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Token or Chat ID missing' }));
+          return;
+        }
+        const timeNow = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        const testMsg = `🎉 <b>হিসাবকিতাব ৩৬০ - টেলিগ্রাম ক্লাউড কানেকশন সফল!</b>\n━━━━━━━━━━━━━━━━━━━━━\n⏰ <b>সময়:</b> ${timeNow}\n🤖 <b>বট:</b> @Backup_hisabkitab_bot\n✅ আপনার টেলিগ্রাম বট সক্রিয় রয়েছে এবং রিয়েল-টাইমে ডাটা আদান-প্রদান করতে প্রস্তুত।`;
+        await sendTelegramMsg(token, chatId, testMsg, null, 'HTML');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Test message sent' }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // Telegram Proxy Send Backup API
+  if (req.url === '/api/telegram/send_backup' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const cfg = loadTelegramConfig() || {};
+        const token = (cfg.botToken || '').trim().replace(/^bot/i, '');
+        const chatId = (cfg.chatId || '').trim();
+        if (!token || !chatId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Token or Chat ID missing' }));
+          return;
+        }
+
+        const backupData = JSON.parse(body || '{}');
+        const now = new Date();
+        const dateFormatted = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const fileName = `hisabkitab_backup_${dateFormatted}.json`;
+        const fileContent = Buffer.from(JSON.stringify(backupData, null, 2), 'utf8');
+
+        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+        const caption = `📦 <b>হিসাবকিতাব ৩৬০ - ক্লাউড অটো ব্যাকআপ</b>\n━━━━━━━━━━━━━━━━━━━━━\n🏪 <b>প্রতিষ্ঠান:</b> ${backupData.companyName || 'HisabKitab Store'}\n⏰ <b>সময়:</b> ${now.toLocaleTimeString('bn-BD')}\n💾 <b>ফাইল:</b> <code>${fileName}</code>\n🔒 <i>টেলিগ্রাম ক্লাউডে ডাটা আজীবন সুরক্ষিত থাকবে।</i>`;
+
+        let bodyParts = [];
+        bodyParts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`));
+        bodyParts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n`));
+        bodyParts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nHTML\r\n`));
+        bodyParts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="document"; filename="${fileName}"\r\nContent-Type: application/json\r\n\r\n`));
+        bodyParts.push(fileContent);
+        bodyParts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+
+        const postBuffer = Buffer.concat(bodyParts);
+        const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Length': postBuffer.length
+          },
+          body: postBuffer
+        });
+
+        if (!tgRes.ok) {
+          const errData = await tgRes.json().catch(() => ({}));
+          throw new Error(errData.description || 'Failed to send backup document to Telegram');
+        }
+
+        const tgData = await tgRes.json();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, fileName, messageId: tgData.result?.message_id }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
   }
 
   // Sanitize requested URL path

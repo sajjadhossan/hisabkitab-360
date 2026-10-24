@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { DEVICE_TYPES } from '../../services/deviceManagerService';
 import { TelegramBotModal } from './TelegramBotModal';
-import { getTelegramBackupConfig, sendBackupToTelegram } from '../../services/telegramBackupService';
+import { getTelegramBackupConfig, sendBackupToTelegram, testTelegramBackupBot } from '../../services/telegramBackupService';
 import {
   subscribePresence,
   getOnlineTerminalsList,
@@ -73,6 +73,14 @@ export const DeviceStatusIndicator = () => {
   const [isMeshScanning, setIsMeshScanning] = useState(false);
   const [meshScanSuccess, setMeshScanSuccess] = useState('');
   const [isTelegramBackingUp, setIsTelegramBackingUp] = useState(false);
+  const [isTestingTg, setIsTestingTg] = useState(false);
+
+  // Sync latest telegram config whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setTgConfig(getTelegramBackupConfig());
+    }
+  }, [isOpen]);
 
   // Live Real-Time Timers (Auto Next Scan Countdown & Elapsed Sync Ago)
   const [nextScanSeconds, setNextScanSeconds] = useState(2);
@@ -875,6 +883,42 @@ export const DeviceStatusIndicator = () => {
                     >
                       <RefreshCw size={13} className={isTelegramBackingUp ? 'animate-spin' : ''} />
                       <span>{isTelegramBackingUp ? 'পাঠানো হচ্ছে...' : 'এখনই ব্যাকআপ'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isTestingTg || !tgConfig?.botToken}
+                      onClick={async () => {
+                        setIsTestingTg(true);
+                        try {
+                          const res = await testTelegramBackupBot(tgConfig.botToken, tgConfig.chatId);
+                          if (res?.success) {
+                            showToast?.(lang === 'bn' ? `✅ টেলিগ্রাম বটে টেস্ট মেসেজ সফল! (@${res.botUsername})` : 'Test message sent to Telegram!', 'success');
+                          }
+                        } catch (err) {
+                          showToast?.('টেস্ট ব্যর্থ: ' + err.message, 'danger');
+                        } finally {
+                          setIsTestingTg(false);
+                        }
+                      }}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: '0.74rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontWeight: '800',
+                        color: '#38bdf8',
+                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        minHeight: '34px',
+                        cursor: isTestingTg ? 'wait' : 'pointer'
+                      }}
+                      title="টেলিগ্রামে ইনস্ট্যান্ট কানেকশন টেস্ট মেসেজ পাঠান"
+                    >
+                      <Zap size={13} className={isTestingTg ? 'animate-spin' : ''} />
+                      <span>{isTestingTg ? 'টেস্ট হচ্ছে...' : 'টেস্ট কানেকশন'}</span>
                     </button>
 
                     <button
