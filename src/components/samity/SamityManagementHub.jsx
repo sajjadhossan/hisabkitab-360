@@ -133,6 +133,7 @@ import {
 } from '../../services/somitiCloudSyncService';
 import { SamityInternalChatHub } from './SamityInternalChatHub';
 import { DeviceMeshStatusModal } from './DeviceMeshStatusModal';
+import { SupervisorLiveRadarModal } from './SupervisorLiveRadarModal';
 
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
@@ -518,11 +519,21 @@ export const SamityManagementHub = ({ onClose }) => {
 
   // 4-Platform Live Device Mesh & Presence Tracking
   const [isDeviceMeshModalOpen, setIsDeviceMeshModalOpen] = useState(false);
+  const [isSupervisorRadarOpen, setIsSupervisorRadarOpen] = useState(false);
   const [onlineDevicesListState, setOnlineDevicesListState] = useState(() => getOnlineDevicesList());
   const onlineDevicesCount = Math.max(1, onlineDevicesListState.length);
   const [lastScanTimestamp, setLastScanTimestamp] = useState(() => {
     return typeof window !== 'undefined' ? (Number(localStorage.getItem('somiti360_last_sync_timestamp')) || Date.now()) : Date.now();
   });
+
+  const pendingAuditCount = useMemo(() => {
+    return (data?.deposits || []).filter(d => !d.isVerifiedBySupervisor).length;
+  }, [data?.deposits]);
+
+  const handleUpdateSamityData = (nextData, actionMeta = {}) => {
+    setData(nextData);
+    saveSamityData(nextData, actionMeta);
+  };
 
   useEffect(() => {
     const unsubPresence = subscribeDevicePresence((list) => {
@@ -3927,6 +3938,44 @@ export const SamityManagementHub = ({ onClose }) => {
               {onlineDevicesCount > 1
                 ? t(`৪টি প্ল্যাটফর্ম (${onlineDevicesCount}টি) ⚡ | স্ক্যান: ${format12HourTime(lastScanTimestamp, 'bn')}`, `4 Platforms (${onlineDevicesCount}) ⚡ | Scan: ${format12HourTime(lastScanTimestamp, 'en')}`)
                 : t(`৪টি প্ল্যাটফর্ম ⚡ | স্ক্যান: ${format12HourTime(lastScanTimestamp, 'bn')}`, `4 Platforms ⚡ | Scan: ${format12HourTime(lastScanTimestamp, 'en')}`)}
+            </span>
+          </button>
+
+          {/* Live Supervisor Radar Widget Button */}
+          <button
+            onClick={() => {
+              playButtonClick?.();
+              triggerHaptic();
+              setIsSupervisorRadarOpen(true);
+            }}
+            style={{
+              flexShrink: 0,
+              background: pendingAuditCount > 0
+                ? (isLight ? '#fef3c7' : 'rgba(245, 158, 11, 0.25)')
+                : (isLight ? '#eff6ff' : 'rgba(59, 130, 246, 0.15)'),
+              color: pendingAuditCount > 0
+                ? (isLight ? '#b45309' : '#fbbf24')
+                : (isLight ? '#1d4ed8' : '#60a5fa'),
+              border: pendingAuditCount > 0
+                ? '1.5px solid #f59e0b'
+                : (isLight ? '1.5px solid #93c5fd' : '1px solid rgba(59, 130, 246, 0.4)'),
+              borderRadius: '8px',
+              padding: '6px 11px',
+              fontSize: '0.78rem',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: pendingAuditCount > 0 ? '0 0 10px rgba(245, 158, 11, 0.35)' : 'none'
+            }}
+            title={t('সুপারভাইজার লাইভ কালেকশন রাডার ও অডিট উইন্ডো', 'Supervisor Live Collection Radar & Audit Window')}
+          >
+            <span>📡</span>
+            <span>
+              {pendingAuditCount > 0
+                ? t(`রাডার (${pendingAuditCount} পেন্ডিং) ⏳`, `Radar (${pendingAuditCount} Pending) ⏳`)
+                : t('সুপারভাইজার রাডার 📡', 'Supervisor Radar 📡')}
             </span>
           </button>
 
@@ -21965,6 +22014,21 @@ export const SamityManagementHub = ({ onClose }) => {
           samityData={data}
           showToast={showToast}
           t={t}
+        />
+      )}
+
+      {/* Live Field Supervisor Audit & Collection Radar Modal */}
+      {isSupervisorRadarOpen && (
+        <SupervisorLiveRadarModal
+          isOpen={isSupervisorRadarOpen}
+          onClose={() => setIsSupervisorRadarOpen(false)}
+          isLight={isLight}
+          samityData={data}
+          onUpdateSamityData={handleUpdateSamityData}
+          showToast={showToast}
+          t={t}
+          playSuccessSound={playSuccessSound}
+          triggerHaptic={triggerHaptic}
         />
       )}
     </div>

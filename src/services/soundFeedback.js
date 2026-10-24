@@ -221,3 +221,29 @@ export const playWarningTone = () => {
     osc.stop(now + 0.16);
   } catch {}
 };
+
+// 6. Sonar Radar Ping Sound (Live incoming supervisor collection ping)
+export const playRadarPingSound = () => {
+  hapticFeedback.light();
+  if (isAudioMuted || activeSoundProfile === 'silent_haptic') return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+
+    gain.gain.setValueAtTime(0.15 * activeSoundVolume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+  } catch {}
+};
