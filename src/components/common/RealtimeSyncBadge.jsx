@@ -17,7 +17,10 @@ import {
   ShieldCheck,
   Send,
   GitMerge,
-  Share2
+  Share2,
+  Apple,
+  Globe,
+  Shield
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -35,6 +38,7 @@ import {
 } from '../../services/liveSyncService';
 import { executeBiDirectionalSync, getLastDeltaSyncTime, subscribeDeltaSync } from '../../services/deltaSyncService';
 import { hapticFeedback } from '../../services/nativeAppService';
+import { detectDeviceType, DEVICE_TYPES } from '../../services/deviceManagerService';
 
 export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true }) => {
   const { lang, businessSettings, showToast, deviceRegistry, currentDevice, syncNowWithCloud } = useApp();
@@ -225,6 +229,24 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
     };
   };
 
+  const currentPlatformType = detectDeviceType();
+
+  const isThisPlatform = (plat) => {
+    return currentPlatformType === plat;
+  };
+
+  const isPeerOnline = (plat) => {
+    if (isThisPlatform(plat)) return true;
+    return terminals.some(t => {
+      const platStr = (t.platform || t.deviceType || t.counterName || '').toLowerCase();
+      if (plat === 'mobile' && (platStr.includes('android') || platStr.includes('mobile') || platStr.includes('মোবাইল'))) return true;
+      if (plat === 'pc' && (platStr.includes('desktop') || platStr.includes('pc') || platStr.includes('পিসি') || platStr.includes('কাউন্টার ০১'))) return true;
+      if (plat === 'mac' && (platStr.includes('mac') || platStr.includes('ম্যাক'))) return true;
+      if (plat === 'web' && (platStr.includes('web') || platStr.includes('ওয়েব') || platStr.includes('ভার্সেল'))) return true;
+      return false;
+    });
+  };
+
   return (
     <>
       {/* Trigger Button / Badge */}
@@ -347,7 +369,9 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
             style={{
               position: 'relative',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '560px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               backgroundColor: 'var(--card-bg, #1e293b)',
               color: 'var(--text-color, #f8fafc)',
               borderRadius: '20px',
@@ -475,6 +499,180 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
                 <RefreshCw size={13} className={isReconnecting ? 'animate-spin' : ''} />
                 <span>{lang === 'bn' ? 'রিকানেক্ট' : 'Reconnect'}</span>
               </button>
+            </div>
+
+            {/* ৪টি প্ল্যাটফর্মের লাইভ ডিভাইস মেশ কার্ডস (Omni-Platform Device Mesh Cards) */}
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {lang === 'bn' ? '৪টি প্ল্যাটফর্মের লাইভ ডিভাইস মেশ স্ট্যাটাস:' : '4-Platform Live Device Mesh Status:'}
+                </span>
+                <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '800' }}>
+                  ● {Math.max(terminals.length, 1)}টি সক্রিয় টার্মিনাল
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* 1. PC Desktop Card */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  background: isThisPlatform('pc') ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                  border: isThisPlatform('pc') ? '1.5px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Laptop size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                        {lang === 'bn' ? 'পিসি ডেস্কটপ (উইন্ডোজ অ্যাপ / POS)' : 'PC Desktop (Windows / POS)'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
+                        পিসি কাউন্টার বিলিং • http://localhost:5173
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {isThisPlatform('pc') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: '#3b82f6', color: '#fff', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⭐ এই পিসি (সক্রিয়)
+                      </span>
+                    ) : isPeerOnline('pc') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981', padding: '2px 7px', borderRadius: '6px' }}>
+                        🟢 অনলাইন ও সংযুক্ত
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', background: 'rgba(148, 163, 184, 0.15)', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⚪ স্ট্যান্ডবাই
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Mobile Android APK Card */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  background: isThisPlatform('mobile') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                  border: isThisPlatform('mobile') ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Smartphone size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                        {lang === 'bn' ? 'মোবাইল অ্যাপ (অ্যান্ড্রয়েড APK)' : 'Mobile App (Android APK)'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
+                        ক্যামেরা বারকোড স্ক্যানার, বায়োমেট্রিক ও অফলাইন সেলস
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {isThisPlatform('mobile') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: '#10b981', color: '#fff', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⭐ এই মোবাইল (সক্রিয়)
+                      </span>
+                    ) : isPeerOnline('mobile') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981', padding: '2px 7px', borderRadius: '6px' }}>
+                        🟢 অনলাইন ও সংযুক্ত
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', background: 'rgba(148, 163, 184, 0.15)', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⚪ স্ট্যান্ডবাই
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Apple macOS / MacBook Card */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  background: isThisPlatform('mac') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                  border: isThisPlatform('mac') ? '1.5px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Apple size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                        {lang === 'bn' ? 'অ্যাপল ম্যাকবুক (ম্যাকওএস)' : 'Apple MacBook (macOS)'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
+                        ম্যাকবুক ডেস্কটপ অ্যাপ • রিয়েল-টাইম অ্যাডমিন ড্যাশবোর্ড
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {isThisPlatform('mac') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: '#a855f7', color: '#fff', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⭐ এই ম্যাকবুক (সক্রিয়)
+                      </span>
+                    ) : isPeerOnline('mac') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981', padding: '2px 7px', borderRadius: '6px' }}>
+                        🟢 অনলাইন ও সংযুক্ত
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', background: 'rgba(148, 163, 184, 0.15)', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⚪ স্ট্যান্ডবাই
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Vercel Web Cloud Card */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  background: isThisPlatform('web') ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                  border: isThisPlatform('web') ? '1.5px solid #8b5cf6' : '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Globe size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.84rem', fontWeight: '800' }}>
+                        {lang === 'bn' ? 'ক্লাউড ওয়েব অ্যাপ (Netlify & Vercel)' : 'Cloud Web App (Netlify & Vercel)'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
+                        অনলাইন ক্লাউড শাখা • https://hisabkitab360.vercel.app
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {isThisPlatform('web') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: '#8b5cf6', color: '#fff', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⭐ এই ওয়েব (সক্রিয়)
+                      </span>
+                    ) : isPeerOnline('web') ? (
+                      <span style={{ fontSize: '0.68rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid #10b981', padding: '2px 7px', borderRadius: '6px' }}>
+                        🟢 অনলাইন ও সংযুক্ত
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', background: 'rgba(148, 163, 184, 0.15)', padding: '2px 7px', borderRadius: '6px' }}>
+                        ⚪ স্ট্যান্ডবাই
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Active Counters Online Section */}
