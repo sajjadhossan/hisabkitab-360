@@ -144,7 +144,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       name: 'Android APK',
       titleBn: 'অ্যান্ড্রয়েড মোবাইল অ্যাপ',
       icon: <Smartphone size={24} color="#10b981" />,
-      tag: 'com.somiti360.app',
+      tag: 'com.hisabkitab360.app',
       desc: 'ক্যাপাসিটর নেটিভ ইঞ্জিন, অফলাইন ক্যাশিং ও তাৎক্ষণিক পুশ সিঙ্ক'
     },
     {
@@ -160,7 +160,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       name: 'Web App',
       titleBn: 'ভার্সেল ক্লাউড ওয়েব',
       icon: <Globe size={24} color="#8b5cf6" />,
-      tag: 'somiti-360.vercel.app',
+      tag: 'hisabkitab-360.vercel.app',
       desc: 'বিশ্বের যেকোনো প্রান্ত থেকে রিয়েল-টাইম ব্রাউজার অ্যাক্সেস'
     },
     {
