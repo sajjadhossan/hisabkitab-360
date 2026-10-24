@@ -52,16 +52,19 @@ export const saveSomitiTelegramConfig = (cfg) => {
   }
 };
 
-// Debounce timer to prevent flooding Telegram API on rapid state updates
+// Debounce timer for non-transaction minor state changes
 let debounceTimer = null;
 let pendingBackupData = null;
 let pendingActionMeta = null;
+
+// Periodic recurring timer (2 to 3 minutes)
+let periodicTimerId = null;
 
 /**
  * Send full Somiti 360 database snapshot to Telegram Bot
  * @param {Object} samityData - Full state of Somiti 360 (members, deposits, expenses, samities, etc.)
  * @param {Object} actionMeta - Action metadata (e.g. { action: 'NEW_MEMBER', details: { ... } })
- * @param {Boolean} forceNow - Skip debounce and send immediately
+ * @param {Boolean} forceNow - Skip debounce and send immediately (Used for all live transactions)
  */
 export const backupToTelegram = async (samityData, actionMeta = {}, forceNow = false) => {
   const cfg = getSomitiTelegramConfig();
@@ -70,18 +73,59 @@ export const backupToTelegram = async (samityData, actionMeta = {}, forceNow = f
   pendingBackupData = samityData;
   pendingActionMeta = actionMeta;
 
-  if (debounceTimer) clearTimeout(debounceTimer);
-
-  if (forceNow) {
+  // Immediate upload for transactions, manual backups, or explicit forceNow
+  if (forceNow || actionMeta.isTransaction || actionMeta.action === 'MANUAL_BACKUP') {
+    if (debounceTimer) clearTimeout(debounceTimer);
     return await executeTelegramUpload(pendingBackupData, pendingActionMeta, cfg);
   }
 
+  // Smooth 1.5s debounce for rapid typing or continuous inputs
+  if (debounceTimer) clearTimeout(debounceTimer);
   return new Promise((resolve) => {
     debounceTimer = setTimeout(async () => {
       const res = await executeTelegramUpload(pendingBackupData, pendingActionMeta, cfg);
       resolve(res);
-    }, 2500); // 2.5 second debounce for seamless smooth UX
+    }, 1500);
   });
+};
+
+/**
+ * Recurring Periodic Cloud Auto-Backup Engine (Runs every 2.5 - 3 minutes in background)
+ */
+export const initPeriodicTelegramAutoBackup = (getDataFn, intervalMinutes = 3) => {
+  if (periodicTimerId) clearInterval(periodicTimerId);
+
+  const ms = Math.max(2, intervalMinutes) * 60 * 1000;
+  console.info(`[TelegramBackup] Initializing periodic cloud backup every ${intervalMinutes} minutes.`);
+
+  periodicTimerId = setInterval(async () => {
+    try {
+      const cfg = getSomitiTelegramConfig();
+      if (!cfg.enabled || !cfg.botToken || !cfg.chatId) return;
+
+      let currentData = null;
+      if (typeof getDataFn === 'function') {
+        currentData = getDataFn();
+      } else if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('hk360_samity_hub_data');
+        if (raw) currentData = JSON.parse(raw);
+      }
+
+      if (!currentData || !currentData.members) return;
+
+      console.info('[TelegramBackup] Triggering scheduled periodic background auto-backup...');
+      await executeTelegramUpload(currentData, {
+        action: 'PERIODIC_SCHEDULED_BACKUP',
+        details: { interval: `${intervalMinutes} মিনিট` }
+      }, cfg);
+    } catch (err) {
+      console.debug('[TelegramBackup] Periodic backup skipped:', err);
+    }
+  }, ms);
+
+  return () => {
+    if (periodicTimerId) clearInterval(periodicTimerId);
+  };
 };
 
 /**
@@ -96,9 +140,9 @@ async function executeTelegramUpload(data, meta = {}, cfg) {
     // 1. Prepare JSON payload
     const jsonString = JSON.stringify({
       app: 'Somiti 360',
-      version: '1.0.0 Pro',
+      version: '1.0.4 Pro',
       exportTimestamp: now.toISOString(),
-      actionTriggered: meta.action || 'MANUAL_BACKUP',
+      actionTriggered: meta.action || 'LIVE_SYNC_UPDATE',
       actionDetails: meta.details || {},
       totalMembers: data?.members?.length || 0,
       totalDeposits: data?.deposits?.length || 0,
@@ -120,6 +164,8 @@ async function executeTelegramUpload(data, meta = {}, cfg) {
       `📌 *অ্যাকশন:* ${actionLabel}`,
       meta.details?.memberName ? `👤 *সদস্য:* ${meta.details.memberName}` : null,
       meta.details?.amount ? `💰 *টাকার পরিমাণ:* ৳ ${Number(meta.details.amount).toLocaleString('bn-BD')}` : null,
+      meta.details?.note ? `📝 *বিবরণ:* ${meta.details.note}` : null,
+      meta.details?.platform ? `📱 *উৎস:* ${meta.details.platform}` : null,
       `👥 *মোট সদস্য:* ${totalMembers} জন`,
       `💵 *নীট ফান্ড:* ৳ ${netFund.toLocaleString('bn-BD')}`,
       `⏰ *সময়:* ${now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}, ${now.toLocaleDateString('bn-BD')}`,
@@ -148,6 +194,15 @@ async function executeTelegramUpload(data, meta = {}, cfg) {
         lastBackupTime: now.toISOString(),
         lastFileName: fileName
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('somiti_telegram_backup_completed', {
+          detail: {
+            time: now.toISOString(),
+            fileName,
+            action: meta.action
+          }
+        }));
+      }
       return { success: true, messageId: result.result?.message_id, fileName };
     } else {
       console.warn('Telegram backup error response:', result);
@@ -174,6 +229,8 @@ function formatActionLabel(action) {
     case 'UPDATE_SAMITY_LOGO': return 'সমিতির লোগো পরিবর্তন 🖼️';
     case 'SAMITY_SETUP': return 'সমিতি বা শাখা পলিসি সেটআপ ⚙️';
     case 'MANUAL_BACKUP': return 'ম্যানুয়াল ব্যাকআপ রিকোয়েস্ট 💾';
+    case 'PERIODIC_SCHEDULED_BACKUP': return '⏰ ৩ মিনিট অন্তর নিয়মিত অটো-ব্যাকআপ সম্পন্ন';
+    case 'TRANSACTION_INSTANT_BACKUP': return '⚡ তাৎক্ষণিক ট্রানজ্যাকশন ক্লাউড ব্যাকআপ';
     default: return action || 'ডাটাবেজ পরিবর্তন ও সিঙ্ক 🔄';
   }
 }

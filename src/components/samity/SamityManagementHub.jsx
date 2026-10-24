@@ -118,15 +118,20 @@ import { useSamityTranslator, translateSamityText } from '../../utils/samityDict
 import {
   backupToTelegram,
   getSomitiTelegramConfig,
-  saveSomitiTelegramConfig
+  saveSomitiTelegramConfig,
+  initPeriodicTelegramAutoBackup
 } from '../../services/somitiTelegramBackupService';
 import {
   initSomitiCloudSync,
   subscribeSamityCloudSync,
   requestMeshSyncFromPeers,
-  markRecordAsDeletedTombstone
+  markRecordAsDeletedTombstone,
+  broadcastSamityStateChange,
+  getOnlineDevicesList,
+  subscribeDevicePresence
 } from '../../services/somitiCloudSyncService';
 import { SamityInternalChatHub } from './SamityInternalChatHub';
+import { DeviceMeshStatusModal } from './DeviceMeshStatusModal';
 
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
@@ -445,20 +450,29 @@ export const SamityManagementHub = ({ onClose }) => {
 
   // Core Data State
   const [data, setData] = useState(() => loadSamityData());
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   const [activeSamityId, setActiveSamityId] = useState(() => {
     const initial = loadSamityData();
     return initial.samities?.[0]?.id || 'SAMITY-001';
   });
 
-  // Real-Time Cross-Device 4-Platform Cloud Synchronization Listener (<150ms)
+  // Real-Time Cross-Device 4-Platform Cloud Synchronization Listener (<150ms) & Periodic Telegram Backup
   useEffect(() => {
     // 1. Initialize Realtime Mesh Channel
     initSomitiCloudSync();
 
-    // 2. Listen to local and cloud update events
+    // 2. Initialize Periodic 3-minute Telegram Cloud Auto-Backup
+    const stopPeriodic = initPeriodicTelegramAutoBackup(() => dataRef.current, 3);
+
+    // 3. Listen to local and cloud update events
     const handleSyncUpdate = (e) => {
       const incoming = e?.detail || loadSamityData();
       setData(incoming);
+      dataRef.current = incoming;
     };
 
     const handleCloudNotification = (e) => {
@@ -479,7 +493,9 @@ export const SamityManagementHub = ({ onClose }) => {
 
     const handleStorageChange = (e) => {
       if (e.key === 'hk360_samity_hub_data') {
-        setData(loadSamityData());
+        const d = loadSamityData();
+        setData(d);
+        dataRef.current = d;
       }
     };
 
@@ -488,6 +504,7 @@ export const SamityManagementHub = ({ onClose }) => {
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
+      if (typeof stopPeriodic === 'function') stopPeriodic();
       window.removeEventListener('hk360_samity_updated', handleSyncUpdate);
       window.removeEventListener('somiti_cloud_synced', handleCloudNotification);
       window.removeEventListener('storage', handleStorageChange);
@@ -497,6 +514,18 @@ export const SamityManagementHub = ({ onClose }) => {
   // Active Hub Sub-Tab
   const [activeTab, setActiveTab] = useState('dashboard');
   // 'dashboard' | 'members' | 'deposits' | 'bulk_deposit' | 'payment_status' | 'reminders' | 'expenses' | 'fund_balance' | 'letterhead' | 'signatures' | 'documents' | 'reports' | 'sql_schema' | 'setup'
+
+  // 4-Platform Live Device Mesh & Presence Tracking
+  const [isDeviceMeshModalOpen, setIsDeviceMeshModalOpen] = useState(false);
+  const [onlineDevicesListState, setOnlineDevicesListState] = useState(() => getOnlineDevicesList());
+  const onlineDevicesCount = Math.max(1, onlineDevicesListState.length);
+
+  useEffect(() => {
+    const unsubPresence = subscribeDevicePresence((list) => {
+      if (Array.isArray(list)) setOnlineDevicesListState(list);
+    });
+    return () => unsubPresence();
+  }, []);
 
   // Current active Samity with dedicated Society Logo fallback (ensures Shopnochoa has its own logo distinct from 360 platform)
   const currentSamity = useMemo(() => {
@@ -1023,8 +1052,27 @@ export const SamityManagementHub = ({ onClose }) => {
         nextData = recordAuditLog(nextData, auditMeta);
       }
       saveSamityData(nextData);
+      dataRef.current = nextData;
 
-      // Instant live sync across devices (PC ↔ Mobile APK) via Supabase Realtime WebSocket (<150ms)
+      const isTx = Boolean(
+        auditMeta?.isTransaction || [
+          'NEW_DEPOSIT', 'NEW_MEMBER', 'NEW_EXPENSE', 'FULL_DUE_PAID',
+          'DUE_PAYMENT_COLLECTED', 'BULK_DEPOSIT', 'DELETE_DEPOSIT',
+          'DELETE_MEMBER', 'DELETE_EXPENSE', 'UPDATE_MEMBER', 'MANUAL_BACKUP'
+        ].includes(auditMeta?.action)
+      );
+
+      // Instant live sync across all 4 platforms (Android APK, Web, Windows PC, macOS) (<150ms)
+      try {
+        broadcastSamityStateChange(nextData, {
+          ...(auditMeta || { action: 'SAMITY_UPDATE' }),
+          isTransaction: isTx
+        }).catch((e) => console.debug('[SamitySync] Broadcast notice:', e));
+      } catch (broadcastErr) {
+        console.debug('[SamityRealtime] Broadcast notice:', broadcastErr);
+      }
+
+      // Legacy fallback broadcast
       try {
         broadcastLiveEvent('SAMITY_STATE_SYNC', {
           samityData: nextData,
@@ -1032,13 +1080,15 @@ export const SamityManagementHub = ({ onClose }) => {
           samityId: activeSamityId,
           timestamp: Date.now()
         }).catch(() => {});
-      } catch (broadcastErr) {
-        console.debug('[SamityRealtime] Broadcast notice:', broadcastErr);
-      }
+      } catch {}
 
-      // Automatic Real-Time Telegram Cloud Backup on Every Action!
+      // Automatic Real-Time Telegram Cloud Backup (Instant for transactions, debounced for others)
       try {
-        backupToTelegram(nextData, auditMeta || { action: 'DATA_UPDATE' }).catch((err) => {
+        backupToTelegram(
+          nextData,
+          { ...(auditMeta || { action: 'DATA_UPDATE' }), isTransaction: isTx },
+          isTx
+        ).catch((err) => {
           console.debug('[TelegramBackup] Auto-sync notice:', err);
         });
       } catch (tgErr) {
@@ -3833,6 +3883,38 @@ export const SamityManagementHub = ({ onClose }) => {
           >
             <Sparkles size={13} />
             <span>{activeLang === 'en' ? 'SaaS Architecture' : 'বিক্রির আর্কিটেকচার'}</span>
+          </button>
+
+          {/* 4-Platform Live Device Mesh & Instant Sync Button */}
+          <button
+            onClick={() => {
+              playButtonClick?.();
+              triggerHaptic();
+              setIsDeviceMeshModalOpen(true);
+            }}
+            style={{
+              flexShrink: 0,
+              background: onlineDevicesCount > 1 ? (isLight ? '#dcfce7' : 'rgba(16, 185, 129, 0.25)') : (isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.15)'),
+              color: isLight ? '#15803d' : '#34d399',
+              border: onlineDevicesCount > 1 ? '1.5px solid #10b981' : (isLight ? '1.5px solid #86efac' : '1px solid rgba(16, 185, 129, 0.4)'),
+              borderRadius: '8px',
+              padding: '6px 11px',
+              fontSize: '0.78rem',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: onlineDevicesCount > 1 ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
+            }}
+            title={t('৪টি প্ল্যাটফর্ম লাইভ ডিভাইস মেশ ও টেলিগ্রাম অটো-ব্যাকআপ স্ট্যাটাস', '4-Platform Live Device Mesh & Telegram Backup Status')}
+          >
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+            <span>
+              {onlineDevicesCount > 1
+                ? t(`৪টি প্ল্যাটফর্ম (${onlineDevicesCount}টি অনলাইন) ⚡`, `4 Platforms (${onlineDevicesCount} Online) ⚡`)
+                : t('৪টি প্ল্যাটফর্ম সিঙ্কড ⚡', '4 Platforms Synced ⚡')}
+            </span>
           </button>
 
           <button
@@ -21859,6 +21941,18 @@ export const SamityManagementHub = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 4-Platform Live Device Mesh & Telegram Backup Status Modal */}
+      {isDeviceMeshModalOpen && (
+        <DeviceMeshStatusModal
+          isOpen={isDeviceMeshModalOpen}
+          onClose={() => setIsDeviceMeshModalOpen(false)}
+          isLight={isLight}
+          samityData={data}
+          showToast={showToast}
+          t={t}
+        />
       )}
     </div>
   );

@@ -12,12 +12,19 @@ import {
   Clock,
   Sparkles,
   Zap,
-  Radio
+  Radio,
+  Wifi
 } from 'lucide-react';
 import { getSomitiTelegramConfig, backupToTelegram } from '../../services/somitiTelegramBackupService';
 import { isLiveSyncConnected, getOnlineTerminalsList } from '../../services/liveSyncService';
 import { detectDeviceType } from '../../services/deviceManagerService';
-import { subscribeSamityCloudSync, requestMeshSyncFromPeers } from '../../services/somitiCloudSyncService';
+import {
+  subscribeSamityCloudSync,
+  requestMeshSyncFromPeers,
+  subscribeDevicePresence,
+  getOnlineDevicesList,
+  getDeviceOrigin
+} from '../../services/somitiCloudSyncService';
 
 export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samityData = {}, showToast = null, t = (bn) => bn }) => {
   const [telegramConfig, setTelegramConfig] = useState(getSomitiTelegramConfig());
@@ -25,19 +32,36 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
   const [isMeshSyncing, setIsMeshSyncing] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState('web');
   const [liveConnected, setLiveConnected] = useState(true);
-  const [meshState, setMeshState] = useState({
+  const [onlineDevices, setOnlineDevices] = useState(() => getOnlineDevicesList());
+  const [meshState, setMeshState] = useState(() => ({
     status: 'connected',
-    lastSyncedDevice: 'স্থানীয় ডিভাইস',
-    lastSyncTime: Date.now()
-  });
+    lastSyncedDevice: typeof window !== 'undefined' ? (localStorage.getItem('somiti360_last_sync_device') || 'স্থানীয় ডিভাইস') : 'স্থানীয় ডিভাইস',
+    lastSyncTime: typeof window !== 'undefined' ? (Number(localStorage.getItem('somiti360_last_sync_timestamp')) || 0) : 0
+  }));
 
   useEffect(() => {
     if (isOpen) {
       setTelegramConfig(getSomitiTelegramConfig());
       setLiveConnected(isLiveSyncConnected());
       setCurrentPlatform(detectDeviceType());
-      const unsub = subscribeSamityCloudSync((s) => setMeshState(s));
-      return () => unsub();
+      
+      const unsubSync = subscribeSamityCloudSync((s) => {
+        setMeshState(s);
+        if (s.onlineDevices && Array.isArray(s.onlineDevices)) {
+          setOnlineDevices(s.onlineDevices);
+        }
+      });
+
+      const unsubPresence = subscribeDevicePresence((list) => {
+        if (Array.isArray(list)) {
+          setOnlineDevices(list);
+        }
+      });
+
+      return () => {
+        unsubSync();
+        unsubPresence();
+      };
     }
   }, [isOpen]);
 
@@ -62,7 +86,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
     setIsBackingUp(true);
     showToast?.(t('টেলিগ্রামে লাইভ ব্যাকআপ পাঠানো হচ্ছে...', 'Uploading backup to Telegram...'), 'info');
     try {
-      const res = await backupToTelegram(samityData, { action: 'MANUAL_BACKUP' }, true);
+      const res = await backupToTelegram(samityData, { action: 'MANUAL_BACKUP', isTransaction: true }, true);
       if (res.success) {
         setTelegramConfig(getSomitiTelegramConfig());
         showToast?.(t('✅ ব্যাকআপ সফলভাবে টেলিগ্রামে সেন্ট হয়েছে!', '✅ Backup sent to Telegram successfully!'), 'success');
@@ -95,6 +119,30 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
     }
   };
 
+  const formatRelativeSyncTime = (timestamp) => {
+    if (!timestamp) return t('এখনো কোনো সিঙ্ক হয়নি', 'No sync yet');
+    const diffMs = Date.now() - timestamp;
+    if (diffMs < 5000) return t('এইমাত্র (<৫ সেকেন্ড)', 'Just now (<5s)');
+    if (diffMs < 60000) return `${Math.floor(diffMs / 1000)} ${t('সেকেন্ড পূর্বে', 'seconds ago')}`;
+    if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} ${t('মিনিট পূর্বে', 'minutes ago')}`;
+    try {
+      return new Date(timestamp).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+      return '';
+    }
+  };
+
+  const origin = getDeviceOrigin();
+
+  const matchesPlatform = (platformId, itemPlatform) => {
+    const target = String(itemPlatform || '').toLowerCase();
+    if (platformId === 'apk') return target.includes('android') || target.includes('mobile') || target.includes('apk');
+    if (platformId === 'pc') return target.includes('windows') || target.includes('pc') || target.includes('desktop');
+    if (platformId === 'web') return target === 'web' || target.includes('browser');
+    if (platformId === 'mac') return target.includes('mac') || target.includes('apple') || target.includes('ios');
+    return false;
+  };
+
   const platforms = [
     {
       id: 'apk',
@@ -102,7 +150,6 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       titleBn: 'অ্যান্ড্রয়েড মোবাইল অ্যাপ',
       icon: <Smartphone size={24} color="#10b981" />,
       tag: 'com.somiti360.app',
-      status: 'active',
       desc: 'ক্যাপাসিটর নেটিভ ইঞ্জিন, অফলাইন ক্যাশিং ও তাৎক্ষণিক পুশ সিঙ্ক'
     },
     {
@@ -111,7 +158,6 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       titleBn: 'উইন্ডোজ পিসি ডেস্কটপ',
       icon: <Monitor size={24} color="#0284c7" />,
       tag: 'Desktop Host / .exe',
-      status: 'active',
       desc: 'ক্যাশ কাউন্টার, থার্মাল পিওএস প্রিন্টিং ও লোকালহোস্ট নোড'
     },
     {
@@ -120,7 +166,6 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       titleBn: 'ভার্সেল ক্লাউড ওয়েব',
       icon: <Globe size={24} color="#8b5cf6" />,
       tag: 'somiti-360.vercel.app',
-      status: 'active',
       desc: 'বিশ্বের যেকোনো প্রান্ত থেকে রিয়েল-টাইম ব্রাউজার অ্যাক্সেস'
     },
     {
@@ -129,10 +174,11 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       titleBn: 'ম্যাক ওএস ও অ্যাপল ইকোসিস্টেম',
       icon: <Apple size={24} color="#f59e0b" />,
       tag: 'Intel & Apple Silicon M-Series',
-      status: 'active',
       desc: 'রেটিনা আল্ট্রা-এইচডি ডিসপ্লে কমপ্লায়েন্ট মাল্টি-প্ল্যাটফর্ম শেল'
     }
   ];
+
+  const totalOnlineCount = Math.max(1, onlineDevices.length);
 
   return (
     <div
@@ -165,7 +211,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '16px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '16px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
@@ -214,22 +260,69 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
           </button>
         </div>
 
-        {/* 1. Synced Device Grid */}
+        {/* Live Network Banner with Real-Time Connected Terminal Count */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: totalOnlineCount > 1 ? (isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.15)') : (isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.5)'),
+            border: totalOnlineCount > 1 ? '1.5px solid #10b981' : (isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)'),
+            borderRadius: '14px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.3rem' }}>{totalOnlineCount > 1 ? '🌐' : '📡'}</span>
+            <div>
+              <div style={{ fontSize: '0.86rem', fontWeight: '900', color: totalOnlineCount > 1 ? '#10b981' : (isLight ? '#0f172a' : '#f8fafc') }}>
+                {totalOnlineCount > 1 
+                  ? t(`মোট ${totalOnlineCount}টি ডিভাইস লাইভ মেশে সরাসরি সংযুক্ত!`, `${totalOnlineCount} terminals actively connected on live mesh!`)
+                  : t('১টি টার্মিনাল প্রস্তুত (অন্য ডিভাইস ওপেন করলেই সাথে সাথে এখানে দৃশ্যমান হবে)', '1 terminal active (other devices connect in real-time when opened)')}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: isLight ? '#64748b' : '#94a3b8', marginTop: '2px' }}>
+                {t('সর্বশেষ লাইভ সিঙ্ক:', 'Last Live Sync:')}{' '}
+                <strong style={{ color: '#10b981' }}>{meshState.lastSyncedDevice || 'স্থানীয় ডিভাইস'}</strong>
+                {meshState.lastSyncTime ? ` (${formatRelativeSyncTime(meshState.lastSyncTime)})` : ''}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ display: 'inline-block', width: '9px', height: '9px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
+            <span style={{ fontSize: '0.74rem', fontWeight: '800', color: '#10b981' }}>
+              {totalOnlineCount > 1 ? t('লাইভ পিয়ার সিঙ্ক সক্রিয়', 'Live Peer Sync Active') : t('মেশ নোড সচল', 'Mesh Node Ready')}
+            </span>
+          </div>
+        </div>
+
+        {/* 1. Synced Device Grid with Dynamic Presence Detection */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '14px' }}>
           {platforms.map(p => {
-            const isThis = currentPlatform === p.id || (currentPlatform === 'mobile' && p.id === 'apk');
+            const isThisDevice = matchesPlatform(p.id, origin.platform) || matchesPlatform(p.id, origin.type) || (currentPlatform === p.id);
+            const remotePeers = onlineDevices.filter(d => !d.isThis && (matchesPlatform(p.id, d.platform) || matchesPlatform(p.id, d.type)));
+            const isRemoteOnline = remotePeers.length > 0;
+            const isAnyActive = isThisDevice || isRemoteOnline;
+
             return (
               <div
                 key={p.id}
                 style={{
-                  background: isLight ? (isThis ? '#f0fdf4' : '#f8fafc') : (isThis ? 'rgba(16, 185, 129, 0.12)' : 'rgba(30, 41, 59, 0.6)'),
-                  border: isLight ? (isThis ? '1.5px solid #10b981' : '1px solid #e2e8f0') : (isThis ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)'),
+                  background: isLight 
+                    ? (isAnyActive ? '#f0fdf4' : '#f8fafc') 
+                    : (isAnyActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(30, 41, 59, 0.6)'),
+                  border: isLight 
+                    ? (isAnyActive ? '1.5px solid #10b981' : '1px solid #e2e8f0') 
+                    : (isAnyActive ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)'),
                   borderRadius: '14px',
                   padding: '14px 16px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  boxShadow: isThis ? '0 4px 12px rgba(16, 185, 129, 0.15)' : 'none'
+                  boxShadow: isAnyActive ? '0 4px 14px rgba(16, 185, 129, 0.18)' : 'none',
+                  transition: 'all 0.25s ease'
                 }}
               >
                 <div
@@ -241,7 +334,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid rgba(0,0,0,0.06)',
+                    border: isAnyActive ? '1.5px solid #10b981' : '1px solid rgba(0,0,0,0.06)',
                     flexShrink: 0
                   }}
                 >
@@ -253,9 +346,20 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
                     <span style={{ fontSize: '0.85rem', fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>
                       {p.name}
                     </span>
-                    {isThis ? (
-                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px' }}>
-                        🟢 {t('এই ডিভাইস (সক্রিয়)', 'This Device (Active)')}
+                    {isThisDevice && isRemoteOnline ? (
+                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                        {t('এই ডিভাইস + ১টি অনলাইন', 'This Device + 1 Online')}
+                      </span>
+                    ) : isThisDevice ? (
+                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                        {t('এই ডিভাইস (সক্রিয়)', 'This Device (Active)')}
+                      </span>
+                    ) : isRemoteOnline ? (
+                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', boxShadow: '0 0 8px rgba(16, 185, 129, 0.4)' }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                        {t('🟢 অনলাইন ও লাইভ সংযুক্ত', '🟢 Online & Live Synced')}
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.62rem', fontWeight: '800', background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)', color: isLight ? '#64748b' : '#94a3b8', padding: '2px 7px', borderRadius: '8px' }}>
@@ -274,7 +378,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
 
         {/* Real-time Architecture Notice */}
         <div style={{ background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.5)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '10px 14px', marginBottom: '14px', fontSize: '0.74rem', color: isLight ? '#475569' : '#94a3b8', lineHeight: 1.5 }}>
-          💡 <strong style={{ color: isLight ? '#0f172a' : '#f8fafc' }}>{t('ডিভাইস মেশ স্ট্যাটাস ব্যাখ্যা:', 'Device Mesh Explanation:')}</strong> {t('বর্তমানে আপনি যে ডিভাইসে আছেন সেটি সক্রিয়ভাবে লাইভ ডাটা পাঠাচ্ছে ও গ্রহণ করছে। বাকি প্ল্যাটফর্মগুলো স্ট্যান্ডবাই রেডি মোডে রয়েছে—মোবাইল বা পিসিতে অ্যাপ ওপেন করা মাত্রই সিঙ্ক হয়ে যাবে।', 'The device you are currently on is active. Other platforms are in Standby Ready mode and will sync instantly once opened.')}
+          💡 <strong style={{ color: isLight ? '#0f172a' : '#f8fafc' }}>{t('ডিভাইস মেশ স্ট্যাটাস ব্যাখ্যা:', 'Device Mesh Explanation:')}</strong> {t('আপনার মোবাইল ও পিসি/ওয়েব একই সাথে ওপেন থাকলে উভয়েই "অনলাইন ও লাইভ সংযুক্ত" হিসেবে সবুজ মার্ক দেখাবে। যেকোনো একটিতে এন্ট্রি দিলে রিফ্রেশ ছাড়াই সাথে সাথে অন্যটিতে আপডেট হবে।', 'When Mobile and PC/Web are both open, they will show as "Online & Live Synced" with a green badge. Data writes mirror across both without reload.')}
         </div>
 
         {/* 2. Real-Time Omni-Platform Mesh Live Card */}
@@ -339,7 +443,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
               <span style={{ fontSize: '1.4rem' }}>✈️</span>
               <div>
                 <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '900', color: isLight ? '#0369a1' : '#38bdf8' }}>
-                  {t('টেলিগ্রাম ক্লাউড অটো-ব্যাকআপ স্থিতি', 'Telegram Cloud Auto-Backup Status')}
+                  {t('টেলিগ্রাম ক্লাউড অটো-ব্যাকআপ স্থিতি (প্রতি ৩ মিনিটে স্বয়ংক্রিয়)', 'Telegram Cloud Auto-Backup (Every 3 mins)')}
                 </h4>
                 <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
                   {t('বট:', 'Bot:')} <strong style={{ color: '#0284c7' }}>@Backup_Somiti_bot</strong> | {t('চ্যাট আইডি:', 'Chat ID:')} <code>7928605566</code>
@@ -400,7 +504,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: isLight ? '#f1f5f9' : 'rgba(30, 41, 59, 0.5)', borderRadius: '12px', fontSize: '0.74rem', color: isLight ? '#475569' : '#94a3b8' }}>
           <ShieldCheck size={18} color="#10b981" style={{ flexShrink: 0 }} />
           <span>
-            {t('সবগুলো টার্মিনাল এন্ড-টু-এন্ড লোকাল ও ক্লাউড মেশ দ্বারা সুসংহত। প্রতিবার নতুন সদস্য, চাঁদা জমা বা খরচ এন্ট্রি করামাত্রই কোনো রিফ্রেশ ছাড়াই সাথে সাথে অন্য স্ক্রিনে প্রতিফলিত হয়।', 'All terminals operate in an active-active sync mesh. Any data entry syncs instantly across mobile, desktop, and web with zero latency.')}
+            {t('সবগুলো টার্মিনাল এন্ড-টু-এন্ড লোকাল ও ক্লাউড মেশ দ্বারা সুসংহত। প্রতিবার নতুন সদস্য, চাঁদা জমা বা খরচ এন্ট্রি করামাত্রই কোনো রিফ্রেশ ছাড়াই সাথে সাথে অন্য স্ক্রিনে প্রতিফলিত হয় এবং টেলিগ্রামে ক্লাউড কপি পৌঁছে যায়।', 'All terminals operate in an active-active sync mesh. Any data entry syncs instantly across mobile, desktop, and web with zero latency.')}
           </span>
         </div>
       </div>

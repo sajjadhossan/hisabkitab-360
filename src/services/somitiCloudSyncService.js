@@ -7,8 +7,9 @@
  * 3. Windows PC Desktop (.exe / Localhost)
  * 4. Web Browser (somiti-360.vercel.app)
  * 
- * Architecture:
+ * Features:
  * - Supabase Realtime WebSocket Pub/Sub Broadcast Mesh (<150ms latency)
+ * - Supabase Presence Tracking & Heartbeat (shows real-time online peers)
  * - Intelligent LWW (Last-Write-Wins) Deep Merging with Tombstone Protection
  * - Dual-Redundancy Cloud Archival via Dedicated Somiti Telegram Engine
  * - Boot Peer Discovery (New nodes automatically fetch latest state from mesh)
@@ -21,11 +22,15 @@ const MESH_CHANNEL_NAME = 'hk360_somiti_mesh_sync';
 const STORAGE_KEY = 'hk360_samity_hub_data';
 const LAST_SYNC_TS_KEY = 'somiti360_last_sync_timestamp';
 const LAST_SYNC_DEVICE_KEY = 'somiti360_last_sync_device';
+const LAST_SYNC_ACTION_KEY = 'somiti360_last_sync_action';
 const TOMBSTONES_STORAGE_KEY = 'somiti360_tombstone_ids';
 
 let meshChannel = null;
 let isChannelSubscribed = false;
 let syncListeners = new Set();
+let presenceListeners = new Set();
+let presenceState = {};
+let presenceHeartbeatInterval = null;
 let isSyncing = false;
 let autoBackupDebounceTimer = null;
 let isApplyingIncoming = false;
@@ -51,7 +56,7 @@ export const getLocalDeviceId = () => {
  */
 export const getDeviceOrigin = () => {
   if (typeof window === 'undefined') {
-    return { type: 'pc', name: 'উইন্ডোজ পিসি (Windows)', nameEn: 'Windows PC' };
+    return { type: 'pc', platform: 'windows', name: 'উইন্ডোজ পিসি (Windows)', nameEn: 'Windows PC' };
   }
 
   const ua = navigator.userAgent || '';
@@ -149,8 +154,8 @@ export const mergeSamityState = (localState, incomingState) => {
       const key = String(item.id);
       if (map.has(key)) {
         const existing = map.get(key);
-        const existingTs = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-        const incomingTs = new Date(item.updatedAt || item.createdAt || 0).getTime();
+        const existingTs = new Date(existing.updatedAt || existing.createdAt || existing.date || 0).getTime();
+        const incomingTs = new Date(item.updatedAt || item.createdAt || item.date || 0).getTime();
         // LWW: If incoming is newer or equal, take incoming
         if (incomingTs >= existingTs) {
           map.set(key, { ...existing, ...item });
@@ -233,13 +238,55 @@ export const initSomitiCloudSync = () => {
       handleIncomingBroadcast(eventPayload?.payload, true);
     });
 
-    meshChannel.subscribe((status) => {
+    // 4. Live Presence Tracking Listeners (Android, Web, Windows, macOS)
+    meshChannel
+      .on('presence', { event: 'sync' }, () => {
+        presenceState = meshChannel.presenceState();
+        notifyPresenceListeners();
+      })
+      .on('presence', { event: 'join' }, () => {
+        presenceState = meshChannel.presenceState();
+        notifyPresenceListeners();
+      })
+      .on('presence', { event: 'leave' }, () => {
+        presenceState = meshChannel.presenceState();
+        notifyPresenceListeners();
+      });
+
+    meshChannel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         isChannelSubscribed = true;
         console.info(`[SomitiSync] Connected to 4-Platform Realtime Mesh as ${origin.name} (${deviceId})`);
+
+        // Register device presence on the mesh network
+        try {
+          await meshChannel.track({
+            deviceId,
+            platform: origin.platform,
+            name: origin.name,
+            joinedAt: Date.now(),
+            lastPing: Date.now()
+          });
+        } catch (e) {
+          console.debug('[SomitiSync] Presence track error:', e);
+        }
+
+        // Periodic presence heartbeat every 20 seconds
+        if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
+        presenceHeartbeatInterval = setInterval(() => {
+          if (meshChannel && isChannelSubscribed) {
+            meshChannel.track({
+              deviceId,
+              platform: origin.platform,
+              name: origin.name,
+              lastPing: Date.now()
+            }).catch(() => {});
+          }
+        }, 20000);
+
         notifyListeners({ status: 'connected', deviceOrigin: origin });
         
-        // Broadcast presence and request freshest state from active peers
+        // Request freshest state from active peers
         requestMeshSyncFromPeers();
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
         isChannelSubscribed = false;
@@ -284,6 +331,9 @@ const handleIncomingBroadcast = (payload, isResponse = false) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedData));
     localStorage.setItem(LAST_SYNC_TS_KEY, String(payload.timestamp || Date.now()));
     localStorage.setItem(LAST_SYNC_DEVICE_KEY, payload.senderDeviceName || 'অন্য ডিভাইস');
+    if (payload.actionMeta) {
+      localStorage.setItem(LAST_SYNC_ACTION_KEY, JSON.stringify(payload.actionMeta));
+    }
 
     // Notify UI components
     if (typeof window !== 'undefined') {
@@ -292,6 +342,7 @@ const handleIncomingBroadcast = (payload, isResponse = false) => {
         detail: {
           senderName: payload.senderDeviceName || 'ক্লাউড নোড',
           senderPlatform: payload.senderPlatform || 'web',
+          actionMeta: payload.actionMeta || {},
           timestamp: payload.timestamp || Date.now(),
           isResponse
         }
@@ -301,7 +352,8 @@ const handleIncomingBroadcast = (payload, isResponse = false) => {
     notifyListeners({
       status: 'synced',
       lastSyncedDevice: payload.senderDeviceName,
-      lastSyncTime: payload.timestamp
+      lastSyncTime: payload.timestamp,
+      lastActionMeta: payload.actionMeta
     });
 
     console.info(`[SomitiSync] Realtime sync applied from ${payload.senderDeviceName} (${payload.senderPlatform}) in <150ms`);
@@ -386,6 +438,7 @@ export const broadcastSamityStateUpdate = async (data, actionMeta = {}) => {
 
   localStorage.setItem(LAST_SYNC_TS_KEY, String(now));
   localStorage.setItem(LAST_SYNC_DEVICE_KEY, origin.name);
+  localStorage.setItem(LAST_SYNC_ACTION_KEY, JSON.stringify(actionMeta));
 
   // 1. Instant WebSocket Realtime Broadcast to All 4 Platforms (<150ms)
   try {
@@ -411,26 +464,108 @@ export const broadcastSamityStateUpdate = async (data, actionMeta = {}) => {
     console.debug('[SomitiSync] Realtime send error:', err);
   }
 
-  // 2. Debounced Cloud Archival via Telegram Engine (Dual Redundancy)
-  if (autoBackupDebounceTimer) clearTimeout(autoBackupDebounceTimer);
-  autoBackupDebounceTimer = setTimeout(() => {
+  // 2. Instant Telegram upload for live transactions (No delay)
+  const isTransaction = actionMeta.isTransaction || 
+    ['NEW_DEPOSIT', 'NEW_MEMBER', 'NEW_EXPENSE', 'FULL_DUE_PAID', 'DUE_PAYMENT_COLLECTED', 'BULK_DEPOSIT', 'MANUAL_BACKUP'].includes(actionMeta.action);
+
+  if (isTransaction) {
     backupToTelegram(data, {
-      action: actionMeta.action || 'LIVE_SYNC_UPDATE',
+      ...actionMeta,
       details: {
-        ...actionMeta.details,
+        ...(actionMeta.details || {}),
         platform: origin.name,
         deviceId
       }
-    }).catch(e => console.debug('[SomitiSync] Telegram auto-backup skipped:', e));
-  }, 2500);
+    }, true).catch(e => console.debug('[SomitiSync] Instant Telegram backup skipped:', e));
+  } else {
+    // Debounced Telegram upload for general settings or minor tweaks
+    if (autoBackupDebounceTimer) clearTimeout(autoBackupDebounceTimer);
+    autoBackupDebounceTimer = setTimeout(() => {
+      backupToTelegram(data, {
+        action: actionMeta.action || 'LIVE_SYNC_UPDATE',
+        details: {
+          ...actionMeta.details,
+          platform: origin.name,
+          deviceId
+        }
+      }).catch(e => console.debug('[SomitiSync] Telegram auto-backup skipped:', e));
+    }, 1500);
+  }
 
   notifyListeners({
     status: 'synced',
     lastSyncedDevice: origin.name,
-    lastSyncTime: now
+    lastSyncTime: now,
+    lastActionMeta: actionMeta
   });
 
   return true;
+};
+
+export const broadcastSamityStateChange = broadcastSamityStateUpdate;
+
+/**
+ * Get formatted list of all active online devices connected to the Realtime Mesh
+ */
+export const getOnlineDevicesList = () => {
+  const localId = getLocalDeviceId();
+  const origin = getDeviceOrigin();
+  const list = [];
+
+  for (const [key, presences] of Object.entries(presenceState || {})) {
+    if (Array.isArray(presences) && presences.length > 0) {
+      const p = presences[0];
+      list.push({
+        deviceId: key,
+        platform: p.platform || 'web',
+        name: p.name || 'ডিভাইস',
+        isThis: key === localId,
+        joinedAt: p.joinedAt || Date.now()
+      });
+    }
+  }
+
+  // Ensure current device is represented in the list
+  if (!list.some(d => d.deviceId === localId)) {
+    list.push({
+      deviceId: localId,
+      platform: origin.platform,
+      name: origin.name,
+      isThis: true,
+      joinedAt: Date.now()
+    });
+  }
+
+  return list;
+};
+
+/**
+ * Subscribe to online device presence changes
+ */
+export const subscribeDevicePresence = (callback) => {
+  if (typeof callback !== 'function') return () => {};
+  presenceListeners.add(callback);
+
+  callback(getOnlineDevicesList());
+
+  if (!meshChannel) {
+    initSomitiCloudSync();
+  }
+
+  return () => {
+    presenceListeners.delete(callback);
+  };
+};
+
+const notifyPresenceListeners = () => {
+  const list = getOnlineDevicesList();
+  presenceListeners.forEach(cb => {
+    try {
+      cb(list);
+    } catch (e) {
+      console.debug('[SomitiSync] Presence listener error:', e);
+    }
+  });
 };
 
 /**
@@ -440,13 +575,21 @@ export const subscribeSamityCloudSync = (callback) => {
   if (typeof callback !== 'function') return () => {};
   syncListeners.add(callback);
 
+  let lastActionMeta = {};
+  try {
+    const rawAction = localStorage.getItem(LAST_SYNC_ACTION_KEY);
+    if (rawAction) lastActionMeta = JSON.parse(rawAction);
+  } catch {}
+
   // Send initial state immediately
   callback({
     status: isChannelSubscribed ? 'connected' : 'connecting',
     isSyncing,
     lastSyncedDevice: localStorage.getItem(LAST_SYNC_DEVICE_KEY) || 'স্থানীয় ডিভাইস',
     lastSyncTime: Number(localStorage.getItem(LAST_SYNC_TS_KEY)) || 0,
-    deviceOrigin: getDeviceOrigin()
+    lastActionMeta,
+    deviceOrigin: getDeviceOrigin(),
+    onlineDevices: getOnlineDevicesList()
   });
 
   if (!meshChannel) {
@@ -459,13 +602,21 @@ export const subscribeSamityCloudSync = (callback) => {
 };
 
 const notifyListeners = (state) => {
+  let lastActionMeta = {};
+  try {
+    const rawAction = localStorage.getItem(LAST_SYNC_ACTION_KEY);
+    if (rawAction) lastActionMeta = JSON.parse(rawAction);
+  } catch {}
+
   syncListeners.forEach(cb => {
     try {
       cb({
         isSyncing,
         lastSyncedDevice: localStorage.getItem(LAST_SYNC_DEVICE_KEY) || 'স্থানীয় ডিভাইস',
         lastSyncTime: Number(localStorage.getItem(LAST_SYNC_TS_KEY)) || 0,
+        lastActionMeta,
         deviceOrigin: getDeviceOrigin(),
+        onlineDevices: getOnlineDevicesList(),
         ...state
       });
     } catch (e) {
