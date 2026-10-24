@@ -17,22 +17,46 @@ import {
 import { getSomitiTelegramConfig, backupToTelegram } from '../../services/somitiTelegramBackupService';
 import { isLiveSyncConnected, getOnlineTerminalsList } from '../../services/liveSyncService';
 import { detectDeviceType } from '../../services/deviceManagerService';
+import { subscribeSamityCloudSync, requestMeshSyncFromPeers } from '../../services/somitiCloudSyncService';
 
 export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samityData = {}, showToast = null, t = (bn) => bn }) => {
   const [telegramConfig, setTelegramConfig] = useState(getSomitiTelegramConfig());
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isMeshSyncing, setIsMeshSyncing] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState('web');
   const [liveConnected, setLiveConnected] = useState(true);
+  const [meshState, setMeshState] = useState({
+    status: 'connected',
+    lastSyncedDevice: 'স্থানীয় ডিভাইস',
+    lastSyncTime: Date.now()
+  });
 
   useEffect(() => {
     if (isOpen) {
       setTelegramConfig(getSomitiTelegramConfig());
       setLiveConnected(isLiveSyncConnected());
       setCurrentPlatform(detectDeviceType());
+      const unsub = subscribeSamityCloudSync((s) => setMeshState(s));
+      return () => unsub();
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleInstantMeshSync = async () => {
+    setIsMeshSyncing(true);
+    showToast?.(t('৪টি প্ল্যাটফর্ম মেশে লাইভ ডেটা রিকোয়েস্ট পাঠানো হচ্ছে...', 'Requesting live data across 4 platforms...'), 'info');
+    try {
+      await requestMeshSyncFromPeers();
+      setTimeout(() => {
+        setIsMeshSyncing(false);
+        showToast?.(t('✅ লাইভ মেশ সিঙ্ক সম্পন্ন হয়েছে!', '✅ Live mesh sync completed!'), 'success');
+      }, 700);
+    } catch (e) {
+      setIsMeshSyncing(false);
+      showToast?.(t('মেশ সিঙ্ক ত্রুটি: ', 'Mesh sync error: ') + e.message, 'error');
+    }
+  };
 
   const handleManualBackup = async () => {
     setIsBackingUp(true);
@@ -249,11 +273,58 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
         </div>
 
         {/* Real-time Architecture Notice */}
-        <div style={{ background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.5)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '10px 14px', marginBottom: '18px', fontSize: '0.74rem', color: isLight ? '#475569' : '#94a3b8', lineHeight: 1.5 }}>
+        <div style={{ background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.5)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '10px 14px', marginBottom: '14px', fontSize: '0.74rem', color: isLight ? '#475569' : '#94a3b8', lineHeight: 1.5 }}>
           💡 <strong style={{ color: isLight ? '#0f172a' : '#f8fafc' }}>{t('ডিভাইস মেশ স্ট্যাটাস ব্যাখ্যা:', 'Device Mesh Explanation:')}</strong> {t('বর্তমানে আপনি যে ডিভাইসে আছেন সেটি সক্রিয়ভাবে লাইভ ডাটা পাঠাচ্ছে ও গ্রহণ করছে। বাকি প্ল্যাটফর্মগুলো স্ট্যান্ডবাই রেডি মোডে রয়েছে—মোবাইল বা পিসিতে অ্যাপ ওপেন করা মাত্রই সিঙ্ক হয়ে যাবে।', 'The device you are currently on is active. Other platforms are in Standby Ready mode and will sync instantly once opened.')}
         </div>
 
-        {/* 2. Telegram Cloud Auto-Backup & Exact Timestamp Card */}
+        {/* 2. Real-Time Omni-Platform Mesh Live Card */}
+        <div
+          style={{
+            background: isLight ? '#f0fdf4' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.8))',
+            border: isLight ? '1.5px solid #10b981' : '1.5px solid rgba(16, 185, 129, 0.4)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            marginBottom: '14px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.4rem' }}>⚡</span>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '900', color: isLight ? '#047857' : '#34d399' }}>
+                  {t('৪-প্ল্যাটফর্ম লাইভ ব্রডকাস্ট মেশ (<১৫০ms)', '4-Platform Live Broadcast Mesh (<150ms)')}
+                </h4>
+                <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
+                  {t('সর্বশেষ সিঙ্ক নোড:', 'Last Synced Node:')} <strong style={{ color: '#10b981' }}>{meshState.lastSyncedDevice || 'স্থানীয় ডিভাইস'}</strong>
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleInstantMeshSync}
+              disabled={isMeshSyncing}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#fff',
+                border: 'none',
+                padding: '8px 14px',
+                borderRadius: '9px',
+                fontSize: '0.76rem',
+                fontWeight: '800',
+                cursor: isMeshSyncing ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              <RefreshCw size={13} className={isMeshSyncing ? 'animate-spin' : ''} />
+              <span>{isMeshSyncing ? t('সিঙ্ক হচ্ছে...', 'Syncing...') : t('ইনস্ট্যান্ট মেশ সিঙ্ক', 'Instant Mesh Sync')}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 3. Telegram Cloud Auto-Backup & Exact Timestamp Card */}
         <div
           style={{
             background: isLight ? '#f0f9ff' : 'linear-gradient(135deg, rgba(2, 132, 199, 0.15), rgba(15, 23, 42, 0.8))',

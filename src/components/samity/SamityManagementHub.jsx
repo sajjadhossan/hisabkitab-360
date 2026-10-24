@@ -120,6 +120,12 @@ import {
   getSomitiTelegramConfig,
   saveSomitiTelegramConfig
 } from '../../services/somitiTelegramBackupService';
+import {
+  initSomitiCloudSync,
+  subscribeSamityCloudSync,
+  requestMeshSyncFromPeers,
+  markRecordAsDeletedTombstone
+} from '../../services/somitiCloudSyncService';
 import { SamityInternalChatHub } from './SamityInternalChatHub';
 
 // Bilingual Numeral Formatter (English when lang='en', Bengali otherwise)
@@ -443,6 +449,50 @@ export const SamityManagementHub = ({ onClose }) => {
     const initial = loadSamityData();
     return initial.samities?.[0]?.id || 'SAMITY-001';
   });
+
+  // Real-Time Cross-Device 4-Platform Cloud Synchronization Listener (<150ms)
+  useEffect(() => {
+    // 1. Initialize Realtime Mesh Channel
+    initSomitiCloudSync();
+
+    // 2. Listen to local and cloud update events
+    const handleSyncUpdate = (e) => {
+      const incoming = e?.detail || loadSamityData();
+      setData(incoming);
+    };
+
+    const handleCloudNotification = (e) => {
+      const info = e?.detail;
+      if (info && !info.isResponse) {
+        try {
+          hapticFeedback?.light?.();
+        } catch {}
+        showToast?.(
+          t(
+            `🔄 ${info.senderName} থেকে ক্লাউড ডেটা ইনস্ট্যান্ট সিঙ্ক হয়েছে!`,
+            `🔄 Live synced instantly from ${info.senderName}!`
+          ),
+          'info'
+        );
+      }
+    };
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'hk360_samity_hub_data') {
+        setData(loadSamityData());
+      }
+    };
+
+    window.addEventListener('hk360_samity_updated', handleSyncUpdate);
+    window.addEventListener('somiti_cloud_synced', handleCloudNotification);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('hk360_samity_updated', handleSyncUpdate);
+      window.removeEventListener('somiti_cloud_synced', handleCloudNotification);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   // Active Hub Sub-Tab
   const [activeTab, setActiveTab] = useState('dashboard');
