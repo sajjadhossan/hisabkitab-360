@@ -542,7 +542,7 @@ export const DeviceStatusIndicator = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontWeight: '800', fontSize: '0.88rem' }}>
-                          {registry[DEVICE_TYPES.PC]?.name || 'পিসি ডেস্কটপ (ক্যাশ কাউন্টার)'}
+                          {registry[DEVICE_TYPES.PC]?.name || 'পিসি ডেস্কটপ (Windows Desktop)'}
                         </span>
                         {currentType === DEVICE_TYPES.PC ? (
                           <span style={{ fontSize: '0.68rem', fontWeight: '800', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px' }}>
@@ -823,7 +823,7 @@ export const DeviceStatusIndicator = () => {
                           type="text"
                           value={tempName}
                           onChange={(e) => setTempName(e.target.value)}
-                          placeholder="ওয়েব শাখার নাম দিন..."
+                          placeholder="ওয়েব ডিভাইসের নাম দিন..."
                           style={{ padding: '4px 8px', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid #8b5cf6', background: 'var(--card-bg, #1e293b)', color: 'var(--text-main, #fff)' }}
                           autoFocus
                         />
@@ -851,7 +851,7 @@ export const DeviceStatusIndicator = () => {
                         onClick={() => handleStartEdit(DEVICE_TYPES.WEB, registry[DEVICE_TYPES.WEB]?.name)}
                         className="btn btn-secondary"
                         style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
-                        title="ওয়েব শাখার নাম পরিবর্তন করুন"
+                        title="ওয়েব ডিভাইসের নাম পরিবর্তন করুন"
                       >
                         <Edit2 size={12} />
                         <span>রিনেম</span>
@@ -1076,14 +1076,14 @@ export const DeviceStatusIndicator = () => {
               </div>
             </div>
 
-            {/* Cashier & POS Transaction Origin Guarantee */}
+            {/* Universal Omni-Device Audit & Origin Guarantee */}
             <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '12px 14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: '800', color: '#3b82f6', marginBottom: '4px' }}>
                 <Shield size={16} />
-                <span>ক্যাশিয়ার বিক্রয় ট্র্যাকিং ও অডিট নিশ্চয়তা (Audit Trail)</span>
+                <span>ক্রস-ডিভাইস লেনদেন অডিট ও ট্র্যাকিং নিশ্চয়তা (Audit Trail)</span>
               </div>
               <div style={{ fontSize: '0.76rem', color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
-                ক্যাশিয়ার যে ডিভাইস থেকেই বিল বা ক্যাশ করুক না কেন, প্রতিটি রসিদ, ইনভয়েস এবং অডিট ট্রেইলে স্বয়ংক্রিয়ভাবে ডিভাইসের নাম যেমন: <strong style={{ color: 'var(--text-main, #f8fafc)' }}>[{currentDevice?.badgeText || '💻 পিসি কাউন্টার'}]</strong> স্থায়ীভাবে লিপিবদ্ধ থাকবে।
+                যেকোনো মোবাইল, কম্পিউটার বা ট্যাবলেট থেকেই হিসাব বা লেনদেন এন্ট্রি করা হোক না কেন, প্রতিটি ভাউচার, কিস্তি ও রসিদে এন্ট্রি প্রদানকারী ডিভাইসের নাম যেমন: <strong style={{ color: 'var(--text-main, #f8fafc)' }}>[{currentDevice?.badgeText || '💻 বর্তমান ডিভাইস'}]</strong> স্থায়ীভাবে সংরক্ষিত থাকবে।
               </div>
             </div>
 

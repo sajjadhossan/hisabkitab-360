@@ -68,13 +68,30 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
   }
 
   const deviceId = getLocalDeviceId();
-  const devOrigin = typeof window !== 'undefined' ? getDeviceOrigin() : { type: 'pc', name: 'পিসি কাউন্টার' };
+  const devOrigin = typeof window !== 'undefined' ? getDeviceOrigin() : { type: 'pc', name: 'পিসি টার্মিনাল' };
+
+  // Detect active operating domain (Samity 360, Personal, or Business)
+  let activeDomain = 'business';
+  let domainName = 'ব্যবসা ও বিক্রয়';
+  try {
+    const rawBiz = localStorage.getItem('business_settings') || localStorage.getItem('hk360_business_settings');
+    const biz = rawBiz ? JSON.parse(rawBiz) : {};
+    if (biz.primaryOperatingMode === 'samity' || biz.industryTemplateId === 'samity_management_hub' || (typeof window !== 'undefined' && window.location.pathname.includes('somiti'))) {
+      activeDomain = 'samity';
+      domainName = 'সমিতি ৩৬০';
+    } else if (localStorage.getItem('hk360_active_profile') === 'personal') {
+      activeDomain = 'personal';
+      domainName = 'ব্যক্তিগত হিসাব';
+    }
+  } catch {}
+
   localDeviceMeta = {
     deviceId,
     tenantKey: currentTenant,
-    branchId: terminalMeta.branchId || 'br-main',
+    operatingDomain: activeDomain,
+    domainName,
     counterName: terminalMeta.counterName || devOrigin.name,
-    operatorName: terminalMeta.operatorName || 'অপারেটর',
+    operatorName: terminalMeta.operatorName || (activeDomain === 'samity' ? 'মাঠ কর্মকর্তা' : activeDomain === 'personal' ? 'হিসাবধারী' : 'অপারেটর'),
     deviceType: devOrigin.type,
     deviceName: devOrigin.name,
     platform: devOrigin.type === 'mobile' ? 'android' : devOrigin.type === 'pc' ? 'desktop' : 'web',

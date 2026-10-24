@@ -14,23 +14,43 @@ import {
   X,
   Share2,
   Send,
-  Database
+  Database,
+  Globe,
+  Apple
 } from 'lucide-react';
 import { executeBiDirectionalSync, getLastDeltaSyncTime, subscribeDeltaSync } from '../../services/deltaSyncService';
 import { getSyncStatus, flushOfflineQueue } from '../../services/offlineSyncQueue';
 import { soundService } from '../../services/soundService';
+import { getOnlineTerminalsList, isLiveSyncConnected } from '../../services/liveSyncService';
+import { useApp } from '../../context/AppContext';
 
 export const MultiBranchSyncMeshModal = ({ isOpen, onClose, branches = [], activeBranch = null, lang = 'bn' }) => {
+  const { operatingMode, profile, businessSettings } = useApp() || {};
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(() => getLastDeltaSyncTime());
   const [offlineQueueStatus, setOfflineQueueStatus] = useState(() => getSyncStatus());
   const [syncProgress, setSyncProgress] = useState(100);
   const [syncStep, setSyncStep] = useState('');
+  const [terminals, setTerminals] = useState(() => getOnlineTerminalsList());
+
+  // Detect active operating domain (Samity 360, Personal, or Business)
+  const isSamity = businessSettings?.primaryOperatingMode === 'samity' || 
+                   businessSettings?.industryTemplateId === 'samity_management_hub' ||
+                   (typeof window !== 'undefined' && window.location.pathname.includes('somiti'));
+  const isPersonal = profile === 'personal' && !isSamity;
+
+  const activeModeInfo = isSamity
+    ? { title: '🏛️ সমিতি ৩৬০ মোড', desc: 'সদস্য, সঞ্চয়, ঋণ ও মাঠ কালেকশন রিয়েল-টাইম ডিভাইস সিঙ্ক', color: '#0ea5e9' }
+    : isPersonal
+    ? { title: '🏠 ব্যক্তিগত হিসাব মোড', desc: 'ব্যক্তিগত ব্যয়, আয়, দেনা-পাওনা ও বহু-ডিভাইস সিঙ্ক', color: '#10b981' }
+    : { title: '🏢 ব্যবসা ও বিক্রয় মোড', desc: 'মাল্টি-ডিভাইস বিলিং, ইনভেন্টরি ও খতিয়ান সিঙ্ক', color: '#6366f1' };
 
   useEffect(() => {
     if (!isOpen) return;
 
     setOfflineQueueStatus(getSyncStatus());
+    setTerminals(getOnlineTerminalsList());
+
     const unsub = subscribeDeltaSync((state) => {
       if (typeof state?.isSyncing === 'boolean') {
         setIsSyncing(state.isSyncing);
@@ -44,10 +64,18 @@ export const MultiBranchSyncMeshModal = ({ isOpen, onClose, branches = [], activ
       if (state?.type === 'SYNC_COMPLETE' || state?.result?.success) {
         setLastSyncTime(state.timestamp || getLastDeltaSyncTime() || new Date().toISOString());
         setOfflineQueueStatus(getSyncStatus());
+        setTerminals(getOnlineTerminalsList());
       }
     });
 
-    return unsub;
+    const terminalPollTimer = setInterval(() => {
+      setTerminals(getOnlineTerminalsList());
+    }, 2000);
+
+    return () => {
+      unsub();
+      clearInterval(terminalPollTimer);
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -60,6 +88,7 @@ export const MultiBranchSyncMeshModal = ({ isOpen, onClose, branches = [], activ
       soundService.playSuccessChime();
       setLastSyncTime(getLastDeltaSyncTime());
       setOfflineQueueStatus(getSyncStatus());
+      setTerminals(getOnlineTerminalsList());
     } finally {
       setIsSyncing(false);
     }
@@ -72,75 +101,68 @@ export const MultiBranchSyncMeshModal = ({ isOpen, onClose, branches = [], activ
     setOfflineQueueStatus(getSyncStatus());
   };
 
-  const displayBranches = branches && branches.length > 0 ? branches : [
-    { id: 'main', name: 'প্রধান শাখা (Main Store)', counters: [{ id: 'c1', name: 'কাউন্টার ০১' }, { id: 'c2', name: 'কাউন্টার ০২' }] },
-    { id: 'branch_2', name: 'ধানমন্ডি শাখা (Dhanmondi Branch)', counters: [{ id: 'c3', name: 'কাউন্টার ০১' }] },
-    { id: 'mobile_pos', name: 'মোবাইল ডেলিভারি ভ্যান (Van POS)', counters: [{ id: 'c4', name: 'ভ্যান ০১' }] }
-  ];
-
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
-        background: 'rgba(0, 0, 0, 0.78)',
-        backdropFilter: 'blur(10px)',
+        zIndex: 999999,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px'
+        padding: '16px',
+        boxSizing: 'border-box'
       }}
-      onClick={onClose}
     >
       <div
         style={{
           width: '100%',
-          maxWidth: '720px',
-          background: 'var(--color-bg-card, #0f172a)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          maxWidth: '560px',
+          maxHeight: '92vh',
+          background: '#0f172a',
           borderRadius: '24px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: '90vh',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxSizing: 'border-box'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           style={{
-            padding: '18px 24px',
+            padding: '16px 20px',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(56, 189, 248, 0.1))'
+            background: 'rgba(255, 255, 255, 0.02)'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                width: '40px',
-                height: '40px',
+                width: '38px',
+                height: '38px',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #10b981, #0284c7)',
+                background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#fff',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                color: '#fff'
               }}
             >
-              <Share2 size={22} />
+              <Activity size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>
-                {lang === 'bn' ? 'মাল্টি-ব্রাঞ্চ লাইভ সিঙ্ক ও ডিভাইস মেশ' : 'Multi-Branch Sync Mesh & Topology'}
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc' }}>
+                {lang === 'bn' ? 'রিয়েল-টাইম লাইভ ডিভাইস হাব' : 'Real-Time Device Mesh'}
               </h3>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
-                {lang === 'bn' ? 'সকল শাখা ও মোবাইল ভ্যানের লাইভ ডাটা সমন্বয় মনিটর' : 'Real-time multi-counter and branch cloud topology'}
+              <p style={{ margin: 0, fontSize: '0.74rem', color: '#94a3b8' }}>
+                {lang === 'bn' ? 'মোবাইল, পিসি ও ক্লাউড ডিভাইস সিঙ্ক নেটওয়ার্ক' : 'Omni-Device WebSocket Sync Mesh'}
               </p>
             </div>
           </div>
@@ -217,67 +239,156 @@ export const MultiBranchSyncMeshModal = ({ isOpen, onClose, branches = [], activ
             </div>
           )}
 
-          {/* Branch & Counter Topology Grid */}
-          <div>
-            <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '10px', display: 'block' }}>
-              {lang === 'bn' ? 'সংযুক্ত শাখা ও সক্রিয় কাউন্টার নেটওয়ার্ক' : 'Active Branch & Counter Network'}
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {displayBranches.map((branch) => {
-                const isCurrent = activeBranch?.id === branch.id || branch.id === 'main';
-                return (
-                  <div
-                    key={branch.id}
-                    style={{
-                      padding: '14px 16px',
-                      borderRadius: '16px',
-                      background: isCurrent ? 'rgba(16, 185, 129, 0.06)' : 'rgba(255, 255, 255, 0.02)',
-                      border: isCurrent ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Server size={16} color={isCurrent ? '#10b981' : '#94a3b8'} />
-                        <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f8fafc' }}>
-                          {branch.name}
-                        </span>
-                        {isCurrent && (
-                          <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '6px', background: '#10b981', color: '#000', fontWeight: 800 }}>
-                            {lang === 'bn' ? 'বর্তমান' : 'Current'}
-                          </span>
-                        )}
-                      </div>
-                      <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <CheckCircle2 size={13} />
-                        <span>{lang === 'bn' ? 'লাইভ সিঙ্ক চালু' : 'Live Syncing'}</span>
-                      </span>
-                    </div>
+          {/* Active Operating Mode Banner */}
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: '12px',
+              background: `rgba(${isSamity ? '14, 165, 233' : isPersonal ? '16, 185, 129' : '99, 102, 241'}, 0.12)`,
+              border: `1px solid ${activeModeInfo.color}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.1rem' }}>{isSamity ? '🏛️' : isPersonal ? '🏠' : '🏢'}</span>
+              <div>
+                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc' }}>
+                  {activeModeInfo.title}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                  {activeModeInfo.desc}
+                </div>
+              </div>
+            </div>
+            <span
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.2)',
+                color: '#10b981',
+                border: '1px solid #10b981'
+              }}
+            >
+              ● ক্লাউড মেশ সক্রিয়
+            </span>
+          </div>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingLeft: '24px' }}>
-                      {(branch.counters || []).map((c) => (
+          {/* Universal Multi-Device Network Grid */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#cbd5e1', display: 'block' }}>
+                {lang === 'bn' ? 'সংযুক্ত সকল মোবাইল ও কম্পিউটার টার্মিনাল' : 'Connected Mobile & Computer Terminals'}
+              </label>
+              <span style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 700 }}>
+                {terminals.length > 0 ? `${terminals.length}টি লাইভ ডিভাইস` : '১টি লাইভ ডিভাইস'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* If real terminals found from presence, render them */}
+              {terminals && terminals.length > 0 ? (
+                terminals.map((term, idx) => {
+                  const isMobile = term.platform === 'android' || term.deviceType === 'mobile';
+                  const isMac = term.platform === 'mac' || term.deviceType === 'mac';
+                  const isPC = term.platform === 'desktop' || term.deviceType === 'pc';
+
+                  return (
+                    <div
+                      key={term.id || idx}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: '14px',
+                        background: term.isSelf ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                        border: term.isSelf ? '1.5px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div
-                          key={c.id}
                           style={{
-                            display: 'inline-flex',
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: isMobile ? 'rgba(16, 185, 129, 0.15)' : isMac ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                            color: isMobile ? '#10b981' : isMac ? '#a855f7' : '#3b82f6',
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
-                            padding: '4px 10px',
-                            borderRadius: '8px',
-                            background: 'rgba(255, 255, 255, 0.04)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            fontSize: '0.75rem',
-                            color: '#cbd5e1'
+                            justifyContent: 'center'
                           }}
                         >
-                          <Laptop size={12} color="#818cf8" />
-                          <span>{c.name}</span>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                          {isMobile ? <Smartphone size={18} /> : isMac ? <Apple size={18} /> : isPC ? <Laptop size={18} /> : <Globe size={18} />}
                         </div>
-                      ))}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc' }}>
+                              {term.counterName || term.deviceName || (isMobile ? 'মোবাইল ফোন' : 'কম্পিউটার')}
+                            </span>
+                            {term.isSelf && (
+                              <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: '#10b981', color: '#000', fontWeight: 800 }}>
+                                {lang === 'bn' ? 'বর্তমান ডিভাইস' : 'Current'}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
+                            {term.operatorName || (isSamity ? 'মাঠ কর্মকর্তা' : 'ইউজার')} • ID: {(term.id || '').substring(0, 10)}...
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                        <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 800 }}>
+                          {lang === 'bn' ? 'অনলাইন ও সিঙ্ক' : 'Online'}
+                        </span>
+                      </div>
                     </div>
+                  );
+                })
+              ) : (
+                /* Default Universal Device Preview */
+                [
+                  { type: 'mobile', name: 'মোবাইল অ্যাপ (Android APK)', desc: isSamity ? 'মাঠ কর্মকর্তা কালেকশন টার্মিনাল' : 'ক্যামেরা স্ক্যানার ও সেলস', online: true },
+                  { type: 'pc', name: 'পিসি ডেস্কটপ (Windows Desktop)', desc: isSamity ? 'অফিস ম্যানেজমেন্ট ও অডিট' : 'প্রধান ক্যাশ কাউন্টার ও প্রিভিউ', online: true },
+                  { type: 'web', name: 'ক্লাউড ওয়েবসাইট (Web App)', desc: 'অনলাইন এক্সেস ও রিমোট মনিটরিং', online: true }
+                ].map((d, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '14px',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {d.type === 'mobile' ? <Smartphone size={17} /> : d.type === 'pc' ? <Laptop size={17} /> : <Globe size={17} />}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#f8fafc' }}>{d.name}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{d.desc}</div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                      <span>{lang === 'bn' ? 'সক্রিয়' : 'Active'}</span>
+                    </span>
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
           </div>
         </div>

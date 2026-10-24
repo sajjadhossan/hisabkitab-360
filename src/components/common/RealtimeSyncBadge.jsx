@@ -136,9 +136,7 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
     setIsReconnecting(true);
     hapticFeedback.light();
     reconnectLiveSyncChannel({
-      branchId: businessSettings?.branchId || 'br-main',
-      counterName: businessSettings?.counterName || 'কাউন্টার ০১',
-      operatorName: businessSettings?.cashierName || 'ক্যাশ অপারেটর'
+      counterName: currentDevice?.name || (typeof window !== 'undefined' && window.innerWidth < 768 ? 'মোবাইল টার্মিনাল' : 'পিসি ডেস্কটপ')
     });
     setTimeout(() => {
       setIsReconnecting(false);
