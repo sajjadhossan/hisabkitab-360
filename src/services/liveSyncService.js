@@ -24,6 +24,7 @@ const statusListeners = new Set();
 let isConnected = false;
 let presenceState = {};
 let localDeviceMeta = null;
+let presenceHeartbeatInterval = null;
 
 
 /**
@@ -182,8 +183,21 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
         } catch (trackErr) {
           console.debug('[LiveSync] Presence track notice:', trackErr);
         }
+
+        if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
+        presenceHeartbeatInterval = setInterval(async () => {
+          if (activeChannel && isConnected && localDeviceMeta) {
+            try {
+              await activeChannel.track(localDeviceMeta);
+            } catch {}
+          }
+        }, 20000);
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         isConnected = false;
+        if (presenceHeartbeatInterval) {
+          clearInterval(presenceHeartbeatInterval);
+          presenceHeartbeatInterval = null;
+        }
         notifyStatusChange(false);
       }
     });
@@ -333,11 +347,23 @@ export const reconnectLiveSyncChannel = (terminalMeta = {}) => {
 
 export const getActiveTerminals = getOnlineTerminalsList;
 
+/**
+ * Request real-time mesh reconciliation from online peer terminals
+ */
+export const requestBusinessMeshSync = async () => {
+  return broadcastLiveEvent('REQUEST_BUSINESS_MESH_SYNC', {
+    deviceId: getLocalDeviceId(),
+    deviceMeta: localDeviceMeta,
+    timestamp: Date.now()
+  });
+};
+
 export const liveSyncService = {
   broadcastMutation: broadcastLiveEvent,
   broadcastEvent: broadcastLiveEvent,
   subscribe: subscribeLiveSync,
   isConnected: isLiveSyncConnected,
-  getTerminals: getOnlineTerminalsList
+  getTerminals: getOnlineTerminalsList,
+  requestMeshSync: requestBusinessMeshSync
 };
 
