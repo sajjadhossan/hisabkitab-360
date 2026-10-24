@@ -32,6 +32,7 @@ import { playButtonClick, playSuccessChime } from '../../services/soundFeedback'
 import { liveSyncService } from '../../services/liveSyncService';
 import { executeBiDirectionalSync, getLastDeltaSyncTime } from '../../services/deltaSyncService';
 import { openOfflineDB } from '../../services/indexedDbCache';
+import { SupabaseScheduledBackupCard } from '../common/SupabaseScheduledBackupCard';
 
 /**
  * HisabKitab 360 - Phase 9: Offline-First Synchronization & Backend Resilience Hub
@@ -866,6 +867,9 @@ export const OfflineCloudResilienceHubModal = ({ isOpen, onClose, lang = 'bn' })
           {/* ================================================================ */}
           {activeTab === 'cloud_backup' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Supabase Autonomous Scheduled Auto-Backup Hub */}
+              <SupabaseScheduledBackupCard />
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
                 {/* Feature 84: Google Drive & Vault Backup */}
                 <div

@@ -67,6 +67,7 @@ import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '.
 import { POSPermissionsSettings } from './POSPermissionsSettings';
 import { GoogleDriveBackupManager } from './GoogleDriveBackupManager';
 import { INDUSTRY_SECTORS, MASTER_INDUSTRY_TEMPLATES, getTemplateById } from '../../data/industryTemplates';
+import { SupabaseScheduledBackupCard } from '../common/SupabaseScheduledBackupCard';
 
 export const BusinessSettings = () => {
   const {
@@ -3399,6 +3400,9 @@ export const BusinessSettings = () => {
                   <span>{lang === 'bn' ? 'এখনই স্ন্যাপশট নিন' : 'Take Snapshot Now'}</span>
                 </button>
               </div>
+
+              {/* Supabase Autonomous Scheduled Auto-Backup Hub */}
+              <SupabaseScheduledBackupCard />
 
               {/* Auto Backup Configuration Controls */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>

@@ -32,6 +32,7 @@ import {
   isLiveSyncConnected,
   requestBusinessMeshSync
 } from '../../services/liveSyncService';
+import { SupabaseScheduledBackupCard } from './SupabaseScheduledBackupCard';
 
 export const DeviceStatusIndicator = () => {
   const {
@@ -901,6 +902,9 @@ export const DeviceStatusIndicator = () => {
                 </div>
               </div>
             </div>
+
+            {/* Supabase Scheduled Auto-Backup Hub */}
+            <SupabaseScheduledBackupCard />
 
             {/* Cross-Platform Unified Account Sync Card */}
             <div style={{ background: 'var(--bg-primary, #0f172a)', border: '1px solid var(--border-color, #334155)', borderRadius: '12px', padding: '12px 14px', marginBottom: '14px' }}>

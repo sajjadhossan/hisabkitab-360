@@ -123,6 +123,10 @@ import {
   getOfficeGeoSettings,
   saveOfficeGeoSettings
 } from '../services/attendanceSecurityService';
+import {
+  startScheduledBackupWorker,
+  executeScheduledBackupNow
+} from '../services/supabaseScheduledBackupService';
 
 const AppContext = createContext();
 
@@ -1794,8 +1798,12 @@ export const AppProvider = ({ children }) => {
       intervalMs: 2000
     });
 
+    // Autonomous Supabase Scheduled Auto-Backup Worker (Minute-precision heartbeat)
+    const unsubScheduledBackup = startScheduledBackupWorker(() => latestStateRef.current);
+
     return () => {
       if (typeof unsubContinuous === 'function') unsubContinuous();
+      if (typeof unsubScheduledBackup === 'function') unsubScheduledBackup();
     };
   }, []);
 
@@ -6830,6 +6838,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         isCloudSyncing: cloudSyncState.isSyncing,
         lastCloudSyncTimestamp: cloudSyncState.lastSyncTimestamp,
         lastCloudSyncDevice: cloudSyncState.lastDevice,
+        triggerScheduledBackupNow: (opts) => executeScheduledBackupNow({ getStateSnapshot: getActiveStateSnapshot, ...opts }),
 
         // Robust AppContext Aliases & Fallbacks
         debtRecords: personalDebts,
