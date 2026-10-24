@@ -1703,6 +1703,29 @@ export const AppProvider = ({ children }) => {
         if (incomingLogs.length > 0) {
           localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOGS, JSON.stringify(incomingLogs));
         }
+      } else if (eventType === 'REQUEST_BUSINESS_MESH_SYNC') {
+        // Peer terminal requested mesh reconciliation: reply with freshest snapshot
+        try {
+          const snapshot = latestStateRef.current;
+          if (snapshot && typeof broadcastLiveEvent === 'function') {
+            broadcastLiveEvent('RESPONSE_BUSINESS_MESH_SYNC', {
+              snapshot,
+              responderDeviceId: getLocalDeviceId(),
+              timestamp: Date.now()
+            });
+          }
+        } catch (e) {
+          console.debug('[MeshSync] Response error:', e);
+        }
+      } else if (eventType === 'RESPONSE_BUSINESS_MESH_SYNC' && data?.snapshot) {
+        // Peer responded with snapshot: apply cleanly without reviving deleted records
+        try {
+          if (typeof applyCloudStateRef.current === 'function') {
+            applyCloudStateRef.current(data.snapshot);
+          }
+        } catch (e) {
+          console.debug('[MeshSync] Apply error:', e);
+        }
       }
     });
 

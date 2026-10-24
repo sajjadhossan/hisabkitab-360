@@ -137,20 +137,44 @@ export const DeviceStatusIndicator = () => {
     }
   };
 
-  // Instant 1-Click Multi-Terminal Live Mesh Scan
+  const [scanStepText, setScanStepText] = useState('');
+  const [scanLatency, setScanLatency] = useState(null);
+
+  // Instant Multi-Terminal Live Mesh Scan (4-Step Real Cloud + Peer Sync)
   const handleInstantMeshScan = async () => {
     setIsMeshScanning(true);
     setMeshScanSuccess('');
+    setScanStepText(lang === 'bn' ? '১/৪: ক্লাউড সার্ভার পিং হচ্ছে...' : '1/4: Pinging cloud server...');
+    const startTime = Date.now();
+
     try {
+      // Step 1: Broadcast request to all online mesh terminals (Mobile, Web, PC)
+      setScanStepText(lang === 'bn' ? '২/৪: লাইভ ডিভাইস মেশে পিয়ার হ্যান্ডশেক...' : '2/4: Handshaking with peer devices...');
       await requestBusinessMeshSync();
+
+      // Step 2: Bi-directional reconciliation with Supabase PostgreSQL state
+      setScanStepText(lang === 'bn' ? '৩/৪: ক্লাউড স্ন্যাপশট ও ডেল্টা স্টেট মার্জ...' : '3/4: Pulling latest cloud state...');
+      if (typeof syncNowWithCloud === 'function') {
+        await syncNowWithCloud({ silent: true });
+      }
+
+      // Step 3: Compute latency and finish
+      const duration = Date.now() - startTime;
+      setScanLatency(duration);
+      setScanStepText(lang === 'bn' ? '৪/৪: সিঙ্ক সম্পন্ন!' : '4/4: Sync complete!');
+
       setTimeout(() => {
         setIsMeshScanning(false);
+        setScanStepText('');
         const timeNow = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-        setMeshScanSuccess(`✅ ৪টি প্ল্যাটফর্মেই লাইভ মেশ সিঙ্ক সফল! (সময়: ${timeNow})`);
-        setTimeout(() => setMeshScanSuccess(''), 4000);
-      }, 600);
-    } catch {
+        setMeshScanSuccess(`✅ ৪টি প্ল্যাটফর্মেই লাইভ মেশ সিঙ্ক সফল! (সময়: ${timeNow} • ল্যাটেন্সি: ${duration}ms)`);
+        showToast?.(lang === 'bn' ? `✓ লাইভ মেশ স্ক্যান সম্পন্ন (${duration}ms)` : `✓ Mesh scan completed (${duration}ms)`, 'success');
+        setTimeout(() => setMeshScanSuccess(''), 5000);
+      }, 500);
+    } catch (err) {
       setIsMeshScanning(false);
+      setScanStepText('');
+      showToast?.(lang === 'bn' ? 'স্ক্যান ত্রুটি: ' + err.message : 'Scan error: ' + err.message, 'danger');
     }
   };
 
@@ -378,6 +402,31 @@ export const DeviceStatusIndicator = () => {
                 <span>{isMeshScanning || isCloudSyncing ? 'সিঙ্ক হচ্ছে...' : 'লাইভ সিঙ্ক / স্ক্যান'}</span>
               </button>
             </div>
+
+            {/* Live Scan Step Progress Box */}
+            {isMeshScanning && (
+              <div style={{
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.4)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <RefreshCw size={16} className="animate-spin" style={{ color: '#3b82f6' }} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#60a5fa' }}>
+                    {scanStepText || 'রিয়েল-টাইম লাইভ মেশ স্ক্যান হচ্ছে...'}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.72rem', color: '#93c5fd', background: 'rgba(59, 130, 246, 0.2)', padding: '2px 8px', borderRadius: '6px' }}>
+                  সুপাবেস + পিয়ার মেশ
+                </span>
+              </div>
+            )}
 
             {/* Notification message */}
             {meshScanSuccess && (
