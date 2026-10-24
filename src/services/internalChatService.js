@@ -190,24 +190,14 @@ export const deleteMessage = async (messageId, deleteForEveryone = true) => {
     const target = current.find((m) => m.id === messageId);
     if (!target) return false;
 
-    const updated = current.map((m) => {
-      if (m.id === messageId) {
-        return {
-          ...m,
-          isDeleted: true,
-          text: '🚫 এই বার্তাটি মুছে ফেলা হয়েছে',
-          attachment: null,
-          meta: null
-        };
-      }
-      return m;
-    });
+    // DIRECT 1-CLICK ATOMIC PURGE: Immediately remove message completely from array
+    const updated = current.filter((m) => m.id !== messageId);
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
     // Local dispatch
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, isDeleted: true } }));
+      window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, purged: true } }));
     }
 
     if (deleteForEveryone) {
@@ -338,17 +328,8 @@ export const syncCloudMessages = async () => {
       if (row.action === CLOUD_DELETE_ACTION) {
         const deletedId = row.details?.messageId;
         if (deletedId && localMap.has(deletedId)) {
-          const existing = localMap.get(deletedId);
-          if (!existing.isDeleted) {
-            localMap.set(deletedId, {
-              ...existing,
-              isDeleted: true,
-              text: '🚫 এই বার্তাটি মুছে ফেলা হয়েছে',
-              attachment: null,
-              meta: null
-            });
-            hasChanges = true;
-          }
+          localMap.delete(deletedId);
+          hasChanges = true;
         }
       } else if (row.action === CLOUD_CHAT_ACTION) {
         const msg = row.details;
@@ -428,25 +409,11 @@ export const initChatRealtimeListener = (onIncomingMessage) => {
       if (!messageId) return;
 
       const current = getStoredMessages();
-      let changed = false;
-      const updated = current.map((m) => {
-        if (m.id === messageId && !m.isDeleted) {
-          changed = true;
-          return {
-            ...m,
-            isDeleted: true,
-            text: '🚫 এই বার্তাটি মুছে ফেলা হয়েছে',
-            attachment: null,
-            meta: null
-          };
-        }
-        return m;
-      });
-
-      if (changed) {
+      const updated = current.filter((m) => m.id !== messageId);
+      if (updated.length !== current.length) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, isDeleted: true } }));
+          window.dispatchEvent(new CustomEvent('hk360_internal_msg_received', { detail: { id: messageId, purged: true } }));
         }
       }
     }

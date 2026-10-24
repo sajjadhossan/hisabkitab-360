@@ -16,10 +16,42 @@ import { getActiveTenantKey } from '../utils/tenantHelper';
 
 const SYNC_TIMESTAMP_KEY = 'hk360_last_delta_sync_time';
 const CONFLICT_LOG_KEY = 'hk360_conflict_resolution_history';
+const AUTO_SYNC_INTERVAL_KEY = 'hk360_auto_sync_interval_ms';
 
 let isDeltaSyncing = false;
+let deltaSyncStartTime = 0;
 const deltaSyncListeners = new Set();
 let appContextHooks = null;
+let autoSyncIntervalTimer = null;
+
+/**
+ * Get current configured auto-sync interval in milliseconds (default: 10 seconds)
+ */
+export const getAutoSyncInterval = () => {
+  try {
+    const val = localStorage.getItem(AUTO_SYNC_INTERVAL_KEY);
+    const parsed = Number(val);
+    if (!isNaN(parsed) && parsed >= 3000 && parsed <= 120000) {
+      return parsed;
+    }
+  } catch {}
+  return 10000; // Default: 10s for ultra-smooth live background sync
+};
+
+/**
+ * Set new auto-sync interval (e.g. 5000 for 5s, 10000 for 10s, 15000 for 15s)
+ */
+export const setAutoSyncInterval = (ms) => {
+  try {
+    const num = Math.max(3000, Math.min(120000, Number(ms) || 10000));
+    localStorage.setItem(AUTO_SYNC_INTERVAL_KEY, String(num));
+    restartAutoSyncTimer();
+    notifyDeltaSyncState({ type: 'INTERVAL_CHANGED', intervalMs: num });
+    return num;
+  } catch {
+    return 10000;
+  }
+};
 
 /**
  * Register AppContext handlers so delta sync can update in-memory React state
@@ -94,11 +126,18 @@ const notifyDeltaSyncState = (state) => {
  * Executes a full Bi-Directional Delta Synchronization cycle
  */
 export const executeBiDirectionalSync = async ({ forceFull = false } = {}) => {
+  // Self-healing watchdog: If sync was marked running for over 20s, forcibly reset lock
+  if (isDeltaSyncing && Date.now() - deltaSyncStartTime > 20000) {
+    console.warn('[DeltaSyncWatchdog] Resetting stuck sync lock after 20s');
+    isDeltaSyncing = false;
+  }
+
   if (isDeltaSyncing) {
     return { skipped: true, message: 'সিঙ্ক ইতিমধ্যে চলমান রয়েছে...' };
   }
 
   const startTime = Date.now();
+  deltaSyncStartTime = startTime;
   isDeltaSyncing = true;
   notifyDeltaSyncState({ isSyncing: true, progress: 10, step: 'পেন্ডিং অফলাইন ডাটা পুশ হচ্ছে...' });
 
@@ -325,11 +364,23 @@ export const initAutoDeltaSyncScheduler = () => {
     } catch {}
   }
 
-  // 3. Periodic continuous background delta sync every 15 seconds when online
-  const INTERVAL_MS = 15 * 1000;
-  setInterval(() => {
+  // 3. Periodic continuous background delta sync using dynamic interval
+  restartAutoSyncTimer();
+};
+
+/**
+ * Restarts background timer with current configured interval
+ */
+export const restartAutoSyncTimer = () => {
+  if (typeof window === 'undefined') return;
+  if (autoSyncIntervalTimer) {
+    clearInterval(autoSyncIntervalTimer);
+    autoSyncIntervalTimer = null;
+  }
+  const intervalMs = getAutoSyncInterval();
+  autoSyncIntervalTimer = setInterval(() => {
     if (typeof navigator !== 'undefined' && navigator.onLine && !isDeltaSyncing) {
       executeBiDirectionalSync({ forceFull: false });
     }
-  }, INTERVAL_MS);
+  }, intervalMs);
 };

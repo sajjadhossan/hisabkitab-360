@@ -366,8 +366,9 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
 
   const handleDeleteMsg = async (msgId) => {
     await deleteMessage(msgId, true);
+    setMessages(getStoredMessages());
     setDeleteConfirmModal(null);
-    if (showToast) showToast(lang === 'bn' ? 'মেসেজটি সবার জন্য মুছে ফেলা হয়েছে' : 'Message deleted', 'info');
+    if (showToast) showToast(lang === 'bn' ? 'মেসেজটি সম্পূর্ণ মুছে ফেলা হয়েছে' : 'Message permanently deleted', 'info');
   };
 
   const handleToggleSelectMsg = (msgId) => {

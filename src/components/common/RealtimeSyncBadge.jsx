@@ -36,7 +36,13 @@ import {
   getLocalDeviceMeta,
   isLiveSyncConnected
 } from '../../services/liveSyncService';
-import { executeBiDirectionalSync, getLastDeltaSyncTime, subscribeDeltaSync } from '../../services/deltaSyncService';
+import {
+  executeBiDirectionalSync,
+  getLastDeltaSyncTime,
+  subscribeDeltaSync,
+  getAutoSyncInterval,
+  setAutoSyncInterval
+} from '../../services/deltaSyncService';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { detectDeviceType, DEVICE_TYPES } from '../../services/deviceManagerService';
 
@@ -54,6 +60,8 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
   const [lastDeltaSyncTime, setLastDeltaSyncTime] = useState(() => getLastDeltaSyncTime() || new Date().toISOString());
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [showMeshModal, setShowMeshModal] = useState(false);
+  const [syncInterval, setSyncIntervalState] = useState(() => getAutoSyncInterval());
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
 
   const pingStartTimeRef = useRef(null);
 
@@ -372,13 +380,14 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
               maxWidth: '560px',
               maxHeight: '90vh',
               overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
               backgroundColor: 'var(--card-bg, #1e293b)',
               color: 'var(--text-color, #f8fafc)',
               borderRadius: '20px',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              padding: '24px',
-              overflow: 'hidden'
+              padding: '16px',
+              boxSizing: 'border-box'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -856,34 +865,93 @@ export const RealtimeSyncBadge = ({ compact = false, showDetailsButton = true })
               )}
             </div>
 
-            {/* Phase 4 1-Click Bi-Directional Delta Sync Action */}
-            <div style={{ marginBottom: '16px' }}>
+            {/* Enterprise Auto-Sync Interval Frequency Selector */}
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                marginBottom: '14px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--text-color, #f8fafc)' }}>
+                  ⏱️ {lang === 'bn' ? 'স্বয়ংক্রিয় ব্যাকআপ ফ্রিকোয়েন্সি:' : 'Auto-Sync Frequency:'}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '800', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '10px' }}>
+                  {syncInterval / 1000} {lang === 'bn' ? 'সেকেন্ড পর পর' : 'seconds'}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '10px' }}>
+                {[
+                  { ms: 5000, label: lang === 'bn' ? '৫ সে.' : '5s', desc: lang === 'bn' ? 'আল্ট্রা ফাস্ট' : 'Fast' },
+                  { ms: 10000, label: lang === 'bn' ? '১০ সে. ⭐' : '10s ⭐', desc: lang === 'bn' ? 'প্রস্তাবিত' : 'Rec.' },
+                  { ms: 15000, label: lang === 'bn' ? '১৫ সে.' : '15s', desc: lang === 'bn' ? 'ব্যালান্সড' : 'Normal' },
+                  { ms: 30000, label: lang === 'bn' ? '৩০ সে.' : '30s', desc: lang === 'bn' ? 'লাইট' : 'Light' }
+                ].map((opt) => {
+                  const isSelected = syncInterval === opt.ms;
+                  return (
+                    <button
+                      key={opt.ms}
+                      type="button"
+                      onClick={() => {
+                        const updated = setAutoSyncInterval(opt.ms);
+                        setSyncIntervalState(updated);
+                        hapticFeedback.light();
+                        if (showToast) {
+                          showToast(lang === 'bn' ? `✅ স্বয়ংক্রিয় ব্যাকআপ প্রতি ${opt.ms / 1000} সেকেন্ড পর পর সেট করা হয়েছে` : `Auto-sync set to ${opt.ms / 1000}s`, 'success');
+                        }
+                      }}
+                      style={{
+                        padding: '6px 4px',
+                        borderRadius: '8px',
+                        border: isSelected ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                        color: isSelected ? '#10b981' : 'var(--text-muted, #94a3b8)',
+                        cursor: 'pointer',
+                        fontSize: '0.72rem',
+                        fontWeight: isSelected ? '800' : '600',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div>{opt.label}</div>
+                      <div style={{ fontSize: '0.62rem', opacity: 0.85 }}>{opt.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 1-Click Bi-Directional Delta Sync Action */}
               <button
                 type="button"
                 onClick={handleQuickDeltaSync}
                 disabled={isDeltaSyncing}
                 style={{
                   width: '100%',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.15))',
-                  border: '1px solid rgba(99, 102, 241, 0.3)',
-                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(16, 185, 129, 0.18))',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '10px',
                   padding: '9px 14px',
                   color: 'inherit',
                   fontSize: '0.8rem',
                   fontWeight: '800',
-                  cursor: 'pointer',
+                  cursor: isDeltaSyncing ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  minHeight: '44px'
                 }}
               >
-                <RefreshCw size={14} className={isDeltaSyncing ? 'animate-spin' : ''} style={{ color: '#818cf8' }} />
+                <RefreshCw size={15} className={isDeltaSyncing ? 'animate-spin' : ''} style={{ color: '#10b981' }} />
                 <span>
                   {isDeltaSyncing
                     ? (lang === 'bn' ? 'দ্বি-মুখী ডেল্টা সিঙ্ক হচ্ছে...' : 'Delta Syncing...')
-                    : (lang === 'bn' ? '🔄 দ্বি-মুখী ডেল্টা সিঙ্ক চালান' : 'Run Bi-Directional Delta Sync')}
+                    : (lang === 'bn' ? '⚡ এখনই তাৎক্ষণিক লাইভ সিঙ্ক চালান' : '⚡ Run Instant Live Sync Now')}
                 </span>
               </button>
             </div>

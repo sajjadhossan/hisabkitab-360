@@ -196,10 +196,12 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
           maxWidth: '680px',
           maxHeight: '90vh',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
           background: isLight ? '#ffffff' : '#0f172a',
           border: isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)',
           borderRadius: '20px',
-          padding: '24px',
+          padding: '16px',
+          boxSizing: 'border-box',
           boxShadow: '0 25px 60px rgba(0, 0, 0, 0.45)',
           color: isLight ? '#0f172a' : '#f8fafc'
         }}
@@ -305,7 +307,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
         </div>
 
         {/* 1. Synced Device Grid with Dynamic Presence Detection */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '14px' }}>
           {platforms.map(p => {
             const isThisDevice = matchesPlatform(p.id, origin.platform) || matchesPlatform(p.id, origin.type) || (currentPlatform === p.id);
             const remotePeers = onlineDevices.filter(d => !d.isThis && (matchesPlatform(p.id, d.platform) || matchesPlatform(p.id, d.type)));

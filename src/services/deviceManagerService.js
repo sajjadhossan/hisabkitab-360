@@ -45,26 +45,24 @@ export const detectDeviceType = () => {
       return DEVICE_TYPES.MOBILE;
     }
 
-    // 2. Apple macOS / MacBook Desktop
-    if (/macintosh|mac os x/i.test(ua) && !/iphone|ipad|ipod/i.test(ua)) {
+    // 2. Mobile User Agent Detection (Applies across all hosts, ports, Wi-Fi LAN IPs and Web)
+    const isMobileUA = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua);
+    if (isMobileUA) {
+      return DEVICE_TYPES.MOBILE;
+    }
+
+    // 3. Apple macOS / MacBook Desktop
+    if (/macintosh|mac os x/i.test(ua)) {
       return DEVICE_TYPES.MAC;
     }
 
-    // 3. PC Local Desktop Host (e.g. localhost, 127.0.0.1, local LAN IP from start_host_preview.bat)
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || port === '5173' || hostname.startsWith('192.168.')) {
-      if (/android|iphone|ipad|ipod|mobile/i.test(ua) && !port) {
-        return DEVICE_TYPES.MOBILE;
-      }
-      return DEVICE_TYPES.PC;
-    }
-
     // 4. Cloud Live Web App (Netlify & Vercel)
-    if (hostname.includes('vercel.app') || hostname.includes('netlify.app') || window.location.protocol === 'https:') {
-      if (/android|iphone|ipad|ipod|mobile/i.test(ua)) {
-        return DEVICE_TYPES.MOBILE;
-      }
+    if (hostname.includes('vercel.app') || hostname.includes('netlify.app') || (window.location.protocol === 'https:' && !hostname.includes('localhost') && !hostname.startsWith('192.168.'))) {
       return DEVICE_TYPES.WEB;
     }
+
+    // 5. PC Local Desktop Host (e.g. localhost, 127.0.0.1, LAN IP)
+    return DEVICE_TYPES.PC;
   }
 
   return DEVICE_TYPES.PC;

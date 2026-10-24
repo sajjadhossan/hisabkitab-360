@@ -161,12 +161,12 @@ export const MultiBranchSyncMeshModal = ({ isOpen, onClose, branches = [], activ
         </div>
 
         {/* Body */}
-        <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ padding: '16px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column', gap: '16px', boxSizing: 'border-box' }}>
           {/* Status Metrics Ribbon */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
               gap: '10px',
               padding: '14px',
               borderRadius: '16px',
