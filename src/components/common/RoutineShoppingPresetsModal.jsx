@@ -81,11 +81,13 @@ export const RoutineShoppingPresetsModal = ({
     categories = {},
     addCategory,
     showToast,
-    lang
+    lang,
+    routineShoppingPresets: contextPresets,
+    saveRoutineShoppingPresets
   } = useApp();
 
   const [activeProfile, setActiveProfile] = useState(defaultProfile || profile || 'personal');
-  const [presets, setPresets] = useState(() => {
+  const [localPresets, setLocalPresets] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) return JSON.parse(stored);
@@ -94,6 +96,17 @@ export const RoutineShoppingPresetsModal = ({
     }
     return DEFAULT_PRESETS;
   });
+
+  const presets = contextPresets && Array.isArray(contextPresets) && contextPresets.length > 0
+    ? contextPresets
+    : localPresets;
+
+  const setPresets = (updater) => {
+    if (typeof saveRoutineShoppingPresets === 'function') {
+      saveRoutineShoppingPresets(updater);
+    }
+    setLocalPresets(updater);
+  };
 
   const [selectedPresetId, setSelectedPresetId] = useState(null);
   const [executionItems, setExecutionItems] = useState([]);

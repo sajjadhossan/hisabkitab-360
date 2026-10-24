@@ -41,6 +41,7 @@ import {
   INDUSTRY_SECTORS,
   getTemplateById
 } from '../data/industryTemplates';
+import { DEFAULT_ROUTINE_PRESETS } from '../data/routinePresetsData';
 import { scheduleStorageWrite, flushPendingStorageWrites } from '../utils/storageQueue';
 import {
   createSystemSnapshot,
@@ -148,6 +149,7 @@ const STORAGE_KEYS = {
   PERSONAL_EVENTS: 'hk360_personal_events',
   BIZ_DEBTS: 'hk360_biz_debts',
   APP_CATEGORIES: 'hk360_app_categories',
+  ROUTINE_SHOPPING_PRESETS: 'hk360_routine_shopping_presets',
   SNAPSHOTS: 'hk360_snapshots',
   LICENSE_INFO: 'hk360_license_info',
   BRANCHES: 'hk360_biz_branches',
@@ -901,6 +903,17 @@ export const AppProvider = ({ children }) => {
     return DEFAULT_APP_CATEGORIES;
   });
 
+  // Routine Shopping Presets State (Cross-Device Cloud Sync Enabled)
+  const [routineShoppingPresets, setRoutineShoppingPresets] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ROUTINE_SHOPPING_PRESETS);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to parse routine presets from storage:', e);
+    }
+    return DEFAULT_ROUTINE_PRESETS;
+  });
+
   // Backup Snapshots State (7-Day Rolling IndexedDB)
   const [snapshots, setSnapshots] = useState(() => {
     return getSnapshotMetaList();
@@ -1380,6 +1393,10 @@ export const AppProvider = ({ children }) => {
     scheduleStorageWrite(STORAGE_KEYS.APP_CATEGORIES, categories);
   }, [categories]);
 
+  useEffect(() => {
+    scheduleStorageWrite(STORAGE_KEYS.ROUTINE_SHOPPING_PRESETS, routineShoppingPresets);
+  }, [routineShoppingPresets]);
+
   // Reactive in-memory cache warming for 0ms lookups
   useEffect(() => {
     inMemoryCache.warmProducts(products);
@@ -1715,7 +1732,9 @@ export const AppProvider = ({ children }) => {
     officeGeoSettings: getOfficeGeoSettings(),
     businessSettings,
     operatingMode,
-    profile
+    profile,
+    categories,
+    routineShoppingPresets
   };
 
   // Phase 4 & 5: Register Delta Sync & Continuous Real-Time Cross-Device Auto-Sync
@@ -2574,10 +2593,19 @@ export const AppProvider = ({ children }) => {
       return false;
     }
 
-    setCategories(prev => ({
-      ...prev,
-      [categoryGroup]: [...(prev[categoryGroup] || []), cleanName]
-    }));
+    setCategories(prev => {
+      const nextCategories = {
+        ...prev,
+        [categoryGroup]: [...(prev[categoryGroup] || []), cleanName]
+      };
+      scheduleStorageWrite(STORAGE_KEYS.APP_CATEGORIES, nextCategories);
+      scheduleDebouncedCloudPush({
+        ...latestStateRef.current,
+        categories: nextCategories,
+        routineShoppingPresets
+      }, 1200, 'add_category');
+      return nextCategories;
+    });
 
     showToast(lang === 'bn' ? `"${cleanName}" ক্যাটাগরি সফলভাবে যুক্ত হয়েছে` : `Category "${cleanName}" added`);
     return true;
@@ -2601,10 +2629,19 @@ export const AppProvider = ({ children }) => {
     }
 
     // 1. Update in categories list
-    setCategories(prev => ({
-      ...prev,
-      [categoryGroup]: (prev[categoryGroup] || []).map(item => item === oldCategoryName ? cleanNew : item)
-    }));
+    setCategories(prev => {
+      const nextCategories = {
+        ...prev,
+        [categoryGroup]: (prev[categoryGroup] || []).map(item => item === oldCategoryName ? cleanNew : item)
+      };
+      scheduleStorageWrite(STORAGE_KEYS.APP_CATEGORIES, nextCategories);
+      scheduleDebouncedCloudPush({
+        ...latestStateRef.current,
+        categories: nextCategories,
+        routineShoppingPresets
+      }, 1200, 'rename_category');
+      return nextCategories;
+    });
 
     // 2. Cascade update in records to maintain data consistency
     if (categoryGroup === 'debtPersonalRelations') {
@@ -2640,12 +2677,38 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteCategory = (categoryGroup, categoryNameToDelete) => {
-    setCategories(prev => ({
-      ...prev,
-      [categoryGroup]: (prev[categoryGroup] || []).filter(item => item !== categoryNameToDelete)
-    }));
+    setCategories(prev => {
+      const nextCategories = {
+        ...prev,
+        [categoryGroup]: (prev[categoryGroup] || []).filter(item => item !== categoryNameToDelete)
+      };
+      scheduleStorageWrite(STORAGE_KEYS.APP_CATEGORIES, nextCategories);
+      scheduleDebouncedCloudPush({
+        ...latestStateRef.current,
+        categories: nextCategories,
+        routineShoppingPresets
+      }, 1200, 'delete_category');
+      return nextCategories;
+    });
     showToast(lang === 'bn' ? `"${categoryNameToDelete}" ক্যাটাগরি মুছে ফেলা হয়েছে` : `Category deleted`, 'warning');
     return true;
+  };
+
+  // Cross-Device Synced Routine Shopping Presets Saver
+  const saveRoutineShoppingPresets = (newPresetsOrUpdater) => {
+    setRoutineShoppingPresets(prev => {
+      const nextPresets = typeof newPresetsOrUpdater === 'function' ? newPresetsOrUpdater(prev) : newPresetsOrUpdater;
+      try {
+        localStorage.setItem(STORAGE_KEYS.ROUTINE_SHOPPING_PRESETS, JSON.stringify(nextPresets));
+      } catch (e) {}
+      scheduleStorageWrite(STORAGE_KEYS.ROUTINE_SHOPPING_PRESETS, nextPresets);
+      scheduleDebouncedCloudPush({
+        ...latestStateRef.current,
+        categories,
+        routineShoppingPresets: nextPresets
+      }, 1000, 'update_routine_presets');
+      return nextPresets;
+    });
   };
 
   const resetCategories = (categoryGroup) => {
@@ -6111,7 +6174,9 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       officeGeoSettings: getOfficeGeoSettings(),
       businessSettings,
       operatingMode,
-      profile
+      profile,
+      categories,
+      routineShoppingPresets
     };
   }, [
     personalExpenses,
@@ -6129,7 +6194,9 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     employees,
     businessSettings,
     operatingMode,
-    profile
+    profile,
+    categories,
+    routineShoppingPresets
   ]);
 
   const applyCloudState = useCallback((cloudState) => {
@@ -6326,6 +6393,46 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       setTrashBin(prev => {
         const merged = mergeEntitiesWithoutDuplicates(prev, cloudState.trashBin);
         localStorage.setItem(STORAGE_KEYS.TRASH_BIN, JSON.stringify(merged));
+        return merged;
+      });
+    }
+    if (cloudState.categories && typeof cloudState.categories === 'object') {
+      setCategories(prev => {
+        const mergedCategories = { ...prev };
+        Object.keys(cloudState.categories).forEach(groupKey => {
+          const incomingList = Array.isArray(cloudState.categories[groupKey]) ? cloudState.categories[groupKey] : [];
+          const existingList = Array.isArray(mergedCategories[groupKey]) ? mergedCategories[groupKey] : [];
+          const seen = new Set(existingList.map(item => typeof item === 'string' ? item.trim().toLowerCase() : String(item).toLowerCase()));
+          const combined = [...existingList];
+          incomingList.forEach(item => {
+            const key = typeof item === 'string' ? item.trim().toLowerCase() : String(item).toLowerCase();
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              combined.push(item);
+            }
+          });
+          mergedCategories[groupKey] = combined;
+        });
+        localStorage.setItem(STORAGE_KEYS.APP_CATEGORIES, JSON.stringify(mergedCategories));
+        return mergedCategories;
+      });
+    }
+    if (Array.isArray(cloudState.routineShoppingPresets)) {
+      setRoutineShoppingPresets(prev => {
+        const merged = [...prev];
+        cloudState.routineShoppingPresets.forEach(incomingPreset => {
+          if (!incomingPreset || !incomingPreset.id) return;
+          const existingIndex = merged.findIndex(p => p.id === incomingPreset.id || (p.name && incomingPreset.name && p.name.trim().toLowerCase() === incomingPreset.name.trim().toLowerCase() && p.profile === incomingPreset.profile));
+          if (existingIndex >= 0) {
+            merged[existingIndex] = {
+              ...merged[existingIndex],
+              ...incomingPreset
+            };
+          } else {
+            merged.push(incomingPreset);
+          }
+        });
+        localStorage.setItem(STORAGE_KEYS.ROUTINE_SHOPPING_PRESETS, JSON.stringify(merged));
         return merged;
       });
     }
@@ -6710,7 +6817,12 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         branchCashRecords: cashMovements || [],
         addExpense: (expenseData) => (profile === 'personal' ? addPersonalExpense(expenseData) : addBusinessExpense(expenseData)),
         setPersonalSavings,
-        setActiveIndustryId: switchIndustryTemplate
+        setActiveIndustryId: switchIndustryTemplate,
+
+        // Cross-Device Synced Routine Shopping Presets
+        routineShoppingPresets,
+        setRoutineShoppingPresets,
+        saveRoutineShoppingPresets
       }}
     >
       {children}
