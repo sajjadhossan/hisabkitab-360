@@ -479,7 +479,7 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
                         type="button"
-                        onClick={() => window.open('https://hisabkitab-360.vercel.app', '_blank')}
+                        onClick={() => window.open('https://hisabkitab360.vercel.app', '_blank')}
                         style={{
                           padding: '5px 10px',
                           background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
@@ -499,7 +499,7 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleCopy('https://hisabkitab-360.vercel.app', 'vercel_url')}
+                        onClick={() => handleCopy('https://hisabkitab360.vercel.app', 'vercel_url')}
                         className="btn btn-secondary"
                         style={{ padding: '5px 8px', fontSize: '0.72rem' }}
                       >
@@ -511,7 +511,7 @@ export const HelpSupportModal = ({ isOpen, onClose }) => {
                     ভার্সেল ক্লাউডে সরাসরি সমবায় ও সমিতি ইআরপি মোডে স্বয়ংক্রিয়ভাবে ওপেন হয়
                   </div>
                   <code style={{ fontSize: '0.74rem', color: '#c084fc', wordBreak: 'break-all' }}>
-                    https://hisabkitab-360.vercel.app
+                    https://hisabkitab360.vercel.app
                   </code>
                 </div>
 

@@ -1109,11 +1109,11 @@ export const GoogleDriveBackupManager = ({
                               <div style={{ background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                                 <div>
                                   <div style={{ fontSize: '0.74rem', fontWeight: '800', color: 'var(--text-main)' }}>৩. ভার্সেল লাইভ ওয়েবসাইট (Vercel Live Web App):</div>
-                                  <code style={{ fontSize: '0.82rem', color: '#8b5cf6', fontWeight: 'bold' }}>https://hisabkitab-360.vercel.app</code>
+                                  <code style={{ fontSize: '0.82rem', color: '#8b5cf6', fontWeight: 'bold' }}>https://hisabkitab360.vercel.app</code>
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => handleCopyUri('https://hisabkitab-360.vercel.app', 'vercel')}
+                                  onClick={() => handleCopyUri('https://hisabkitab360.vercel.app', 'vercel')}
                                   className="btn btn-secondary"
                                   style={{ padding: '4px 12px', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
                                 >
@@ -1141,7 +1141,7 @@ export const GoogleDriveBackupManager = ({
 
                             </div>
                             <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '8px', background: 'rgba(99, 102, 241, 0.08)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.25)', lineHeight: 1.5 }}>
-                              📌 <strong>নিয়ম:</strong> গুগল ক্লাউড কনসোলে <strong>+ ADD URI</strong>-তে একবার চাপ দিয়ে <code>http://localhost:5173</code> পেস্ট করবেন, আবার <strong>+ ADD URI</strong> চেপে <code>http://192.168.1.5:5173</code> পেস্ট করবেন, এবং পুনরায় <strong>+ ADD URI</strong> চেপে <code>https://hisabkitab360.netlify.app</code> ও <code>https://hisabkitab-360.vercel.app</code> পেস্ট করবেন।
+                              📌 <strong>নিয়ম:</strong> গুগল ক্লাউড কনসোলে <strong>+ ADD URI</strong>-তে একবার চাপ দিয়ে <code>http://localhost:5173</code> পেস্ট করবেন, আবার <strong>+ ADD URI</strong> চেপে <code>http://192.168.1.5:5173</code> পেস্ট করবেন, এবং পুনরায় <strong>+ ADD URI</strong> চেপে <code>https://hisabkitab360.netlify.app</code> ও <code>https://hisabkitab360.vercel.app</code> পেস্ট করবেন।
                             </div>
                             
                             <div style={{ margin: '10px 0 8px' }}>

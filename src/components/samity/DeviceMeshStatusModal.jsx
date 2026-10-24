@@ -160,7 +160,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       name: 'Web App',
       titleBn: 'ভার্সেল ক্লাউড ওয়েব',
       icon: <Globe size={24} color="#8b5cf6" />,
-      tag: 'hisabkitab-360.vercel.app',
+      tag: 'hisabkitab360.vercel.app',
       desc: 'বিশ্বের যেকোনো প্রান্ত থেকে রিয়েল-টাইম ব্রাউজার অ্যাক্সেস'
     },
     {

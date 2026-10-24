@@ -1638,7 +1638,7 @@ export const pollTelegramBotCommands = async ({
 ━━━━━━━━━━━━━━━━━━━━━
 💻 <b>পিসি প্রিভিউ:</b> <a href="http://localhost:5173">http://localhost:5173</a>
 📱 <b>মোবাইল ওয়াইফাই:</b> <code>http://192.168.1.5:5173</code>
-🌐 <b>প্রোডাকশন ওয়েবসাইট:</b> <a href="https://hisabkitab-360.vercel.app">https://hisabkitab-360.vercel.app</a>
+🌐 <b>প্রোডাকশন ওয়েবসাইট:</b> <a href="https://hisabkitab360.vercel.app">https://hisabkitab360.vercel.app</a>
 ━━━━━━━━━━━━━━━━━━━━━
 ⚡ <i>সকল ডিভাইসে ডাটা রিয়েলটাইমে সিঙ্ক থাকে!</i>`;
         await sendTelegramMessage(linksHtml, { botToken: token, chatId: targetChatId }, TELEGRAM_FOLDER_CONTROL, 'HTML');

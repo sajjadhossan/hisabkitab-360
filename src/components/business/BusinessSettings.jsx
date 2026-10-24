@@ -4138,7 +4138,7 @@ export const BusinessSettings = () => {
                       🚀 Netlify লাইভ: <a href="https://hisabkitab360.netlify.app" target="_blank" rel="noreferrer" style={{ color: '#00c7b7', textDecoration: 'underline' }}>https://hisabkitab360.netlify.app</a>
                     </div>
                     <div style={{ fontSize: '0.78rem', color: '#8b5cf6', fontWeight: 'bold' }}>
-                      ⚡ Vercel লাইভ: <a href="https://hisabkitab-360.vercel.app" target="_blank" rel="noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline' }}>https://hisabkitab-360.vercel.app</a>
+                      ⚡ Vercel লাইভ: <a href="https://hisabkitab360.vercel.app" target="_blank" rel="noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline' }}>https://hisabkitab360.vercel.app</a>
                     </div>
                   </div>
                   <div style={{ fontSize: '0.78rem', color: '#6366f1', fontWeight: '600' }}>
