@@ -3327,26 +3327,115 @@ export const SamityManagementHub = ({ onClose }) => {
       }}
     >
       {/* ==================================================================== */}
+      {/* Mobile-First Samity Management Hub Subbar Stylesheet */}
+      <style>{`
+        .samity-hub-subbar {
+          background: ${isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.95)'};
+          backdrop-filter: blur(16px);
+          border-bottom: ${isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)'};
+          padding: 10px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          box-shadow: ${isLight ? '0 2px 6px rgba(0,0,0,0.03)' : 'none'};
+        }
+        @media (min-width: 1024px) {
+          .samity-hub-subbar {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            gap: 14px;
+          }
+        }
+        .samity-hub-identity-block {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+        }
+        @media (min-width: 1024px) {
+          .samity-hub-identity-block {
+            width: auto;
+          }
+        }
+        .samity-hub-controls-block {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          width: 100%;
+        }
+        @media (min-width: 1024px) {
+          .samity-hub-controls-block {
+            width: auto;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+          }
+        }
+        .samity-branch-picker-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          width: 100%;
+        }
+        @media (min-width: 1024px) {
+          .samity-branch-picker-row {
+            width: auto;
+          }
+        }
+        .samity-branch-select-box {
+          flex: 1;
+          min-width: 0;
+          text-overflow: ellipsis;
+          background: ${isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.9)'};
+          color: ${isLight ? '#0f172a' : '#fff'};
+          border: ${isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)'};
+          border-radius: 8px;
+          padding: 6px 10px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          outline: none;
+        }
+        @media (min-width: 1024px) {
+          .samity-branch-select-box {
+            flex: none;
+            width: auto;
+            max-width: 250px;
+          }
+        }
+        .samity-hub-actions-track {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          overflow-x: auto;
+          white-space: nowrap;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          padding: 2px 2px 4px 2px;
+          width: 100%;
+        }
+        .samity-hub-actions-track::-webkit-scrollbar {
+          display: none;
+        }
+        @media (min-width: 1024px) {
+          .samity-hub-actions-track {
+            width: auto;
+            overflow-x: visible;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+          }
+        }
+      `}</style>
+
       {/* 1. TOP HEADER & MULTI-TENANT SAMITY SWITCHER */}
       {/* ==================================================================== */}
-      <div
-        style={{
-          background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(16px)',
-          borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)',
-          padding: '10px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-          boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.03)' : 'none'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div className="samity-hub-subbar">
+        <div className="samity-hub-identity-block">
           {/* Active Samity Logo with Instant 1-Click Upload */}
           <div style={{ position: 'relative' }}>
             <input
@@ -3454,27 +3543,21 @@ export const SamityManagementHub = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Multi-Samity Selector & Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.78rem', color: isLight ? '#475569' : 'var(--text-muted, #94a3b8)', fontWeight: '700' }}>{t('🏛️ শাখা/সমিতি:', '🏛️ Branch / Society:')}</span>
+        {/* Right: Multi-Samity Selector & Actions Track (Mobile-First Touch-Optimized) */}
+        <div className="samity-hub-controls-block">
+          {/* Row A: Branch / Society Selector Bar */}
+          <div className="samity-branch-picker-row">
+            <span style={{ fontSize: '0.78rem', color: isLight ? '#475569' : 'var(--text-muted, #94a3b8)', fontWeight: '800', flexShrink: 0 }}>
+              {t('🏛️ শাখা/সমিতি:', '🏛️ Branch / Society:')}
+            </span>
             <select
               value={activeSamityId}
               onChange={(e) => {
                 playButtonClick?.();
                 setActiveSamityId(e.target.value);
               }}
-              style={{
-                background: isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.9)',
-                color: isLight ? '#0f172a' : '#fff',
-                border: isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
-                padding: '6px 10px',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                outline: 'none',
-                boxShadow: isLight ? '0 1px 3px rgba(0,0,0,0.05)' : 'none'
-              }}
+              className="samity-branch-select-box"
+              title={activeLang === 'en' ? 'Select Active Samity / Branch' : 'সক্রিয় সমিতি অথবা শাখা নির্বাচন করুন'}
             >
               {data.samities.map(s => (
                 <option key={s.id} value={s.id}>{s.nameBn} ({s.type})</option>
@@ -3528,8 +3611,10 @@ export const SamityManagementHub = ({ onClose }) => {
             </button>
           </div>
 
+          {/* Row B: Horizontal Touch-Swipeable Control Ribbon (জমা এন্ট্রি, নতুন সদস্য, অপশন খুঁজুন, রোল, SaaS, Close) */}
+          <div className="samity-hub-actions-track">
           {/* Global Smart Feature & Module Search Bar */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', background: isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.8)', border: isLight ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', padding: '2px 8px' }}>
               <Search size={14} color="#94a3b8" />
               <input
@@ -3704,6 +3789,7 @@ export const SamityManagementHub = ({ onClose }) => {
             onClick={() => handleOpenDepositModal()}
             className="btn"
             style={{
+              flexShrink: 0,
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
               color: '#fff',
               border: 'none',
@@ -3726,6 +3812,7 @@ export const SamityManagementHub = ({ onClose }) => {
             onClick={() => handleOpenMemberModal()}
             className="btn"
             style={{
+              flexShrink: 0,
               background: isLight ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.15)',
               color: isLight ? '#1d4ed8' : '#3b82f6',
               border: isLight ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(59, 130, 246, 0.35)',
@@ -3762,6 +3849,7 @@ export const SamityManagementHub = ({ onClose }) => {
               <X size={18} />
             </button>
           )}
+          </div>
         </div>
       </div>
 
