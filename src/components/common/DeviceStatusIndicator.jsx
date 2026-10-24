@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { DEVICE_TYPES } from '../../services/deviceManagerService';
 import { TelegramBotModal } from './TelegramBotModal';
-import { getTelegramBackupConfig } from '../../services/telegramBackupService';
+import { getTelegramBackupConfig, sendBackupToTelegram } from '../../services/telegramBackupService';
 import {
   subscribePresence,
   getOnlineTerminalsList,
@@ -34,7 +34,32 @@ import {
 } from '../../services/liveSyncService';
 
 export const DeviceStatusIndicator = () => {
-  const { currentDevice, deviceRegistry, updateDeviceName, isSupabaseActive } = useApp();
+  const {
+    currentDevice,
+    deviceRegistry,
+    updateDeviceName,
+    isSupabaseActive,
+    syncNowWithCloud,
+    getActiveStateSnapshot,
+    cloudSyncState,
+    isCloudSyncing,
+    lastCloudSyncTimestamp,
+    lastCloudSyncDevice,
+    showToast,
+    lang = 'bn',
+    invoices = [],
+    customers = [],
+    products = [],
+    salesHistory = [],
+    damagedGoods = [],
+    personalExpenses = [],
+    personalIncomes = [],
+    personalSavings = [],
+    personalDebts = [],
+    personalEvents = [],
+    businessExpenses = [],
+    businessSettings = {}
+  } = useApp() || {};
   const { user } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -46,9 +71,47 @@ export const DeviceStatusIndicator = () => {
   const [onlineTerminals, setOnlineTerminals] = useState(() => getOnlineTerminalsList());
   const [isMeshScanning, setIsMeshScanning] = useState(false);
   const [meshScanSuccess, setMeshScanSuccess] = useState('');
+  const [isTelegramBackingUp, setIsTelegramBackingUp] = useState(false);
 
-  const currentType = currentDevice?.type || DEVICE_TYPES.PC;
-  const registry = deviceRegistry || {};
+  // Live Real-Time Timers (Auto Next Scan Countdown & Elapsed Sync Ago)
+  const [nextScanSeconds, setNextScanSeconds] = useState(2);
+  const [lastSyncText, setLastSyncText] = useState('এইমাত্র');
+  const [pulseActive, setPulseActive] = useState(false);
+
+  // Trigger brief visual pulse on sync
+  useEffect(() => {
+    if (isCloudSyncing) {
+      setPulseActive(true);
+      const timer = setTimeout(() => setPulseActive(false), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isCloudSyncing, lastCloudSyncTimestamp]);
+
+  // Next Scan Countdown & Elapsed Time calculation loop
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNextScanSeconds((prev) => (prev <= 1 ? 2 : prev - 1));
+
+      const ts = lastCloudSyncTimestamp || cloudSyncState?.lastSyncTimestamp;
+      if (!ts) {
+        setLastSyncText(lang === 'bn' ? 'আজ এখনও হয়নি' : 'Not yet today');
+      } else {
+        const diffSec = Math.floor((Date.now() - Number(ts)) / 1000);
+        if (diffSec < 5) {
+          setLastSyncText(lang === 'bn' ? 'এইমাত্র (সফল)' : 'Just now');
+        } else if (diffSec < 60) {
+          setLastSyncText(lang === 'bn' ? `${diffSec} সেকেন্ড আগে` : `${diffSec}s ago`);
+        } else if (diffSec < 3600) {
+          const mins = Math.floor(diffSec / 60);
+          setLastSyncText(lang === 'bn' ? `${mins} মিনিট আগে` : `${mins}m ago`);
+        } else {
+          const d = new Date(Number(ts));
+          setLastSyncText(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastCloudSyncTimestamp, cloudSyncState, lang]);
 
   // Subscribe to Live Supabase WebSocket Presence
   useEffect(() => {
@@ -142,13 +205,15 @@ export const DeviceStatusIndicator = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px',
-            background: 'rgba(16, 185, 129, 0.2)',
-            border: '1px solid #10b981',
+            background: pulseActive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.2)',
+            border: pulseActive ? '1px solid #10b981' : '1px solid #10b981',
             borderRadius: '10px',
             padding: '1px 6px',
             fontSize: '0.66rem',
             color: '#10b981',
-            fontWeight: '800'
+            fontWeight: '800',
+            transition: 'all 0.2s ease',
+            boxShadow: pulseActive ? '0 0 10px rgba(16, 185, 129, 0.5)' : 'none'
           }}
         >
           <span
@@ -157,8 +222,10 @@ export const DeviceStatusIndicator = () => {
               height: '6px',
               borderRadius: '50%',
               background: '#10b981',
-              boxShadow: '0 0 6px #10b981',
-              display: 'inline-block'
+              boxShadow: pulseActive ? '0 0 10px #10b981' : '0 0 6px #10b981',
+              transform: pulseActive ? 'scale(1.3)' : 'scale(1)',
+              display: 'inline-block',
+              transition: 'all 0.2s ease'
             }}
           />
           <span>{liveConnectedCount} লাইভ</span>
@@ -221,7 +288,7 @@ export const DeviceStatusIndicator = () => {
               </button>
             </div>
 
-            {/* Live Mesh Status & Instant Scan Bar */}
+            {/* Enhanced Live Mesh Status & Dual Countdown Real-Time Bar */}
             <div
               style={{
                 display: 'flex',
@@ -229,14 +296,16 @@ export const DeviceStatusIndicator = () => {
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
                 gap: '10px',
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.14) 0%, rgba(16, 185, 129, 0.14) 100%)',
+                border: pulseActive ? '1px solid #10b981' : '1px solid rgba(59, 130, 246, 0.35)',
                 borderRadius: '14px',
                 padding: '12px 14px',
-                marginBottom: '14px'
+                marginBottom: '14px',
+                transition: 'all 0.3s ease',
+                boxShadow: pulseActive ? '0 0 15px rgba(16, 185, 129, 0.35)' : 'none'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -249,19 +318,46 @@ export const DeviceStatusIndicator = () => {
                   fontSize: '0.74rem',
                   fontWeight: '800'
                 }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-                  <span>{liveConnectedCount}টি টার্মিনাল সক্রিয় সংযুক্ত</span>
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: pulseActive ? '0 0 14px #10b981' : '0 0 8px #10b981',
+                      transform: pulseActive ? 'scale(1.3)' : 'scale(1)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  />
+                  <span>{liveConnectedCount}টি টার্মিনাল লাইভ</span>
                 </div>
+
+                <div style={{
+                  fontSize: '0.72rem',
+                  color: '#38bdf8',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  padding: '3px 8px',
+                  borderRadius: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: '700'
+                }}>
+                  <RefreshCw size={11} className={isCloudSyncing ? 'animate-spin' : ''} />
+                  <span>স্বয়ংক্রিয় স্ক্যান: {nextScanSeconds}s</span>
+                </div>
+
                 <div style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Zap size={13} style={{ color: '#f59e0b' }} />
-                  <span>&lt; ১৫০ms সাব-সেকেন্ড লাইভ সিঙ্ক</span>
+                  <span>শেষ সিঙ্ক: <strong style={{ color: '#10b981' }}>{lastSyncText}</strong></span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleInstantMeshScan}
-                disabled={isMeshScanning}
+                disabled={isMeshScanning || isCloudSyncing}
                 style={{
                   background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                   color: '#fff',
@@ -270,7 +366,7 @@ export const DeviceStatusIndicator = () => {
                   padding: '6px 14px',
                   fontSize: '0.76rem',
                   fontWeight: '800',
-                  cursor: isMeshScanning ? 'wait' : 'pointer',
+                  cursor: (isMeshScanning || isCloudSyncing) ? 'wait' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -278,8 +374,8 @@ export const DeviceStatusIndicator = () => {
                   minHeight: '34px'
                 }}
               >
-                <RefreshCw size={14} className={isMeshScanning ? 'animate-spin' : ''} />
-                <span>{isMeshScanning ? 'স্ক্যান হচ্ছে...' : 'মেশ রিফ্রেশ / স্ক্যান'}</span>
+                <RefreshCw size={14} className={(isMeshScanning || isCloudSyncing) ? 'animate-spin' : ''} />
+                <span>{isMeshScanning || isCloudSyncing ? 'সিঙ্ক হচ্ছে...' : 'লাইভ সিঙ্ক / স্ক্যান'}</span>
               </button>
             </div>
 
@@ -639,7 +735,7 @@ export const DeviceStatusIndicator = () => {
                 </div>
               </div>
 
-              {/* PLATFORM 5: Telegram Cloud Bot */}
+              {/* PLATFORM 5: Telegram Cloud Bot with Instant Push & Timer */}
               <div
                 style={{
                   background: 'rgba(14, 165, 233, 0.08)',
@@ -656,7 +752,7 @@ export const DeviceStatusIndicator = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontWeight: '800', fontSize: '0.88rem' }}>
-                          টেলিগ্রাম ক্লাউড বট (রিমোট কন্ট্রোল ও চ্যাটবট সিঙ্ক)
+                          টেলিগ্রাম ক্লাউড ব্যাকআপ ও রিমোট কন্ট্রোল
                         </span>
                         <span style={{
                           fontSize: '0.68rem',
@@ -667,36 +763,92 @@ export const DeviceStatusIndicator = () => {
                           padding: '1px 6px',
                           borderRadius: '4px'
                         }}>
-                          {tgConfig?.botToken ? 'সংযুক্ত (Active)' : 'সেটআপ প্রয়োজন'}
+                          {tgConfig?.botToken ? '🟢 সক্রিয় ও লাইভ' : 'সেটআপ প্রয়োজন'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
-                        মোবাইল মেসেজ দিয়ে সেল/খরচ এন্ট্রি, লাইভ রিপোর্ট ও ৪-টার্মিনাল অটো-সিঙ্ক
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', marginTop: '2px' }}>
+                        শেষ ব্যাকআপ: <strong style={{ color: tgConfig?.lastSync ? '#10b981' : '#94a3b8' }}>{tgConfig?.lastSync || 'আজ এখনও হয়নি'}</strong>
+                        {tgConfig?.lastFileName ? ` (${tgConfig.lastFileName})` : ''}
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowTgModal(true)}
-                    className="btn btn-secondary"
-                    style={{
-                      padding: '5px 12px',
-                      fontSize: '0.74rem',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      fontWeight: '800',
-                      color: '#0ea5e9',
-                      border: '1px solid rgba(14, 165, 233, 0.4)',
-                      background: 'rgba(14, 165, 233, 0.1)',
-                      minHeight: '34px'
-                    }}
-                    title="টেলিগ্রাম বট কনফিগার করুন ও কমান্ড ডিরেক্টরি দেখুন"
-                  >
-                    <Settings size={13} />
-                    <span>বট কনফিগার / কমান্ড হাব</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      disabled={isTelegramBackingUp || !tgConfig?.botToken}
+                      onClick={async () => {
+                        setIsTelegramBackingUp(true);
+                        try {
+                          const backupPayload = {
+                            version: "2.0.0",
+                            backupDate: new Date().toISOString(),
+                            companyName: businessSettings.companyName || "HisabKitab Store",
+                            summary: {
+                              totalInvoices: invoices.length,
+                              totalCustomers: customers.length,
+                              totalProducts: products.length,
+                              totalSales: salesHistory.length,
+                              totalDamaged: damagedGoods.length
+                            },
+                            data: {
+                              personal: { personalExpenses, personalIncomes, personalSavings, personalDebts, personalEvents },
+                              business: { products, salesHistory, customers, businessExpenses, businessSettings, invoices }
+                            }
+                          };
+                          const res = await sendBackupToTelegram(backupPayload, tgConfig);
+                          if (res?.success) {
+                            setTgConfig(getTelegramBackupConfig());
+                            showToast?.(lang === 'bn' ? `টেলিগ্রামে ব্যাকআপ সফল: ${res.fileName}` : 'Backup sent to Telegram!', 'success');
+                          }
+                        } catch (err) {
+                          showToast?.('টেলিগ্রাম এরর: ' + err.message, 'danger');
+                        } finally {
+                          setIsTelegramBackingUp(false);
+                        }
+                      }}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: '0.74rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontWeight: '800',
+                        color: '#10b981',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        minHeight: '34px',
+                        cursor: isTelegramBackingUp ? 'wait' : 'pointer'
+                      }}
+                      title="এখনই টেলিগ্রামে সম্পূর্ণ ব্যাকআপ ফাইল পাঠান"
+                    >
+                      <RefreshCw size={13} className={isTelegramBackingUp ? 'animate-spin' : ''} />
+                      <span>{isTelegramBackingUp ? 'পাঠানো হচ্ছে...' : 'এখনই ব্যাকআপ'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowTgModal(true)}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: '0.74rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontWeight: '800',
+                        color: '#0ea5e9',
+                        border: '1px solid rgba(14, 165, 233, 0.4)',
+                        background: 'rgba(14, 165, 233, 0.1)',
+                        minHeight: '34px'
+                      }}
+                      title="টেলিগ্রাম বট কনফিগার করুন ও কমান্ড ডিরেক্টরি দেখুন"
+                    >
+                      <Settings size={13} />
+                      <span>সেটিংস / কমান্ড</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

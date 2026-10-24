@@ -88,13 +88,28 @@ export const OfflineCloudResilienceHubModal = ({ isOpen, onClose, lang = 'bn' })
   // --------------------------------------------------------------------------
   // Feature 84 & 86: Cloud Backup & Compression Bandwidth Guard
   // --------------------------------------------------------------------------
+  const { cloudSyncState, lastCloudSyncTimestamp, lastCloudSyncDevice } = useApp() || {};
   const [backupSchedule, setBackupSchedule] = useState('daily_midnight');
   const [isEncryptingBackup, setIsEncryptingBackup] = useState(false);
   const [compressionRatio, setCompressionRatio] = useState(78); // 78% bandwidth saved
   const [lowDataMode, setLowDataMode] = useState(true);
-  const [lastBackupDate, setLastBackupDate] = useState(() => {
-    return localStorage.getItem('hk360_last_backup_date') || (lang === 'bn' ? 'আজ এখনও হয়নি' : 'Not yet today');
-  });
+
+  // Dynamically compute formatted last backup date from live cloud sync or manual backup
+  const lastBackupDate = useMemo(() => {
+    const rawLocal = localStorage.getItem('hk360_last_backup_date');
+    if (rawLocal && rawLocal !== 'আজ এখনও হয়নি' && rawLocal !== 'Not yet today') {
+      return rawLocal;
+    }
+    const ts = lastCloudSyncTimestamp || cloudSyncState?.lastSyncTimestamp;
+    if (ts && Number(ts) > 0) {
+      const d = new Date(Number(ts));
+      const dateStr = d.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US');
+      const timeStr = d.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const devName = lastCloudSyncDevice || cloudSyncState?.lastDevice || '';
+      return `${dateStr} ${timeStr}${devName ? ` (${devName})` : ''}`;
+    }
+    return lang === 'bn' ? 'আজ এখনও হয়নি' : 'Not yet today';
+  }, [lastCloudSyncTimestamp, cloudSyncState, lastCloudSyncDevice, lang]);
 
   // --------------------------------------------------------------------------
   // Feature 87 & 88: Self-Healing Vacuum & Passwordless Magic Auth
@@ -232,8 +247,8 @@ export const OfflineCloudResilienceHubModal = ({ isOpen, onClose, lang = 'bn' })
         URL.revokeObjectURL(url);
 
         const nowStr = new Date().toLocaleString();
-        setLastBackupDate(nowStr);
         localStorage.setItem('hk360_last_backup_date', nowStr);
+        window.dispatchEvent(new Event('storage'));
         setIsEncryptingBackup(false);
         playSuccessChime();
         showToast(

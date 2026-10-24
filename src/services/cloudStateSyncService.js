@@ -494,23 +494,31 @@ export const initContinuousCloudSync = ({ getSnapshot, onStateReceived, interval
 };
 
 /**
- * Removes older sync logs keeping only the 5 most recent records
+ * Removes older sync logs keeping only the 5 most recent records per tenant
  */
 async function cleanupOldCloudSyncLogs(supabase, tenantKey) {
   try {
     if (!tenantKey) return;
+    // Fast lookup of the 5th newest record's created_at
     const { data } = await supabase
       .from('audit_logs')
-      .select('id, created_at')
+      .select('created_at')
       .eq('action', SYNC_ACTION)
       .eq('entity_type', SYNC_ENTITY_TYPE)
       .eq('entity_id', tenantKey)
       .order('created_at', { ascending: false })
-      .range(5, 50);
+      .range(4, 4);
 
-    if (data && data.length > 0) {
-      const idsToDelete = data.map((d) => d.id);
-      await supabase.from('audit_logs').delete().in('id', idsToDelete);
+    if (data && data.length > 0 && data[0].created_at) {
+      const cutoffDate = data[0].created_at;
+      // Instant bulk delete everything older than the 5th record in 1 query
+      await supabase
+        .from('audit_logs')
+        .delete()
+        .eq('action', SYNC_ACTION)
+        .eq('entity_type', SYNC_ENTITY_TYPE)
+        .eq('entity_id', tenantKey)
+        .lt('created_at', cutoffDate);
     }
   } catch (e) {
     console.debug('[CloudStateSync] Cleanup skipped:', e);
