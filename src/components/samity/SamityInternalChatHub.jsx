@@ -14,7 +14,10 @@ import {
   Filter,
   FileText,
   Image as ImageIcon,
-  CheckCheck
+  CheckCheck,
+  AlertTriangle,
+  X,
+  ShieldAlert
 } from 'lucide-react';
 import { playButtonClick, playSuccessChime } from '../../services/soundFeedback';
 import { hapticFeedback } from '../../services/nativeAppService';
@@ -51,6 +54,7 @@ export const SamityInternalChatHub = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'pinned' | 'notices'
   const [copiedId, setCopiedId] = useState(null);
+  const [deletingMessage, setDeletingMessage] = useState(null);
 
   const chatEndRef = useRef(null);
 
@@ -145,23 +149,41 @@ export const SamityInternalChatHub = ({
     }
   };
 
-  // Delete message
-  const handleDeleteMessage = (msgId) => {
-    if (window.confirm(t('আপনি কি এই মেসেজ বা নোটিশটি স্থায়ীভাবে মুছে ফেলতে চান?', 'Are you sure you want to permanently delete this message?'))) {
-      playButtonClick?.();
-      hapticFeedback?.medium?.();
+  // Open modern delete confirmation modal
+  const promptDeleteMessage = (msg) => {
+    playButtonClick?.();
+    hapticFeedback?.light?.();
+    setDeletingMessage(msg);
+  };
 
-      updateAndSave(prev => ({
-        ...prev,
-        chatMessages: (prev.chatMessages || []).filter(m => m.id !== msgId)
-      }), {
-        action: 'DELETE_CHAT_MESSAGE',
-        module: 'COMMUNICATION',
-        recordId: msgId
-      });
+  // Confirm delete message (no window.confirm, 100% custom enterprise modal)
+  const handleConfirmDelete = () => {
+    if (!deletingMessage) return;
+    const msgId = deletingMessage.id;
 
-      showToast?.(t('মেসেজটি মুছে ফেলা হয়েছে', 'Message deleted'), 'info');
-    }
+    playButtonClick?.();
+    hapticFeedback?.medium?.();
+
+    updateAndSave(prev => ({
+      ...prev,
+      chatMessages: (prev.chatMessages || []).filter(m => m.id !== msgId)
+    }), {
+      action: 'DELETE_CHAT_MESSAGE',
+      module: 'COMMUNICATION',
+      recordId: msgId,
+      details: {
+        textSnippet: deletingMessage.text?.slice(0, 60),
+        deletedBy: currentUser?.name || senderName || 'User',
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    try {
+      broadcastLiveEvent('SAMITY_CHAT_MESSAGE_DELETED', { messageId: msgId });
+    } catch {}
+
+    setDeletingMessage(null);
+    showToast?.(t('✅ মেসেজটি সফলভাবে মুছে ফেলা হয়েছে', '✅ Message successfully deleted'), 'success');
   };
 
   // Handle Attachment Upload (Images or PDFs)
@@ -519,11 +541,28 @@ export const SamityInternalChatHub = ({
                         <Pin size={14} />
                       </button>
 
-                      {/* Delete Button */}
+                      {/* Delete Button (Modern Trigger) */}
                       <button
-                        onClick={() => handleDeleteMessage(msg.id)}
+                        onClick={() => promptDeleteMessage(msg)}
                         title={t('মুছে ফেলুন', 'Delete message')}
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#ef4444',
+                          padding: '6px',
+                          borderRadius: '6px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = isLight ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -780,6 +819,225 @@ export const SamityInternalChatHub = ({
           </div>
         </form>
       </div>
+
+      {/* Enterprise Commercial Delete Confirmation Modal */}
+      {deletingMessage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            background: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            animation: 'fadeIn 0.18s ease-out'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              playButtonClick?.();
+              setDeletingMessage(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '430px',
+              background: isLight ? '#ffffff' : '#0f172a',
+              border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '20px',
+              padding: '24px 22px',
+              boxShadow: isLight
+                ? '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.15)'
+                : '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(239, 68, 68, 0.3)',
+              color: isLight ? '#0f172a' : '#f8fafc',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Top Close Icon */}
+            <button
+              onClick={() => {
+                playButtonClick?.();
+                setDeletingMessage(null);
+              }}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: isLight ? '#f1f5f9' : '#1e293b',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: isLight ? '#64748b' : '#94a3b8'
+              }}
+              title={t('বন্ধ করুন', 'Close')}
+            >
+              <X size={16} />
+            </button>
+
+            {/* Icon & Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.3) 100%)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ef4444',
+                  flexShrink: 0
+                }}
+              >
+                <Trash2 size={24} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', letterSpacing: '-0.01em' }}>
+                  {t('মেসেজ মুছে ফেলার নিশ্চিতকরণ', 'Delete Message Confirmation')}
+                </h3>
+                <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: isLight ? '#64748b' : '#94a3b8' }}>
+                  {t('এই মেসেজটি সমিতি চ্যাট থেকে স্থায়ীভাবে মুছে যাবে।', 'This message will be permanently removed from the samity feed.')}
+                </p>
+              </div>
+            </div>
+
+            {/* Message Preview Snippet */}
+            <div
+              style={{
+                background: isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.65)',
+                border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderLeft: '4px solid #ef4444',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                marginBottom: '16px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.74rem' }}>
+                <span style={{ fontWeight: '800', color: isLight ? '#334155' : '#cbd5e1' }}>
+                  👤 {deletingMessage.senderName || 'প্রতিনিধি'}
+                  {deletingMessage.senderRole && ` • ${deletingMessage.senderRole}`}
+                </span>
+                <span style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: deletingMessage.type === 'notice' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+                  color: deletingMessage.type === 'notice' ? '#d97706' : '#0284c7',
+                  fontWeight: '700'
+                }}>
+                  {deletingMessage.type === 'notice' ? t('জরুরি নোটিশ', 'Official Notice') : t('সাধারণ বার্তা', 'Chat Message')}
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: '0.84rem',
+                  lineHeight: '1.5',
+                  color: isLight ? '#1e293b' : '#e2e8f0',
+                  maxHeight: '70px',
+                  overflowY: 'auto',
+                  wordBreak: 'break-word',
+                  fontStyle: 'italic'
+                }}
+              >
+                "{deletingMessage.text || (deletingMessage.attachment ? t('সংযুক্ত ফাইল / ছবি', 'Attached file/media') : t('(খালি বার্তা)', '(Empty message)'))}"
+              </div>
+            </div>
+
+            {/* Cloud Audit & Realtime Protection Note */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 12px',
+                borderRadius: '10px',
+                background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: isLight ? '#b91c1c' : '#f87171',
+                fontSize: '0.74rem',
+                fontWeight: '600',
+                marginBottom: '20px'
+              }}
+            >
+              <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+              <span>
+                {t('সকল অনলাইন ডিভাইসে রিয়েলটাইমে সিঙ্ক হবে এবং অডিট ট্রেইল সংরক্ষণ করা হবে।', 'Will sync in real-time across all online devices with audit trail.')}
+              </span>
+            </div>
+
+            {/* Action Buttons (Touch friendly min 46px height) */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  playButtonClick?.();
+                  setDeletingMessage(null);
+                }}
+                style={{
+                  flex: 1,
+                  height: '46px',
+                  minHeight: '44px',
+                  borderRadius: '12px',
+                  border: isLight ? '1.5px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.18)',
+                  background: isLight ? '#f8fafc' : '#1e293b',
+                  color: isLight ? '#475569' : '#cbd5e1',
+                  fontWeight: '700',
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <X size={15} />
+                <span>{t('বাতিল করুন', 'Cancel')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                style={{
+                  flex: 1.4,
+                  height: '46px',
+                  minHeight: '44px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#ffffff',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Trash2 size={16} />
+                <span>{t('হ্যাঁ, মুছে ফেলুন', 'Yes, Delete')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
