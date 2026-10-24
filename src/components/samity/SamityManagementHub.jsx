@@ -128,7 +128,8 @@ import {
   markRecordAsDeletedTombstone,
   broadcastSamityStateChange,
   getOnlineDevicesList,
-  subscribeDevicePresence
+  subscribeDevicePresence,
+  format12HourTime
 } from '../../services/somitiCloudSyncService';
 import { SamityInternalChatHub } from './SamityInternalChatHub';
 import { DeviceMeshStatusModal } from './DeviceMeshStatusModal';
@@ -519,12 +520,21 @@ export const SamityManagementHub = ({ onClose }) => {
   const [isDeviceMeshModalOpen, setIsDeviceMeshModalOpen] = useState(false);
   const [onlineDevicesListState, setOnlineDevicesListState] = useState(() => getOnlineDevicesList());
   const onlineDevicesCount = Math.max(1, onlineDevicesListState.length);
+  const [lastScanTimestamp, setLastScanTimestamp] = useState(() => {
+    return typeof window !== 'undefined' ? (Number(localStorage.getItem('somiti360_last_sync_timestamp')) || Date.now()) : Date.now();
+  });
 
   useEffect(() => {
     const unsubPresence = subscribeDevicePresence((list) => {
       if (Array.isArray(list)) setOnlineDevicesListState(list);
     });
-    return () => unsubPresence();
+    const unsubSync = subscribeSamityCloudSync((s) => {
+      if (s.lastSyncTime) setLastScanTimestamp(s.lastSyncTime);
+    });
+    return () => {
+      unsubPresence();
+      unsubSync();
+    };
   }, []);
 
   // Current active Samity with dedicated Society Logo fallback (ensures Shopnochoa has its own logo distinct from 360 platform)
@@ -3885,7 +3895,7 @@ export const SamityManagementHub = ({ onClose }) => {
             <span>{activeLang === 'en' ? 'SaaS Architecture' : 'বিক্রির আর্কিটেকচার'}</span>
           </button>
 
-          {/* 4-Platform Live Device Mesh & Instant Sync Button */}
+          {/* 4-Platform Live Device Mesh & Instant Sync Button with 12-Hour Scan Time */}
           <button
             onClick={() => {
               playButtonClick?.();
@@ -3907,13 +3917,16 @@ export const SamityManagementHub = ({ onClose }) => {
               cursor: 'pointer',
               boxShadow: onlineDevicesCount > 1 ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
             }}
-            title={t('৪টি প্ল্যাটফর্ম লাইভ ডিভাইস মেশ ও টেলিগ্রাম অটো-ব্যাকআপ স্ট্যাটাস', '4-Platform Live Device Mesh & Telegram Backup Status')}
+            title={t(
+              `৪টি প্ল্যাটফর্ম লাইভ ডিভাইস মেশ (সর্বশেষ স্ক্যান: ${format12HourTime(lastScanTimestamp, 'bn')} - ১২-ঘণ্টা AM/PM)`,
+              `4-Platform Live Device Mesh (Last Scan: ${format12HourTime(lastScanTimestamp, 'en')} - 12-Hour AM/PM)`
+            )}
           >
             <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
             <span>
               {onlineDevicesCount > 1
-                ? t(`৪টি প্ল্যাটফর্ম (${onlineDevicesCount}টি অনলাইন) ⚡`, `4 Platforms (${onlineDevicesCount} Online) ⚡`)
-                : t('৪টি প্ল্যাটফর্ম সিঙ্কড ⚡', '4 Platforms Synced ⚡')}
+                ? t(`৪টি প্ল্যাটফর্ম (${onlineDevicesCount}টি) ⚡ | স্ক্যান: ${format12HourTime(lastScanTimestamp, 'bn')}`, `4 Platforms (${onlineDevicesCount}) ⚡ | Scan: ${format12HourTime(lastScanTimestamp, 'en')}`)
+                : t(`৪টি প্ল্যাটফর্ম ⚡ | স্ক্যান: ${format12HourTime(lastScanTimestamp, 'bn')}`, `4 Platforms ⚡ | Scan: ${format12HourTime(lastScanTimestamp, 'en')}`)}
             </span>
           </button>
 

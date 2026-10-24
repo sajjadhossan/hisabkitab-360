@@ -398,17 +398,21 @@ const handleMeshSyncRequest = async (payload) => {
 };
 
 /**
- * Ask active online peers for freshest state snapshot
+ * Ask active online peers for freshest state snapshot (Instant Live Scan)
  */
 export const requestMeshSyncFromPeers = async () => {
   if (!meshChannel || !isChannelSubscribed) {
     initSomitiCloudSync();
   }
 
+  const now = Date.now();
+  const origin = getDeviceOrigin();
   try {
-    const origin = getDeviceOrigin();
-    const lastTs = Number(localStorage.getItem(LAST_SYNC_TS_KEY)) || 0;
+    localStorage.setItem(LAST_SYNC_TS_KEY, String(now));
+    localStorage.setItem(LAST_SYNC_DEVICE_KEY, origin.name);
+  } catch {}
 
+  try {
     await meshChannel?.send({
       type: 'broadcast',
       event: 'REQUEST_SAMITY_MESH_SYNC',
@@ -416,11 +420,65 @@ export const requestMeshSyncFromPeers = async () => {
         senderDeviceId: getLocalDeviceId(),
         senderPlatform: origin.platform,
         senderDeviceName: origin.name,
-        timestamp: lastTs
+        timestamp: now
       }
+    });
+
+    notifyListeners({
+      status: 'synced',
+      lastSyncedDevice: origin.name,
+      lastSyncTime: now
     });
   } catch (err) {
     console.debug('[SomitiSync] Mesh request error:', err);
+  }
+};
+
+/**
+ * Format timestamp strictly into 12-Hour format (hh:mm:ss AM/PM)
+ * Never 24-hour. Ensures Bengali / English numerals per locale.
+ */
+export const format12HourTime = (timestamp, lang = 'bn') => {
+  if (!timestamp) return lang === 'en' ? 'No scan yet' : 'এখনো কোনো স্ক্যান হয়নি';
+  try {
+    const d = new Date(Number(timestamp) || timestamp);
+    if (isNaN(d.getTime())) return '';
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const seconds = d.getSeconds().toString().padStart(2, '0');
+    const isPM = hours >= 12;
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+    const hoursStr = hours.toString().padStart(2, '0');
+    const period = isPM ? 'PM' : 'AM';
+
+    if (lang === 'en') {
+      return `${hoursStr}:${minutes}:${seconds} ${period}`;
+    }
+
+    const bnDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+    const toBn = (str) => String(str).replace(/[0-9]/g, (w) => bnDigits[Number(w)]);
+    return `${toBn(hoursStr)}:${toBn(minutes)}:${toBn(seconds)} ${period}`;
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Format timestamp into Date + strict 12-Hour format (hh:mm:ss AM/PM)
+ */
+export const format12HourDateTime = (timestamp, lang = 'bn') => {
+  if (!timestamp) return lang === 'en' ? 'No scan yet' : 'এখনো কোনো স্ক্যান হয়নি';
+  try {
+    const d = new Date(Number(timestamp) || timestamp);
+    if (isNaN(d.getTime())) return '';
+    const timeStr = format12HourTime(d.getTime(), lang);
+    const dateStr = lang === 'en'
+      ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+      : d.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `${dateStr} - ${timeStr}`;
+  } catch {
+    return '';
   }
 };
 

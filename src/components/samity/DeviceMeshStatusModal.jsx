@@ -23,7 +23,9 @@ import {
   requestMeshSyncFromPeers,
   subscribeDevicePresence,
   getOnlineDevicesList,
-  getDeviceOrigin
+  getDeviceOrigin,
+  format12HourTime,
+  format12HourDateTime
 } from '../../services/somitiCloudSyncService';
 
 export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samityData = {}, showToast = null, t = (bn) => bn }) => {
@@ -69,13 +71,20 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
 
   const handleInstantMeshSync = async () => {
     setIsMeshSyncing(true);
-    showToast?.(t('৪টি প্ল্যাটফর্ম মেশে লাইভ ডেটা রিকোয়েস্ট পাঠানো হচ্ছে...', 'Requesting live data across 4 platforms...'), 'info');
+    showToast?.(t('৪টি প্ল্যাটফর্ম মেশে লাইভ ডেটা স্ক্যান পাঠানো হচ্ছে...', 'Broadcasting live scan across 4 platforms...'), 'info');
     try {
       await requestMeshSyncFromPeers();
+      const now = Date.now();
+      setMeshState(prev => ({
+        ...prev,
+        lastSyncTime: now,
+        lastSyncedDevice: origin.name || 'স্থানীয় ডিভাইস'
+      }));
       setTimeout(() => {
         setIsMeshSyncing(false);
-        showToast?.(t('✅ লাইভ মেশ সিঙ্ক সম্পন্ন হয়েছে!', '✅ Live mesh sync completed!'), 'success');
-      }, 700);
+        const time12 = format12HourTime(now, t('bn', 'en'));
+        showToast?.(t(`✅ লাইভ মেশ স্ক্যান সম্পন্ন! সময়: ${time12}`, `✅ Live mesh scan completed! Time: ${time12}`), 'success');
+      }, 600);
     } catch (e) {
       setIsMeshSyncing(false);
       showToast?.(t('মেশ সিঙ্ক ত্রুটি: ', 'Mesh sync error: ') + e.message, 'error');
@@ -89,7 +98,8 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
       const res = await backupToTelegram(samityData, { action: 'MANUAL_BACKUP', isTransaction: true }, true);
       if (res.success) {
         setTelegramConfig(getSomitiTelegramConfig());
-        showToast?.(t('✅ ব্যাকআপ সফলভাবে টেলিগ্রামে সেন্ট হয়েছে!', '✅ Backup sent to Telegram successfully!'), 'success');
+        const time12 = format12HourTime(Date.now(), t('bn', 'en'));
+        showToast?.(t(`✅ ব্যাকআপ টেলিগ্রামে সেন্ট হয়েছে! সময়: ${time12}`, `✅ Backup sent to Telegram! Time: ${time12}`), 'success');
       } else {
         showToast?.(t('টেলিগ্রাম ব্যাকআপ সমস্যা: ', 'Telegram backup error: ') + (res.error || 'Network error'), 'error');
       }
@@ -100,36 +110,21 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
     }
   };
 
-  const formatTimestamp = (isoStr) => {
-    if (!isoStr) return t('এখনো কোনো ব্যাকআপ পাঠানো হয়নি', 'No backup sent yet');
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString('bn-BD', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      }) + ' - ' + d.toLocaleTimeString('bn-BD', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      });
-    } catch {
-      return isoStr;
-    }
+  // Strictly 12-Hour format (AM / PM)
+  const formatTimestamp = (isoOrTs) => {
+    if (!isoOrTs) return t('এখনো কোনো ব্যাকআপ পাঠানো হয়নি', 'No backup sent yet');
+    return format12HourDateTime(isoOrTs, t('bn', 'en'));
   };
 
+  // Strictly 12-Hour formatted scan time with relative indicator
   const formatRelativeSyncTime = (timestamp) => {
-    if (!timestamp) return t('এখনো কোনো সিঙ্ক হয়নি', 'No sync yet');
+    if (!timestamp) return t('এখনো কোনো স্ক্যান হয়নি', 'No scan yet');
+    const exact12 = format12HourTime(timestamp, t('bn', 'en'));
     const diffMs = Date.now() - timestamp;
-    if (diffMs < 5000) return t('এইমাত্র (<৫ সেকেন্ড)', 'Just now (<5s)');
-    if (diffMs < 60000) return `${Math.floor(diffMs / 1000)} ${t('সেকেন্ড পূর্বে', 'seconds ago')}`;
-    if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} ${t('মিনিট পূর্বে', 'minutes ago')}`;
-    try {
-      return new Date(timestamp).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
-    } catch {
-      return '';
-    }
+    if (diffMs < 5000) return `${exact12} - ${t('এইমাত্র', 'Just now')}`;
+    if (diffMs < 60000) return `${exact12} (${Math.floor(diffMs / 1000)} ${t('সেকেন্ড পূর্বে', 's ago')})`;
+    if (diffMs < 3600000) return `${exact12} (${Math.floor(diffMs / 60000)} ${t('মিনিট পূর্বে', 'm ago')})`;
+    return exact12;
   };
 
   const origin = getDeviceOrigin();
@@ -283,10 +278,21 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
                   ? t(`মোট ${totalOnlineCount}টি ডিভাইস লাইভ মেশে সরাসরি সংযুক্ত!`, `${totalOnlineCount} terminals actively connected on live mesh!`)
                   : t('১টি টার্মিনাল প্রস্তুত (অন্য ডিভাইস ওপেন করলেই সাথে সাথে এখানে দৃশ্যমান হবে)', '1 terminal active (other devices connect in real-time when opened)')}
               </div>
-              <div style={{ fontSize: '0.72rem', color: isLight ? '#64748b' : '#94a3b8', marginTop: '2px' }}>
-                {t('সর্বশেষ লাইভ সিঙ্ক:', 'Last Live Sync:')}{' '}
-                <strong style={{ color: '#10b981' }}>{meshState.lastSyncedDevice || 'স্থানীয় ডিভাইস'}</strong>
-                {meshState.lastSyncTime ? ` (${formatRelativeSyncTime(meshState.lastSyncTime)})` : ''}
+              <div style={{ fontSize: '0.74rem', color: isLight ? '#475569' : '#cbd5e1', marginTop: '3px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                <span>
+                  🕒 {t('সর্বশেষ লাইভ স্ক্যান:', 'Last Live Scan:')}{' '}
+                  <strong style={{ color: '#10b981', fontWeight: '900' }}>
+                    {format12HourTime(meshState.lastSyncTime, t('bn', 'en'))}
+                  </strong>
+                  {' '}<span style={{ fontSize: '0.68rem', opacity: 0.85 }}>({t('১২-ঘণ্টা AM/PM ফরম্যাট', '12-Hour AM/PM')})</span>
+                </span>
+                <span>•</span>
+                <span>
+                  📡 {t('উৎস নোড:', 'Source Node:')}{' '}
+                  <strong style={{ color: isLight ? '#0f172a' : '#f8fafc' }}>
+                    {meshState.lastSyncedDevice || 'স্থানীয় ডিভাইস'}
+                  </strong>
+                </span>
               </div>
             </div>
           </div>
@@ -399,7 +405,9 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
                   {t('৪-প্ল্যাটফর্ম লাইভ ব্রডকাস্ট মেশ (<১৫০ms)', '4-Platform Live Broadcast Mesh (<150ms)')}
                 </h4>
                 <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
-                  {t('সর্বশেষ সিঙ্ক নোড:', 'Last Synced Node:')} <strong style={{ color: '#10b981' }}>{meshState.lastSyncedDevice || 'স্থানীয় ডিভাইস'}</strong>
+                  {t('সর্বশেষ লাইভ স্ক্যান:', 'Last Live Scan:')}{' '}
+                  <strong style={{ color: '#10b981' }}>{format12HourTime(meshState.lastSyncTime, t('bn', 'en'))}</strong>
+                  {' '}({meshState.lastSyncedDevice || 'স্থানীয় ডিভাইস'})
                 </p>
               </div>
             </div>
@@ -423,7 +431,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
               }}
             >
               <RefreshCw size={13} className={isMeshSyncing ? 'animate-spin' : ''} />
-              <span>{isMeshSyncing ? t('সিঙ্ক হচ্ছে...', 'Syncing...') : t('ইনস্ট্যান্ট মেশ সিঙ্ক', 'Instant Mesh Sync')}</span>
+              <span>{isMeshSyncing ? t('স্ক্যান হচ্ছে...', 'Scanning...') : t('লাইভ স্ক্যান ও সিঙ্ক', 'Live Scan & Sync')}</span>
             </button>
           </div>
         </div>
