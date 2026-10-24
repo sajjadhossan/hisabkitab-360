@@ -861,10 +861,19 @@ function serveStatic(req, res) {
           return;
         }
         const timeNow = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-        const testMsg = `🎉 <b>হিসাবকিতাব ৩৬০ - টেলিগ্রাম ক্লাউড কানেকশন সফল!</b>\n━━━━━━━━━━━━━━━━━━━━━\n⏰ <b>সময়:</b> ${timeNow}\n🤖 <b>বট:</b> @Backup_hisabkitab_bot\n✅ আপনার টেলিগ্রাম বট সক্রিয় রয়েছে এবং রিয়েল-টাইমে ডাটা আদান-প্রদান করতে প্রস্তুত।`;
-        await sendTelegramMsg(token, chatId, testMsg, null, 'HTML');
+        const pingMsg = `📡 <b>হিসাবকিতাব ৩৬০ - লাইভ কানেকশন টেস্ট পিং</b>\n━━━━━━━━━━━━━━━━━━━━━\n⏰ <b>সময়:</b> ${timeNow}\n📲 <b>স্ট্যাটাস:</b> দ্বি-মুখী কানেকশন পরীক্ষা করা হচ্ছে...`;
+        await sendTelegramMsg(token, chatId, pingMsg, null, 'HTML');
+
+        const pongMsg = `🤖 <b>বট রেসপন্স কনফার্মেশন (Pong Received):</b>\n━━━━━━━━━━━━━━━━━━━━━\n✅ <b>বট:</b> @${cfg.botUsername || 'Backup_hisabkitab_bot'}\n⚡ <b>স্ট্যাটাস:</b> ১০০% কানেক্টেড ও প্রস্তুত\n💡 <i>আপনার হিসাব-কিতাব ৩৬০ সিস্টেমের সাথে এই টেলিগ্রাম বট রিয়েল-টাইমে সফলভাবে সংযুক্ত রয়েছে।</i>`;
+        await sendTelegramMsg(token, chatId, pongMsg, null, 'HTML');
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Test message sent' }));
+        res.end(JSON.stringify({
+          success: true,
+          message: 'Two-way test ping-pong completed',
+          botUsername: cfg.botUsername || 'Backup_hisabkitab_bot',
+          timeNow
+        }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: e.message }));

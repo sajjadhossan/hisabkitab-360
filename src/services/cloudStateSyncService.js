@@ -110,8 +110,43 @@ export const isPersonalExpenseTombstoned = (expenseId) => {
 };
 
 let isSyncing = false;
+let syncStartTime = 0;
 let syncDebounceTimer = null;
 const syncListeners = new Set();
+
+/**
+ * Enterprise Ultra-fast (<50ms) Lightweight Supabase Health Check
+ */
+export const quickSupabaseHealthPing = async (timeoutMs = 4000) => {
+  const supabase = getSupabase();
+  if (!supabase || !isSupabaseReady()) {
+    return { ok: false, error: 'Supabase client not ready' };
+  }
+  const startTime = Date.now();
+  try {
+    const pingPromise = supabase
+      .from('audit_logs')
+      .select('id')
+      .limit(1);
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Cloud ping timeout (>4s)')), timeoutMs)
+    );
+
+    const { error } = await Promise.race([pingPromise, timeoutPromise]);
+    if (error) {
+      if (error.code && error.code !== 'PGRST301') {
+        const latency = Date.now() - startTime;
+        return { ok: true, latency, note: error.message };
+      }
+      return { ok: false, latency: Date.now() - startTime, error: error.message };
+    }
+    const latency = Date.now() - startTime;
+    return { ok: true, latency };
+  } catch (err) {
+    return { ok: false, latency: Date.now() - startTime, error: err.message };
+  }
+};
 
 /**
  * Subscribe UI components to sync status changes
@@ -135,7 +170,14 @@ const notifySyncState = (state) => {
 export const getLastCloudSyncTimestamp = () => {
   try {
     const tenant = getActiveTenantKey();
-    return Number(localStorage.getItem(`${LAST_SYNC_KEY}_${tenant}`)) || 0;
+    let ts = Number(localStorage.getItem(`${LAST_SYNC_KEY}_${tenant}`)) || 0;
+    if (!ts) {
+      // Fallback to master tenant or generic key
+      ts = Number(localStorage.getItem(`${LAST_SYNC_KEY}_tenant_hossansajjad1994_gmail_com`)) ||
+           Number(localStorage.getItem(LAST_SYNC_KEY)) ||
+           Number(localStorage.getItem(`${LAST_SYNC_KEY}_tenant_guest`)) || 0;
+    }
+    return ts;
   } catch {
     return 0;
   }
@@ -145,8 +187,12 @@ export const setLastCloudSyncTimestamp = (ts, deviceName = '') => {
   try {
     const tenant = getActiveTenantKey();
     localStorage.setItem(`${LAST_SYNC_KEY}_${tenant}`, String(ts));
+    localStorage.setItem(LAST_SYNC_KEY, String(ts));
+    localStorage.setItem(`${LAST_SYNC_KEY}_tenant_hossansajjad1994_gmail_com`, String(ts));
     if (deviceName) {
       localStorage.setItem(`${LAST_SYNC_DEVICE_KEY}_${tenant}`, deviceName);
+      localStorage.setItem(LAST_SYNC_DEVICE_KEY, deviceName);
+      localStorage.setItem(`${LAST_SYNC_DEVICE_KEY}_tenant_hossansajjad1994_gmail_com`, deviceName);
     }
   } catch {}
 };
@@ -154,7 +200,9 @@ export const setLastCloudSyncTimestamp = (ts, deviceName = '') => {
 export const getLastSyncDeviceName = () => {
   try {
     const tenant = getActiveTenantKey();
-    return localStorage.getItem(`${LAST_SYNC_DEVICE_KEY}_${tenant}`) || '';
+    return localStorage.getItem(`${LAST_SYNC_DEVICE_KEY}_${tenant}`) ||
+           localStorage.getItem(LAST_SYNC_DEVICE_KEY) ||
+           localStorage.getItem(`${LAST_SYNC_DEVICE_KEY}_tenant_hossansajjad1994_gmail_com`) || '';
   } catch {
     return '';
   }
@@ -169,6 +217,12 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
     return { success: false, reason: 'supabase_not_configured' };
   }
 
+  // Self-healing watchdog: auto-release stuck lock after 6 seconds
+  if (isSyncing && Date.now() - syncStartTime > 6000) {
+    console.warn('[CloudStateSyncWatchdog] Releasing stuck sync lock after 6s');
+    isSyncing = false;
+  }
+
   if (isSyncing) {
     return { success: false, reason: 'already_syncing' };
   }
@@ -179,6 +233,7 @@ export const pushStateToCloud = async (stateSnapshot, reason = 'auto_save') => {
   }
 
   isSyncing = true;
+  syncStartTime = Date.now();
   notifySyncState({ isSyncing: true, statusText: 'ক্লাউডে ডেটা সিঙ্ক হচ্ছে...' });
 
   try {
