@@ -1,11 +1,60 @@
 {
   "framework": "vite",
+  "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/api/public/verify/code/:code",
+      "destination": "/api/public/verify?documentType=code&documentId=:code"
+    },
+    {
+      "source": "/api/public/verify/:documentType/:documentId",
+      "destination": "/api/public/verify?documentType=:documentType&documentId=:documentId"
+    },
+    {
+      "source": "/api/receipts/:receiptId/qr.png",
+      "destination": "/api/receipts/qr-png?receiptId=:receiptId"
+    },
+    {
+      "source": "/api/receipts/:receiptId/qr.svg",
+      "destination": "/api/receipts/qr-svg?receiptId=:receiptId"
+    },
+    {
+      "source": "/api/receipts/:receiptId/qr",
+      "destination": "/api/receipts/qr?receiptId=:receiptId"
+    },
+    {
+      "source": "/api/receipts/:receiptId/pdf",
+      "destination": "/api/receipts/pdf?receiptId=:receiptId"
+    },
+    {
+      "source": "/api/receipts/:receiptId/cancel",
+      "destination": "/api/receipts/cancel?receiptId=:receiptId"
+    },
+    {
+      "source": "/api/documents/:documentType/:documentId/qr",
+      "destination": "/api/documents/qr?documentType=:documentType&documentId=:documentId"
+    },
+    {
+      "source": "/api/documents/:documentType/:documentId/pdf",
+      "destination": "/api/documents/pdf?documentType=:documentType&documentId=:documentId"
+    },
+    {
+      "source": "/api/documents/:documentType/:documentId/cancel",
+      "destination": "/api/documents/cancel?documentType=:documentType&documentId=:documentId"
+    },
+    {
+      "source": "/verify/code/:code",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/verify/:documentType/:documentId",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
   ],
@@ -16,6 +65,153 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.(?:png|svg|ico|webp|jpg|jpeg|woff|woff2|ttf))",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/verify/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, stale-while-revalidate=60"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=300, stale-while-revalidate=60"
+        }
+      ]
+    },
+    {
+      "source": "/api/receipts/(.*)/qr(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/api/documents/(.*)/qr(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/api/receipts/(.*)/cancel",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/documents/(.*)/cancel",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/receipts/(.*)/pdf",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/documents/(.*)/pdf",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/public/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=30, stale-while-revalidate=30"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, max-age=30, stale-while-revalidate=30"
+        }
+      ]
+    },
+    {
+      "source": "/api/((?!public/|receipts/.*/qr|documents/.*/qr).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "no-store"
         }
       ]
     },
@@ -33,6 +229,10 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
         }
       ]
     }
