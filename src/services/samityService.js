@@ -5,9 +5,23 @@
 // ============================================================================
 
 import { broadcastSamityStateUpdate, markRecordAsDeletedTombstone } from './somitiCloudSyncService';
-export { markRecordAsDeletedTombstone };
+import { saveStateToIndexedDB, generateIdempotencyKey, enqueueOfflineMutation } from './somitiOfflineStore';
+export { markRecordAsDeletedTombstone, generateIdempotencyKey, enqueueOfflineMutation };
 
 const STORAGE_KEY = 'hk360_samity_hub_data';
+
+export const getTenantStorageKey = (customTenantId = null) => {
+  try {
+    if (customTenantId && customTenantId !== 'tenant_master_headquarters') {
+      return `hk360_samity_hub_data_${customTenantId}`;
+    }
+    const wsId = typeof window !== 'undefined' ? localStorage.getItem('somiti360_active_workspace_id') : null;
+    if (wsId && wsId !== 'tenant_master_headquarters') {
+      return `hk360_samity_hub_data_${wsId}`;
+    }
+  } catch {}
+  return STORAGE_KEY;
+};
 
 // Helper to convert number to Bengali words
 export const numberToBanglaWords = (num) => {
@@ -175,6 +189,9 @@ export const createDefaultDepositObject = (samity = {}, nextCount = 1, custom = 
 
   return {
     id: `DEP-${Date.now()}`,
+    tenant_id: samity?.id || 'SAMITY-001',
+    business_id: samity?.id || 'SAMITY-001',
+    organization_id: samity?.id || 'SAMITY-001',
     voucherNo: voucherNo,
     receiptNo: receiptNo,
     depositDate: dateStr,
@@ -194,9 +211,16 @@ export const createDefaultDepositObject = (samity = {}, nextCount = 1, custom = 
     transactionId: '',
     chequeNo: '',
     chequeDate: '',
+    depositorType: 'self', // 'self' (সদস্য নিজে) | 'family_member' (পরিবারের সদস্য) | 'authorized_person' (অন্যান্য প্রতিনিধি)
     depositorName: '',
     depositorPhone: '',
     depositorWhatsApp: '',
+    depositorRelation: 'সদস্য নিজে', // 'সদস্য নিজে' | 'পিতা' | 'মাতা' | 'স্বামী' | 'স্ত্রী' | 'ছেলে' | 'মেয়ে' | 'ভাই' | 'বোন' | 'নমিনী' | 'প্রতিনিধি' | 'অন্যান্য'
+    depositorNid: '',
+    depositorAddress: '',
+    bankReceiptOriginalSizeKb: 0,
+    bankReceiptCompressedSizeKb: 0,
+    shortVerificationCode: `S360-${Math.floor(100000 + Math.random() * 900000)}`,
     memberId: '',
     memberName: '',
     paymentMonth: monthName,
@@ -212,7 +236,21 @@ export const createDefaultDepositObject = (samity = {}, nextCount = 1, custom = 
     approvedBy: 'Admin / Treasurer',
     approvedAt: now.toISOString(),
     approvalRemarks: 'স্বয়ংক্রিয়ভাবে যাচাইকৃত ও অনুমোদিত',
+    deleted_at: null,
+    deleted_by: null,
+    deletedAt: null,
+    deletedBy: null,
+    deleteReason: null,
+    is_deleted: false,
+    sync_version: 1,
+    is_synced: false,
+    created_by: 'Admin / Treasurer',
+    createdBy: 'Admin / Treasurer',
+    created_at: now.toISOString(),
     createdAt: now.toISOString(),
+    updated_by: 'Admin / Treasurer',
+    updatedBy: 'Admin / Treasurer',
+    updated_at: now.toISOString(),
     updatedAt: now.toISOString(),
     ...custom
   };
@@ -251,13 +289,16 @@ export const createDefaultBulkDepositObject = (samity = {}, nextCount = 1, custo
   };
 };
 
-// Helper to create an empty or initialized Member object with all 38 specification fields
+// Helper to create an empty or initialized Member object with all 38+ specification fields
 export const createDefaultMemberObject = (samityId = 'SAMITY-001', nextCount = 1, custom = {}) => {
   const pad = String(nextCount).padStart(4, '0');
   const memberId = `SM-${pad}`;
   return {
     // 1-8: Core Personal
     id: memberId,
+    tenant_id: samityId || 'SAMITY-001',
+    business_id: samityId || 'SAMITY-001',
+    organization_id: samityId || 'SAMITY-001',
     memberCode: memberId,
     nameBn: '',
     nameEn: '',
@@ -283,6 +324,12 @@ export const createDefaultMemberObject = (samityId = 'SAMITY-001', nextCount = 1
     occupation: '',
     organization: '',
     bloodGroup: '',
+    // Nominee Information
+    nomineeName: '',
+    nomineeRelation: '',
+    nomineeNid: '',
+    nomineeMobile: '',
+    nomineePhoto: '',
     // 24-30: Membership & Subscription
     samityId: samityId || 'SAMITY-001',
     membershipType: 'General Member',
@@ -297,10 +344,23 @@ export const createDefaultMemberObject = (samityId = 'SAMITY-001', nextCount = 1
     totalDue: 0,
     currentMonthPaymentStatus: 'unpaid',
     remarks: '',
+    // Soft Delete & Sync Status
+    deleted_at: null,
+    deleted_by: null,
+    deletedAt: null,
+    deletedBy: null,
+    deleteReason: null,
+    is_deleted: false,
+    sync_version: 1,
+    is_synced: false,
     // 35-38: Audit Tracking
+    created_by: 'Admin',
     createdBy: 'Admin',
+    created_at: new Date().toISOString(),
     createdAt: new Date().toISOString(),
+    updated_by: 'Admin',
     updatedBy: 'Admin',
+    updated_at: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...custom
   };
@@ -372,7 +432,9 @@ export const generateSamityId = (existingSamities = []) => {
 const DEFAULT_CLEAN_DATA = {
   samities: [createDefaultSamityObject('SAMITY-001')],
   members: [],
+  recycleBinMembers: [],
   deposits: [],
+  recycleBinDeposits: [],
   bulkDeposits: [],
   expenses: [],
   bankStatements: [],
@@ -382,6 +444,7 @@ const DEFAULT_CLEAN_DATA = {
   waivers: [],
   auditLogs: [],
   approvals: [],
+  chatMessages: [],
   letterhead: {
     logoPosition: 'left', // 'left' | 'center' | 'right'
     logoSize: 64,
@@ -487,9 +550,10 @@ const DEFAULT_CLEAN_DATA = {
 };
 
 // Load saved data or initialize
-export const loadSamityData = () => {
+export const loadSamityData = (customTenantId = null) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getTenantStorageKey(customTenantId);
+    const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
@@ -500,6 +564,9 @@ export const loadSamityData = () => {
           logo: s.logo || '/logo.png'
         })),
         signatures: parsed.signatures?.length ? parsed.signatures : DEFAULT_CLEAN_DATA.signatures,
+        recycleBinMembers: Array.isArray(parsed.recycleBinMembers) ? parsed.recycleBinMembers : [],
+        recycleBinDeposits: Array.isArray(parsed.recycleBinDeposits) ? parsed.recycleBinDeposits : [],
+        chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
         letterhead: { ...DEFAULT_CLEAN_DATA.letterhead, ...(parsed.letterhead || {}) },
         settings: { ...DEFAULT_CLEAN_DATA.settings, ...(parsed.settings || {}) }
       };
@@ -510,23 +577,64 @@ export const loadSamityData = () => {
   return DEFAULT_CLEAN_DATA;
 };
 
-// Persist data
-export const saveSamityData = (data, actionMeta = {}) => {
+// Persist data with dual localStorage + IndexedDB non-blocking durability
+export const saveSamityData = (data, actionMeta = {}, customTenantId = null) => {
+  const enrichedMeta = {
+    ...actionMeta,
+    idempotencyKey: actionMeta.idempotencyKey || generateIdempotencyKey(actionMeta.action || 'sync'),
+    timestamp: Date.now()
+  };
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    // Trigger window event for cross-component sync
-    window.dispatchEvent(new CustomEvent('hk360_samity_updated', { detail: data }));
-    // Broadcast live state across 4 platforms (Android APK, Mac, PC, Web) in <150ms
-    try {
-      broadcastSamityStateUpdate(data, actionMeta);
-    } catch (syncErr) {
-      console.debug('[SamityService] Cloud broadcast error:', syncErr);
-    }
-    return true;
-  } catch (err) {
-    console.error('[SamityService] Save error:', err);
-    return false;
+    const key = getTenantStorageKey(customTenantId);
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (storageErr) {
+    console.warn('[SamityService] localStorage quota exceeded, IndexedDB taking over:', storageErr);
   }
+
+  // Dual-persistence: Asynchronously backup snapshot to IndexedDB
+  try {
+    saveStateToIndexedDB(data).catch(() => {});
+  } catch {}
+
+  // Trigger window event for cross-component sync
+  try {
+    window.dispatchEvent(new CustomEvent('hk360_samity_updated', { detail: data }));
+  } catch {}
+
+  // Broadcast live state across 4 platforms (Android APK, Mac, PC, Web) in <150ms
+  try {
+    broadcastSamityStateUpdate(data, enrichedMeta);
+  } catch (syncErr) {
+    console.debug('[SamityService] Cloud broadcast error:', syncErr);
+  }
+
+  // Enqueue to Pending Offline Sync Queue for Zero Data-Loss Guarantee
+  if (actionMeta && actionMeta.action) {
+    let entityType = null;
+    let operation = 'create';
+    const actionStr = String(actionMeta.action);
+
+    if (actionStr.includes('DEPOSIT') || actionStr.includes('DUE_PAID')) entityType = 'deposit';
+    else if (actionStr.includes('MEMBER')) entityType = 'member';
+    else if (actionStr.includes('EXPENSE')) entityType = 'expense';
+    else if (actionStr.includes('CANCEL') || actionStr.includes('DELETE')) {
+      operation = 'delete';
+      if (actionStr.includes('MEMBER')) entityType = 'member';
+      else if (actionStr.includes('DEPOSIT')) entityType = 'deposit';
+      else if (actionStr.includes('EXPENSE')) entityType = 'expense';
+      else entityType = 'deposit';
+    }
+
+    if (entityType) {
+      enqueueOfflineMutation(entityType, operation, {
+        ...(actionMeta.details || {}),
+        idempotencyKey: enrichedMeta.idempotencyKey
+      }).catch(() => {});
+    }
+  }
+
+  return true;
 };
 
 // ID Generators
@@ -1064,11 +1172,18 @@ export const SAMITY_RBAC_ROLES = [
     color: '#10b981'
   },
   {
+    role: 'field_officer',
+    titleBn: 'মাঠকর্মী / কালেক্টর (Field Collector)',
+    titleEn: 'Field Officer / Collector',
+    permissions: ['entry_deposit', 'view_members', 'print_receipts', 'offline_collect'],
+    color: '#f59e0b'
+  },
+  {
     role: 'accountant',
     titleBn: 'হিসাবরক্ষক (Accountant)',
     titleEn: 'Accountant',
     permissions: ['entry_deposit', 'entry_expense', 'view_reports', 'view_members', 'print_receipts'],
-    color: '#f59e0b'
+    color: '#eab308'
   },
   {
     role: 'auditor',

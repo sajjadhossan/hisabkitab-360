@@ -210,6 +210,19 @@ export function generateSupervisorAuthStampSync(supervisorPin, actionType, invoi
   };
 }
 
+/**
+ * Validates entered supervisor PIN against configured security settings
+ */
+export function verifySupervisorAuthPinSync(enteredPin, businessSettings = {}) {
+  if (!enteredPin) return false;
+  const configuredPin = String(
+    businessSettings?.posPermissions?.supervisorPin ||
+    businessSettings?.supervisorPin ||
+    '1234'
+  ).trim();
+  return String(enteredPin).trim() === configuredPin;
+}
+
 export const verifyInvoiceHashChain = verifyAuditLedgerIntegritySync;
 
 export const hashChainService = {
@@ -238,6 +251,7 @@ export const hashChainService = {
   },
   sha256: sha256Sync,
   verifyInvoiceHashChain: verifyAuditLedgerIntegritySync,
-  generateSupervisorAuthStampSync
+  generateSupervisorAuthStampSync,
+  verifySupervisorAuthPinSync
 };
 

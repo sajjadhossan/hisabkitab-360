@@ -30,7 +30,8 @@ export const SamityInternalChatHub = ({
   isLight = false,
   showToast = null,
   t = (bn) => bn,
-  currentUser = null
+  currentUser = null,
+  onClose = null
 }) => {
   const currentSamity = useMemo(() => {
     return (samityData.samities || []).find(s => s.id === activeSamityId) || samityData.samities?.[0] || {};
@@ -365,6 +366,32 @@ export const SamityInternalChatHub = ({
               📢 {t('বিজ্ঞপ্তি', 'Notices')}
             </button>
           </div>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={() => {
+                playButtonClick?.();
+                onClose();
+              }}
+              title={t('চ্যাট বন্ধ করুন', 'Close Chat')}
+              aria-label="Close"
+              style={{
+                background: isLight ? '#fee2e2' : 'rgba(239, 68, 68, 0.2)',
+                border: isLight ? '1.5px solid #fca5a5' : '1px solid rgba(239, 68, 68, 0.45)',
+                color: '#ef4444',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                padding: '6px 8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
 

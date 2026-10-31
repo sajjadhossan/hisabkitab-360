@@ -122,9 +122,10 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
     ? 'সুপার এডমিন (Super Admin)'
     : (user?.name || businessSettings?.companyName || 'ব্যবসা পরিচালক');
   const activeUserEmail = user?.email || (isSuperAdmin ? 'superadmin@hisabkitab360.com' : '');
+  const isSupervisor = role === 'supervisor' || user?.role === 'supervisor';
   const activeUserRole = isSuperAdmin
     ? 'সুপার এডমিন'
-    : (isOwner ? 'মালিক' : (isCashier ? 'ক্যাশিয়ার' : (isSalesman || isSR ? 'এসআর/সেলসম্যান' : 'স্টাফ')));
+    : (isOwner ? 'মালিক' : (isSupervisor ? 'সুপারভাইজার' : (isCashier ? 'ক্যাশিয়ার' : (isSalesman || isSR ? 'এসআর/সেলসম্যান' : 'স্টাফ'))));
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -522,9 +523,10 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
       });
     }
 
-    // 3. Store Owner View: Cashiers, Salesmen, SRs, Staff
+    // 3. Store Owner View: Supervisors, Cashiers, Salesmen, SRs, Staff
     if (isOwner) {
       staffAccounts.forEach((stf) => {
+        const isSupervisorRole = stf.role === 'supervisor' || stf.role === 'manager';
         const isSales = stf.role === 'salesman';
         const isSrRole = stf.role === 'sr';
         const isCashierRole = stf.role === 'cashier';
@@ -533,27 +535,30 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
           type: 'dm',
           id: stf.id,
           title: stf.name,
-          role: isCashierRole
+          role: isSupervisorRole
+            ? 'শাখা সুপারভাইজার'
+            : isCashierRole
             ? 'কাউন্টার ক্যাশিয়ার'
             : isSales
             ? 'দোকান সেলসম্যান'
             : isSrRole
             ? 'ফিল্ড এসআর (SR)'
             : 'স্টাফ',
-          badge: isCashierRole ? 'CASHIER' : isSales ? 'SALES' : isSrRole ? 'SR' : 'STAFF',
-          color: isCashierRole ? '#10b981' : isSales ? '#f59e0b' : isSrRole ? '#6366f1' : '#8b5cf6',
-          icon: isCashierRole ? Wallet : isSales ? ShoppingBag : isSrRole ? Truck : User,
+          badge: isSupervisorRole ? 'SUPERVISOR' : isCashierRole ? 'CASHIER' : isSales ? 'SALES' : isSrRole ? 'SR' : 'STAFF',
+          color: isSupervisorRole ? '#6366f1' : isCashierRole ? '#10b981' : isSales ? '#f59e0b' : isSrRole ? '#0ea5e9' : '#8b5cf6',
+          icon: isSupervisorRole ? ShieldCheck : isCashierRole ? Wallet : isSales ? ShoppingBag : isSrRole ? Truck : User,
           phone: stf.phone,
           desc: `মোবাইল: ${stf.phone || 'N/A'}`
         });
       });
     }
 
-    // 4. Staff/Salesman/Cashier: Chat with Colleagues
+    // 4. Staff/Salesman/Cashier/Supervisor: Chat with Colleagues
     if (!isOwner && !isSuperAdmin && staffAccounts.length > 0) {
       staffAccounts
         .filter((stf) => stf.id !== user?.id && stf.phone !== user?.phone)
         .forEach((stf) => {
+          const isSupervisorRole = stf.role === 'supervisor' || stf.role === 'manager';
           const isSales = stf.role === 'salesman';
           const isSrRole = stf.role === 'sr';
           const isCashierRole = stf.role === 'cashier';
@@ -562,10 +567,10 @@ export const InternalCommunicationHubModal = ({ isOpen, onClose }) => {
             type: 'dm',
             id: stf.id,
             title: stf.name,
-            role: isCashierRole ? 'সহকর্মী ক্যাশিয়ার' : isSales ? 'সহকর্মী সেলসম্যান' : isSrRole ? 'সহকর্মী এসআর' : 'সহকর্মী স্টাফ',
-            badge: isCashierRole ? 'CASHIER' : isSales ? 'SALES' : isSrRole ? 'SR' : 'COLLEAGUE',
-            color: isCashierRole ? '#10b981' : isSales ? '#f59e0b' : isSrRole ? '#6366f1' : '#8b5cf6',
-            icon: isCashierRole ? Wallet : isSales ? ShoppingBag : isSrRole ? Truck : User,
+            role: isSupervisorRole ? 'সহকর্মী সুপারভাইজার' : isCashierRole ? 'সহকর্মী ক্যাশিয়ার' : isSales ? 'সহকর্মী সেলসম্যান' : isSrRole ? 'সহকর্মী এসআর' : 'সহকর্মী স্টাফ',
+            badge: isSupervisorRole ? 'SUPERVISOR' : isCashierRole ? 'CASHIER' : isSales ? 'SALES' : isSrRole ? 'SR' : 'COLLEAGUE',
+            color: isSupervisorRole ? '#6366f1' : isCashierRole ? '#10b981' : isSales ? '#f59e0b' : isSrRole ? '#0ea5e9' : '#8b5cf6',
+            icon: isSupervisorRole ? ShieldCheck : isCashierRole ? Wallet : isSales ? ShoppingBag : isSrRole ? Truck : User,
             phone: stf.phone,
             desc: `মোবাইল: ${stf.phone || 'N/A'}`
           });

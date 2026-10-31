@@ -557,7 +557,30 @@ export const SAMITY_WHOLE_WORD_MAP = {
   "মূলধন": "Capital",
   "সম্পদ": "Assets",
   "দায়": "Liabilities",
-  "চেক": "Cheque"
+  "চেক": "Cheque",
+
+  // AI Deposit Scanner & One-Command Deposit
+  "AI ডিপোজিট স্ক্যানার": "AI Deposit Scanner",
+  "AI দিয়ে জমা স্ক্যান": "Scan Deposit with AI",
+  "AI দিয়ে রিসিট স্ক্যান করুন": "Scan Receipt with AI",
+  "এক ক্লিকে ব্যাংক জমার স্লিপ থেকে স্বয়ংক্রিয়ভাবে ফর্ম পূরণ ও ভেরিফায়েড রসিদ তৈরি করুন": "Automatically fill form and generate verified receipt from bank deposit slip in one click",
+  "ব্যাংক রিসিট / ডিপোজিট স্লিপের ছবি": "Bank Receipt / Deposit Slip Image",
+  "AI-কে নির্দিষ্ট নির্দেশ দিন (ঐচ্ছিক)": "Give Specific Instruction to AI (Optional)",
+  "AI রিসিট থেকে তথ্য নিষ্কাশন করছে...": "AI is extracting data from receipt...",
+  "সদস্য নিজে": "Member Self",
+  "পরিবারের সদস্য": "Family Member",
+  "অনুমোদিত প্রতিনিধি": "Authorized Representative",
+  "অন্য ব্যক্তি": "Other Person",
+  "জমাকারীর ধরন": "Depositor Type",
+  "জমাকারীর নাম": "Depositor Name",
+  "সদস্যের সাথে সম্পর্ক": "Relationship with Member",
+  "জমাকারীর মোবাইল নম্বর": "Depositor Mobile Number",
+  "ব্যাংকের নাম": "Bank Name",
+  "ব্যাংক শাখা": "Bank Branch",
+  "হিসাব নম্বর": "Account Number",
+  "রিসিট / স্লিপ নম্বর": "Receipt / Slip Number",
+  "সরাসরি ড্রাফট সেভ করুন": "Save Draft",
+  "যাচাই ও কনফার্ম করে রসিদ তৈরি করুন": "Confirm and Generate Receipt"
 };
 
 // Convert Bengali numerals to English numerals

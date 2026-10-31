@@ -12,7 +12,7 @@
  */
 
 import { playSuccessChime } from './soundFeedback';
-import { broadcastLiveEvent, subscribeLiveSync, getLocalDeviceId } from './liveSyncService';
+import { broadcastLiveEvent, subscribeLiveSync, getLocalDeviceId, getActiveTenantKey } from './liveSyncService';
 import { getSupabase, isSupabaseReady } from './supabaseClient';
 import { hapticFeedback } from './nativeAppService';
 
@@ -29,6 +29,14 @@ export const CHANNELS = [
     category: 'platform',
     icon: 'ShieldCheck',
     desc: 'প্ল্যাটফর্ম আপডেট, সাবস্ক্রিপশন ও কেন্দ্রীয় সাপোর্ট'
+  },
+  {
+    id: 'supervisor_desk',
+    name: 'সুপারভাইজার ও শাখা মনিটরিং ডেস্ক',
+    nameEn: 'Supervisor & Branch Desk',
+    category: 'store',
+    icon: 'ShieldCheck',
+    desc: 'কাউন্টার অডিট, বিশেষ ছাড় অনুমোদন ও শাখা তদারকি'
   },
   {
     id: 'store_general',
@@ -74,10 +82,12 @@ export const getStoredMessages = () => {
 export const saveMessage = (msg) => {
   try {
     const current = getStoredMessages();
+    const currentTenant = msg?.tenantKey || getActiveTenantKey();
     const newMsg = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       timestamp: new Date().toISOString(),
       senderDeviceId: getLocalDeviceId(),
+      tenantKey: currentTenant,
       ...msg
     };
     
@@ -116,19 +126,20 @@ export const saveMessage = (msg) => {
 };
 
 /**
- * Persists message to Supabase audit_logs table
+ * Persists message to Supabase audit_logs table with tenant isolation
  */
 export const persistMessageToCloud = async (msg) => {
   const supabase = getSupabase();
   if (!supabase || !isSupabaseReady()) return false;
 
   try {
+    const tenantKey = msg.tenantKey || getActiveTenantKey();
     const { error } = await supabase.from('audit_logs').insert([{
       action: CLOUD_CHAT_ACTION,
       entity_type: 'chat_message',
       entity_id: msg.id,
       actor_name: msg.senderName || 'ব্যবহারকারী',
-      details: msg
+      details: { ...msg, tenantKey }
     }]);
 
     if (error) {
@@ -319,12 +330,19 @@ export const syncCloudMessages = async () => {
       return getStoredMessages();
     }
 
+    const activeTenant = getActiveTenantKey();
     const localMsgs = getStoredMessages();
     const localMap = new Map(localMsgs.map((m) => [m.id, m]));
     let hasChanges = false;
 
-    // Filter out deletions and add new messages
+    // Filter out deletions and add new messages (with strict tenant matching or global admin desk)
     data.reverse().forEach((row) => {
+      const msgTenant = row.details?.tenantKey;
+      const isGlobalNotice = row.details?.channelId === 'super_admin_desk';
+      if (!isGlobalNotice && msgTenant && activeTenant && msgTenant !== activeTenant) {
+        return; // Skip messages belonging to other stores/tenants
+      }
+
       if (row.action === CLOUD_DELETE_ACTION) {
         const deletedId = row.details?.messageId;
         if (deletedId && localMap.has(deletedId)) {

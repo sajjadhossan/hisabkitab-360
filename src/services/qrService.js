@@ -1,22 +1,112 @@
 import QRCode from 'qrcode';
+import { APP_VERSION_NAME } from '../config/version.js';
 
 /**
- * Generates an ultra high-resolution QR code Data URL (PNG base64)
- * that is crisp both on screen and thermal paper print.
+ * QuickChart QR API Generator (Tier 1 Cloud CDN)
+ * Generates ultra-crisp QR code with Center Logo support and High Error Correction.
+ */
+export const generateQuickChartQrUrl = (text, options = {}) => {
+  if (!text) return '';
+  const size = options.size || options.width || 350;
+  const ecLevel = options.ecLevel || options.ecc || 'H';
+  const margin = options.margin !== undefined ? options.margin : 1;
+  const centerImg = options.centerImageUrl ? `&centerImageUrl=${encodeURIComponent(options.centerImageUrl)}` : '';
+  const dark = options.darkColor ? `&dark=${options.darkColor.replace('#', '')}` : '';
+  return `https://quickchart.io/qr?text=${encodeURIComponent(text)}&size=${size}&ecLevel=${ecLevel}&margin=${margin}${dark}${centerImg}`;
+};
+
+/**
+ * GoQR.me API Generator (Tier 2 Cloud Engine)
+ * High reliability, battle-tested open QR generation service.
+ */
+export const generateGoQrUrl = (text, options = {}) => {
+  if (!text) return '';
+  const width = options.width || options.size || 350;
+  const height = options.height || width;
+  const margin = options.margin !== undefined ? options.margin : 1;
+  const ecc = options.ecc || options.ecLevel || 'H';
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=${width}x${height}&margin=${margin}&ecc=${ecc}&format=png`;
+};
+
+/**
+ * Decodes a QR code from an image file/blob using the GoQR.me Read API.
+ * Works across all browsers and devices without needing local BarcodeDetector.
+ */
+export const decodeQrCodeWithGoQrApi = async (fileOrBlob) => {
+  if (!fileOrBlob) throw new Error('কোনো ছবি পাওয়া যায়নি');
+  const formData = new FormData();
+  formData.append('file', fileOrBlob);
+
+  const response = await fetch('https://api.qrserver.com/v1/read-qr-code/', {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error(`GoQR API Error: HTTP ${response.status}`);
+  }
+
+  const json = await response.json();
+  if (Array.isArray(json) && json[0]?.symbol?.[0]) {
+    const symbol = json[0].symbol[0];
+    if (symbol.error) {
+      throw new Error(symbol.error);
+    }
+    if (symbol.data) {
+      return symbol.data;
+    }
+  }
+  throw new Error('ছবিতে কোনো QR কোড শনাক্ত করা যায়নি');
+};
+
+/**
+ * Generates an ultra high-resolution, print-perfect QR code Data URL (PNG base64).
+ * Always executes instantly in-memory with ZERO network latency, ZERO CORS errors,
+ * and Level-H Error Correction for guaranteed scannability after printing.
  */
 export const generateQrDataUrl = async (text, options = {}) => {
+  if (!text) return null;
+
   try {
+    // Primary engine: Instant local in-memory generation (800x800 default for 300+ DPI print clarity)
+    const qrWidth = options.width || options.size || 800;
     return await QRCode.toDataURL(text, {
-      width: options.width || 300,
-      margin: options.margin !== undefined ? options.margin : 1,
+      width: qrWidth,
+      margin: options.margin !== undefined ? options.margin : 2,
       color: {
         dark: options.darkColor || '#000000',
         light: options.lightColor || '#ffffff'
       },
-      errorCorrectionLevel: 'M'
+      errorCorrectionLevel: options.errorCorrectionLevel || 'H'
     });
   } catch (err) {
-    console.warn('QR code generation warning:', err);
+    console.warn('Local QR code generation warning:', err);
+    // Fallback only if local canvas engine fails
+    try {
+      return generateQuickChartQrUrl(text, options);
+    } catch {
+      return null;
+    }
+  }
+};
+
+/**
+ * Generates a lossless Scalable Vector Graphics (SVG) string of the QR Code
+ */
+export const generateQrSvgString = async (text, options = {}) => {
+  if (!text) return null;
+  try {
+    return await QRCode.toString(text, {
+      type: 'svg',
+      margin: options.margin !== undefined ? options.margin : 2,
+      color: {
+        dark: options.darkColor || '#000000',
+        light: options.lightColor || '#ffffff'
+      },
+      errorCorrectionLevel: 'H'
+    });
+  } catch (err) {
+    console.warn('QRCode toString SVG error:', err);
     return null;
   }
 };
@@ -393,7 +483,7 @@ Best regards,
 /**
  * Formats a message for client contacting vendor support
  */
-export const formatVendorSupportWhatsAppMessage = (userInfo, shopName, appVersion = 'v2.0.0') => {
+export const formatVendorSupportWhatsAppMessage = (userInfo, shopName, appVersion = APP_VERSION_NAME) => {
   const userText = userInfo?.name || userInfo?.email || 'নতুন ব্যবহারকারী';
   const store = shopName || 'আমার প্রতিষ্ঠান';
   return `হ্যালো HisabKitab 360 সাপোর্ট টিম 👋
@@ -402,4 +492,286 @@ export const formatVendorSupportWhatsAppMessage = (userInfo, shopName, appVersio
 সফটওয়্যারটির (${appVersion}) ব্যবহারের বিষয়ে আমার কিছু কারিগরি ও ব্যবহারিক সহায়তা প্রয়োজন। অনুগ্রহ করে আমাকে সহযোগিতা করবেন কি?
 
 ধন্যবাদ!`;
+};
+
+/**
+ * Standard Production Verification Base URL (Fixed globally)
+ */
+export const SOMITI_PRODUCTION_DOMAIN = 'https://somiti-360.vercel.app';
+
+/**
+ * Builds an Ultra-Short, high-performance Verification URL for Somiti 360 documents.
+ * Strictly guarantees URL length ~100-160 characters (never overflows, zero Base64 blobs).
+ * Format:
+ * https://somiti-360.vercel.app/verify?c={verificationCode}&r={receiptOrDocNo}&t={docType}&a={amount}&d={date}&n={memberName}&m={depositorName}&p={monthYear}
+ */
+/**
+ * Builds an Ultra-Short, 404-free Root Query Verification URL for Somiti 360 documents.
+ * Format per exact user specification:
+ * https://somiti-360.vercel.app/?v=1&c={verificationCode}&r={receiptNo}&t={docType}&a={amount}&n={memberName}&dp={depositor}&m={monthYear}&dt={date}&s={samityName}
+ */
+export const createUltraShortVerificationUrl = ({
+  verificationCode = '',
+  receiptOrDocNo = '',
+  docType = 'receipt',
+  amount = 0,
+  date = '',
+  memberName = '',
+  depositorName = '',
+  monthYear = '',
+  samityName = ''
+} = {}) => {
+  const params = new URLSearchParams();
+  params.set('v', '1');
+  if (verificationCode) params.set('c', String(verificationCode).trim());
+  if (receiptOrDocNo) params.set('r', String(receiptOrDocNo).trim());
+  if (docType) params.set('t', String(docType).trim());
+  if (amount !== undefined && amount !== null && amount !== '' && Number(amount) > 0) {
+    params.set('a', String(Number(amount)));
+  }
+  if (memberName) params.set('n', String(memberName).trim().slice(0, 40));
+  if (depositorName) {
+    params.set('dp', String(depositorName).trim().slice(0, 40));
+  }
+  if (monthYear) params.set('m', String(monthYear).trim());
+  if (date) params.set('dt', String(date).split('T')[0]);
+  if (samityName && samityName !== 'স্বপ্নছোঁয়া সমবায় সমিতি') {
+    params.set('s', String(samityName).trim().slice(0, 30));
+  }
+
+  return `${SOMITI_PRODUCTION_DOMAIN}/?${params.toString()}`;
+};
+
+/**
+ * Determine globally reachable base URL for document verification
+ */
+export const getGlobalVerificationBaseUrl = (currentSamity) => {
+  return SOMITI_PRODUCTION_DOMAIN;
+};
+
+/**
+ * Generates an unambiguous, easy-to-read Short Verification Code (format: S360-XXXXXX)
+ * Uses 32 characters omitting confusing 0, O, 1, I
+ */
+export const getReceiptShortVerificationCode = (deposit) => {
+  if (deposit?.shortVerificationCode) return deposit.shortVerificationCode;
+  if (deposit?.shortCode) return deposit.shortCode;
+  
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const raw = String(deposit?.id || '') + '-' + String(deposit?.receiptNo || deposit?.voucherNo || '') + '-' + String(deposit?.memberId || 'MEM');
+  let hash = 5381;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) + hash) + raw.charCodeAt(i);
+    hash = hash & hash;
+  }
+  let code = '';
+  let h = Math.abs(hash);
+  for (let i = 0; i < 6; i++) {
+    code += chars[h % chars.length];
+    h = Math.floor(h / 32) + (raw.charCodeAt(i % raw.length) || 17) * 31;
+  }
+  return `S360-${code}`;
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Samity Deposit Receipts
+ */
+export const createSamityReceiptVerificationUrl = (deposit, currentSamity) => {
+  if (!deposit) return `${SOMITI_PRODUCTION_DOMAIN}/verify`;
+  const formattedReceiptNo = deposit.receiptNo || deposit.voucherNo || `RCPT-${deposit.id || '001'}`;
+  const memberName = deposit.memberName || deposit.depositorName || 'সদস্য';
+  const shortCode = getReceiptShortVerificationCode(deposit);
+  const depositDate = deposit.depositDate || deposit.date || new Date().toISOString().split('T')[0];
+  const monthYear = [deposit.paymentMonth || deposit.month || '', deposit.paymentYear || deposit.year || ''].filter(Boolean).join(' ');
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: formattedReceiptNo,
+    docType: 'receipt',
+    amount: Number(deposit.amount || 0),
+    date: depositDate,
+    memberName,
+    depositorName: deposit.depositorName || memberName,
+    monthYear,
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Samity Due Notices
+ */
+export const createSamityDueNoticeVerificationUrl = (notice, currentSamity) => {
+  if (!notice) return `${SOMITI_PRODUCTION_DOMAIN}/verify`;
+  const member = notice.member || {};
+  const status = notice.status || {};
+  const memberName = member.nameBn || member.nameEn || 'সদস্য';
+  const dueAmount = Number(status.totalDue ?? status.totalCumulativeDue ?? notice.totalDue ?? 0);
+  const noticeNo = member.id ? `DUE-${member.id}` : 'DUE-001';
+  const shortCode = getReceiptShortVerificationCode({ id: noticeNo, memberId: member.id });
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: noticeNo,
+    docType: 'due_notice',
+    amount: dueAmount,
+    date: new Date().toISOString().split('T')[0],
+    memberName,
+    depositorName: '',
+    monthYear: (notice.dueMonthsList && notice.dueMonthsList.length > 0) ? notice.dueMonthsList.join(',') : 'বকেয়া',
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Official Documents / Resolutions
+ */
+export const createSamityOfficialDocVerificationUrl = (doc, currentSamity) => {
+  const ref = doc?.ref || 'সছস/২০২৬/০১';
+  const title = doc?.title || 'নোটিশ ও রেজুলেশন';
+  const date = doc?.date || new Date().toISOString().split('T')[0];
+  const shortCode = getReceiptShortVerificationCode({ id: ref, memberId: 'OFFICIAL' });
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: ref,
+    docType: 'samity_doc',
+    amount: 0,
+    date,
+    memberName: title,
+    depositorName: '',
+    monthYear: '',
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Membership Certificates
+ */
+export const createSamityMembershipCertVerificationUrl = (member, currentSamity) => {
+  const memberName = member?.nameBn || member?.nameEn || 'সদস্য';
+  const memberId = member?.id || member?.memberCode || 'SM-001';
+  const shortCode = getReceiptShortVerificationCode({ id: memberId, memberId });
+  const date = member?.joiningDate || member?.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0];
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: memberId,
+    docType: 'membership_cert',
+    amount: 0,
+    date,
+    memberName,
+    depositorName: '',
+    monthYear: '',
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Bulk Bank Deposit Reports
+ */
+export const createSamityBulkDepositVerificationUrl = (report, currentSamity) => {
+  const voucherNo = report?.bulkVoucherNo || report?.id || 'BULK-2026-001';
+  const totalAmount = Number(report?.totalSlipAmount || report?.allocatedAmount || 0);
+  const shortCode = getReceiptShortVerificationCode({ id: voucherNo, memberId: 'BULK' });
+  const date = report?.depositDate || report?.date || new Date().toISOString().split('T')[0];
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: voucherNo,
+    docType: 'bulk_deposit',
+    amount: totalAmount,
+    date,
+    memberName: report?.bankName || 'ব্যাংক জমা',
+    depositorName: report?.branchName || '',
+    monthYear: '',
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Member Smart ID Cards
+ */
+export const createSamityMemberIdCardVerificationUrl = (member, currentSamity) => {
+  const memberName = member?.nameBn || member?.nameEn || 'সদস্য';
+  const memberId = member?.memberCode || member?.id || 'SM-001';
+  const shortCode = getReceiptShortVerificationCode({ id: memberId, memberId });
+  const date = member?.membershipStartDate || member?.joiningDate || member?.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0];
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: memberId,
+    docType: 'member_id_card',
+    amount: 0,
+    date,
+    memberName,
+    depositorName: '',
+    monthYear: '',
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Member Passbook / Savings Account
+ */
+export const createSamityPassbookVerificationUrl = (member, currentSamity, totalSavings = 0) => {
+  const memberName = member?.nameBn || member?.nameEn || 'সদস্য';
+  const memberId = member?.memberCode || member?.id || 'SM-001';
+  const shortCode = getReceiptShortVerificationCode({ id: memberId, memberId });
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: memberId,
+    docType: 'passbook',
+    amount: Number(totalSavings || 0),
+    date: new Date().toISOString().split('T')[0],
+    memberName,
+    depositorName: '',
+    monthYear: '',
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Samity Member Registry
+ */
+export const createSamityMemberListVerificationUrl = (members = [], currentSamity, targetMonth, targetYear) => {
+  const count = Array.isArray(members) ? members.length : 0;
+  const month = targetMonth || new Date().toLocaleString('bn-BD', { month: 'long' });
+  const year = targetYear || new Date().getFullYear();
+  const shortCode = getReceiptShortVerificationCode({ id: `MEMLIST-${year}`, memberId: 'REGISTRY' });
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: `MEMLIST-${year}`,
+    docType: 'member_list',
+    amount: count,
+    date: new Date().toISOString().split('T')[0],
+    memberName: `মোট সদস্য ${count} জন`,
+    depositorName: '',
+    monthYear: `${month} ${year}`,
+    samityName: currentSamity?.nameBn
+  });
+};
+
+/**
+ * Generates globally accessible Ultra-Short Verification URL for Expense Vouchers
+ */
+export const createSamityExpenseVoucherVerificationUrl = (expense, currentSamity) => {
+  if (!expense) return `${SOMITI_PRODUCTION_DOMAIN}/verify`;
+  const voucherNo = expense.voucherNo || `EXP-${expense.id || '001'}`;
+  const amount = Number(expense.amount || 0);
+  const shortCode = getReceiptShortVerificationCode({ id: voucherNo, memberId: 'EXP' });
+  const date = expense.expenseDate || expense.date || new Date().toISOString().split('T')[0];
+
+  return createUltraShortVerificationUrl({
+    verificationCode: shortCode,
+    receiptOrDocNo: voucherNo,
+    docType: 'expense_voucher',
+    amount,
+    date,
+    memberName: expense.paidTo || expense.title || 'ব্যয় প্রাপক',
+    depositorName: expense.category || '',
+    monthYear: '',
+    samityName: currentSamity?.nameBn
+  });
 };

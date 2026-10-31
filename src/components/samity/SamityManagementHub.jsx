@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import {
   Users,
   Building2,
+  Store,
   Building,
   Landmark,
   Wallet,
@@ -158,12 +159,42 @@ import {
   format12HourTime,
 } from "../../services/somitiCloudSyncService";
 import { SamityInternalChatHub } from "./SamityInternalChatHub";
-import { DeviceMeshStatusModal } from "./DeviceMeshStatusModal";
+const DeviceMeshStatusModal = lazy(() => import("./DeviceMeshStatusModal").then(m => ({ default: m.DeviceMeshStatusModal })));
 import { SupervisorLiveRadarModal } from "./SupervisorLiveRadarModal";
 import { SamityAIAssistantModal } from "./SamityAIAssistantModal";
 import { UniversalQrVerifierModal } from "./UniversalQrVerifierModal";
+import { AiDepositScannerModal } from "./AiDepositScannerModal";
+const BluetoothThermalPrinterModal = lazy(() => import("./BluetoothThermalPrinterModal"));
+const AiNidOcrScannerModal = lazy(() => import("./AiNidOcrScannerModal"));
+const FieldCollectionSheetModal = lazy(() => import("./FieldCollectionSheetModal"));
+const MerchantStoreHubModal = lazy(() => import("./MerchantStoreHubModal"));
 import { SamityDrawerNavigation } from "./SamityDrawerNavigation";
-import { optimizeImage } from "../../utils/imageOptimizer";
+import { SamityRolePermissionManagerModal, checkRolePermission } from "./SamityRolePermissionManagerModal";
+import { ModuleLockedBySuperAdminCard } from "../common/ModuleLockedBySuperAdminCard";
+import {
+  getActiveWorkspaceId,
+  isModuleEnabled,
+  canRolePerformAction
+} from "../../services/tenantManagerService";
+
+const TAB_TO_MODULE_MAP = {
+  members: 'members',
+  deposits: 'savings',
+  bulk_deposit: 'savings',
+  paid_receipt: 'savings',
+  payment_status: 'savings',
+  due_mgmt: 'loans',
+  expenses: 'expenses',
+  reminders: 'reminders',
+  reports: 'audit_reports',
+  letterhead: 'letterhead',
+  signatures: 'signatures',
+  roles_permissions: 'rbac',
+  approvals: 'approvals',
+  backup_restore: 'backup_cloud',
+  api_docs: 'api_webhook'
+};
+import { optimizeImage, optimizeImageWithStats } from "../../utils/imageOptimizer";
 import { parseBioDataFile } from "../../services/bioDataDocumentParser";
 import {
   downloadDocumentPdf,
@@ -720,6 +751,28 @@ export const SamityManagementHub = ({ onClose }) => {
     }
   });
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const checkPermissionOrToast = (featureId) => {
+    const currentTenantId = getActiveWorkspaceId();
+    const perm = canRolePerformAction(currentTenantId, activeUserRole, featureId);
+    if (!perm.allowed) {
+      showToast?.(activeLang === "en" ? perm.messageEn : perm.messageBn, "error");
+      return false;
+    }
+    return true;
+  };
+
+  const [, setModuleToggleVersion] = useState(0);
+  useEffect(() => {
+    const handleModuleToggle = () => setModuleToggleVersion((v) => v + 1);
+    window.addEventListener("somiti_module_toggled", handleModuleToggle);
+    window.addEventListener("somiti_workspace_switched", handleModuleToggle);
+    window.addEventListener("somiti_rbac_matrix_updated", handleModuleToggle);
+    return () => {
+      window.removeEventListener("somiti_module_toggled", handleModuleToggle);
+      window.removeEventListener("somiti_workspace_switched", handleModuleToggle);
+      window.removeEventListener("somiti_rbac_matrix_updated", handleModuleToggle);
+    };
+  }, []);
   const [isSaaSGuideModalOpen, setIsSaaSGuideModalOpen] = useState(false);
   const [globalModuleSearchQuery, setGlobalModuleSearchQuery] = useState("");
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
@@ -923,6 +976,8 @@ export const SamityManagementHub = ({ onClose }) => {
       setIsRecycleBinModalOpen(true);
     } else if (actionKey === "saas_guide") {
       setIsSaaSGuideModalOpen(true);
+    } else if (actionKey === "open_role_modal" || actionKey === "rbac_modal" || actionKey === "roles_permissions") {
+      setIsRoleModalOpen(true);
     } else if (actionKey === "contact") {
       setActiveTab("samity_setup");
       setSamityFormActiveTab("contact");
@@ -1412,6 +1467,10 @@ export const SamityManagementHub = ({ onClose }) => {
   }));
 
   const [activePrintReceipt, setActivePrintReceipt] = useState(null);
+  const [thermalPrintDeposit, setThermalPrintDeposit] = useState(null);
+  const [isAiNidScannerOpen, setIsAiNidScannerOpen] = useState(false);
+  const [isFieldCollectionSheetOpen, setIsFieldCollectionSheetOpen] = useState(false);
+  const [isMerchantHubOpen, setIsMerchantHubOpen] = useState(false);
   const [activePrintNotice, setActivePrintNotice] = useState(null);
   const [activePrintDoc, setActivePrintDoc] = useState(null);
   const [reminderModalMember, setReminderModalMember] = useState(null);
@@ -2087,6 +2146,8 @@ export const SamityManagementHub = ({ onClose }) => {
 
   // Universal QR Verifier Hub State
   const [isUniversalVerifierOpen, setIsUniversalVerifierOpen] = useState(false);
+  const [isAiDepositScannerOpen, setIsAiDepositScannerOpen] = useState(false);
+  const [aiScannerTargetMember, setAiScannerTargetMember] = useState(null);
 
   // Real QR Verification Data URL for Membership Certificate
   const [certQrDataUrl, setCertQrDataUrl] = useState("");
@@ -2332,6 +2393,7 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   const handleSaveMember = (e) => {
+    if (!checkPermissionOrToast("field_member_onboard")) return;
     e.preventDefault();
     const effectiveName =
       (memberForm.nameBn || "").trim() ||
@@ -2446,6 +2508,7 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   const handleDeleteMember = (memberId) => {
+    if (!checkPermissionOrToast("admin_delete_records")) return;
     const target = (data.members || []).find(
       (m) => String(m.id) === String(memberId),
     );
@@ -3118,14 +3181,52 @@ export const SamityManagementHub = ({ onClose }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      showToast?.("স্লিপের ছবি অপ্টিমাইজ করা হচ্ছে...", "info");
-      const optimized = await optimizeImage(file, {
-        maxWidth: 1200,
-        maxHeight: 1200,
-        quality: 0.8,
+      showToast?.("রসিদের ছবি অপ্টিমাইজ ও কম্প্রেস করা হচ্ছে (৩০০-৫০০ KB টার্গেট)...", "info");
+      const result = await optimizeImageWithStats(file, {
+        maxWidth: 1800,
+        maxHeight: 1800,
+        targetMinKb: 300,
+        targetMaxKb: 500,
+        initialQuality: 0.85,
+        mimeType: "image/jpeg",
       });
-      setDepositForm((prev) => ({ ...prev, [field]: optimized }));
-      showToast?.("স্লিপ সফলভাবে অপ্টিমাইজ করে আপলোড হয়েছে", "success");
+
+      setDepositForm((prev) => ({
+        ...prev,
+        [field]: result.dataUrl,
+        bankReceiptOriginalSizeKb: result.originalSizeKb,
+        bankReceiptCompressedSizeKb: result.compressedSizeKb,
+      }));
+
+      // Background cloud upload attempt
+      try {
+        fetch("/api/receipts/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenantId: activeSamityId,
+            depositId: depositForm.voucherNo || ("DEP-" + Date.now()),
+            imageDataUrl: result.dataUrl,
+            originalSizeKb: result.originalSizeKb,
+            compressedSizeKb: result.compressedSizeKb,
+          }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success && res.data?.imageUrl) {
+              setDepositForm((prev) => ({
+                ...prev,
+                bankReceiptImageUrl: res.data.imageUrl,
+              }));
+            }
+          })
+          .catch(() => {});
+      } catch (_) {}
+
+      showToast?.(
+        "সফলভাবে কম্প্রেসড! মূল: " + result.originalSizeKb + " KB ➔ বর্তমান: " + result.compressedSizeKb + " KB (" + result.savedRatio + " সাশ্রয়)",
+        "success"
+      );
     } catch {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -3137,6 +3238,7 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   const handleSaveDeposit = (e) => {
+    if (!checkPermissionOrToast("field_cash_collect")) return;
     e.preventDefault();
     if (!depositForm.amount || Number(depositForm.amount) <= 0) {
       showToast?.("সঠিক জমার পরিমাণ উল্লেখ করুন", "error");
@@ -3154,12 +3256,27 @@ export const SamityManagementHub = ({ onClose }) => {
       : depositForm.depositorName || "সাধারণ আমানতকারী";
     const depositorName = depositForm.depositorName || memberName;
 
+        const shortCode = depositForm.shortVerificationCode || ("S360-" + Math.floor(100000 + Math.random() * 900000));
     const formattedDeposit = {
       ...depositForm,
       amount: Number(depositForm.amount),
       memberName,
+      depositorType: depositForm.depositorType || "self",
       depositorName,
-      depositorRelation: depositForm.depositorRelation || "নিজে (Self)",
+      depositorRelation: depositForm.depositorRelation || "সদস্য নিজে",
+      depositorPhone: depositForm.depositorPhone || "",
+      depositorWhatsApp: depositForm.depositorWhatsApp || "",
+      depositorNid: depositForm.depositorNid || "",
+      bankName: depositForm.bankName || "",
+      bankBranch: depositForm.bankBranch || "",
+      bankAccountNo: depositForm.bankAccountNo || "",
+      bankAccountName: depositForm.bankAccountName || "",
+      bankReceiptNo: depositForm.bankReceiptNo || "",
+      bankReceiptDate: depositForm.bankReceiptDate || depositForm.depositDate,
+      bankReceiptImage: depositForm.bankReceiptImage || "",
+      bankReceiptOriginalSizeKb: depositForm.bankReceiptOriginalSizeKb || 0,
+      bankReceiptCompressedSizeKb: depositForm.bankReceiptCompressedSizeKb || 0,
+      shortVerificationCode: shortCode,
       samityId: activeSamityId,
       samityName: currentSamity?.nameBn || depositForm.samityName,
       month: depositForm.paymentMonth, // backward compat for calculateMemberPaymentStatus
@@ -3913,6 +4030,7 @@ export const SamityManagementHub = ({ onClose }) => {
   };
 
   const handleSaveExpense = (e) => {
+    if (!checkPermissionOrToast("cash_expense_entry")) return;
     e.preventDefault();
     if (!expenseForm.amount || Number(expenseForm.amount) <= 0) {
       showToast?.("খরচের সঠিক পরিমাণ উল্লেখ করুন", "error");
@@ -4200,26 +4318,39 @@ export const SamityManagementHub = ({ onClose }) => {
     const shortCode = getReceiptShortVerificationCode(deposit);
     const verifyUrl = createSamityReceiptVerificationUrl(deposit, samity);
     const samityTitle = samity.nameBn || "সমিতি ৩৬০";
+    const memberName = deposit.memberName || "সম্মানিত সদস্য";
+    const depositorInfo = deposit.depositorName && deposit.depositorName !== memberName
+      ? `${deposit.depositorName} (${deposit.depositorRelation || 'প্রতিনিধি'})`
+      : 'সদস্য নিজে';
+    const amountVal = Number(deposit.amount || 0).toLocaleString('en-IN');
+    const paymentPeriod = `${deposit.paymentMonth || ''} ${deposit.paymentYear || ''}`.trim();
+    const bankDetails = deposit.bankReceiptNo 
+      ? `${deposit.bankName || 'ব্যাংক'} (রসিদ নং: ${deposit.bankReceiptNo})`
+      : (deposit.depositMethod || 'নগদ');
 
     return `আসসালামু আলাইকুম,
+সম্মানিত ${memberName},
+${samityTitle}-এ আপনার মেম্বার ডিপোজিট সফলভাবে গৃহীত হয়েছে।
 
-আপনার মানি রিসিট তৈরি হয়েছে।
+📋 রসিদ নং: ${rcptNo}
+👤 জমাকারী: ${depositorInfo}
+💰 জমার পরিমাণ: ৳ ${amountVal}/-
+🏷️ জমার খাত: ${deposit.depositType || 'মাসিক সঞ্চয়/চাঁদা'} (${paymentPeriod})
+🏦 মাধ্যম/ব্যাংক: ${bankDetails}
+📅 তারিখ: ${deposit.depositDate || new Date().toISOString().split('T')[0]}
+🔑 ভেরিফিকেশন কোড: ${shortCode}
 
-রিসিট নম্বর: ${rcptNo}
-ভেরিফিকেশন কোড: ${shortCode}
-
-QR কোড স্ক্যান করে অথবা ভেরিফিকেশন কোড দিয়ে রিসিটটি যাচাই করতে পারবেন।
-
-ভেরিফিকেশন লিংক:
-${verifyUrl}
+আপনার ডিজিটাল রসিদটি অনলাইনে যাচাই ও ডাউনলোড করতে নিচের লিংকে ক্লিক করুন:
+🔗 ${verifyUrl}
 
 ধন্যবাদ,
 ${samityTitle}
-সমিতি ৩৬০`;
+হিসাবকিতাব ৩৬০ • ডিজিটাল সমবায়`;
   };
 
   // Handler: Cancel Receipt with Authorized Permission
   const handleCancelReceipt = (e) => {
+    if (!checkPermissionOrToast("admin_edit_transactions")) return;
     e?.preventDefault?.();
     if (!cancelReceiptTarget) return;
     playButtonClick?.();
@@ -4341,6 +4472,7 @@ ${samityTitle}
   };
 
   const handleApproveExpense = (expenseId) => {
+    if (!checkPermissionOrToast("cash_expense_approve")) return;
     playSuccessChime?.();
     triggerHaptic();
     updateAndSave(
@@ -6031,6 +6163,15 @@ ${samityTitle}
       {/* 3. MAIN WORKSPACE / CONTENT AREA */}
       {/* ==================================================================== */}
       <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
+        {TAB_TO_MODULE_MAP[activeTab] && !isModuleEnabled(TAB_TO_MODULE_MAP[activeTab]) ? (
+          <ModuleLockedBySuperAdminCard
+            moduleId={TAB_TO_MODULE_MAP[activeTab]}
+            isLight={isLight}
+            lang={activeLang}
+            onReturnToDashboard={() => setActiveTab("dashboard")}
+          />
+        ) : (
+          <>
         {/* TAB 0: SAMITY INTERNAL CHAT & NOTICE HUB */}
         {activeTab === "internal_chat" && (
           <SamityInternalChatHub
@@ -8734,6 +8875,36 @@ ${samityTitle}
                   </span>
                 </button>
 
+                {/* AI Smart NID OCR Scanner Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playButtonClick?.();
+                    triggerHaptic();
+                    if (!checkPermissionOrToast("ai_nid_ocr_scanner")) return;
+                    setIsAiNidScannerOpen(true);
+                  }}
+                  className="btn"
+                  title="বাংলা স্মার্ট এনআইডি কার্ড স্ক্যান করে অটো-ফিল করুন"
+                  style={{
+                    background: "linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    fontSize: "0.8rem",
+                    fontWeight: "800",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(147, 51, 234, 0.25)",
+                  }}
+                >
+                  <Sparkles size={15} />
+                  <span>স্মার্ট এনআইডি স্ক্যান (OCR)</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -9178,9 +9349,17 @@ ${samityTitle}
                                     fontWeight: "900",
                                     color: "#38bdf8",
                                     fontSize: "0.82rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px"
                                   }}
                                 >
-                                  {member.id}
+                                  <span>{member.id}</span>
+                                  {(member.syncStatus === "pending" || member.isSynced === false) && (
+                                    <span style={{ fontSize: "0.6rem", fontWeight: "800", background: "rgba(168, 85, 247, 0.2)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.4)", borderRadius: "4px", padding: "1px 5px" }}>
+                                      ⚡ পেন্ডিং
+                                    </span>
+                                  )}
                                 </div>
                                 {member.memberCode &&
                                   member.memberCode !== member.id && (
@@ -9662,6 +9841,66 @@ ${samityTitle}
                       ? "+ New Deposit Entry"
                       : "+ নতুন জমা এন্ট্রি"}
                   </span>
+                </button>
+
+                {/* Field Officer Route Collection Sheet Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playButtonClick?.();
+                    triggerHaptic();
+                    if (!checkPermissionOrToast("field_offline_sheet")) return;
+                    setIsFieldCollectionSheetOpen(true);
+                  }}
+                  className="btn"
+                  title="মাঠকর্মীর অফলাইন কালেকশন শীট ও ১-ট্যাপে কিস্তি আদায়"
+                  style={{
+                    background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "0.8rem",
+                    fontWeight: "800",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(2, 132, 199, 0.35)",
+                  }}
+                >
+                  <Smartphone size={16} />
+                  <span>মাঠ কালেকশন শীট</span>
+                </button>
+
+                {/* Retail Merchant QR Store Hub Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playButtonClick?.();
+                    triggerHaptic();
+                    if (!checkPermissionOrToast("ai_merchant_qr_pos")) return;
+                    setIsMerchantHubOpen(true);
+                  }}
+                  className="btn"
+                  title="মার্চেন্ট ও পার্টনার স্টোর হাব (কিউআর কোড পেমেন্ট)"
+                  style={{
+                    background: "linear-gradient(135deg, #d97706 0%, #b45309 100%)",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "0.8rem",
+                    fontWeight: "800",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(217, 119, 6, 0.35)",
+                  }}
+                >
+                  <Store size={16} />
+                  <span>মার্চেন্ট হাব</span>
                 </button>
               </div>
             </div>
@@ -10205,9 +10444,14 @@ ${samityTitle}
                           {/* Voucher & Receipt */}
                           <td style={{ padding: "12px 14px" }}>
                             <div
-                              style={{ fontWeight: "800", color: "#38bdf8" }}
+                              style={{ fontWeight: "800", color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}
                             >
-                              {dep.voucherNo}
+                              <span>{dep.voucherNo}</span>
+                              {(dep.syncStatus === "pending" || dep.isSynced === false) && (
+                                <span style={{ fontSize: "0.62rem", fontWeight: "800", background: "rgba(168, 85, 247, 0.2)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.4)", borderRadius: "4px", padding: "1px 5px" }}>
+                                  ⚡ পেন্ডিং সিঙ্ক
+                                </span>
+                              )}
                             </div>
                             {dep.receiptNo && (
                               <div
@@ -13067,6 +13311,33 @@ ${samityTitle}
                                     <Printer size={12} />
                                     <span>মূল রিসিট</span>
                                   </button>
+
+                                   {/* Thermal POS Print */}
+                                   <button
+                                     onClick={() => {
+                                       playButtonClick?.();
+                                       triggerHaptic();
+                                       if (!checkPermissionOrToast("field_bluetooth_thermal")) return;
+                                       setThermalPrintDeposit(dep);
+                                     }}
+                                     title="ব্লুটুথ থার্মাল প্রিন্ট (POS 58mm/80mm)"
+                                     style={{
+                                       background: "rgba(16, 185, 129, 0.15)",
+                                       color: "#10b981",
+                                       border: "1px solid rgba(16, 185, 129, 0.3)",
+                                       padding: "4px 8px",
+                                       borderRadius: "6px",
+                                       fontSize: "0.7rem",
+                                       fontWeight: "800",
+                                       cursor: "pointer",
+                                       display: "inline-flex",
+                                       alignItems: "center",
+                                       gap: "4px",
+                                     }}
+                                   >
+                                     <Printer size={12} />
+                                     <span>থার্মাল</span>
+                                   </button>
 
                                   {/* Member Copy Print */}
                                   <button
@@ -32002,6 +32273,8 @@ ${samityTitle}
             </div>
           </div>
         )}
+          </>
+        )}
       </div>
 
       {/* ==================================================================== */}
@@ -34307,6 +34580,32 @@ ${samityTitle}
                     </a>
                   )}
 
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileModalOpen(false);
+                      setAiScannerTargetMember(selectedMemberProfile);
+                      setIsAiDepositScannerOpen(true);
+                    }}
+                    style={{
+                      background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+                      color: "#fff",
+                      border: "none",
+                      padding: "5px 12px",
+                      borderRadius: "6px",
+                      fontSize: "0.75rem",
+                      fontWeight: "900",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      boxShadow: "0 2px 8px rgba(139, 92, 246, 0.4)",
+                      marginLeft: "auto",
+                    }}
+                  >
+                    <Sparkles size={13} />
+                    <span>AI দিয়ে জমা স্ক্যান</span>
+                  </button>
                   <button
                     onClick={() => {
                       setIsProfileModalOpen(false);
@@ -37901,6 +38200,32 @@ ${samityTitle}
               <button
                 type="button"
                 onClick={() => {
+                  const m = data.members.find((mem) => mem.id === depositForm.memberId);
+                  setAiScannerTargetMember(m || null);
+                  setIsAiDepositScannerOpen(true);
+                }}
+                style={{
+                  background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+                  border: "none",
+                  color: "#fff",
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                  fontSize: "0.76rem",
+                  fontWeight: "800",
+                  boxShadow: "0 2px 10px rgba(139, 92, 246, 0.4)",
+                  marginRight: "6px",
+                }}
+              >
+                <Sparkles size={14} />
+                <span>AI ডিপোজিট স্ক্যানার</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setIsDepositModalOpen(false);
                   setEditingDeposit(null);
                 }}
@@ -38126,7 +38451,7 @@ ${samityTitle}
                         marginBottom: "4px",
                       }}
                     >
-                      সদস্য নির্বাচন করুন (যদি সদস্যের জমা হয়)
+                      সদস্য নির্বাচন করুন (মেম্বার অ্যাকাউন্ট) *
                     </label>
                     <select
                       value={depositForm.memberId}
@@ -38134,15 +38459,16 @@ ${samityTitle}
                         const mId = e.target.value;
                         const m = data.members.find((mem) => mem.id === mId);
                         if (m) {
+                          const isSelf = (depositForm.depositorType || 'self') === 'self';
                           setDepositForm({
                             ...depositForm,
                             memberId: m.id,
                             memberName: m.nameBn || m.nameEn,
-                            depositorName: m.nameBn || m.nameEn,
-                            depositorRelation: "নিজে (Self)",
-                            depositorPhone: m.mobile || "",
-                            depositorWhatsApp:
-                              m.whatsappNumber || m.mobile || "",
+                            depositorName: isSelf ? (m.nameBn || m.nameEn) : depositForm.depositorName,
+                            depositorRelation: isSelf ? "সদস্য নিজে" : depositForm.depositorRelation,
+                            depositorPhone: isSelf ? (m.mobile || "") : depositForm.depositorPhone,
+                            depositorWhatsApp: isSelf ? (m.whatsappNumber || m.mobile || "") : depositForm.depositorWhatsApp,
+                            depositorNid: isSelf ? (m.nidNumber || "") : depositForm.depositorNid,
                             amount:
                               m.customSubscription ||
                               currentSamity?.monthlySubscription ||
@@ -38155,7 +38481,6 @@ ${samityTitle}
                             ...depositForm,
                             memberId: "",
                             memberName: "",
-                            depositorRelation: "নিজে (Self)",
                           });
                         }
                       }}
@@ -38182,6 +38507,73 @@ ${samityTitle}
                     </select>
                   </div>
 
+                  {/* Depositor Type Segmented Pill (সদস্য নিজে বনাম পরিবারের সদস্য বনাম অন্যান্য) */}
+                  <div style={{ gridColumn: "span 2", background: "rgba(30, 41, 59, 0.6)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.74rem",
+                        fontWeight: "800",
+                        color: "#38bdf8",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      👤 টাকা জমাদানকারী কে? (Depositor Type Selection) *
+                    </label>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {[
+                        { id: "self", label: "১. সদস্য নিজে (Self)" },
+                        { id: "family_member", label: "২. পরিবারের সদস্য (Family Member)" },
+                        { id: "authorized_person", label: "৩. অন্যান্য প্রতিনিধি (Authorized Person)" }
+                      ].map((t) => {
+                        const isSelected = (depositForm.depositorType || 'self') === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              const targetMember = data.members.find((m) => m.id === depositForm.memberId);
+                              if (t.id === "self" && targetMember) {
+                                setDepositForm({
+                                  ...depositForm,
+                                  depositorType: "self",
+                                  depositorName: targetMember.nameBn || targetMember.nameEn,
+                                  depositorRelation: "সদস্য নিজে",
+                                  depositorPhone: targetMember.mobile || "",
+                                  depositorWhatsApp: targetMember.whatsappNumber || targetMember.mobile || "",
+                                  depositorNid: targetMember.nidNumber || "",
+                                });
+                              } else {
+                                setDepositForm({
+                                  ...depositForm,
+                                  depositorType: t.id,
+                                  depositorRelation: t.id === "family_member" ? "পিতা" : "প্রতিনিধি",
+                                  depositorName: t.id === "self" ? depositForm.depositorName : "",
+                                  depositorPhone: t.id === "self" ? depositForm.depositorPhone : "",
+                                  depositorNid: "",
+                                });
+                              }
+                            }}
+                            style={{
+                              flex: "1 1 180px",
+                              padding: "8px 12px",
+                              borderRadius: "8px",
+                              fontSize: "0.76rem",
+                              fontWeight: isSelected ? "800" : "600",
+                              cursor: "pointer",
+                              border: isSelected ? "1.5px solid #10b981" : "1px solid rgba(255,255,255,0.12)",
+                              background: isSelected ? "rgba(16, 185, 129, 0.2)" : "rgba(15, 23, 42, 0.6)",
+                              color: isSelected ? "#34d399" : "#cbd5e1",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            {t.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Depositor Name */}
                   <div>
                     <label
@@ -38193,13 +38585,14 @@ ${samityTitle}
                         marginBottom: "4px",
                       }}
                     >
-                      টাকা জমা দিয়েছেন / জমাদানকারী (Depositor Name) *
+                      জমাদানকারীর নাম (Depositor Name) *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="যিনি টাকা জমা দিয়েছেন (সদস্য নিজে বা প্রতিনিধি)"
+                      placeholder="যিনি টাকা জমা দিয়েছেন"
                       value={depositForm.depositorName}
+                      disabled={depositForm.depositorType === "self" && !!depositForm.memberId}
                       onChange={(e) =>
                         setDepositForm({
                           ...depositForm,
@@ -38210,10 +38603,11 @@ ${samityTitle}
                         width: "100%",
                         padding: "8px 12px",
                         borderRadius: "8px",
-                        background: "#0f172a",
+                        background: depositForm.depositorType === "self" && !!depositForm.memberId ? "#1e293b" : "#0f172a",
                         border: "1px solid rgba(255,255,255,0.15)",
-                        color: "#fff",
+                        color: depositForm.depositorType === "self" && !!depositForm.memberId ? "#94a3b8" : "#fff",
                         fontSize: "0.84rem",
+                        cursor: depositForm.depositorType === "self" && !!depositForm.memberId ? "not-allowed" : "text",
                       }}
                     />
                   </div>
@@ -38229,10 +38623,11 @@ ${samityTitle}
                         marginBottom: "4px",
                       }}
                     >
-                      জমাদানকারীর সম্পর্ক / পদবি (Relation / Role)
+                      সদস্যের সাথে সম্পর্ক (Relationship with Member) *
                     </label>
                     <select
-                      value={depositForm.depositorRelation || "নিজে (Self)"}
+                      value={depositForm.depositorRelation || "সদস্য নিজে"}
+                      disabled={depositForm.depositorType === "self"}
                       onChange={(e) =>
                         setDepositForm({
                           ...depositForm,
@@ -38243,29 +38638,26 @@ ${samityTitle}
                         width: "100%",
                         padding: "8px 12px",
                         borderRadius: "8px",
-                        background: "#0f172a",
+                        background: depositForm.depositorType === "self" ? "#1e293b" : "#0f172a",
                         border: "1.5px solid #38bdf8",
                         color: "#38bdf8",
                         fontSize: "0.84rem",
                         fontWeight: "700",
+                        cursor: depositForm.depositorType === "self" ? "not-allowed" : "pointer",
                       }}
                     >
-                      <option value="নিজে (Self)">নিজে (সদস্য স্বয়ং)</option>
-                      <option value="পরিবারের সদস্য (Family Member)">
-                        পরিবারের সদস্য (Family Member)
-                      </option>
-                      <option value="ভাই (Brother)">ভাই (Brother)</option>
-                      <option value="বোন (Sister)">বোন (Sister)</option>
-                      <option value="স্ত্রী (Wife)">স্ত্রী (Wife)</option>
-                      <option value="স্বামী (Husband)">স্বামী (Husband)</option>
-                      <option value="পিতা (Father)">পিতা (Father)</option>
-                      <option value="মাতা (Mother)">মাতা (Mother)</option>
-                      <option value="ছেলে (Son)">ছেলে (Son)</option>
-                      <option value="মেয়ে (Daughter)">মেয়ে (Daughter)</option>
-                      <option value="প্রতিনিধি (Representative)">
-                        প্রতিনিধি (Representative)
-                      </option>
-                      <option value="অন্যান্য (Other)">অন্যান্য</option>
+                      <option value="সদস্য নিজে">সদস্য নিজে (Self)</option>
+                      <option value="পিতা">পিতা (Father)</option>
+                      <option value="মাতা">মাতা (Mother)</option>
+                      <option value="স্বামী">স্বামী (Husband)</option>
+                      <option value="স্ত্রী">স্ত্রী (Wife)</option>
+                      <option value="ছেলে">ছেলে (Son)</option>
+                      <option value="মেয়ে">মেয়ে (Daughter)</option>
+                      <option value="ভাই">ভাই (Brother)</option>
+                      <option value="বোন">বোন (Sister)</option>
+                      <option value="নমিনী">নমিনী (Nominee)</option>
+                      <option value="প্রতিনিধি">প্রতিনিধি (Authorized Representative)</option>
+                      <option value="অন্যান্য">অন্যান্য (Other)</option>
                     </select>
                   </div>
 
@@ -38280,7 +38672,7 @@ ${samityTitle}
                         marginBottom: "4px",
                       }}
                     >
-                      জমাদানকারীর মোবাইল নম্বর (ঐচ্ছিক)
+                      জমাদানকারীর মোবাইল নম্বর (Phone) *
                     </label>
                     <input
                       type="tel"
@@ -38325,6 +38717,41 @@ ${samityTitle}
                         setDepositForm({
                           ...depositForm,
                           depositorWhatsApp: e.target.value,
+                        })
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        background: "#0f172a",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        color: "#fff",
+                        fontSize: "0.84rem",
+                      }}
+                    />
+                  </div>
+
+                  {/* Depositor NID / National ID (New Field) */}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.74rem",
+                        fontWeight: "700",
+                        color: "#94a3b8",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      জমাদানকারীর জাতীয় পরিচয়পত্র / NID (ঐচ্ছিক)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: 1990123456789"
+                      value={depositForm.depositorNid || ""}
+                      onChange={(e) =>
+                        setDepositForm({
+                          ...depositForm,
+                          depositorNid: e.target.value,
                         })
                       }
                       style={{
@@ -38739,6 +39166,94 @@ ${samityTitle}
                       }}
                     />
                   </div>
+                  {/* Quick Inline Bank Receipt Image Upload with Auto-Compression */}
+                  <div style={{ gridColumn: "span 2", background: "rgba(15, 23, 42, 0.75)", padding: "14px", borderRadius: "10px", border: "1.5px dashed #10b981" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <label style={{ display: "block", fontSize: "0.78rem", fontWeight: "800", color: "#34d399", margin: 0 }}>
+                        📷 ব্যাংক রসিদের ছবি আপলোড (Bank Receipt Slip Upload & Compression) *
+                      </label>
+                      <span style={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                        ৩০০-৫০০ KB টার্গেট • সিল ও সই স্পষ্ট থাকবে
+                      </span>
+                    </div>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleDepositImageUpload("bankReceiptImage", e)}
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        borderRadius: "8px",
+                        background: "#0f172a",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        fontSize: "0.78rem",
+                        color: "#94a3b8",
+                      }}
+                    />
+
+                    {depositForm.bankReceiptImage && (
+                      <div style={{ marginTop: "10px", position: "relative", display: "inline-block", maxWidth: "260px" }}>
+                        <img
+                          src={depositForm.bankReceiptImage}
+                          alt="Bank Receipt Preview"
+                          style={{
+                            width: "100%",
+                            maxHeight: "140px",
+                            objectFit: "cover",
+                            borderRadius: "8px",
+                            border: "1.5px solid #10b981",
+                            display: "block"
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setDepositForm({ ...depositForm, bankReceiptImage: "", bankReceiptOriginalSizeKb: 0, bankReceiptCompressedSizeKb: 0 })}
+                          style={{
+                            position: "absolute",
+                            top: "4px",
+                            right: "4px",
+                            background: "rgba(0,0,0,0.8)",
+                            color: "#ef4444",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: "900"
+                          }}
+                        >
+                          ✕
+                        </button>
+                        {depositForm.bankReceiptCompressedSizeKb > 0 && (
+                          <div
+                            style={{
+                              marginTop: "6px",
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              background: "rgba(16, 185, 129, 0.2)",
+                              border: "1px solid rgba(16, 185, 129, 0.4)",
+                              color: "#34d399",
+                              fontSize: "0.68rem",
+                              fontWeight: "700",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span>⚡ অপ্টিমাইজড: {depositForm.bankReceiptCompressedSizeKb} KB</span>
+                            <span style={{ color: "#94a3b8", textDecoration: "line-through" }}>
+                              {depositForm.bankReceiptOriginalSizeKb} KB
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
 
                   {/* Transaction ID */}
                   <div>
@@ -39084,12 +39599,14 @@ ${samityTitle}
                               border: "1px solid rgba(255,255,255,0.2)",
                             }}
                           />
-                          <button
+                                                    <button
                             type="button"
                             onClick={() =>
                               setDepositForm({
                                 ...depositForm,
                                 bankReceiptImage: "",
+                                bankReceiptOriginalSizeKb: 0,
+                                bankReceiptCompressedSizeKb: 0,
                               })
                             }
                             style={{
@@ -39110,7 +39627,29 @@ ${samityTitle}
                           >
                             ✕
                           </button>
-                        </div>
+                          {/* Live Image Optimization Stats Pill */}
+                          {depositForm.bankReceiptCompressedSizeKb > 0 && (
+                            <div
+                              style={{
+                                marginTop: "6px",
+                                padding: "4px 8px",
+                                borderRadius: "6px",
+                                background: "rgba(16, 185, 129, 0.2)",
+                                border: "1px solid rgba(16, 185, 129, 0.4)",
+                                color: "#34d399",
+                                fontSize: "0.68rem",
+                                fontWeight: "700",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                              }}
+                            >
+                              <span>⚡ অপ্টিমাইজড: {depositForm.bankReceiptCompressedSizeKb} KB</span>
+                              <span style={{ color: "#94a3b8", textDecoration: "line-through" }}>
+                                {depositForm.bankReceiptOriginalSizeKb} KB
+                              </span>
+                            </div>
+                          )}</div>
                       )}
                     </div>
 
@@ -41130,6 +41669,33 @@ ${samityTitle}
                       <span>PDF ডাউনলোড</span>
                     </button>
 
+                    {/* Action: Bluetooth Thermal POS Print */}
+                    <button
+                      onClick={() => {
+                        playButtonClick?.();
+                        triggerHaptic();
+                        if (!checkPermissionOrToast("field_bluetooth_thermal")) return;
+                        setThermalPrintDeposit(dep);
+                      }}
+                      title="ব্লুটুথ থার্মাল পিওএস প্রিন্টারে পাঠান (58mm/80mm)"
+                      style={{
+                        background: "#059669",
+                        color: "#fff",
+                        border: "none",
+                        padding: "7px 12px",
+                        borderRadius: "8px",
+                        fontSize: "0.78rem",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Printer size={15} />
+                      <span>থার্মাল প্রিন্ট (POS)</span>
+                    </button>
+
                     {/* Action 3: Send PDF by WhatsApp */}
                     <button
                       onClick={async () => {
@@ -41653,9 +42219,9 @@ ${samityTitle}
                         টাকা জমা দিয়েছেন:{" "}
                         <strong style={{ color: "#0284c7" }}>
                           {dep.depositorName || memberName}{" "}
-                          {dep.depositorRelation
-                            ? `[${dep.depositorRelation}]`
-                            : ""}
+                          <span style={{ fontSize: "0.74rem", background: "rgba(2, 132, 199, 0.1)", padding: "1px 6px", borderRadius: "4px", color: "#0369a1" }}>
+                            ({dep.depositorRelation || "সদস্য নিজে"})
+                          </span>
                         </strong>
                       </div>
                       <div>
@@ -41664,6 +42230,14 @@ ${samityTitle}
                           {dep.depositorPhone || memberMobile}
                         </strong>
                       </div>
+                      {dep.depositorNid && (
+                        <div>
+                          জমাদানকারীর এনআইডি (NID):{" "}
+                          <strong style={{ color: "#0f172a", fontFamily: "monospace" }}>
+                            {dep.depositorNid}
+                          </strong>
+                        </div>
+                      )}
                       <div>
                         জমার খাত:{" "}
                         <strong style={{ color: "#0f172a" }}>{depType}</strong>
@@ -42028,6 +42602,17 @@ ${samityTitle}
                             {formattedReceiptNo}
                           </strong>
                         </div>
+                        <div style={{ fontSize: "0.66rem", color: "#64748b", marginTop: "3px" }}>
+                          অনলাইন যাচাই:{" "}
+                          <a href={createSamityReceiptVerificationUrl(dep, currentSamity)} target="_blank" rel="noopener noreferrer" style={{ color: "#0284c7", fontWeight: "700", textDecoration: "none" }}>
+                            somiti-360.vercel.app
+                          </a>
+                        </div>
+                        {(dep.ai_scan_id || dep.ai_draft_id) && (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "4px", padding: "2px 6px", borderRadius: "4px", background: "rgba(139, 92, 246, 0.1)", border: "1px solid rgba(139, 92, 246, 0.3)", color: "#7c3aed", fontSize: "0.62rem", fontWeight: "800" }}>
+                            <span>✨ AI Scanned & Verified</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -43947,10 +44532,7 @@ ${samityTitle}
                             textDecoration: "none",
                           }}
                         >
-                          {createSamityReceiptVerificationUrl(
-                            dep,
-                            currentSamity,
-                          )}
+                          somiti-360.vercel.app
                         </a>
                         মোবাইল ক্যামেরা দিয়ে স্ক্যান করলেই
                         <br />
@@ -47076,415 +47658,21 @@ ${samityTitle}
       )}
 
       {/* Role-Based Access Control (RBAC) Modal */}
-      {isRoleModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.78)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 99999,
-            padding: "16px",
-          }}
-        >
-          <div
-            style={{
-              background: "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              borderRadius: "20px",
-              width: "100%",
-              maxWidth: "680px",
-              maxHeight: "90vh",
-              display: "flex",
-              flexDirection: "column",
-              boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.7)",
-              overflow: "hidden",
-            }}
-          >
-            {/* Header */}
-            <div
-              style={{
-                padding: "18px 24px",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: "rgba(255, 255, 255, 0.03)",
-              }}
-            >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "12px" }}
-              >
-                <div
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    borderRadius: "12px",
-                    background:
-                      "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
-                  }}
-                >
-                  <ShieldCheck size={24} />
-                </div>
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      color: "#f8fafc",
-                      fontSize: "1.12rem",
-                      fontWeight: "800",
-                    }}
-                  >
-                    রোল ও পারমিশন কন্ট্রোল (RBAC)
-                  </h3>
-                  <p
-                    style={{
-                      margin: "2px 0 0 0",
-                      color: "#94a3b8",
-                      fontSize: "0.78rem",
-                    }}
-                  >
-                    বর্তমান সক্রিয় রোল পরিবর্তন ও দায়িত্ব অনুযায়ী অনুমতি স্তর
-                    নির্ধারণ করুন
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsRoleModalOpen(false)}
-                style={{
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "none",
-                  borderRadius: "10px",
-                  width: "34px",
-                  height: "34px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div
-              style={{
-                padding: "20px 24px",
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-              }}
-            >
-              <div
-                style={{
-                  background: "rgba(99, 102, 241, 0.1)",
-                  border: "1px solid rgba(99, 102, 241, 0.25)",
-                  borderRadius: "12px",
-                  padding: "12px 16px",
-                  fontSize: "0.8rem",
-                  color: "#c7d2fe",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
-                <Sparkles
-                  size={18}
-                  style={{ color: "#818cf8", flexShrink: 0 }}
-                />
-                <span>
-                  বর্তমান কার্যকর ভূমিকা:{" "}
-                  <strong style={{ color: "#fff" }}>
-                    {activeUserRole === "super_admin"
-                      ? "সুপার এডমিন (পূর্ণ অনুমতি)"
-                      : activeUserRole === "president"
-                        ? "সভাপতি (পলিসি ও অনুমোদন)"
-                        : activeUserRole === "secretary"
-                          ? "সাধারণ সম্পাদক (কার্যক্রম)"
-                          : activeUserRole === "treasurer"
-                            ? "কোষাধ্যক্ষ (আর্থিক লেনদেন)"
-                            : activeUserRole === "staff"
-                              ? "মাঠকর্মী / স্টাফ (কালেকশন)"
-                              : "সাধারণ সদস্য (শুধুমাত্র ভিউ)"}
-                  </strong>
-                </span>
-              </div>
-
-              {/* Roles List */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                  gap: "12px",
-                }}
-              >
-                {[
-                  {
-                    id: "super_admin",
-                    name: "সুপার এডমিন (Super Admin)",
-                    desc: "সমস্ত মডিউল, প্যাড এডিটর, ব্যালেন্স শিট, মেম্বার এডিট/ডিলিট ও সিস্টেম কনফিগারেশনের পূর্ণ নিয়ন্ত্রণ।",
-                    color: "#6366f1",
-                    badge: "Full Access",
-                  },
-                  {
-                    id: "president",
-                    name: "সভাপতি (President)",
-                    desc: "সার্বিক নীতি নির্ধারণ, রেজোলিউশন অনুমোদন, ডিক্লারেশন সাইন ও সামগ্রিক রিপোর্ট দর্শন।",
-                    color: "#8b5cf6",
-                    badge: "Approver",
-                  },
-                  {
-                    id: "secretary",
-                    name: "সাধারণ সম্পাদক (Secretary)",
-                    desc: "সদস্য অন্তর্ভুক্তি, মিটিং রেজোলিউশন লিপিবদ্ধকরণ, নোটিশ ও প্রাত্যহিক অপারেশনাল পরিচালনা।",
-                    color: "#3b82f6",
-                    badge: "Operational",
-                  },
-                  {
-                    id: "treasurer",
-                    name: "কোষাধ্যক্ষ / ক্যাশিয়ার (Treasurer)",
-                    desc: "সঞ্চয় কিস্তি আদায়, ডিপোজিট গ্রহণ, ক্যাশ উত্তলন, দৈনিক ব্যয় ভাউচার ও খতিয়ান রক্ষণাবেক্ষণ।",
-                    color: "#10b981",
-                    badge: "Financial",
-                  },
-                  {
-                    id: "staff",
-                    name: "মাঠকর্মী / স্টাফ (Staff)",
-                    desc: "ফিল্ড কালেকশন এন্ট্রি ও রসিদ প্রস্তুত। সেনসিটিভ পলিসি ও ডিলিট অপশন সুরক্ষিতভাবে লক থাকবে।",
-                    color: "#f59e0b",
-                    badge: "Collector",
-                  },
-                  {
-                    id: "member",
-                    name: "সাধারণ সদস্য (General Member)",
-                    desc: "শুধুমাত্র নিজের সঞ্চয় ব্যালেন্স, নোটিশ ও রসিদ যাচাই করতে পারবেন (Read-Only ভিউ)।",
-                    color: "#64748b",
-                    badge: "Read-Only",
-                  },
-                ].map((r) => {
-                  const isActive = activeUserRole === r.id;
-                  return (
-                    <div
-                      key={r.id}
-                      onClick={() => {
-                        setActiveUserRole(r.id);
-                        try {
-                          localStorage.setItem("samity_active_role", r.id);
-                        } catch (e) {}
-                      }}
-                      style={{
-                        padding: "14px 16px",
-                        borderRadius: "14px",
-                        background: isActive
-                          ? "rgba(99, 102, 241, 0.16)"
-                          : "rgba(255, 255, 255, 0.04)",
-                        border: isActive
-                          ? `2px solid ${r.color}`
-                          : "1px solid rgba(255, 255, 255, 0.08)",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "6px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "0.88rem",
-                            fontWeight: "800",
-                            color: isActive ? "#fff" : "#e2e8f0",
-                          }}
-                        >
-                          {r.name}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.68rem",
-                            fontWeight: "700",
-                            padding: "3px 8px",
-                            borderRadius: "6px",
-                            background: `${r.color}22`,
-                            color: r.color,
-                            border: `1px solid ${r.color}44`,
-                          }}
-                        >
-                          {isActive ? "✓ সক্রিয়" : r.badge}
-                        </span>
-                      </div>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.74rem",
-                          color: "#94a3b8",
-                          lineHeight: "1.4",
-                        }}
-                      >
-                        {r.desc}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Permission Matrix Summary */}
-              <div
-                style={{
-                  background: "rgba(0, 0, 0, 0.25)",
-                  borderRadius: "12px",
-                  padding: "14px",
-                  border: "1px solid rgba(255, 255, 255, 0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.78rem",
-                    fontWeight: "700",
-                    color: "#cbd5e1",
-                    marginBottom: "8px",
-                  }}
-                >
-                  অনুমতি ম্যাট্রিক্স (Permission Summary):
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "8px",
-                    fontSize: "0.72rem",
-                  }}
-                >
-                  <div style={{ color: "#94a3b8" }}>
-                    • মেম্বার এন্ট্রি:{" "}
-                    <span
-                      style={{
-                        color:
-                          activeUserRole === "member" ? "#ef4444" : "#10b981",
-                      }}
-                    >
-                      {activeUserRole === "member" ? "নিষেধ" : "অনুমোদিত"}
-                    </span>
-                  </div>
-                  <div style={{ color: "#94a3b8" }}>
-                    • কিস্তি সংগ্রহ:{" "}
-                    <span
-                      style={{
-                        color:
-                          activeUserRole === "member" ? "#ef4444" : "#10b981",
-                      }}
-                    >
-                      {activeUserRole === "member" ? "নিষেধ" : "অনুমোদিত"}
-                    </span>
-                  </div>
-                  <div style={{ color: "#94a3b8" }}>
-                    • অফিশিয়াল প্যাড এডিট:{" "}
-                    <span
-                      style={{
-                        color: [
-                          "super_admin",
-                          "president",
-                          "secretary",
-                        ].includes(activeUserRole)
-                          ? "#10b981"
-                          : "#ef4444",
-                      }}
-                    >
-                      {["super_admin", "president", "secretary"].includes(
-                        activeUserRole,
-                      )
-                        ? "অনুমোদিত"
-                        : "লক করা"}
-                    </span>
-                  </div>
-                  <div style={{ color: "#94a3b8" }}>
-                    • সিল ও স্বাক্ষর সংযোজন:{" "}
-                    <span
-                      style={{
-                        color: ["super_admin", "president"].includes(
-                          activeUserRole,
-                        )
-                          ? "#10b981"
-                          : "#ef4444",
-                      }}
-                    >
-                      {["super_admin", "president"].includes(activeUserRole)
-                        ? "অনুমোদিত"
-                        : "লক করা"}
-                    </span>
-                  </div>
-                  <div style={{ color: "#94a3b8" }}>
-                    • ব্যাকআপ ও রিস্টোর:{" "}
-                    <span
-                      style={{
-                        color:
-                          activeUserRole === "super_admin"
-                            ? "#10b981"
-                            : "#ef4444",
-                      }}
-                    >
-                      {activeUserRole === "super_admin" ? "অনুমোদিত" : "লক করা"}
-                    </span>
-                  </div>
-                  <div style={{ color: "#94a3b8" }}>
-                    • ভিউ ও রসিদ প্রিন্ট:{" "}
-                    <span style={{ color: "#10b981" }}>
-                      সকলের জন্য উন্মুক্ত
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div
-              style={{
-                padding: "14px 24px",
-                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                justifyContent: "flex-end",
-                background: "rgba(255, 255, 255, 0.02)",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setIsRoleModalOpen(false)}
-                style={{
-                  background:
-                    "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-                  color: "#fff",
-                  border: "none",
-                  padding: "9px 24px",
-                  borderRadius: "10px",
-                  fontWeight: "700",
-                  fontSize: "0.82rem",
-                  cursor: "pointer",
-                  boxShadow: "0 4px 14px rgba(99, 102, 241, 0.35)",
-                }}
-              >
-                সংরক্ষণ ও বন্ধ করুন
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SamityRolePermissionManagerModal
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
+        isLight={isLight}
+        lang={activeLang}
+        customRolePermissions={customRolePermissions}
+        onSaveRolePermissions={(updatedPerms) => {
+          setCustomRolePermissions(updatedPerms);
+          const updatedData = { ...data, customRolePermissions: updatedPerms };
+          setData(updatedData);
+          saveSamityData(updatedData);
+        }}
+        activeUserRole={activeUserRole}
+        onSwitchUserRole={(roleKey) => handleSwitchUserRole(roleKey)}
+      />
 
       {/* SaaS & Commercial Reselling Architecture Guide Modal */}
       {isSaaSGuideModalOpen && (
@@ -49218,6 +49406,83 @@ ${samityTitle}
         }}
         showToast={showToast}
       />
+
+      {/* AI Deposit Scanner & One-Command Pre-filler Modal */}
+      <AiDepositScannerModal
+        isOpen={isAiDepositScannerOpen}
+        onClose={() => {
+          setIsAiDepositScannerOpen(false);
+          setAiScannerTargetMember(null);
+        }}
+        targetMember={aiScannerTargetMember}
+        members={data.members || []}
+        currentSamity={currentSamity}
+        onConfirmDeposit={(aiDep) => {
+          handleOpenDepositModal(aiDep);
+          showToast?.("AI রসিদ যাচাই সম্পন্ন! জমা রিভিউ করে সেভ করুন।", "success");
+        }}
+        showToast={showToast}
+      />
+
+      {/* 11. Bluetooth Thermal POS Printer Modal (58mm/80mm) */}
+      <Suspense fallback={null}>
+        <BluetoothThermalPrinterModal
+          isOpen={Boolean(thermalPrintDeposit)}
+          onClose={() => setThermalPrintDeposit(null)}
+          deposit={thermalPrintDeposit}
+          samityInfo={currentSamity}
+          onSuccessPrint={(d) => {
+            showToast?.(`রসিদ #${d.receiptNo || d.voucherNo || d.id} থার্মাল প্রিন্টারে পাঠানো হয়েছে!`, "success");
+            setThermalPrintDeposit(null);
+          }}
+        />
+      </Suspense>
+
+      {/* 12. Smart Bangla NID Auto-Fill OCR Modal */}
+      <Suspense fallback={null}>
+        <AiNidOcrScannerModal
+          isOpen={isAiNidScannerOpen}
+          onClose={() => setIsAiNidScannerOpen(false)}
+          onApplyNidData={(parsedData) => {
+            handleOpenMemberModalWithData(parsedData);
+            showToast?.("✨ এনআইডি কার্ডের তথ্য মেম্বার ফর্মে যুক্ত করা হয়েছে!", "success");
+          }}
+          showToast={showToast}
+        />
+      </Suspense>
+
+      {/* 13. Field Officer Mobile Offline Collection Route Sheet Modal */}
+      <Suspense fallback={null}>
+        <FieldCollectionSheetModal
+          isOpen={isFieldCollectionSheetOpen}
+          onClose={() => setIsFieldCollectionSheetOpen(false)}
+          members={data.members || []}
+          deposits={data.deposits || []}
+          currentSamity={currentSamity}
+          currentUser={{ name: activeUserRole === 'field_officer' ? 'মাঠকর্মী' : 'অফিসার' }}
+          onDepositCreated={(newDep) => {
+            updateAndSave((prev) => ({
+              ...prev,
+              deposits: [newDep, ...(prev.deposits || [])]
+            }), { action: 'FIELD_OFFLINE_DEPOSIT', module: 'SAVINGS' });
+          }}
+          onOpenThermalPrinter={(dep) => {
+            setThermalPrintDeposit(dep);
+          }}
+          showToast={showToast}
+        />
+      </Suspense>
+
+      {/* 14. Retail Merchant & Partner Store QR Code Hub Modal */}
+      <Suspense fallback={null}>
+        <MerchantStoreHubModal
+          isOpen={isMerchantHubOpen}
+          onClose={() => setIsMerchantHubOpen(false)}
+          members={data.members || []}
+          currentSamity={currentSamity}
+          showToast={showToast}
+        />
+      </Suspense>
     </div>
   );
 };

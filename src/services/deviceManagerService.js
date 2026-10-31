@@ -14,8 +14,7 @@ import { getLocalDeviceId, broadcastLiveEvent, subscribeLiveSync } from './liveS
 export const DEVICE_TYPES = {
   MOBILE: 'mobile',
   PC: 'pc',
-  WEB: 'web',
-  MAC: 'mac'
+  WEB: 'web'
 };
 
 const STORAGE_KEYS = {
@@ -45,24 +44,22 @@ export const detectDeviceType = () => {
       return DEVICE_TYPES.MOBILE;
     }
 
-    // 2. Mobile User Agent Detection (Applies across all hosts, ports, Wi-Fi LAN IPs and Web)
-    const isMobileUA = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua);
-    if (isMobileUA) {
-      return DEVICE_TYPES.MOBILE;
+    // 2. PC Local Desktop Host (e.g. localhost, 127.0.0.1, local LAN IP from start_host_preview.bat)
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || port === '5173' || hostname.startsWith('192.168.')) {
+      // If mobile user agent accessed local LAN IP, still categorize as mobile if on phone
+      if (/android|iphone|ipad|ipod|mobile/i.test(ua) && !port) {
+        return DEVICE_TYPES.MOBILE;
+      }
+      return DEVICE_TYPES.PC;
     }
 
-    // 3. Apple macOS / MacBook Desktop
-    if (/macintosh|mac os x/i.test(ua)) {
-      return DEVICE_TYPES.MAC;
-    }
-
-    // 4. Cloud Live Web App (Netlify & Vercel)
-    if (hostname.includes('vercel.app') || hostname.includes('netlify.app') || (window.location.protocol === 'https:' && !hostname.includes('localhost') && !hostname.startsWith('192.168.'))) {
+    // 3. Cloud Live Web App (Netlify & Vercel)
+    if (hostname.includes('vercel.app') || hostname.includes('netlify.app') || window.location.protocol === 'https:') {
+      if (/android|iphone|ipad|ipod|mobile/i.test(ua)) {
+        return DEVICE_TYPES.MOBILE;
+      }
       return DEVICE_TYPES.WEB;
     }
-
-    // 5. PC Local Desktop Host (e.g. localhost, 127.0.0.1, LAN IP)
-    return DEVICE_TYPES.PC;
   }
 
   return DEVICE_TYPES.PC;
@@ -74,7 +71,6 @@ export const detectDeviceType = () => {
 export const DEFAULT_DEVICE_NAMES = {
   [DEVICE_TYPES.PC]: 'পিসি ডেস্কটপ (ক্যাশ কাউন্টার)',
   [DEVICE_TYPES.MOBILE]: 'মোবাইল অ্যাপ (অ্যান্ড্রয়েড)',
-  [DEVICE_TYPES.MAC]: 'অ্যাপল ম্যাকবুক (ডেস্কটপ)',
   [DEVICE_TYPES.WEB]: 'ভার্সেল ওয়েব অ্যাপ (অনলাইন শাখা)'
 };
 
@@ -95,13 +91,6 @@ export const DEVICE_METADATA = {
     icon: '📱',
     color: '#10b981',
     badgeClass: 'badge-mobile'
-  },
-  [DEVICE_TYPES.MAC]: {
-    id: DEVICE_TYPES.MAC,
-    label: 'অ্যাপল ম্যাকবুক / ম্যাকওএস',
-    icon: '🍎',
-    color: '#a855f7',
-    badgeClass: 'badge-mac'
   },
   [DEVICE_TYPES.WEB]: {
     id: DEVICE_TYPES.WEB,
@@ -183,17 +172,6 @@ export const getDeviceRegistry = () => {
       isCurrent: currentType === DEVICE_TYPES.MOBILE,
       isOnline: currentType === DEVICE_TYPES.MOBILE,
       lastActive: currentType === DEVICE_TYPES.MOBILE ? new Date().toISOString() : null,
-      userEmail: '',
-      driveAccount: ''
-    },
-    [DEVICE_TYPES.MAC]: {
-      type: DEVICE_TYPES.MAC,
-      name: getDeviceName(DEVICE_TYPES.MAC),
-      icon: '🍎',
-      color: '#a855f7',
-      isCurrent: currentType === DEVICE_TYPES.MAC,
-      isOnline: currentType === DEVICE_TYPES.MAC,
-      lastActive: currentType === DEVICE_TYPES.MAC ? new Date().toISOString() : null,
       userEmail: '',
       driveAccount: ''
     },

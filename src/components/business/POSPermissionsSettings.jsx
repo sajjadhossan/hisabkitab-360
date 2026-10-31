@@ -70,6 +70,11 @@ export const POSPermissionsSettings = ({ lang = 'bn', onSaved = () => {} }) => {
       allowPriceOverride: saved.allowPriceOverride ?? false,
       requireShiftOpeningCash: saved.requireShiftOpeningCash ?? true,
 
+      // Supervisor Security & Authorization Controls
+      requireSupervisorPinForHighDiscount: saved.requireSupervisorPinForHighDiscount ?? true,
+      requireSupervisorPinForVoid: saved.requireSupervisorPinForVoid ?? true,
+      supervisorPin: saved.supervisorPin || '1234',
+
       // Salesman & SR Role controls
       salesmanCanCollectCash: saved.salesmanCanCollectCash ?? false,
       srCanModifyOrderItems: saved.srCanModifyOrderItems ?? true,
@@ -220,6 +225,16 @@ export const POSPermissionsSettings = ({ lang = 'bn', onSaved = () => {} }) => {
       }));
       setSelectedRole('cashier');
       showToast(lang === 'bn' ? '✓ ক্যাশিয়ার প্রিসেট প্রয়োগ করা হয়েছে (শুধু POS ও ক্যাশ কাউন্টার চালু)!' : '✓ Cashier preset applied!', 'info');
+    } else if (presetType === 'supervisor_full_oversight') {
+      // Supervisor has full branch oversight (POS, Reports, Invoices, Debts, CRM, Chat)
+      setMenuPermissions((prev) => ({
+        ...prev,
+        supervisor: {
+          ...DEFAULT_STAFF_MENU_PERMISSIONS.supervisor
+        }
+      }));
+      setSelectedRole('supervisor');
+      showToast(lang === 'bn' ? '✓ সুপারভাইজার প্রিসেট প্রয়োগ করা হয়েছে (শাখা তদারকি, অডিট ও পূর্ণ রিপোর্ট চালু)!' : '✓ Supervisor preset applied!', 'info');
     } else if (presetType === 'enable_all_for_role') {
       setMenuPermissions((prev) => {
         const fullRoleConfig = {};
@@ -393,6 +408,15 @@ export const POSPermissionsSettings = ({ lang = 'bn', onSaved = () => {} }) => {
             <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>
               ⚡ {lang === 'bn' ? '১-ক্লিক প্রিসেট:' : '1-Click Presets:'}
             </span>
+            <button
+              type="button"
+              onClick={() => applyRolePreset('supervisor_full_oversight')}
+              className="btn btn-secondary"
+              style={{ padding: '5px 12px', fontSize: '0.76rem', fontWeight: '700', borderRadius: '8px', borderColor: '#6366f1', color: '#6366f1', background: 'rgba(99, 102, 241, 0.08)' }}
+              title="সুপারভাইজারের জন্য শাখা তদারকি, অডিট ও পূর্ণ রিপোর্ট অন থাকবে"
+            >
+              🛡️ {lang === 'bn' ? 'সুপারভাইজার (শাখা তদারকি ও অডিট)' : 'Supervisor (Branch Oversight)'}
+            </button>
             <button
               type="button"
               onClick={() => applyRolePreset('salesman_only_stock')}
@@ -836,6 +860,92 @@ export const POSPermissionsSettings = ({ lang = 'bn', onSaved = () => {} }) => {
                 style={{ width: '18px', height: '18px', accentColor: '#10b981', cursor: 'pointer' }}
               />
             </label>
+          </div>
+        </div>
+
+        {/* Card 3: Supervisor PIN Authorization Gate */}
+        <div className="glass-card" style={{ padding: '1.25rem', borderRadius: '16px', border: '1.5px solid rgba(99, 102, 241, 0.35)', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.03))' }}>
+          <h4 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+            <ShieldCheck size={18} color="#6366f1" />
+            <span>{lang === 'bn' ? '৫. সুপারভাইজার অথরাইজেশন ও সিকিউরিটি গেট' : '5. Supervisor Authorization Gate'}</span>
+            <span className="badge" style={{ background: '#6366f1', color: '#fff', fontSize: '0.65rem' }}>SECURE</span>
+          </h4>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 12px',
+                borderRadius: '10px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'অতিরিক্ত ছাড়ের জন্য সুপারভাইজার পিন বাধ্যতামূলক' : 'Require Supervisor PIN for High Discount'}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? 'ক্যাশিয়ার ছাড় সীমার বেশি ডিসকাউন্ট দিলে সুপারভাইজার অনুমোদন লাগবে' : 'Require supervisor sign-off when discount exceeds cashier cap'}
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={permissions.requireSupervisorPinForHighDiscount}
+                onChange={() => handleToggle('requireSupervisorPinForHighDiscount')}
+                style={{ width: '18px', height: '18px', accentColor: '#6366f1', cursor: 'pointer' }}
+              />
+            </label>
+
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 12px',
+                borderRadius: '10px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                cursor: 'pointer'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'চালান বাতিল (Void) ও আইটেম রিমুভে সুপারভাইজার পিন' : 'Require Supervisor PIN for Void & Item Deletion'}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? 'ক্যাশিয়ার কোনো বিক্রয় মেমো বাতিল বা পণ্য মুছতে চাইলে সুপারভাইজার পিন লাগবে' : 'Prevent unauthorized invoice voids by cashiers'}
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={permissions.requireSupervisorPinForVoid}
+                onChange={() => handleToggle('requireSupervisorPinForVoid')}
+                style={{ width: '18px', height: '18px', accentColor: '#6366f1', cursor: 'pointer' }}
+              />
+            </label>
+
+            <div style={{ padding: '10px 12px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? 'সুপারভাইজার সিক্রেট অনুমোদন পিন (Supervisor PIN):' : 'Supervisor Secret PIN:'}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? '৪-৬ ডিজিটের পিন যা কেবল সুপারভাইজার বা স্টোর ম্যানেজার জানবে' : 'Secret PIN used by manager to authorize overrides'}
+                </div>
+              </div>
+              <input
+                type="password"
+                maxLength={6}
+                value={permissions.supervisorPin}
+                onChange={(e) => setPermissions(prev => ({ ...prev, supervisorPin: e.target.value }))}
+                placeholder="1234"
+                style={{ width: '90px', padding: '6px 10px', borderRadius: '8px', border: '1.5px solid #6366f1', background: 'var(--bg-primary)', color: 'var(--text-main)', fontWeight: '800', textAlign: 'center', fontSize: '1rem', letterSpacing: '3px' }}
+              />
+            </div>
           </div>
         </div>
       </div>

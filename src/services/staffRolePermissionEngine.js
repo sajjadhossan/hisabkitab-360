@@ -6,6 +6,7 @@
  */
 
 export const STAFF_ROLES = [
+  { id: 'supervisor', label: 'সুপারভাইজার / শাখা ইনচার্জ', enLabel: 'Supervisor / Manager', badge: 'SUPV', color: '#6366f1', icon: 'ShieldCheck' },
   { id: 'cashier', label: 'ক্যাশিয়ার / কাউন্টারম্যান', enLabel: 'Cashier / Counter', badge: 'POS', color: '#10b981', icon: 'ScanLine' },
   { id: 'salesman', label: 'সেলসম্যান / এসআর', enLabel: 'Salesman / SR', badge: 'FIELD', color: '#f59e0b', icon: 'FileText' },
   { id: 'delivery', label: 'ডেলিভারি ম্যান / ম্যানেজার', enLabel: 'Delivery Rider / Mgr', badge: 'ROUTE', color: '#0ea5e9', icon: 'Truck' },
@@ -88,6 +89,40 @@ export const MENU_CATEGORIES = [
 ];
 
 export const DEFAULT_STAFF_MENU_PERMISSIONS = {
+  // Supervisor: High-level branch oversight, audit, reports, cash control, pos
+  supervisor: {
+    pos: true,
+    salesman_order: true,
+    sr_delivery: true,
+    invoices: true,
+    quotations: true,
+    branch_control: true,
+    inventory: true,
+    master_hub: false,
+    tool_categories: true,
+    tool_cash: true,
+    debts: true,
+    erp: true,
+    reports: true,
+    crm: true,
+    hr: true,
+    sr: true,
+    cattle: true,
+    healthcare: true,
+    samity: true,
+    settings: false,
+    tool_diagnostics: true,
+    tool_backup: false,
+    tool_drive: false,
+    drawer_quick_scanner: true,
+    drawer_voice_billing: true,
+    drawer_customer_display: true,
+    drawer_internal_chat: true,
+    tool_calc: true,
+    tool_notes: true,
+    tool_price_tracker: true
+  },
+
   // Cashier: Only POS, cash drawer, and quick checkout utilities
   cashier: {
     pos: true,
@@ -236,6 +271,7 @@ export const getStaffMenuPermissions = (businessSettings) => {
     const fromSettings = businessSettings?.staffMenuPermissions;
     if (fromSettings && typeof fromSettings === 'object' && Object.keys(fromSettings).length > 0) {
       return {
+        supervisor: { ...DEFAULT_STAFF_MENU_PERMISSIONS.supervisor, ...(fromSettings.supervisor || {}) },
         cashier: { ...DEFAULT_STAFF_MENU_PERMISSIONS.cashier, ...(fromSettings.cashier || {}) },
         salesman: { ...DEFAULT_STAFF_MENU_PERMISSIONS.salesman, ...(fromSettings.salesman || {}) },
         delivery: { ...DEFAULT_STAFF_MENU_PERMISSIONS.delivery, ...(fromSettings.delivery || {}) },
@@ -247,6 +283,7 @@ export const getStaffMenuPermissions = (businessSettings) => {
     if (saved) {
       const parsed = JSON.parse(saved);
       return {
+        supervisor: { ...DEFAULT_STAFF_MENU_PERMISSIONS.supervisor, ...(parsed.supervisor || {}) },
         cashier: { ...DEFAULT_STAFF_MENU_PERMISSIONS.cashier, ...(parsed.cashier || {}) },
         salesman: { ...DEFAULT_STAFF_MENU_PERMISSIONS.salesman, ...(parsed.salesman || {}) },
         delivery: { ...DEFAULT_STAFF_MENU_PERMISSIONS.delivery, ...(parsed.delivery || {}) },
@@ -279,13 +316,12 @@ export const isMenuItemAllowedForRole = (
   
   // Normalized role mapping
   let targetRole = 'cashier';
-  if (roleKey === 'salesman' || roleKey === 'sr') {
+  if (roleKey === 'supervisor' || roleKey === 'manager' || roleKey === 'branch_manager' || roleKey === 'incharge') {
+    targetRole = 'supervisor';
+  } else if (roleKey === 'salesman' || roleKey === 'sr') {
     targetRole = 'salesman';
   } else if (roleKey === 'delivery' || roleKey === 'rider') {
     targetRole = 'delivery';
-  } else if (roleKey === 'manager' || roleKey === 'branch_manager') {
-    // Branch manager gets cashier permissions plus reports/invoices if configured
-    targetRole = 'cashier';
   } else if (roleKey === 'staff' || roleKey === 'godown_keeper') {
     targetRole = 'staff';
   }

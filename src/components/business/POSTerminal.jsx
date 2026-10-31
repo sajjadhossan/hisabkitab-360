@@ -84,6 +84,7 @@ import { MultiCartHoldTabs } from '../pos/MultiCartHoldTabs';
 import { QuickDiscountAndCouponModal } from '../pos/QuickDiscountAndCouponModal';
 import { FastVariantBatchModal } from '../pos/FastVariantBatchModal';
 import { DeliveryCourierModal } from '../pos/DeliveryCourierModal';
+import { SupervisorAuthModal } from '../pos/SupervisorAuthModal';
 import { KitchenOrderTokenDisplay } from '../pos/KitchenOrderTokenDisplay';
 import { decodeScaleBarcode, isScaleBarcode } from '../../services/barcodeWeightDecoder';
 import { broadcastCartToCustomerDisplay, openCustomerMirrorWindow } from '../../services/customerMirrorService';
@@ -373,6 +374,7 @@ export const POSTerminal = () => {
   const [activeTokens, setActiveTokens] = useState([]);
   const [selectedVariantProduct, setSelectedVariantProduct] = useState(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [supervisorAuthReq, setSupervisorAuthReq] = useState(null);
 
   const handleSelectCart = (targetCartId) => {
     if (targetCartId === activeCartId) return;
@@ -887,8 +889,7 @@ export const POSTerminal = () => {
     });
   };
 
-  const handleClearCartWithUndo = () => {
-    if (cart.length === 0) return;
+  const executeClearCart = () => {
     playButtonClick();
     const backupCart = [...cart];
     clearCart();
@@ -897,6 +898,25 @@ export const POSTerminal = () => {
       data: backupCart,
       message: lang === 'bn' ? `${backupCart.length}টি পণ্য কার্ট থেকে ক্লিয়ার করা হয়েছে` : `${backupCart.length} items cleared from cart`
     });
+  };
+
+  const handleClearCartWithUndo = () => {
+    if (cart.length === 0) return;
+    const posPerms = businessSettings?.posPermissions || {};
+    if (posPerms.requireSupervisorPinForVoid && !isOwner && !isSuperAdmin) {
+      setSupervisorAuthReq({
+        actionType: 'CART_VOID',
+        title: lang === 'bn' ? 'কার্ট বাতিলকরণ অনুমোদন (Void)' : 'Void Cart Authorization',
+        desc: lang === 'bn' ? `বর্তমান কার্টের মোট ${cart.length}টি পণ্য (৳${subtotal.toLocaleString('en-IN')}) সম্পূর্ণ বাতিল করতে সুপারভাইজার অনুমোদন প্রয়োজন।` : 'Supervisor PIN is required to void active cart.',
+        amount: subtotal,
+        onApproved: () => {
+          executeClearCart();
+          showToast(lang === 'bn' ? '✓ সুপারভাইজার অনুমোদনে কার্ট ক্লিয়ার সম্পন্ন!' : 'Cart voided with supervisor approval', 'info');
+        }
+      });
+      return;
+    }
+    executeClearCart();
   };
 
   const handleRestoreUndo = () => {
@@ -1294,6 +1314,28 @@ export const POSTerminal = () => {
   const handleCheckout = (splitList = null) => {
     if (cart.length === 0) return;
 
+    const posPerms = businessSettings?.posPermissions || {};
+    const maxPercent = Number(posPerms.maxCashierDiscountPercent ?? 15);
+    const discountPercent = subtotal > 0 ? (discount / subtotal) * 100 : 0;
+    const needsSupervisorForDiscount = posPerms.requireSupervisorPinForHighDiscount && discountPercent > maxPercent && !isOwner && !isSuperAdmin;
+
+    if (needsSupervisorForDiscount) {
+      setSupervisorAuthReq({
+        actionType: 'HIGH_DISCOUNT',
+        title: lang === 'bn' ? 'অতিরিক্ত ছাড় অনুমোদন' : 'High Discount Authorization',
+        desc: lang === 'bn' ? `অনুমোদিত ছাড় সীমা ${maxPercent}% অতিক্রম করেছে (${discountPercent.toFixed(1)}%, ৳${discount.toLocaleString('en-IN')})। বিক্রয় সম্পন্ন করতে সুপারভাইজার পিন প্রয়োজন।` : `Discount (${discountPercent.toFixed(1)}%) exceeds cashier cap (${maxPercent}%). Supervisor approval required.`,
+        amount: discount,
+        onApproved: (stamp) => {
+          executeCheckout(splitList, stamp);
+        }
+      });
+      return;
+    }
+
+    executeCheckout(splitList);
+  };
+
+  const executeCheckout = (splitList = null, supervisorStamp = null) => {
     // Confetti effect & Success Chime & Native Haptics
     playSuccessChime();
     hapticFeedback.success();
@@ -1319,7 +1361,8 @@ export const POSTerminal = () => {
       table: orderType === 'dine_in' ? selectedTable : (lang === 'bn' ? 'পার্সেল' : 'Parcel/Takeaway'),
       orderType,
       splitPayments: activeSplit,
-      usedLoyaltyPoints: loyaltyDiscount
+      usedLoyaltyPoints: loyaltyDiscount,
+      supervisorAuthStamp: supervisorStamp
     });
 
     if (saleRecord) {
@@ -5780,6 +5823,25 @@ export const POSTerminal = () => {
           onClose={() => setShowAttendanceQrModal(false)}
           employees={employees}
           defaultTab="scan_id"
+        />
+      )}
+
+      {/* SUPERVISOR HIGH-SECURITY AUTHORIZATION PIN MODAL */}
+      {supervisorAuthReq && (
+        <SupervisorAuthModal
+          isOpen={Boolean(supervisorAuthReq)}
+          onClose={() => setSupervisorAuthReq(null)}
+          actionType={supervisorAuthReq.actionType}
+          actionTitle={supervisorAuthReq.title}
+          actionDesc={supervisorAuthReq.desc}
+          amount={supervisorAuthReq.amount}
+          lang={lang}
+          businessSettings={businessSettings}
+          onAuthorized={(stamp) => {
+            const cb = supervisorAuthReq.onApproved;
+            setSupervisorAuthReq(null);
+            cb?.(stamp);
+          }}
         />
       )}
     </div>

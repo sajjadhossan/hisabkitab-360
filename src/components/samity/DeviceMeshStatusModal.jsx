@@ -8,15 +8,12 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
-  CheckCircle2,
   Clock,
-  Sparkles,
   Zap,
-  Radio,
-  Wifi
+  Database
 } from 'lucide-react';
 import { getSomitiTelegramConfig, backupToTelegram } from '../../services/somitiTelegramBackupService';
-import { isLiveSyncConnected, getOnlineTerminalsList } from '../../services/liveSyncService';
+import { getStorageQuotaHealth } from '../../services/somitiOfflineStore';
 import { detectDeviceType } from '../../services/deviceManagerService';
 import {
   subscribeSamityCloudSync,
@@ -28,12 +25,166 @@ import {
   format12HourDateTime
 } from '../../services/somitiCloudSyncService';
 
+function matchesPlatform(platformId, itemPlatform) {
+  const target = String(itemPlatform || '').toLowerCase();
+  if (platformId === 'apk') return target.includes('android') || target.includes('mobile') || target.includes('apk');
+  if (platformId === 'pc') return target.includes('windows') || target.includes('pc') || target.includes('desktop');
+  if (platformId === 'web') return target === 'web' || target.includes('browser');
+  if (platformId === 'mac') return target.includes('mac') || target.includes('apple') || target.includes('ios');
+  return false;
+}
+
+const PLATFORMS = [
+  {
+    id: 'apk',
+    name: 'Android APK',
+    titleBn: 'অ্যান্ড্রয়েড মোবাইল অ্যাপ',
+    icon: <Smartphone size={24} color="#10b981" />,
+    tag: 'com.hisabkitab360.app',
+    desc: 'ক্যাপাসিটর নেটিভ ইঞ্জিন, অফলাইন ক্যাশিং ও তাৎক্ষণিক পুশ সিঙ্ক'
+  },
+  {
+    id: 'pc',
+    name: 'Windows PC App',
+    titleBn: 'উইন্ডোজ পিসি ডেস্কটপ',
+    icon: <Monitor size={24} color="#0284c7" />,
+    tag: 'Desktop Host / .exe',
+    desc: 'ক্যাশ কাউন্টার, থার্মাল পিওএস প্রিন্টিং ও লোকালহোস্ট নোড'
+  },
+  {
+    id: 'web',
+    name: 'Web App',
+    titleBn: 'ভার্সেল ক্লাউড ওয়েব',
+    icon: <Globe size={24} color="#8b5cf6" />,
+    tag: 'hisabkitab360.vercel.app',
+    desc: 'বিশ্বের যেকোনো প্রান্ত থেকে রিয়েল-টাইম ব্রাউজার অ্যাক্সেস'
+  },
+  {
+    id: 'mac',
+    name: 'Apple macOS / iOS',
+    titleBn: 'ম্যাক ওএস ও অ্যাপল ইকোসিস্টেম',
+    icon: <Apple size={24} color="#f59e0b" />,
+    tag: 'Intel & Apple Silicon M-Series',
+    desc: 'রেটিনা আল্ট্রা-এইচডি ডিসপ্লে কমপ্লায়েন্ট মাল্টি-প্ল্যাটফর্ম শেল'
+  }
+];
+
+function getMeshBannerBg(totalOnlineCount, isLight) {
+  if (totalOnlineCount > 1) {
+    return isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.15)';
+  }
+  return isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.5)';
+}
+
+function getMeshBannerBorder(totalOnlineCount, isLight) {
+  if (totalOnlineCount > 1) {
+    return '1.5px solid #10b981';
+  }
+  return isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)';
+}
+
+function getMeshBannerTextColor(totalOnlineCount, isLight) {
+  if (totalOnlineCount > 1) {
+    return '#10b981';
+  }
+  return isLight ? '#0f172a' : '#f8fafc';
+}
+
+function PlatformMeshCard({ platform, isLight, currentPlatform, origin, onlineDevices, t }) {
+  const isThisDevice = matchesPlatform(platform.id, origin.platform) || matchesPlatform(platform.id, origin.type) || (currentPlatform === platform.id);
+  const remotePeers = onlineDevices.filter(d => !d.isThis && (matchesPlatform(platform.id, d.platform) || matchesPlatform(platform.id, d.type)));
+  const isRemoteOnline = remotePeers.length > 0;
+  const isAnyActive = isThisDevice || isRemoteOnline;
+
+  let cardBg = isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.6)';
+  if (isAnyActive) {
+    cardBg = isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.12)';
+  }
+
+  let cardBorder = isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.08)';
+  if (isAnyActive) {
+    cardBorder = '1.5px solid #10b981';
+  }
+
+  let badge = (
+    <span style={{ fontSize: '0.62rem', fontWeight: '800', background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)', color: isLight ? '#64748b' : '#94a3b8', padding: '2px 7px', borderRadius: '8px' }}>
+      ⚪ {t('স্ট্যান্ডবাই (রেডি)', 'Standby (Ready)')}
+    </span>
+  );
+
+  if (isThisDevice && isRemoteOnline) {
+    badge = (
+      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+        {t('এই ডিভাইস + ১টি অনলাইন', 'This Device + 1 Online')}
+      </span>
+    );
+  } else if (isThisDevice) {
+    badge = (
+      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+        {t('এই ডিভাইস (সক্রিয়)', 'This Device (Active)')}
+      </span>
+    );
+  } else if (isRemoteOnline) {
+    badge = (
+      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', boxShadow: '0 0 8px rgba(16, 185, 129, 0.4)' }}>
+        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+        {t('🟢 অনলাইন ও লাইভ সংযুক্ত', '🟢 Online & Live Synced')}
+      </span>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        background: cardBg,
+        border: cardBorder,
+        borderRadius: '14px',
+        padding: '14px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        boxShadow: isAnyActive ? '0 4px 14px rgba(16, 185, 129, 0.18)' : 'none',
+        transition: 'all 0.25s ease'
+      }}
+    >
+      <div
+        style={{
+          width: '42px',
+          height: '42px',
+          borderRadius: '10px',
+          background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: isAnyActive ? '1.5px solid #10b981' : '1px solid rgba(0,0,0,0.06)',
+          flexShrink: 0
+        }}
+      >
+        {platform.icon}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>
+            {platform.name}
+          </span>
+          {badge}
+        </div>
+        <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {platform.tag}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samityData = {}, showToast = null, t = (bn) => bn }) => {
   const [telegramConfig, setTelegramConfig] = useState(getSomitiTelegramConfig());
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isMeshSyncing, setIsMeshSyncing] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState('web');
-  const [liveConnected, setLiveConnected] = useState(true);
   const [onlineDevices, setOnlineDevices] = useState(() => getOnlineDevicesList());
   const [meshState, setMeshState] = useState(() => ({
     status: 'connected',
@@ -41,11 +192,16 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
     lastSyncTime: typeof window !== 'undefined' ? (Number(localStorage.getItem('somiti360_last_sync_timestamp')) || 0) : 0
   }));
 
+  const [storageHealth, setStorageHealth] = useState({ healthy: true, usedMB: '0.00', totalMB: 'N/A' });
+
   useEffect(() => {
     if (isOpen) {
       setTelegramConfig(getSomitiTelegramConfig());
-      setLiveConnected(isLiveSyncConnected());
       setCurrentPlatform(detectDeviceType());
+
+      getStorageQuotaHealth().then(h => {
+        if (h) setStorageHealth(h);
+      }).catch(() => {});
       
       const unsubSync = subscribeSamityCloudSync((s) => {
         setMeshState(s);
@@ -68,6 +224,8 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const origin = getDeviceOrigin();
 
   const handleInstantMeshSync = async () => {
     setIsMeshSyncing(true);
@@ -110,91 +268,49 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
     }
   };
 
-  // Strictly 12-Hour format (AM / PM)
   const formatTimestamp = (isoOrTs) => {
     if (!isoOrTs) return t('এখনো কোনো ব্যাকআপ পাঠানো হয়নি', 'No backup sent yet');
     return format12HourDateTime(isoOrTs, t('bn', 'en'));
   };
 
-  // Strictly 12-Hour formatted scan time with relative indicator
-  const formatRelativeSyncTime = (timestamp) => {
-    if (!timestamp) return t('এখনো কোনো স্ক্যান হয়নি', 'No scan yet');
-    const exact12 = format12HourTime(timestamp, t('bn', 'en'));
-    const diffMs = Date.now() - timestamp;
-    if (diffMs < 5000) return `${exact12} - ${t('এইমাত্র', 'Just now')}`;
-    if (diffMs < 60000) return `${exact12} (${Math.floor(diffMs / 1000)} ${t('সেকেন্ড পূর্বে', 's ago')})`;
-    if (diffMs < 3600000) return `${exact12} (${Math.floor(diffMs / 60000)} ${t('মিনিট পূর্বে', 'm ago')})`;
-    return exact12;
-  };
-
-  const origin = getDeviceOrigin();
-
-  const matchesPlatform = (platformId, itemPlatform) => {
-    const target = String(itemPlatform || '').toLowerCase();
-    if (platformId === 'apk') return target.includes('android') || target.includes('mobile') || target.includes('apk');
-    if (platformId === 'pc') return target.includes('windows') || target.includes('pc') || target.includes('desktop');
-    if (platformId === 'web') return target === 'web' || target.includes('browser');
-    if (platformId === 'mac') return target.includes('mac') || target.includes('apple') || target.includes('ios');
-    return false;
-  };
-
-  const platforms = [
-    {
-      id: 'apk',
-      name: 'Android APK',
-      titleBn: 'অ্যান্ড্রয়েড মোবাইল অ্যাপ',
-      icon: <Smartphone size={24} color="#10b981" />,
-      tag: 'com.hisabkitab360.app',
-      desc: 'ক্যাপাসিটর নেটিভ ইঞ্জিন, অফলাইন ক্যাশিং ও তাৎক্ষণিক পুশ সিঙ্ক'
-    },
-    {
-      id: 'pc',
-      name: 'Windows PC App',
-      titleBn: 'উইন্ডোজ পিসি ডেস্কটপ',
-      icon: <Monitor size={24} color="#0284c7" />,
-      tag: 'Desktop Host / .exe',
-      desc: 'ক্যাশ কাউন্টার, থার্মাল পিওএস প্রিন্টিং ও লোকালহোস্ট নোড'
-    },
-    {
-      id: 'web',
-      name: 'Web App',
-      titleBn: 'ভার্সেল ক্লাউড ওয়েব',
-      icon: <Globe size={24} color="#8b5cf6" />,
-      tag: 'hisabkitab360.vercel.app',
-      desc: 'বিশ্বের যেকোনো প্রান্ত থেকে রিয়েল-টাইম ব্রাউজার অ্যাক্সেস'
-    },
-    {
-      id: 'mac',
-      name: 'Apple macOS / iOS',
-      titleBn: 'ম্যাক ওএস ও অ্যাপল ইকোসিস্টেম',
-      icon: <Apple size={24} color="#f59e0b" />,
-      tag: 'Intel & Apple Silicon M-Series',
-      desc: 'রেটিনা আল্ট্রা-এইচডি ডিসপ্লে কমপ্লায়েন্ট মাল্টি-প্ল্যাটফর্ম শেল'
-    }
-  ];
-
   const totalOnlineCount = Math.max(1, onlineDevices.length);
+  const bannerBg = getMeshBannerBg(totalOnlineCount, isLight);
+  const bannerBorder = getMeshBannerBorder(totalOnlineCount, isLight);
+  const bannerTextColor = getMeshBannerTextColor(totalOnlineCount, isLight);
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('৪টি প্ল্যাটফর্ম লাইভ সিঙ্ক স্ট্যাটাস', 'Cross-Platform Mesh Status')}
+      tabIndex={-1}
+      className="somiti-modal-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(8px)',
+        background: 'rgba(0, 0, 0, 0.78)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px'
+        padding: 'max(12px, env(safe-area-inset-top, 12px)) max(12px, env(safe-area-inset-right, 12px)) max(16px, env(safe-area-inset-bottom, 16px)) max(12px, env(safe-area-inset-left, 12px))',
+        boxSizing: 'border-box'
       }}
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
     >
       <div
+        role="document"
+        tabIndex={0}
+        className="somiti-modal-card"
         style={{
           width: '100%',
           maxWidth: '680px',
-          maxHeight: '90vh',
+          maxHeight: 'calc(100dvh - 32px)',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           background: isLight ? '#ffffff' : '#0f172a',
@@ -206,6 +322,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
           color: isLight ? '#0f172a' : '#f8fafc'
         }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '16px', marginBottom: '16px' }}>
@@ -226,24 +343,27 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
               <Zap size={22} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{t('লাইভ ক্রস-প্ল্যাটফর্ম ডিভাইস মেশ', 'Live Cross-Platform Device Mesh')}</span>
-                <span style={{ fontSize: '0.65rem', background: '#dcfce7', color: '#15803d', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
-                  🟢 {t('৪টি প্ল্যাটফর্ম সিঙ্কড', '4 Platforms Synced')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '900', color: isLight ? '#0f172a' : '#f8fafc' }}>
+                  {t('৪-প্ল্যাটফর্ম লাইভ মেশ সিঙ্ক স্থিতি', '4-Platform Live Mesh Sync Status')}
+                </h3>
+                <span style={{ fontSize: '0.62rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', padding: '1px 6px', borderRadius: '6px' }}>
+                  PRO ⚡
                 </span>
-              </h3>
-              <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: isLight ? '#64748b' : '#94a3b8' }}>
-                {t('একটি ডিভাইসে কোনো হিসাব বা তথ্য লিখলে নিমিষেই অন্য সমস্ত ডিভাইসে লাইভ আপডেট হয়ে যায়।', 'Write on one terminal, updates instantaneously across all devices with zero refresh.')}
+              </div>
+              <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: isLight ? '#475569' : '#cbd5e1' }}>
+                {t('Android APK • Windows PC • Cloud Web • Apple macOS', 'Android APK • Windows PC • Cloud Web • Apple macOS')}
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
+            aria-label={t('বন্ধ করুন', 'Close')}
             style={{
-              background: isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.08)',
+              background: 'transparent',
               border: 'none',
-              borderRadius: '50%',
+              borderRadius: '8px',
               width: '32px',
               height: '32px',
               display: 'flex',
@@ -263,8 +383,8 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: totalOnlineCount > 1 ? (isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.15)') : (isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.5)'),
-            border: totalOnlineCount > 1 ? '1.5px solid #10b981' : (isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)'),
+            background: bannerBg,
+            border: bannerBorder,
             borderRadius: '14px',
             padding: '12px 16px',
             marginBottom: '16px',
@@ -275,7 +395,7 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '1.3rem' }}>{totalOnlineCount > 1 ? '🌐' : '📡'}</span>
             <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: '900', color: totalOnlineCount > 1 ? '#10b981' : (isLight ? '#0f172a' : '#f8fafc') }}>
+              <div style={{ fontSize: '0.86rem', fontWeight: '900', color: bannerTextColor }}>
                 {totalOnlineCount > 1 
                   ? t(`মোট ${totalOnlineCount}টি ডিভাইস লাইভ মেশে সরাসরি সংযুক্ত!`, `${totalOnlineCount} terminals actively connected on live mesh!`)
                   : t('১টি টার্মিনাল প্রস্তুত (অন্য ডিভাইস ওপেন করলেই সাথে সাথে এখানে দৃশ্যমান হবে)', '1 terminal active (other devices connect in real-time when opened)')}
@@ -308,80 +428,17 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
 
         {/* 1. Synced Device Grid with Dynamic Presence Detection */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '14px' }}>
-          {platforms.map(p => {
-            const isThisDevice = matchesPlatform(p.id, origin.platform) || matchesPlatform(p.id, origin.type) || (currentPlatform === p.id);
-            const remotePeers = onlineDevices.filter(d => !d.isThis && (matchesPlatform(p.id, d.platform) || matchesPlatform(p.id, d.type)));
-            const isRemoteOnline = remotePeers.length > 0;
-            const isAnyActive = isThisDevice || isRemoteOnline;
-
-            return (
-              <div
-                key={p.id}
-                style={{
-                  background: isLight 
-                    ? (isAnyActive ? '#f0fdf4' : '#f8fafc') 
-                    : (isAnyActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(30, 41, 59, 0.6)'),
-                  border: isLight 
-                    ? (isAnyActive ? '1.5px solid #10b981' : '1px solid #e2e8f0') 
-                    : (isAnyActive ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)'),
-                  borderRadius: '14px',
-                  padding: '14px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  boxShadow: isAnyActive ? '0 4px 14px rgba(16, 185, 129, 0.18)' : 'none',
-                  transition: 'all 0.25s ease'
-                }}
-              >
-                <div
-                  style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '10px',
-                    background: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: isAnyActive ? '1.5px solid #10b981' : '1px solid rgba(0,0,0,0.06)',
-                    flexShrink: 0
-                  }}
-                >
-                  {p.icon}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: isLight ? '#0f172a' : '#f8fafc' }}>
-                      {p.name}
-                    </span>
-                    {isThisDevice && isRemoteOnline ? (
-                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                        {t('এই ডিভাইস + ১টি অনলাইন', 'This Device + 1 Online')}
-                      </span>
-                    ) : isThisDevice ? (
-                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                        {t('এই ডিভাইস (সক্রিয়)', 'This Device (Active)')}
-                      </span>
-                    ) : isRemoteOnline ? (
-                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '2px 7px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', boxShadow: '0 0 8px rgba(16, 185, 129, 0.4)' }}>
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                        {t('🟢 অনলাইন ও লাইভ সংযুক্ত', '🟢 Online & Live Synced')}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: '0.62rem', fontWeight: '800', background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)', color: isLight ? '#64748b' : '#94a3b8', padding: '2px 7px', borderRadius: '8px' }}>
-                        ⚪ {t('স্ট্যান্ডবাই (রেডি)', 'Standby (Ready)')}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {p.tag}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {PLATFORMS.map(p => (
+            <PlatformMeshCard
+              key={p.id}
+              platform={p}
+              isLight={isLight}
+              currentPlatform={currentPlatform}
+              origin={origin}
+              onlineDevices={onlineDevices}
+              t={t}
+            />
+          ))}
         </div>
 
         {/* Real-time Architecture Notice */}
@@ -435,6 +492,36 @@ export const DeviceMeshStatusModal = ({ isOpen, onClose, isLight = false, samity
               <RefreshCw size={13} className={isMeshSyncing ? 'animate-spin' : ''} />
               <span>{isMeshSyncing ? t('স্ক্যান হচ্ছে...', 'Scanning...') : t('লাইভ স্ক্যান ও সিঙ্ক', 'Live Scan & Sync')}</span>
             </button>
+          </div>
+        </div>
+
+        {/* 2.5 IndexedDB Durable Offline Store & Idempotency Engine */}
+        <div
+          style={{
+            background: isLight ? '#faf5ff' : 'linear-gradient(135deg, rgba(147, 51, 234, 0.12), rgba(15, 23, 42, 0.8))',
+            border: isLight ? '1.5px solid #a855f7' : '1.5px solid rgba(168, 85, 247, 0.35)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            marginBottom: '14px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc' }}>
+                <Database size={20} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: '900', color: isLight ? '#7e22ce' : '#c084fc' }}>
+                  {t('ইনডেক্সড-ডিবি অফলাইন স্টোরেজ ও আইডেমপোটেন্সি কি', 'IndexedDB Offline Resilience & Idempotency Key')}
+                </h4>
+                <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
+                  {t('ব্যবহৃত মেমরি:', 'Used Storage:')} <strong style={{ color: '#a855f7' }}>{storageHealth.usedMB} MB</strong> {storageHealth.totalMB !== 'N/A' && `(${storageHealth.totalMB} MB কোটা)`} | {t('স্ট্যাটাস: ৫MB লিমিটলেস ও জিরো-লস সুরক্ষাপ্রাপ্ত', 'Status: Zero-loss protected')}
+                </p>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.68rem', fontWeight: '800', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.4)', padding: '4px 10px', borderRadius: '12px' }}>
+              🛡️ {t('নন-ব্লকিং অফলাইন ইঞ্জিন', 'Non-Blocking Engine')}
+            </span>
           </div>
         </div>
 

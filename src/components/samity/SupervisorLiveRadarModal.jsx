@@ -16,15 +16,21 @@ import {
 export const SupervisorLiveRadarModal = ({
   isOpen,
   onClose,
-  data = {},
-  onUpdateData,
+  data: propData,
+  samityData,
+  onUpdateData: propOnUpdateData,
+  onUpdateSamityData,
   isLight = false,
   activeLang = 'bn',
-  currentStaffName = 'সুপারভাইজার'
+  currentStaffName = 'সুপারভাইজার',
+  showToast,
+  t: propT
 }) => {
   if (!isOpen) return null;
 
-  const t = (bn, en) => (activeLang === 'bn' ? bn : en);
+  const data = samityData || propData || {};
+  const onUpdateData = onUpdateSamityData || propOnUpdateData;
+  const t = (bn, en) => (propT ? propT(bn, en) : (activeLang === 'bn' ? bn : en));
 
   // Filter & Search states
   const [filterTab, setFilterTab] = useState('all'); // 'all' | 'pending' | 'verified'
@@ -35,6 +41,7 @@ export const SupervisorLiveRadarModal = ({
   const [onlineDevices, setOnlineDevices] = useState(() => getOnlineDevicesList());
   const [radarPulseAnim, setRadarPulseAnim] = useState(false);
   const [highlightedDepositId, setHighlightedDepositId] = useState(null);
+  const [isBatchConfirmOpen, setIsBatchConfirmOpen] = useState(false);
 
   const prevDepositsCountRef = useRef(data?.deposits?.length || 0);
 
@@ -199,19 +206,18 @@ export const SupervisorLiveRadarModal = ({
   const handleBatchVerifyAll = () => {
     const pendingIds = depositsList.filter((d) => !d.isVerifiedBySupervisor).map((d) => d.id);
     if (pendingIds.length === 0) return;
+    playButtonClick?.();
+    setIsBatchConfirmOpen(true);
+  };
 
-    if (
-      !window.confirm(
-        t(
-          `আপনি কি নিশ্চিত যে সকল পেন্ডিং (${pendingIds.length}টি) কিস্তি কালেকশন অনুমোদন ও ভেরিফাই করতে চান?`,
-          `Are you sure you want to approve & verify all pending (${pendingIds.length}) collections?`
-        )
-      )
-    ) {
+  const executeBatchVerify = () => {
+    playButtonClick?.();
+    const pendingIds = depositsList.filter((d) => !d.isVerifiedBySupervisor).map((d) => d.id);
+    if (pendingIds.length === 0) {
+      setIsBatchConfirmOpen(false);
       return;
     }
 
-    playButtonClick?.();
     const origin = getDeviceOrigin();
     const supervisor = currentStaffName || 'অ্যাডমিন/সুপারভাইজার';
     const now = Date.now();
@@ -245,6 +251,7 @@ export const SupervisorLiveRadarModal = ({
     });
 
     playSuccessChime?.();
+    setIsBatchConfirmOpen(false);
   };
 
   // Toggle audio radar
@@ -854,6 +861,83 @@ export const SupervisorLiveRadarModal = ({
             {t('বন্ধ করুন', 'Close')}
           </button>
         </div>
+
+        {/* Custom Confirmation Modal for Batch Verification */}
+        {isBatchConfirmOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <div
+              style={{
+                background: isLight ? '#ffffff' : '#1e293b',
+                border: isLight ? '1px solid #cbd5e1' : '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                padding: '24px',
+                maxWidth: '440px',
+                width: '100%',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+                textAlign: 'center'
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>⚡</div>
+              <h3 style={{ margin: '0 0 8px', fontSize: '1.15rem', fontWeight: '900', color: isLight ? '#0f172a' : '#ffffff' }}>
+                {t('সকল কালেকশন এক ক্লিকে অনুমোদন?', 'Approve All Collections?')}
+              </h3>
+              <p style={{ margin: '0 0 20px', fontSize: '0.84rem', color: isLight ? '#475569' : '#94a3b8', lineHeight: '1.5' }}>
+                {t(
+                  `আপনি কি নিশ্চিত যে সকল পেন্ডিং (${kpis.pendingCount}টি) কিস্তি কালেকশন ডিজিটাল সুপারভাইজার অডিট স্ট্যাম্পসহ অনুমোদন ও ভেরিফাই করতে চান?`,
+                  `Are you sure you want to verify all pending (${kpis.pendingCount}) collections with digital supervisor audit stamp?`
+                )}
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsBatchConfirmOpen(false)}
+                  style={{
+                    background: isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.08)',
+                    color: isLight ? '#475569' : '#cbd5e1',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t('বাতিল', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={executeBatchVerify}
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  ✓ {t('হ্যাঁ, অনুমোদন করুন', 'Yes, Approve All')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
