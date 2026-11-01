@@ -219,7 +219,11 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
 
       if (activeFilter === 'receivable') return stats.isReceivable;
       if (activeFilter === 'top_debtors') return stats.isReceivable && stats.netBalance > 0;
-      if (activeFilter === 'payable') return stats.isPayable;
+      if (activeFilter === 'supplier') {
+      const rel = (person.relation || '').toLowerCase();
+      return rel.includes('সাপ্লায়ার') || rel.includes('মহাজন') || rel.includes('পাইকার') || rel.includes('কোম্পানি') || rel.includes('supplier');
+    }
+    if (activeFilter === 'payable') return stats.isPayable;
       if (activeFilter === 'settled') return stats.isSettled;
       if (activeFilter === 'overdue') return stats.hasOverdue;
 
@@ -1024,6 +1028,7 @@ export const DebtKhataManager = ({ profile: currentProfile }) => {
             { id: 'all', label: lang === 'bn' ? 'সকল খাতা' : 'All', count: debtList.length },
             { id: 'top_debtors', label: lang === 'bn' ? '🚨 বড় বাকিদার' : 'Top Debtors', badgeColor: '#f43f5e' },
             { id: 'receivable', label: lang === 'bn' ? 'আমি পাবো' : 'Receivable', badgeColor: '#10b981' },
+            { id: 'supplier', label: lang === 'bn' ? '🏭 সাপ্লায়ার/মহাজন বাকি' : 'Suppliers', badgeColor: '#8b5cf6' },
             { id: 'payable', label: lang === 'bn' ? 'আমি দেবো' : 'Payable', badgeColor: '#f43f5e' },
             { id: 'settled', label: lang === 'bn' ? 'পরিশোধিত' : 'Settled' },
             { id: 'overdue', label: lang === 'bn' ? 'মেয়াদোত্তীর্ণ' : 'Overdue', badgeColor: '#eab308' }

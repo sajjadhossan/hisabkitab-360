@@ -25,6 +25,53 @@ let isConnected = false;
 let presenceState = {};
 let localDeviceMeta = null;
 let presenceHeartbeatInterval = null;
+let reconnectTimer = null;
+let reconnectAttempts = 0;
+const broadcastOutboxQueue = [];
+let isFlushingOutbox = false;
+
+// Network online auto-recovery listener
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.debug('[LiveSync] Network restored (online event). Initiating channel reconnect...');
+    reconnectAttempts = 0;
+    scheduleAutoReconnect(500);
+  });
+}
+
+const scheduleAutoReconnect = (delayMs = 3000) => {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    const maxBackoff = Math.min(30000, delayMs * Math.pow(1.5, reconnectAttempts));
+    console.debug(`[LiveSync] Auto-reconnecting live sync channel (attempt #${reconnectAttempts + 1})...`);
+    reconnectAttempts++;
+    reconnectLiveSyncChannel();
+  }, delayMs);
+};
+
+const flushBroadcastOutbox = async () => {
+  if (isFlushingOutbox || !activeChannel || !isConnected || broadcastOutboxQueue.length === 0) return;
+  isFlushingOutbox = true;
+  try {
+    while (broadcastOutboxQueue.length > 0 && isConnected && activeChannel) {
+      const item = broadcastOutboxQueue[0];
+      try {
+        await activeChannel.send({
+          type: 'broadcast',
+          event: 'business_event',
+          payload: item
+        });
+        broadcastOutboxQueue.shift();
+      } catch (err) {
+        console.warn('[LiveSync] Outbox broadcast retry deferred:', err);
+        break;
+      }
+    }
+  } finally {
+    isFlushingOutbox = false;
+  }
+};
 
 
 /**
@@ -192,6 +239,7 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
     activeChannel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         isConnected = true;
+        reconnectAttempts = 0;
         console.debug('[LiveSync] ✓ Realtime WebSocket Hub Connected.');
         notifyStatusChange(true);
 
@@ -200,6 +248,9 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
         } catch (trackErr) {
           console.debug('[LiveSync] Presence track notice:', trackErr);
         }
+
+        // Flush any broadcasts queued while offline/disconnected
+        flushBroadcastOutbox();
 
         if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
         presenceHeartbeatInterval = setInterval(async () => {
@@ -216,6 +267,8 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
           presenceHeartbeatInterval = null;
         }
         notifyStatusChange(false);
+        // Automatic watchdog reconnect with exponential backoff
+        scheduleAutoReconnect(3000);
       }
     });
 
@@ -224,6 +277,7 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
     console.warn('[LiveSync] Realtime channel setup failed:', err);
     isConnected = false;
     notifyStatusChange(false);
+    scheduleAutoReconnect(5000);
     return null;
   }
 };
@@ -232,34 +286,41 @@ export const initLiveSyncChannel = (terminalMeta = {}) => {
  * Broadcast an instant live event to all other connected terminals
  */
 export const broadcastLiveEvent = async (eventType, data = {}) => {
-  if (!activeChannel || !isConnected) {
-    initLiveSyncChannel();
-  }
-
-  if (!activeChannel || !isConnected) {
-    return false;
-  }
-
   const deviceId = getLocalDeviceId();
   const currentTenant = data?.tenantKey || getActiveTenantKey();
   const enrichedData = (data && typeof data === 'object') ? { ...data, tenantKey: currentTenant } : { data, tenantKey: currentTenant };
+
+  const payload = {
+    eventType,
+    data: enrichedData,
+    tenantKey: currentTenant,
+    senderDeviceId: deviceId,
+    senderCounter: localDeviceMeta?.counterName || 'কাউন্টার',
+    timestamp: Date.now()
+  };
+
+  if (!activeChannel || !isConnected) {
+    // Queue in memory outbox so event is NOT lost while reconnecting
+    if (broadcastOutboxQueue.length < 100) {
+      broadcastOutboxQueue.push(payload);
+    }
+    initLiveSyncChannel();
+    return true; // Accepted for queued delivery
+  }
 
   try {
     await activeChannel.send({
       type: 'broadcast',
       event: 'business_event',
-      payload: {
-        eventType,
-        data: enrichedData,
-        tenantKey: currentTenant,
-        senderDeviceId: deviceId,
-        senderCounter: localDeviceMeta?.counterName || 'কাউন্টার',
-        timestamp: Date.now()
-      }
+      payload
     });
     return true;
   } catch (err) {
-    console.debug('[LiveSync] Broadcast send failed:', err);
+    console.debug('[LiveSync] Broadcast send failed, buffering in outbox:', err);
+    if (broadcastOutboxQueue.length < 100) {
+      broadcastOutboxQueue.push(payload);
+    }
+    scheduleAutoReconnect(1500);
     return false;
   }
 };

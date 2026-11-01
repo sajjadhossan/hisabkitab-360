@@ -258,6 +258,10 @@ export const DeviceStatusIndicator = () => {
   const activeUserEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_user_account') : '') || 'hossansajjad1994@gmail.com';
   const driveAccount = (typeof window !== 'undefined' ? localStorage.getItem('hk360_connected_drive_account') : '') || activeUserEmail;
 
+  // Resolved device identities and registry safe fallback
+  const currentType = currentDevice?.type || 'pc';
+  const registry = deviceRegistry || {};
+
   // Helper: Check if a platform has an active live peer on mesh
   const isPlatformOnline = (platType) => {
     if (currentType === platType) return true;

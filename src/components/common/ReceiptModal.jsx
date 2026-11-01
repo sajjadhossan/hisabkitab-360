@@ -348,6 +348,18 @@ export const ReceiptModal = () => {
                     <span>-৳{activeReceipt.discount.toLocaleString()}</span>
                   </div>
                 )}
+                {Number(activeReceipt.usedLoyaltyPoints) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ec4899', fontWeight: '700' }}>
+                    <span>🎁 {lang === 'bn' ? 'লয়ালটি রিওয়ার্ড ছাড়:' : 'Loyalty Discount:'}</span>
+                    <span>-৳{Number(activeReceipt.usedLoyaltyPoints).toLocaleString()}</span>
+                  </div>
+                )}
+                {Number(activeReceipt.pointsEarned) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8b5cf6', fontWeight: '600', fontSize: '10px' }}>
+                    <span>⭐ {lang === 'bn' ? 'এই মেমোতে অর্জিত পয়েন্ট:' : 'Points Earned:'}</span>
+                    <span>+{Number(activeReceipt.pointsEarned)} pts</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>{t.business.vatTax} ({businessSettings.vatRate}%):</span>
                   <span>+৳{activeReceipt.vat.toLocaleString()}</span>

@@ -14,7 +14,8 @@ import { getLocalDeviceId, broadcastLiveEvent, subscribeLiveSync } from './liveS
 export const DEVICE_TYPES = {
   MOBILE: 'mobile',
   PC: 'pc',
-  WEB: 'web'
+  WEB: 'web',
+  MAC: 'mac'
 };
 
 const STORAGE_KEYS = {
@@ -71,7 +72,8 @@ export const detectDeviceType = () => {
 export const DEFAULT_DEVICE_NAMES = {
   [DEVICE_TYPES.PC]: 'পিসি ডেস্কটপ (ক্যাশ কাউন্টার)',
   [DEVICE_TYPES.MOBILE]: 'মোবাইল অ্যাপ (অ্যান্ড্রয়েড)',
-  [DEVICE_TYPES.WEB]: 'ভার্সেল ওয়েব অ্যাপ (অনলাইন শাখা)'
+  [DEVICE_TYPES.WEB]: 'ভার্সেল ওয়েব অ্যাপ (অনলাইন শাখা)',
+  [DEVICE_TYPES.MAC]: 'অ্যাপল ম্যাকবুক (ম্যাকওএস)'
 };
 
 /**
@@ -98,6 +100,13 @@ export const DEVICE_METADATA = {
     icon: '🌐',
     color: '#8b5cf6',
     badgeClass: 'badge-web'
+  },
+  [DEVICE_TYPES.MAC]: {
+    id: DEVICE_TYPES.MAC,
+    label: 'অ্যাপল ম্যাকবুক',
+    icon: '🍎',
+    color: '#a855f7',
+    badgeClass: 'badge-mac'
   }
 };
 
@@ -183,6 +192,17 @@ export const getDeviceRegistry = () => {
       isCurrent: currentType === DEVICE_TYPES.WEB,
       isOnline: currentType === DEVICE_TYPES.WEB,
       lastActive: currentType === DEVICE_TYPES.WEB ? new Date().toISOString() : null,
+      userEmail: '',
+      driveAccount: ''
+    },
+    [DEVICE_TYPES.MAC]: {
+      type: DEVICE_TYPES.MAC,
+      name: getDeviceName(DEVICE_TYPES.MAC),
+      icon: '🍎',
+      color: '#a855f7',
+      isCurrent: currentType === DEVICE_TYPES.MAC,
+      isOnline: currentType === DEVICE_TYPES.MAC,
+      lastActive: currentType === DEVICE_TYPES.MAC ? new Date().toISOString() : null,
       userEmail: '',
       driveAccount: ''
     }

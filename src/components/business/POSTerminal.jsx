@@ -1,8 +1,11 @@
+import { BanglaQrPaymentModal } from '../pos/BanglaQrPaymentModal';
+import { safeJsonParse } from '../../utils/safeJson';
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { CounterShiftClosingModal } from '../pos/CounterShiftClosingModal';
 import { CounterShiftOpeningModal } from '../pos/CounterShiftOpeningModal';
+import { CounterExpenseModal } from '../pos/CounterExpenseModal';
 import { MobilePOSView } from '../pos/MobilePOSView';
 import { MasterPinModal } from '../admin/MasterPinModal';
 import confetti from 'canvas-confetti';
@@ -80,6 +83,8 @@ import { ThermalLabelPrinterModal } from '../pos/ThermalLabelPrinterModal';
 import { DigitalScaleModal } from '../pos/DigitalScaleModal';
 import { SupplierPurchaseOrderModal } from './SupplierPurchaseOrderModal';
 import { SalesReturnModal } from './SalesReturnModal';
+import { voucherService } from '../../services/voucherService';
+import { APP_VERSION_NAME, APP_DISPLAY_BADGE } from '../../config/version';
 import { MultiCartHoldTabs } from '../pos/MultiCartHoldTabs';
 import { QuickDiscountAndCouponModal } from '../pos/QuickDiscountAndCouponModal';
 import { FastVariantBatchModal } from '../pos/FastVariantBatchModal';
@@ -263,6 +268,7 @@ export const POSTerminal = () => {
     customers,
     businessSettings,
     openScanner,
+    openBarcodePrint,
     openInvoicePrint,
     setActiveReceipt,
     openCashDrawer,
@@ -347,6 +353,8 @@ export const POSTerminal = () => {
     }
   };
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showCounterExpenseModal, setShowCounterExpenseModal] = useState(false);
+  const [showBanglaQrModal, setShowBanglaQrModal] = useState(false);
   const [showVoiceBillingModal, setShowVoiceBillingModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [showSalesReturnModal, setShowSalesReturnModal] = useState(false);
@@ -699,6 +707,7 @@ export const POSTerminal = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash'); // cash | bkash | card | due
   const [discountAmount, setDiscountAmount] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [isPartialPayment, setIsPartialPayment] = useState(false);
   const [partialPaidInput, setPartialPaidInput] = useState('');
   const [mobileTab, setMobileTab] = useState('catalog'); // 'catalog' | 'cart'
@@ -1161,6 +1170,13 @@ export const POSTerminal = () => {
         return;
       }
 
+      // F12: Instant Counter Shift Closing & Cash Reconciliation (Z-Report)
+      if (e.key === 'F12') {
+        e.preventDefault();
+        setShowClosingModal(true);
+        return;
+      }
+
       // Alt+C: Quick Clear Cart with Undo
       if (e.altKey && e.key.toLowerCase() === 'c') {
         e.preventDefault();
@@ -1273,6 +1289,13 @@ export const POSTerminal = () => {
   const selectedCustomerObj = useMemo(() => customers.find(c => c.id === selectedCustomerId), [customers, selectedCustomerId]);
   const availableLoyaltyPoints = selectedCustomerObj?.loyaltyPoints || 0;
 
+  // Credit Limit Guard Calculations (Item 4)
+  const currentCustomerDue = Number(selectedCustomerObj?.outstandingDue) || 0;
+  const customerCreditLimit = Number(selectedCustomerObj?.creditLimit) || 20000;
+  const pendingDueInThisSale = (paymentMethod === 'due' || isPartialPayment) ? remainingDue : 0;
+  const projectedTotalDue = currentCustomerDue + pendingDueInThisSale;
+  const isCreditLimitExceeded = Boolean(selectedCustomerObj && pendingDueInThisSale > 0 && projectedTotalDue > customerCreditLimit);
+
   // Calculate totals
   const subtotal = cart.reduce((acc, item) => acc + (item.sellPrice * item.qty), 0);
   const totalCartCost = useMemo(() => {
@@ -1313,6 +1336,49 @@ export const POSTerminal = () => {
 
   const handleCheckout = (splitList = null) => {
     if (cart.length === 0) return;
+
+    const activeDueAmount = (paymentMethod === 'due' || isPartialPayment) ? remainingDue : 0;
+
+    // Guard: Prevent Walk-in customers from purchasing on credit
+    if (activeDueAmount > 0 && !selectedCustomerId) {
+      playWarningTone?.();
+      showToast(
+        lang === 'bn'
+          ? '⚠️ সাধারণ ক্রেতাকে (Walk-in) বাকিতে বিক্রি করা যাবে না! অনুগ্রহ করে কাস্টমার সিলেক্ট করুন।'
+          : '⚠️ Walk-in customers cannot purchase on credit! Select customer.',
+        'warning'
+      );
+      return;
+    }
+
+    // Guard: Customer Credit Limit Overflow Protection
+    const currentCustDue = Number(selectedCustomerObj?.outstandingDue) || 0;
+    const custLimit = Number(selectedCustomerObj?.creditLimit) || 20000;
+    const projectedDue = currentCustDue + activeDueAmount;
+
+    if (selectedCustomerObj && activeDueAmount > 0 && projectedDue > custLimit) {
+      if (!isOwner && !isSuperAdmin) {
+        setSupervisorAuthReq({
+          actionType: 'CREDIT_LIMIT_OVERFLOW',
+          title: lang === 'bn' ? '⚠️ বাকি সীমা অতিক্রম অনুমোদন' : 'Credit Limit Overflow Authorization',
+          desc: lang === 'bn'
+            ? `গ্রাহক ${selectedCustomerObj.name}-এর ক্রেডিট সীমা ৳${custLimit.toLocaleString()} অতিক্রম করে মোট বাকি ৳${projectedDue.toLocaleString()} হতে যাচ্ছে। এই বাকি বিক্রয় অনুমোদন করতে সুপারভাইজার বা মালিকের পিন লিখুন।`
+            : `Customer credit limit of ৳${custLimit} exceeded. Projected due is ৳${projectedDue}. Supervisor PIN required.`,
+          amount: projectedDue,
+          onApproved: (stamp) => {
+            executeCheckout(splitList, stamp);
+          }
+        });
+        return;
+      } else {
+        const approved = window.confirm(
+          lang === 'bn'
+            ? `⚠️ সতর্কতা: গ্রাহক ${selectedCustomerObj.name}-এর অনুমোদিত ক্রেডিট সীমা ৳${custLimit.toLocaleString()} অতিক্রম করে মোট বাকি ৳${projectedDue.toLocaleString()} হতে যাচ্ছে (অতিরিক্ত ৳${(projectedDue - custLimit).toLocaleString()})। আপনি কি বাকি বিক্রি নিশ্চিত করতে চান?`
+            : `Warning: Customer credit limit exceeded. Approve this credit sale?`
+        );
+        if (!approved) return;
+      }
+    }
 
     const posPerms = businessSettings?.posPermissions || {};
     const maxPercent = Number(posPerms.maxCashierDiscountPercent ?? 15);
@@ -1366,6 +1432,18 @@ export const POSTerminal = () => {
     });
 
     if (saleRecord) {
+      // Redeem applied exchange voucher / store credit
+      if (appliedVoucher) {
+        try {
+          const voucherRedeemAmt = Math.min(appliedVoucher.balance, Number(discountAmount) || 0);
+          if (voucherRedeemAmt > 0) {
+            voucherService.redeemVoucher(appliedVoucher.code, voucherRedeemAmt, saleRecord.id);
+          }
+        } catch (vErr) {
+          console.warn('Failed to redeem voucher:', vErr);
+        }
+        setAppliedVoucher(null);
+      }
       setLastCompletedSale(saleRecord);
       setShowSuccessModal(true);
 
@@ -1375,7 +1453,7 @@ export const POSTerminal = () => {
         if (soldLiveCows.length > 0) {
           const savedHerd = localStorage.getItem('hk360_cattle_herd_data');
           if (savedHerd) {
-            const herd = JSON.parse(savedHerd);
+            const herd = safeJsonParse(savedHerd, []);
             const updated = herd.map(c => {
               const match = soldLiveCows.find(sc => sc.cowId === c.id);
               if (match) {
@@ -1425,6 +1503,7 @@ export const POSTerminal = () => {
       });
     }
 
+    setAppliedVoucher(null);
     setDiscountAmount('');
     setIsPartialPayment(false);
     setPartialPaidInput('');
@@ -1457,6 +1536,14 @@ export const POSTerminal = () => {
           <CounterShiftClosingModal
             isOpen={showClosingModal}
             onClose={() => setShowClosingModal(false)}
+          />
+        )}
+
+        {/* Counter Petty Cash Expense Modal */}
+        {showCounterExpenseModal && (
+          <CounterExpenseModal
+            isOpen={showCounterExpenseModal}
+            onClose={() => setShowCounterExpenseModal(false)}
           />
         )}
 
@@ -1502,6 +1589,14 @@ export const POSTerminal = () => {
           <CounterShiftClosingModal
             isOpen={showClosingModal}
             onClose={() => setShowClosingModal(false)}
+          />
+        )}
+
+        {/* Counter Petty Cash Expense Modal */}
+        {showCounterExpenseModal && (
+          <CounterExpenseModal
+            isOpen={showCounterExpenseModal}
+            onClose={() => setShowCounterExpenseModal(false)}
           />
         )}
 
@@ -1559,6 +1654,7 @@ export const POSTerminal = () => {
           isShiftActive={isShiftActive}
           setShowClosingModal={setShowClosingModal}
           setShowOpeningModal={setShowOpeningModal}
+          setShowCounterExpenseModal={setShowCounterExpenseModal}
           onSwitchToDesktop={() => setForceDesktopMode(true)}
           quickFilters={quickFilters}
           orderType={orderType}
@@ -1577,6 +1673,14 @@ export const POSTerminal = () => {
           <CounterShiftClosingModal
             isOpen={showClosingModal}
             onClose={() => setShowClosingModal(false)}
+          />
+        )}
+
+        {/* Counter Petty Cash Expense Modal */}
+        {showCounterExpenseModal && (
+          <CounterExpenseModal
+            isOpen={showCounterExpenseModal}
+            onClose={() => setShowCounterExpenseModal(false)}
           />
         )}
 
@@ -1655,6 +1759,40 @@ export const POSTerminal = () => {
                 >
                   <FileText size={16} />
                   <span>{lang === 'bn' ? 'A4 ইনভয়েস' : 'A4 Invoice'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shopName = businessSettings?.companyName || 'আমার দোকান';
+                    const invNo = lastCompletedSale.invoiceNumber || lastCompletedSale.id;
+                    const cName = lastCompletedSale.customerName || (lastCompletedSale.customer?.name) || 'সম্মানিত ক্রেতা';
+                    const total = Number(lastCompletedSale.grandTotal || 0).toLocaleString();
+                    const paid = Number(lastCompletedSale.paidAmount || 0).toLocaleString();
+                    const due = Number(lastCompletedSale.dueAmount || 0).toLocaleString();
+                    let msg = '*' + shopName + '*\n' +
+                      '🧾 মেমো নং: #' + invNo + '\n' +
+                      '👤 ক্রেতা: ' + cName + '\n' +
+                      '💰 মোট বিল: ৳' + total + '\n' +
+                      '💵 পরিশোধ: ৳' + paid;
+                    if (Number(lastCompletedSale.dueAmount) > 0) {
+                      msg += '\n🔴 বকেয়া বাকি: ৳' + due;
+                    }
+                    if (Number(lastCompletedSale.usedLoyaltyPoints) > 0) {
+                      msg += '\n🎁 লয়ালটি রিওয়ার্ড ছাড়: -৳' + Number(lastCompletedSale.usedLoyaltyPoints).toLocaleString();
+                    }
+                    if (Number(lastCompletedSale.pointsEarned) > 0) {
+                      msg += '\n⭐ অর্জিত লয়ালটি পয়েন্ট: +' + lastCompletedSale.pointsEarned + ' pts';
+                    }
+                    msg += '\n\nধন্যবাদ, আবার আসবেন!';
+                    const phone = lastCompletedSale.customerPhone || (lastCompletedSale.customer?.phone) || '';
+                    const cleanPhone = phone.replace(/[^0-9]/g, '');
+                    const waUrl = cleanPhone ? ('https://wa.me/88' + cleanPhone + '?text=' + encodeURIComponent(msg)) : ('https://wa.me/?text=' + encodeURIComponent(msg));
+                    window.open(waUrl, '_blank');
+                  }}
+                  className="btn"
+                  style={{ flex: 1, minWidth: '115px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '800', background: '#25D366', color: '#fff', border: 'none' }}
+                >
+                  <span>💬 WhatsApp মেমো</span>
                 </button>
                 <button
                   type="button"
@@ -2071,6 +2209,21 @@ export const POSTerminal = () => {
             >
               {isOwner ? 'মালিক' : (isSalesman ? 'সেলসম্যান' : (role === 'sr' ? 'এসআর' : 'ক্যাশিয়ার'))}
             </span>
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: '800',
+                background: 'rgba(56, 189, 248, 0.15)',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                padding: '2px 6px',
+                borderRadius: '6px'
+              }}
+              title={`সংস্করণ: ${APP_VERSION_NAME}`}
+            >
+              {APP_DISPLAY_BADGE}
+            </span>
 
             {/* Live Real-time Clock Badge */}
             <div
@@ -2200,6 +2353,37 @@ export const POSTerminal = () => {
 
           {/* Cluster 2: POS Operational Quick Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '8px', borderRight: '1px solid var(--border-color)' }}>
+            {/* Shelf & Barcode Label Print Button (Item 5) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (cart.length > 0) {
+                  openBarcodePrint(cart);
+                } else if (products.length > 0) {
+                  openBarcodePrint(products.slice(0, 8));
+                } else {
+                  showToast(lang === 'bn' ? 'প্রিন্ট করার মত কোনো পণ্য নেই' : 'No products available', 'info');
+                }
+              }}
+              className="btn btn-secondary press-scale"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.35)'
+              }}
+              title="শেলফ ট্যাগ ও বারকোড লেবেল প্রিন্ট করুন"
+            >
+              <Tag size={14} />
+              <span>{lang === 'bn' ? '🏷️ শেলফ ট্যাগ' : '🏷️ Shelf Tags'}</span>
+            </button>
+
             {/* Hold Cart / Split Bill Manager (Item 56) */}
             <button
               type="button"
@@ -2245,6 +2429,28 @@ export const POSTerminal = () => {
               title={lang === 'bn' ? 'ক্যাশ ড্রয়ার খুলুন (F9)' : 'Kick Cash Drawer (F9)'}
             >
               <span>🗄️ {lang === 'bn' ? 'ড্রয়ার (F9)' : 'Drawer'}</span>
+            </button>
+
+            {/* Petty Cash Drawer Expense Hub */}
+            <button
+              type="button"
+              onClick={() => setShowCounterExpenseModal(true)}
+              className="btn btn-secondary press-scale"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                fontWeight: '700',
+                borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.3)'
+              }}
+              title={lang === 'bn' ? 'কাউন্টার পেটি ক্যাশ খরচ ও ভাউচার তৈরি করুন' : 'Record Counter Petty Cash Expense'}
+            >
+              <span>💸 {lang === 'bn' ? 'ড্রয়ার খরচ' : 'Petty Cash'}</span>
             </button>
 
             {/* Dual Screen Customer Display Popout (Item 54) */}
@@ -2694,6 +2900,60 @@ export const POSTerminal = () => {
             </div>
           </div>
         )}
+
+        {/* Quick Keyboard Shortcuts Sticky Bar for High-Speed Counter Checkout */}
+        <div
+          className="hide-mobile"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: '10px',
+            padding: '6px 14px',
+            marginBottom: '0.75rem',
+            fontSize: '0.78rem',
+            color: 'var(--text-muted)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: '700', color: 'var(--mode-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              ⚡ <span>{lang === 'bn' ? 'দ্রুত শর্টকাট:' : 'Quick Keys:'}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <kbd style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontWeight: '800', color: '#6366f1' }}>F2</kbd>
+              <span>{lang === 'bn' ? 'সার্চ' : 'Search'}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <kbd style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontWeight: '800', color: '#10b981' }}>F8</kbd>
+              <span>{lang === 'bn' ? 'ক্যাশ চেকআউট' : 'Cash Pay'}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <kbd style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontWeight: '800', color: '#0284c7' }}>F9</kbd>
+              <span>{lang === 'bn' ? 'ক্যাশ ড্রয়ার' : 'Drawer'}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <kbd style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontWeight: '800', color: '#10b981' }}>F12</kbd>
+              <span>{lang === 'bn' ? 'শিফট ক্লোজিং' : 'Z-Report'}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <kbd style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontWeight: '800', color: '#f59e0b' }}>F6</kbd>
+              <span>{lang === 'bn' ? 'হোল্ড কার্ট' : 'Hold'}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <kbd style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontWeight: '800', color: '#ec4899' }}>Alt+V</kbd>
+              <span>{lang === 'bn' ? 'ভয়েস বিল' : 'Voice'}</span>
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+            <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: '700' }}>
+              {lang === 'bn' ? 'স্ক্যানার রেডি' : 'Scanner Ready'}
+            </span>
+          </div>
+        </div>
 
         {/* Search & Action Bar */}
         <div className="glass-card" style={{ padding: '0.85rem', marginBottom: '0.75rem' }}>
@@ -4543,6 +4803,11 @@ export const POSTerminal = () => {
                       {item.unit || 'পিস'}
                     </span>
                     <span>৳{item.sellPrice.toLocaleString()} / {item.unit || 'পিস'}</span>
+                    {item.isWholesaleApplied && (
+                      <span className="badge" style={{ padding: '1px 5px', fontSize: '0.62rem', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '4px', fontWeight: 800 }}>
+                        🏷️ পাইকারি রেট (-৳{(item.retailPrice - item.sellPrice) * item.qty})
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -4663,6 +4928,25 @@ export const POSTerminal = () => {
             </div>
           </div>
 
+          {appliedVoucher && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(16, 185, 129, 0.12)', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.35)', marginBottom: '6px', fontSize: '0.75rem' }}>
+              <span style={{ color: '#10b981', fontWeight: 700 }}>
+                🎟️ ভাউচার: {appliedVoucher.code} (-৳{Math.min(appliedVoucher.balance, Number(discountAmount) || 0)})
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setAppliedVoucher(null);
+                  setDiscountAmount('');
+                }}
+                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 4px', fontWeight: 900 }}
+                title="ভাউচার বাতিল করুন"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {courierFee > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', color: '#38bdf8' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -4708,21 +4992,30 @@ export const POSTerminal = () => {
           </div>
 
           {/* Customer Loyalty Points (Item 75) */}
-          {selectedCustomerObj && availableLoyaltyPoints > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', background: 'rgba(236, 72, 153, 0.08)', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.25)', marginBottom: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#ec4899', fontWeight: 600 }}>
-                <Gift size={14} />
-                <span>{lang === 'bn' ? `জমা পয়েন্ট: ${availableLoyaltyPoints}` : `Points: ${availableLoyaltyPoints}`}</span>
+          {selectedCustomerObj && (
+            <div style={{ padding: '6px 10px', background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(168, 85, 247, 0.05))', borderRadius: '10px', border: '1px solid rgba(236, 72, 153, 0.25)', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#ec4899', fontWeight: 700 }}>
+                  <Gift size={15} />
+                  <span>{lang === 'bn' ? `লয়ালটি পয়েন্ট: ${availableLoyaltyPoints} pts` : `Loyalty: ${availableLoyaltyPoints} pts`}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>(৳{availableLoyaltyPoints} সমমূল্য)</span>
+                </div>
+                {availableLoyaltyPoints > 0 ? (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 800 }}>
+                    <input
+                      type="checkbox"
+                      checked={useLoyaltyPoints}
+                      onChange={e => setUseLoyaltyPoints(e.target.checked)}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#ec4899' }}
+                    />
+                    <span style={{ color: '#ec4899' }}>{lang === 'bn' ? `ভাঙান (-৳${loyaltyDiscount})` : `Redeem (-৳${loyaltyDiscount})`}</span>
+                  </label>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', color: '#8b5cf6', fontWeight: 600 }}>
+                    +{Math.floor(subtotal / 100)} pts জমা হবে
+                  </span>
+                )}
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 700 }}>
-                <input
-                  type="checkbox"
-                  checked={useLoyaltyPoints}
-                  onChange={e => setUseLoyaltyPoints(e.target.checked)}
-                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
-                />
-                <span>{lang === 'bn' ? `ভাঙান (-৳${loyaltyDiscount})` : `Redeem (-৳${loyaltyDiscount})`}</span>
-              </label>
             </div>
           )}
 
@@ -4757,7 +5050,7 @@ export const POSTerminal = () => {
           </div>
 
           {/* Payment Method Selector with Multi-Payment Split (Item 59) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', marginBottom: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px', marginBottom: '10px' }}>
             <button
               onClick={() => {
                 setPaymentMethod('cash');
@@ -4781,6 +5074,29 @@ export const POSTerminal = () => {
             >
               <Banknote size={14} />
               <span>{t.business.cash}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowBanglaQrModal(true)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '2px',
+                padding: '6px 2px',
+                borderRadius: '8px',
+                border: '1.5px dashed #10b981',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                fontSize: '0.68rem',
+                fontWeight: '800',
+                cursor: 'pointer'
+              }}
+              title="বাংলা কিউআর দিয়ে পেমেন্ট নিন"
+            >
+              <QrCode size={14} />
+              <span>বাংলা QR</span>
             </button>
 
             <button
@@ -4956,6 +5272,34 @@ export const POSTerminal = () => {
           </div>
         </div>
 
+        {/* Credit Limit Overflow Warning Alert Banner (Item 4) */}
+          {isCreditLimitExceeded && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(185, 28, 28, 0.08))',
+                border: '1.5px solid #ef4444',
+                borderRadius: '10px',
+                padding: '9px 12px',
+                marginBottom: '8px',
+                animation: 'pulse 2s infinite'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: '800', fontSize: '0.82rem' }}>
+                <AlertTriangle size={16} />
+                <span>⚠️ গ্রাহকের বাকি সীমা অতিক্রম করেছে!</span>
+              </div>
+              <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '4px', lineHeight: 1.5 }}>
+                অনুমোদিত লিমিট: <strong>৳{customerCreditLimit.toLocaleString()}</strong> | বর্তমান বাকি: <strong>৳{currentCustomerDue.toLocaleString()}</strong><br />
+                নতুন বিক্রয়সহ মোট বাকি: <strong style={{ color: '#ef4444' }}>৳{projectedTotalDue.toLocaleString()}</strong> (৳{(projectedTotalDue - customerCreditLimit).toLocaleString()} অতিরিক্ত)।
+                {!isOwner && !isSuperAdmin && (
+                  <span style={{ color: '#f59e0b', fontWeight: '700', display: 'block', marginTop: '2px' }}>
+                    🔒 বিক্রি সম্পন্ন করতে সুপারভাইজার বা মালিকের পিন কোড প্রয়োজন।
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
         {/* Pinned Bottom Sticky Checkout Section (Always 100% visible & accessible) */}
         <div
           style={{
@@ -5057,6 +5401,14 @@ export const POSTerminal = () => {
         />
       )}
 
+      {/* Counter Petty Cash Expense Modal */}
+      {showCounterExpenseModal && (
+        <CounterExpenseModal
+          isOpen={showCounterExpenseModal}
+          onClose={() => setShowCounterExpenseModal(false)}
+        />
+      )}
+
       {/* Counter Shift Opening Modal (Morning Cash Register Open) */}
       {showOpeningModal && (
         <CounterShiftOpeningModal
@@ -5147,6 +5499,19 @@ export const POSTerminal = () => {
           </div>
         </div>
       )}
+
+      <BanglaQrPaymentModal
+        isOpen={showBanglaQrModal}
+        onClose={() => setShowBanglaQrModal(false)}
+        amount={grandTotal}
+        invoiceNo={lastCompletedSale?.invoiceNumber || ''}
+        businessSettings={businessSettings}
+        onPaymentConfirmed={(provider) => {
+          setPaymentMethod(provider === 'nagad' ? 'card' : 'bkash');
+          showToast(lang === 'bn' ? '✓ কিউআর পেমেন্ট সফলভাবে নিশ্চিত হয়েছে!' : 'QR Payment Confirmed!', 'success');
+        }}
+        lang={lang}
+      />
 
       {/* ========================================================= */}
       {/* MODAL: FAST CASH DIALPAD & INSTANT CHECKOUT               */}
@@ -5674,6 +6039,19 @@ export const POSTerminal = () => {
             setShowSalesReturnModal(false);
             setSelectedSaleForReturn(null);
           }}
+          onApplyVoucherToCart={(vch) => {
+            const vchAmount = Math.min(subtotal || vch.balance, vch.balance);
+            setDiscountAmount(String(vchAmount));
+            setAppliedVoucher(vch);
+            setShowSalesReturnModal(false);
+            setSelectedSaleForReturn(null);
+            showToast(
+              lang === 'bn'
+                ? `🎟️ ভাউচার ${vch.code} (৳${vchAmount}) কার্টে যুক্ত হয়েছে!`
+                : `Voucher ${vch.code} applied!`,
+              'success'
+            );
+          }}
           lang={lang}
           showToast={showToast}
         />
@@ -5717,10 +6095,18 @@ export const POSTerminal = () => {
         isOpen={showQuickDiscountModal}
         onClose={() => setShowQuickDiscountModal(false)}
         subtotal={subtotal}
+        cartTotal={subtotal}
         currentDiscount={Number(discountAmount) || 0}
-        onApplyDiscount={(calculatedAmt) => {
+        selectedCustomerId={selectedCustomerId}
+        selectedCustomer={customers.find(c => c.id === selectedCustomerId)}
+        onApplyDiscount={(calculatedAmt, label, voucherMeta) => {
           setDiscountAmount(String(calculatedAmt));
-          showToast(lang === 'bn' ? `৳${calculatedAmt} ডিসকাউন্ট কার্যকর হয়েছে` : `৳${calculatedAmt} discount applied`, 'success');
+          if (voucherMeta?.isVoucher) {
+            setAppliedVoucher(voucherMeta.voucher);
+          } else {
+            setAppliedVoucher(null);
+          }
+          showToast(lang === 'bn' ? `৳${calculatedAmt} ছাড়/ভাউচার প্রয়োগ হয়েছে` : `৳${calculatedAmt} discount/voucher applied`, 'success');
         }}
         lang={lang}
       />

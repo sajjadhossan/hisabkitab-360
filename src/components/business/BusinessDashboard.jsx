@@ -478,6 +478,38 @@ export const BusinessDashboard = () => {
     return { avgDailySales: avgDaily, projected7DaySales: projSales, projected7DayProfit: projProfit };
   }, [filteredSales, totalSales, netProfit]);
 
+  // 3.5 AI Stock Depletion Velocity & Next 3-Day Stockout Predictor
+  const stockoutPredictions = useMemo(() => {
+    const totalDaysObserved = Math.max([...new Set(filteredSales.map(s => s.date).filter(Boolean))].length, 1);
+    const itemVelocity = {};
+
+    filteredSales.forEach(s => {
+      (s.items || []).forEach(it => {
+        if (it.id) {
+          itemVelocity[it.id] = (itemVelocity[it.id] || 0) + (Number(it.qty) || 1);
+        }
+      });
+    });
+
+    return products
+      .map(p => {
+        const unitsSold = itemVelocity[p.id] || 0;
+        const dailyBurnRate = unitsSold / totalDaysObserved;
+        const currentStock = Number(p.stock) || 0;
+        const daysLeft = dailyBurnRate > 0 ? Math.round(currentStock / dailyBurnRate) : 999;
+        return {
+          id: p.id,
+          name: p.name,
+          stock: currentStock,
+          dailyBurnRate: dailyBurnRate.toFixed(1),
+          daysLeft
+        };
+      })
+      .filter(p => p.stock > 0 && p.daysLeft <= 4)
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .slice(0, 3);
+  }, [products, filteredSales]);
+
   // 4. Customer Retention & Repeat Shoppers Rate
   const { identifiedCustomerKeys, repeatCustomerCount, customerRetentionRate } = useMemo(() => {
     const customerPurchaseCounts = {};
@@ -2817,6 +2849,56 @@ export const BusinessDashboard = () => {
 
             <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               📈 {lang === 'bn' ? 'অনুমান: চলমান বিক্রয় গতির ভিত্তিতে প্রজেকশন।' : 'Based on weighted daily transaction velocity.'}
+            </div>
+          </div>
+
+          {/* Card: AI Stockout Predictor */}
+          <div
+            style={{
+              background: 'var(--bg-primary)',
+              borderRadius: '12px',
+              padding: '1rem',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Sparkles size={15} />
+                  {lang === 'bn' ? 'স্টক শেষ হওয়ার এআই পূর্বাভাস' : 'AI Stockout Forecast'}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                  {stockoutPredictions.length > 0 ? (lang === 'bn' ? 'আসন্ন সংকট' : 'Imminent') : (lang === 'bn' ? 'নিরাপদ' : 'Safe')}
+                </span>
+              </div>
+
+              <div style={{ marginTop: '6px' }}>
+                {stockoutPredictions.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {stockoutPredictions.map(p => (
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
+                        <span style={{ fontWeight: '600', color: 'var(--text-main)', maxWidth: '130px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {p.name}
+                        </span>
+                        <span style={{ color: p.daysLeft <= 1 ? '#ef4444' : '#f59e0b', fontWeight: '800' }}>
+                          {p.daysLeft === 0 ? (lang === 'bn' ? 'আজই শেষ!' : 'Today!') : (lang === 'bn' ? `${p.daysLeft} দিনে শেষ` : `${p.daysLeft}d left`)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', padding: '8px 0' }}>
+                    {lang === 'bn' ? '✅ কোনো পণ্যের স্টক আগামী ৪ দিনের মধ্যে শেষ হওয়ার ঝুঁকি নেই।' : 'All products have adequate stock.'}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              ⚡ {lang === 'bn' ? 'পরামর্শ: সাপ্লায়ারকে এখনই রি-অর্ডারের তাগিদ দিন।' : 'Reorder from supplier immediately.'}
             </div>
           </div>
 

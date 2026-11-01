@@ -83,6 +83,7 @@ export const MobilePOSView = ({
   isShiftActive,
   setShowClosingModal,
   setShowOpeningModal,
+  setShowCounterExpenseModal,
   onSwitchToDesktop,
   quickFilters = [],
   orderType = 'dine_in',
@@ -2170,6 +2171,32 @@ export const MobilePOSView = ({
                   >
                     <Banknote size={15} />
                     <span>{lang === 'bn' ? '💵 ক্যাশ ড্রয়ার' : 'Cash Drawer'}</span>
+                  </button>
+                )}
+
+                {/* Petty Cash Drawer Expense */}
+                {typeof setShowCounterExpenseModal === 'function' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsModal(false);
+                      setShowCounterExpenseModal(true);
+                    }}
+                    style={{
+                      padding: '9px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>💸 {lang === 'bn' ? 'ড্রয়ার খরচ (Petty Cash)' : 'Drawer Expense'}</span>
                   </button>
                 )}
 

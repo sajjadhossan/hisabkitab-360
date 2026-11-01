@@ -60,9 +60,9 @@ import { MasterHub } from './components/common/MasterHub';
 import { BusinessDashboard } from './components/business/BusinessDashboard';
 import { POSTerminal } from './components/business/POSTerminal';
 import { InventoryManager } from './components/business/InventoryManager';
-import { InvoicesManager } from './components/business/InvoicesManager';
-import { BranchCashControlCenter } from './components/business/BranchCashControlCenter';
-import { BusinessSettings } from './components/business/BusinessSettings';
+const InvoicesManager = lazyNamed(() => import('./components/business/InvoicesManager'), 'InvoicesManager');
+const BranchCashControlCenter = lazyNamed(() => import('./components/business/BranchCashControlCenter'), 'BranchCashControlCenter');
+const BusinessSettings = lazyNamed(() => import('./components/business/BusinessSettings'), 'BusinessSettings');
 
 // Personal Components (Code-split)
 const PersonalDashboard = lazyNamed(() => import('./components/personal/PersonalDashboard'), 'PersonalDashboard');
@@ -82,7 +82,7 @@ const SalesmanOrderBooking = lazyNamed(() => import('./components/business/Sales
 const SRDeliveryHub = lazyNamed(() => import('./components/business/SRDeliveryHub'), 'SRDeliveryHub');
 const BusinessPeriodicReportHub = lazyNamed(() => import('./components/business/BusinessPeriodicReportHub'), 'BusinessPeriodicReportHub');
 const SuperAdminPanel = lazyNamed(() => import('./components/admin/SuperAdminPanel'), 'SuperAdminPanel');
-import { CattleFarmHubView } from './components/pos/modals/CattleFarmModal';
+const CattleFarmHubView = lazyNamed(() => import('./components/pos/modals/CattleFarmModal'), 'CattleFarmHubView');
 const HealthcareHub = lazy(() => import('./components/healthcare/HealthcareHub'));
 const SamityManagementHub = lazyNamed(() => import('./components/samity/SamityManagementHub'), 'SamityManagementHub');
 

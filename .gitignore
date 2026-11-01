@@ -42,3 +42,14 @@ public/*.tar.gz
 
 # Standalone Independent Repository
 somiti-360/
+
+# Local Dev & Maintenance Helpers
+.cert/
+.dead_code_archive/
+*.patch.cjs
+patch_*.cjs
+audit_dead_code.cjs
+archive_dead_code.cjs
+deep_scan.cjs
+generate_cert.cjs
+

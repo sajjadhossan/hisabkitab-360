@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Tag,
   Percent,
@@ -7,24 +7,33 @@ import {
   Check,
   Sparkles,
   AlertCircle,
-  Gift
+  Gift,
+  Ticket,
+  UserCheck,
+  Clock
 } from 'lucide-react';
 import { soundService } from '../../services/soundService';
+import { voucherService } from '../../services/voucherService';
 
 export const QuickDiscountAndCouponModal = ({
   isOpen,
   onClose,
   cartTotal = 0,
+  subtotal = 0,
   currentDiscount = 0,
   onApplyDiscount,
+  selectedCustomer = null,
+  selectedCustomerId = null,
   lang = 'bn'
 }) => {
   const [discountType, setDiscountType] = useState('amount'); // 'amount' | 'percent'
   const [inputValue, setInputValue] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [couponMessage, setCouponMessage] = useState(null);
+  const [matchedVoucher, setMatchedVoucher] = useState(null);
+  const [customerVouchers, setCustomerVouchers] = useState([]);
 
-  if (!isOpen) return null;
+  const activeCartTotal = cartTotal || subtotal || 0;
 
   // Preset coupons
   const SYSTEM_COUPONS = {
@@ -34,9 +43,30 @@ export const QuickDiscountAndCouponModal = ({
     OFF50: { type: 'amount', value: 50, desc: '৫০ টাকা ফ্ল্যাট ছাড়' }
   };
 
+  // Load customer active store credit vouchers if customer is selected
+  useEffect(() => {
+    if (!isOpen) {
+      setCouponMessage(null);
+      setMatchedVoucher(null);
+      setCouponCode('');
+      setInputValue('');
+      return;
+    }
+
+    const phoneOrId = selectedCustomer?.phone || selectedCustomerId;
+    if (phoneOrId) {
+      const activeVouchers = voucherService.getCustomerActiveVouchers(phoneOrId);
+      setCustomerVouchers(activeVouchers);
+    } else {
+      setCustomerVouchers([]);
+    }
+  }, [isOpen, selectedCustomer, selectedCustomerId]);
+
+  if (!isOpen) return null;
+
   const handleApplyPresetPercent = (pct) => {
     soundService.playSuccessChime();
-    const calculatedAmount = Math.round((cartTotal * pct) / 100);
+    const calculatedAmount = Math.round((activeCartTotal * pct) / 100);
     onApplyDiscount(calculatedAmount, `${pct}%`);
     onClose();
   };
@@ -54,10 +84,10 @@ export const QuickDiscountAndCouponModal = ({
 
     soundService.playSuccessChime();
     if (discountType === 'percent') {
-      const calculatedAmount = Math.round((cartTotal * Math.min(num, 100)) / 100);
+      const calculatedAmount = Math.round((activeCartTotal * Math.min(num, 100)) / 100);
       onApplyDiscount(calculatedAmount, `${num}%`);
     } else {
-      onApplyDiscount(Math.min(num, cartTotal), `৳${num}`);
+      onApplyDiscount(Math.min(num, activeCartTotal), `৳${num}`);
     }
     onClose();
   };
@@ -67,21 +97,68 @@ export const QuickDiscountAndCouponModal = ({
     const code = couponCode.trim().toUpperCase();
     if (!code) return;
 
+    // Check if it's a real Store Credit / Exchange Voucher
+    const storeVoucher = voucherService.findVoucher(code);
+    if (storeVoucher) {
+      const now = new Date();
+      if (storeVoucher.expiresAt && new Date(storeVoucher.expiresAt) < now) {
+        soundService.playWarningTone();
+        setCouponMessage({ type: 'error', text: 'এই এক্সচেঞ্জ ভাউচারটির মেয়াদ শেষ হয়ে গেছে!' });
+        setMatchedVoucher(null);
+        return;
+      }
+      if (storeVoucher.status === 'used' || storeVoucher.balance <= 0) {
+        soundService.playWarningTone();
+        setCouponMessage({ type: 'error', text: 'এই ভাউচারের সম্পূর্ণ ব্যালেন্স পূর্বে ব্যবহার করা হয়েছে।' });
+        setMatchedVoucher(null);
+        return;
+      }
+      if (storeVoucher.status === 'cancelled') {
+        soundService.playWarningTone();
+        setCouponMessage({ type: 'error', text: 'এই ভাউচারটি বাতিল করা হয়েছে।' });
+        setMatchedVoucher(null);
+        return;
+      }
+
+      soundService.playCashChime();
+      setMatchedVoucher(storeVoucher);
+      setCouponMessage({
+        type: 'success',
+        text: `বৈধ ভাউচার! অবশিষ্ট ব্যালেন্স: ৳${storeVoucher.balance.toLocaleString()} (গ্রাহক: ${storeVoucher.customerName})`
+      });
+      return;
+    }
+
+    // Check system promotional coupons
     const matched = SYSTEM_COUPONS[code];
     if (matched) {
       soundService.playCashChime();
       let calculated = 0;
       if (matched.type === 'percent') {
-        calculated = Math.round((cartTotal * matched.value) / 100);
+        calculated = Math.round((activeCartTotal * matched.value) / 100);
       } else {
-        calculated = Math.min(matched.value, cartTotal);
+        calculated = Math.min(matched.value, activeCartTotal);
       }
       onApplyDiscount(calculated, `${code} (${matched.desc})`);
       onClose();
     } else {
       soundService.playWarningTone();
-      setCouponMessage({ type: 'error', text: 'প্রোমো কোডটি সঠিক নয় বা মেয়াদোত্তীর্ণ!' });
+      setCouponMessage({ type: 'error', text: 'প্রোমো বা ভাউচার কোডটি সঠিক নয় বা খুঁজে পাওয়া যায়নি!' });
+      setMatchedVoucher(null);
     }
+  };
+
+  const handleApplyVoucher = (vch) => {
+    if (!vch || vch.balance <= 0) return;
+    soundService.playCashChime();
+    const redeemAmount = Math.min(activeCartTotal, vch.balance);
+    onApplyDiscount(redeemAmount, `ভাউচার: ${vch.code}`, {
+      isVoucher: true,
+      voucher: vch,
+      voucherCode: vch.code,
+      voucherBalance: vch.balance
+    });
+    onClose();
   };
 
   return (
@@ -108,7 +185,8 @@ export const QuickDiscountAndCouponModal = ({
       <div
         style={{
           width: '100%',
-          maxWidth: '520px',
+          maxWidth: '540px',
+          maxHeight: '90vh',
           background: 'linear-gradient(145deg, #131c2e, #0b111d)',
           borderRadius: '24px',
           border: '1.5px solid rgba(245, 158, 11, 0.4)',
@@ -148,10 +226,10 @@ export const QuickDiscountAndCouponModal = ({
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: '#f8fafc' }}>
-                {lang === 'bn' ? 'কুইক ডিসকাউন্ট ও কুপন কোড' : 'Quick Discounts & Coupons'}
+                {lang === 'bn' ? 'কুইক ডিসকাউন্ট ও এক্সচেঞ্জ ভাউচার' : 'Quick Discounts & Vouchers'}
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
-                মোট কার্ট মূল্য: <strong style={{ color: '#f8fafc' }}>৳{cartTotal.toLocaleString()}</strong>
+                মোট কার্ট মূল্য: <strong style={{ color: '#f8fafc' }}>৳{activeCartTotal.toLocaleString()}</strong>
               </p>
             </div>
           </div>
@@ -174,7 +252,56 @@ export const QuickDiscountAndCouponModal = ({
           </button>
         </div>
 
-        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '18px', overflowY: 'auto' }}>
+          {/* Customer's Active Vouchers If Any */}
+          {customerVouchers.length > 0 && (
+            <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px dashed rgba(16, 185, 129, 0.35)', borderRadius: '14px', padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <Ticket size={16} color="#10b981" />
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#34d399' }}>
+                  গ্রাহকের সক্রিয় এক্সচেঞ্জ ভাউচার রয়েছে ({customerVouchers.length}টি)
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {customerVouchers.map(v => (
+                  <div
+                    key={v.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.07)'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#f8fafc', fontSize: '0.88rem' }}>{v.code}</div>
+                      <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>ব্যালেন্স: ৳{v.balance.toLocaleString()}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyVoucher(v)}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      প্রয়োগ করুন (৳{Math.min(activeCartTotal, v.balance)})
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick Percentage Chips */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#cbd5e1', marginBottom: '8px' }}>
@@ -307,10 +434,10 @@ export const QuickDiscountAndCouponModal = ({
             </div>
           </form>
 
-          {/* Coupon Code Section */}
+          {/* Coupon Code & Exchange Voucher Section */}
           <form onSubmit={handleValidateCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#cbd5e1' }}>
-              🎁 প্রোমো / কুপন কোড (Promo Voucher)
+              🎟️ প্রোমো বা এক্সচেঞ্জ ভাউচার কোড (Promo or Voucher Code)
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
@@ -319,8 +446,9 @@ export const QuickDiscountAndCouponModal = ({
                 onChange={(e) => {
                   setCouponCode(e.target.value);
                   setCouponMessage(null);
+                  setMatchedVoucher(null);
                 }}
-                placeholder="যেমন: EID2026, WELCOME, VIP10"
+                placeholder="যেমন: EX-891024, EID2026, VIP10"
                 style={{
                   flex: 1,
                   background: 'rgba(0, 0, 0, 0.3)',
@@ -350,10 +478,65 @@ export const QuickDiscountAndCouponModal = ({
                 যাচাই
               </button>
             </div>
+
             {couponMessage && (
-              <span style={{ fontSize: '0.78rem', color: '#ef4444', fontWeight: '600' }}>
+              <div
+                style={{
+                  fontSize: '0.82rem',
+                  color: couponMessage.type === 'success' ? '#34d399' : '#ef4444',
+                  fontWeight: '700',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  background: couponMessage.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'
+                }}
+              >
                 {couponMessage.text}
-              </span>
+              </div>
+            )}
+
+            {matchedVoucher && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.05))',
+                  border: '1px solid #10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: '800', color: '#10b981' }}>
+                    🎟️ এক্সচেঞ্জ ভাউচার: {matchedVoucher.code}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px' }}>
+                    ব্যবহারযোগ্য ব্যালেন্স: <strong>৳{matchedVoucher.balance.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                    গ্রাহক: {matchedVoucher.customerName} {matchedVoucher.customerPhone ? `(${matchedVoucher.customerPhone})` : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleApplyVoucher(matchedVoucher)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    background: '#10b981',
+                    border: 'none',
+                    color: '#fff',
+                    fontWeight: '800',
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  প্রয়োগ করুন (৳{Math.min(activeCartTotal, matchedVoucher.balance)})
+                </button>
+              </div>
             )}
           </form>
         </div>
@@ -361,7 +544,7 @@ export const QuickDiscountAndCouponModal = ({
         {/* Footer */}
         <div
           style={{
-            padding: '12px 22px',
+            padding: '14px 22px',
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
             background: 'rgba(0, 0, 0, 0.2)',
             display: 'flex',
@@ -373,7 +556,7 @@ export const QuickDiscountAndCouponModal = ({
             <button
               onClick={() => {
                 soundService.playDeleteTone();
-                onApplyDiscount(0, '');
+                onApplyDiscount(0, '', null);
                 onClose();
               }}
               style={{
@@ -387,29 +570,31 @@ export const QuickDiscountAndCouponModal = ({
                 cursor: 'pointer'
               }}
             >
-              ডিসকাউন্ট বাতিল করুন
+              ডিসকাউন্ট / ভাউচার বাতিল করুন
             </button>
           ) : (
-            <span />
+            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>কোন ছাড় বা ভাউচার প্রযোজ্য নেই</span>
           )}
 
           <button
             onClick={onClose}
             style={{
+              padding: '6px 16px',
+              borderRadius: '8px',
               background: 'rgba(255, 255, 255, 0.08)',
               border: 'none',
-              borderRadius: '8px',
-              padding: '6px 16px',
-              color: '#94a3b8',
+              color: '#e2e8f0',
               fontSize: '0.82rem',
               fontWeight: '600',
               cursor: 'pointer'
             }}
           >
-            বন্ধ
+            বন্ধ করুন
           </button>
         </div>
       </div>
     </div>
   );
 };
+
+export default QuickDiscountAndCouponModal;

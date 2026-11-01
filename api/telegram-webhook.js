@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ status: 'HisabKitab 360 Telegram Webhook Active' });
   }
 
-  const token = process.env.VITE_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '8692661339:AAE0gFE0oCt1_Rsm1B1W5GuD2tDb-lXj9bY';
+  const token = process.env.VITE_TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
   const geminiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 
   try {

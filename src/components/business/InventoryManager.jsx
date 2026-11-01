@@ -142,6 +142,8 @@ export const InventoryManager = () => {
     category: 'খাদ্যপণ্য',
     costPrice: '',
     sellPrice: '',
+    wholesalePrice: '',
+    wholesaleMinQty: '',
     stock: '',
     minAlert: '5',
     image: ''
@@ -415,6 +417,8 @@ export const InventoryManager = () => {
       category: product.category || 'খাদ্যপণ্য',
       costPrice: product.costPrice || 0,
       sellPrice: product.sellPrice || 0,
+      wholesalePrice: product.wholesalePrice || '',
+      wholesaleMinQty: product.wholesaleMinQty || '',
       stock: product.stock || 0,
       minAlert: product.minAlert || 5,
       image: product.image || ''
@@ -434,6 +438,8 @@ export const InventoryManager = () => {
       category: editProductForm.category,
       costPrice: Number(editProductForm.costPrice) || 0,
       sellPrice: Number(editProductForm.sellPrice) || 0,
+      wholesalePrice: Number(editProductForm.wholesalePrice) || 0,
+      wholesaleMinQty: Number(editProductForm.wholesaleMinQty) || 0,
       stock: Number(editProductForm.stock) || 0,
       minAlert: Number(editProductForm.minAlert) || 5,
       image: editProductForm.image || ''
@@ -448,6 +454,8 @@ export const InventoryManager = () => {
       ...newProductForm,
       batchNumber: newProductForm.batchNumber || '',
       expiryDate: newProductForm.expiryDate || '',
+      wholesalePrice: Number(newProductForm.wholesalePrice) || 0,
+      wholesaleMinQty: Number(newProductForm.wholesaleMinQty) || 0,
       sku: newProductForm.sku || `SKU-${Date.now().toString().slice(-6)}`,
       barcode: newProductForm.barcode || Math.floor(1000000000 + Math.random() * 9000000000).toString(),
       image: newProductForm.image || ''
@@ -461,6 +469,8 @@ export const InventoryManager = () => {
       category: 'খাদ্যপণ্য',
       costPrice: '',
       sellPrice: '',
+      wholesalePrice: '',
+      wholesaleMinQty: '',
       stock: '',
       minAlert: '5',
       image: ''
@@ -1602,6 +1612,11 @@ export const InventoryManager = () => {
                           <div style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-main)', fontFamily: 'var(--font-mono)' }}>
                             ৳{p.sellPrice.toLocaleString()}
                           </div>
+                          {p.wholesalePrice > 0 && (
+                            <div style={{ fontSize: '0.68rem', color: '#3b82f6', fontWeight: '700' }}>
+                              পাইকারি: ৳{p.wholesalePrice} ({p.wholesaleMinQty || 10}+)
+                            </div>
+                          )}
                         </div>
                         <div>
                           <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{lang === 'bn' ? 'ক্রয়মূল্য' : 'Cost'}</div>
@@ -2680,6 +2695,36 @@ export const InventoryManager = () => {
                     placeholder="0"
                     value={newProductForm.sellPrice}
                     onChange={(e) => setNewProductForm({ ...newProductForm, sellPrice: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              {/* Multi-Tier Wholesale Pricing Fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem', background: 'rgba(59, 130, 246, 0.05)', padding: '10px', borderRadius: '10px', border: '1px dashed rgba(59, 130, 246, 0.3)' }}>
+                <div>
+                  <label className="field-label" style={{ color: '#3b82f6', fontWeight: '700' }}>
+                    🏢 পাইকারি দর / হোলসেল রেট (৳)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
+                    placeholder="খুচরা মূল্যের চেয়ে কম"
+                    value={newProductForm.wholesalePrice || ''}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, wholesalePrice: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="field-label" style={{ color: '#3b82f6', fontWeight: '700' }}>
+                    📦 ন্যূনতম পাইকারি সংখ্যা (Min Qty)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="input-field"
+                    placeholder="যেমন: ১০"
+                    value={newProductForm.wholesaleMinQty || ''}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, wholesaleMinQty: e.target.value })}
                   />
                 </div>
               </div>

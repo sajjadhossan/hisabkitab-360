@@ -59,8 +59,11 @@ import {
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
-  X
+  X,
+  Rocket
 } from 'lucide-react';
+import { BlueGreenReleaseModal } from '../superadmin/BlueGreenReleaseModal';
+import { getActiveOtaRelease, publishOtaRelease, executeEmergencyRollback } from '../../services/blueGreenReleaseService';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { playButtonClick } from '../../services/soundFeedback';
 import { TemplateReviewModal } from '../common/TemplateReviewModal';
@@ -129,7 +132,8 @@ export const SuperAdminPanel = () => {
     getMasterPin
   } = useAuth();
 
-  const [activeSubTab, setActiveSubTab] = useState('executive_ops'); // 'executive_ops' | 'modules' | 'templates' | 'license' | 'branding' | 'cloud_backup' | 'onboarding' | 'security'
+  const [activeSubTab, setActiveSubTab] = useState('executive_ops');
+  const [showBlueGreenModal, setShowBlueGreenModal] = useState(false); // 'executive_ops' | 'modules' | 'templates' | 'license' | 'branding' | 'cloud_backup' | 'onboarding' | 'security'
   const [adminGridSearch, setAdminGridSearch] = useState('');
   const [isGridExpanded, setIsGridExpanded] = useState(true);
 
@@ -4323,6 +4327,67 @@ export const SuperAdminPanel = () => {
       {/* ======================================================== */}
       {/* SUBTAB 5: MASTER SECURITY & PIN                           */}
       {/* ======================================================== */}
+      {activeSubTab === 'blue_green_release' && (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.5rem', borderRadius: '20px', border: '1.5px solid rgba(59, 130, 246, 0.35)', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(16, 185, 129, 0.05))' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 16px rgba(59, 130, 246, 0.4)' }}>
+                  <Rocket size={26} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{lang === 'bn' ? '🚀 ব্লু-গ্রিন লাইভ ডিপ্লয়মেন্ট ও ওটিএ রিলিজ সুইচবোর্ড' : '🚀 Blue-Green Live Deployment & OTA Switchboard'}</span>
+                    <span className="badge" style={{ background: '#3b82f6', color: '#fff', fontSize: '0.7rem' }}>ZERO-DOWNTIME</span>
+                  </h3>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'জিরো ডাউনটাইমে লাইভ (Blue) ও স্টেজিং (Green) স্লট সুইচ করুন এবং ১ সেকেন্ডে জরুরি রোলব্যাক ট্রিগার করুন।' : 'Seamlessly switch between Blue (Live) and Green (Staging) slots with 1-second emergency rollback.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBlueGreenModal(true)}
+                className="btn btn-primary"
+                style={{ padding: '10px 20px', borderRadius: '12px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}
+              >
+                <Rocket size={16} />
+                <span>{lang === 'bn' ? 'ওটিএ রিলিজ ম্যানেজার খুলুন' : 'Open OTA Release Manager'}</span>
+              </button>
+            </div>
+
+            {/* Live Slot Status Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+              <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(59, 130, 246, 0.1)', border: '2px solid #3b82f6' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: '800', color: '#3b82f6', fontSize: '0.95rem' }}>🔵 Blue Slot (লাইভ স্টেবল)</span>
+                  <span className="badge" style={{ background: '#3b82f6', color: '#fff' }}>LIVE ACTIVE</span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '4px' }}>
+                  <strong>বর্তমান ভার্সন:</strong> v{getActiveOtaRelease().version} (Build {getActiveOtaRelease().buildNumber})
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  সকল সক্রিয় কাউন্টার, ক্যাশিয়ার ও ক্লায়েন্ট বর্তমানে এই স্টেবল স্লট ব্যবহার করছেন।
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.08)', border: '1.5px dashed #10b981' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: '800', color: '#10b981', fontSize: '0.95rem' }}>🟢 Green Slot (স্টেজিং / নেক্সট)</span>
+                  <span className="badge" style={{ background: '#10b981', color: '#fff' }}>STAGED</span>
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', marginBottom: '4px' }}>
+                  <strong>পরবর্তী ভার্সন:</strong> v{getActiveOtaRelease().version} (Next Candidate)
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  নতুন ফিচার ও নিরাপত্তা প্যাচ আগে গ্রিনে পরীক্ষা করে ১-ক্লিকে সুইচ করা যায়।
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeSubTab === 'security' && (
         <div className="fade-in" style={{ maxWidth: '650px', margin: '0 auto' }}>
           <div style={{
@@ -4665,6 +4730,7 @@ export const SuperAdminPanel = () => {
         }}
       />
 
+      <BlueGreenReleaseModal isOpen={showBlueGreenModal} onClose={() => setShowBlueGreenModal(false)} lang={lang} />
     </div>
   );
 };

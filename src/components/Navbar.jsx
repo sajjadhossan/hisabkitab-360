@@ -46,6 +46,7 @@ import {
   FileSpreadsheet,
   Building2,
   FolderOpen,
+  Rocket,
   Menu,
   X,
   Search,
@@ -83,11 +84,13 @@ import { DeviceStatusIndicator } from './common/DeviceStatusIndicator';
 import { TelegramBotModal } from './common/TelegramBotModal';
 import { getTelegramBackupConfig } from '../services/telegramBackupService';
 import { InternalCommunicationHubModal } from './common/InternalCommunicationHubModal';
+import { BlueGreenReleaseModal } from './superadmin/BlueGreenReleaseModal';
 import { getUnreadCount } from '../services/internalChatService';
 import { getStaffMenuPermissions, isMenuItemAllowedForRole } from '../services/staffRolePermissionEngine';
 import { StaffPermissionsModal } from './common/StaffPermissionsModal';
 import { translations } from '../data/translations';
 import appBrandLogo from '../assets/logo.png';
+import { APP_VERSION, APP_BUILD_NUMBER, APP_VERSION_NAME, APP_DISPLAY_BADGE, APP_RELEASE_DATE } from '../config/version';
 
 export const Navbar = () => {
   const {
@@ -157,6 +160,7 @@ export const Navbar = () => {
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInternalChat, setShowInternalChat] = useState(false);
+  const [showBlueGreenRelease, setShowBlueGreenRelease] = useState(false);
   const activeChatUserId = isSuperAdmin ? 'super_admin' : (user?.id || 'owner');
   const [unreadChatCount, setUnreadChatCount] = useState(() => getUnreadCount(activeChatUserId));
 
@@ -619,6 +623,18 @@ export const Navbar = () => {
             setShowMobileDrawer(false);
             setShowInternalChat(true);
           }
+        },
+        {
+          id: 'drawer_blue_green',
+          label: lang === 'bn' ? '🚀 ব্লু-গ্রিন ওটিএ ডিপ্লয়মেন্ট' : '🚀 Blue-Green OTA Release',
+          desc: lang === 'bn' ? 'জিরো ডাউনটাইম রিলিজ ও ১-সেকেন্ড রোলব্যাক' : 'Zero-downtime release & instant rollback',
+          icon: Rocket,
+          color: '#3b82f6',
+          badge: 'OTA',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            setShowBlueGreenRelease(true);
+          }
         }
       ]
     },
@@ -943,6 +959,24 @@ export const Navbar = () => {
                 </h1>
                 <span className="badge badge-mode">
                   {profile === 'personal' ? (lang === 'bn' ? 'ব্যক্তিগত মোড' : 'Personal Mode') : (lang === 'bn' ? 'ব্যবসায়িক ইআরপি' : 'Business ERP')}
+                </span>
+                <span
+                  className="badge"
+                  title={`সংস্করণ: ${APP_VERSION_NAME} | বিল্ড: #${APP_BUILD_NUMBER} | আপডেট: ${APP_RELEASE_DATE}`}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(37, 99, 235, 0.15))',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.45)',
+                    fontSize: '0.68rem',
+                    fontWeight: '800',
+                    padding: '2px 7px',
+                    borderRadius: '6px',
+                    cursor: 'default',
+                    letterSpacing: '0.3px',
+                    boxShadow: '0 0 10px rgba(56, 189, 248, 0.2)'
+                  }}
+                >
+                  {APP_DISPLAY_BADGE}
                 </span>
                 {profile === 'business' && (
                   licenseInfo?.status === 'active' ? (
@@ -2710,6 +2744,13 @@ export const Navbar = () => {
                     <span>{lang === 'bn' ? '🌐 লাইভ ক্লাউড ওয়েবসাইট (GitHub Pages)' : '🌐 Live Web Preview'}</span>
                     <ExternalLink size={10} />
                   </a>
+                  <div style={{ textAlign: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    <div style={{ fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <span>হিসাবকিতাব ৩৬০</span>
+                      <span style={{ color: '#38bdf8', background: 'rgba(56, 189, 248, 0.15)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>{APP_DISPLAY_BADGE}</span>
+                    </div>
+                    <div style={{ fontSize: '0.68rem', marginTop: '3px' }}>বিল্ড: #{APP_BUILD_NUMBER} • তারিখ: {APP_RELEASE_DATE}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2721,6 +2762,13 @@ export const Navbar = () => {
       <InternalCommunicationHubModal
         isOpen={showInternalChat}
         onClose={() => setShowInternalChat(false)}
+      />
+
+      {/* Blue-Green Live Deployment & OTA Release Modal */}
+      <BlueGreenReleaseModal
+        isOpen={showBlueGreenRelease}
+        onClose={() => setShowBlueGreenRelease(false)}
+        lang={lang}
       />
     </>
   );

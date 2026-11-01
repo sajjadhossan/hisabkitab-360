@@ -99,17 +99,31 @@ export const flushOfflineQueue = async () => {
           cloudOk = Boolean(res?.success);
         }
 
-        // 2. Broadcast live event to any sibling devices
-        try {
-          await broadcastLiveEvent(mutation.actionType, mutation.payload);
-        } catch {}
+        if (cloudOk) {
+          // 2. Broadcast live event to any sibling devices
+          try {
+            await broadcastLiveEvent(mutation.actionType, mutation.payload);
+          } catch {}
 
-        // 3. If synced to cloud or already acknowledged, remove from local queue
-        if (cloudOk && removeIndexedDbItem && mutation.id) {
-          await removeIndexedDbItem(QUEUE_STORE, mutation.id);
+          // 3. Successfully synced to cloud, remove from local queue
+          if (removeIndexedDbItem && mutation.id) {
+            await removeIndexedDbItem(QUEUE_STORE, mutation.id);
+          }
+          successCount++;
+        } else {
+          // Retry tracking and Poison Pill protection (max 5 retries)
+          const retries = (mutation.retryCount || 0) + 1;
+          if (retries >= 5) {
+            console.warn(`[OfflineQueue] Poison mutation dropped after ${retries} failed attempts:`, mutation.id);
+            if (removeIndexedDbItem && mutation.id) {
+              await removeIndexedDbItem(QUEUE_STORE, mutation.id);
+            }
+          } else {
+            mutation.retryCount = retries;
+            mutation.lastError = 'Cloud push rejected or network dropped';
+            await setIndexedDbItem(QUEUE_STORE, mutation.id, mutation);
+          }
         }
-
-        successCount++;
       } catch (err) {
         console.debug('[OfflineQueue] Mutation sync deferred:', err);
       }

@@ -26,6 +26,7 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
     activeBranch,
     activeCounter,
     salesHistory,
+    businessExpenses = [],
     performCounterClosing,
     counterClosings,
     businessSettings,
@@ -62,8 +63,15 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
     .filter(s => s.paymentMethod === 'due' || (Number(s.dueAmount) > 0))
     .reduce((sum, s) => sum + (Number(s.dueAmount) || 0), 0);
 
+  // Today's petty cash drawer expenses from this cash drawer
+  const todayDrawerExpenses = businessExpenses.filter(e =>
+    (e.isDrawerExpense || e.subCategory === 'ক্যাশ ড্রয়ার খরচ' || e.counterId === currentCounterId) &&
+    String(e.date || '').startsWith(today)
+  );
+  const totalDrawerExpenseAmount = todayDrawerExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
   const openingFloat = Number(activeCounter?.openingFloat) || 1000;
-  const expectedDrawerCash = openingFloat + totalCashSales;
+  const expectedDrawerCash = openingFloat + totalCashSales - totalDrawerExpenseAmount;
 
   const actualCash = actualCashInput === '' ? expectedDrawerCash : Number(actualCashInput);
   const discrepancy = actualCash - expectedDrawerCash;
@@ -89,7 +97,8 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
       counterId: currentCounterId,
       closingCash: actualCash,
       note: noteInput,
-      cashierName: user?.name || 'কাউন্টার ক্যাশিয়ার'
+      cashierName: user?.name || 'কাউন্টার ক্যাশিয়ার',
+      drawerExpensesAmount: totalDrawerExpenseAmount
     });
     setLastClosedRecord(record);
   };
@@ -124,6 +133,7 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
         <div class="line"></div>
         <div class="flex pad-y"><span>প্রারম্ভিক ক্যাশ (Float):</span><span>৳${item.openingFloat.toLocaleString()}</span></div>
         <div class="flex pad-y"><span>নগদ বিক্রি (Cash Sales):</span><span>৳${item.totalCashSales.toLocaleString()}</span></div>
+        ${(item.drawerExpenses || 0) > 0 ? `<div class="flex pad-y" style="color: #c00;"><span>ড্রয়ার খরচ (Petty Cash):</span><span>-৳${Number(item.drawerExpenses).toLocaleString()}</span></div>` : ''}
         <div class="flex pad-y"><span>ডিজিটাল বিক্রি (bKash/Card):</span><span>৳${item.totalDigitalSales.toLocaleString()}</span></div>
         <div class="flex pad-y"><span>মোট ইনভয়েস সংখ্যা:</span><span>${item.totalTransactions} টি</span></div>
         <div class="line"></div>
@@ -305,7 +315,7 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
             ) : (
               <form onSubmit={handleConfirmClosing}>
                 {/* Info Badges */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: totalDrawerExpenseAmount > 0 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '8px', marginBottom: '1.25rem' }}>
                   <div style={{ padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>প্রারম্ভিক ক্যাশ (Float)</div>
                     <div style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)' }}>৳{openingFloat.toLocaleString()}</div>
@@ -314,6 +324,12 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
                     <div style={{ fontSize: '0.7rem', color: '#10b981' }}>আজকের নগদ বিক্রয়</div>
                     <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#10b981' }}>৳{totalCashSales.toLocaleString()}</div>
                   </div>
+                  {totalDrawerExpenseAmount > 0 && (
+                    <div style={{ padding: '8px 10px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.7rem', color: '#ef4444' }}>ড্রয়ার পেটি খরচ</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#ef4444' }}>-৳{totalDrawerExpenseAmount.toLocaleString()}</div>
+                    </div>
+                  )}
                   <div style={{ padding: '8px 10px', background: 'rgba(99, 102, 241, 0.08)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.3)', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.7rem', color: '#6366f1' }}>ডিজিটাল বিক্রয়</div>
                     <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#6366f1' }}>৳{totalDigitalSales.toLocaleString()}</div>
@@ -330,6 +346,12 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
                     <span style={{ color: 'var(--text-muted)' }}>বকেয়া বিক্রয়:</span>
                     <span style={{ fontWeight: '700', color: '#f59e0b' }}>৳{totalDueSales.toLocaleString()}</span>
                   </div>
+                  {totalDrawerExpenseAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
+                      <span style={{ color: '#ef4444' }}>কাউন্টার ড্রয়ার খরচ ({todayDrawerExpenses.length} টি):</span>
+                      <span style={{ fontWeight: '700', color: '#ef4444' }}>-৳{totalDrawerExpenseAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div style={{ height: '1px', background: 'var(--border-color)', margin: '8px 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: '800' }}>
                     <span>ড্রয়ারের প্রত্যাশিত নগদ ক্যাশ:</span>
@@ -422,6 +444,9 @@ export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           ক্যাশিয়ার: {c.cashierName} • {c.timestamp}
+                          {Number(c.drawerExpenses || 0) > 0 && (
+                            <span style={{ color: '#ef4444', marginLeft: '6px' }}>• ড্রয়ার খরচ: -৳{Number(c.drawerExpenses).toLocaleString()}</span>
+                          )}
                         </div>
                         {c.note && (
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '2px' }}>

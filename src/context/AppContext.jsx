@@ -1,3 +1,4 @@
+import { safeJsonParse } from '../utils/safeJson';
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useAuth } from './AuthContext';
 import { initialData } from '../data/initialData';
@@ -33,7 +34,8 @@ import {
   sendTelegramProfitReport,
   sendTelegramDueReport,
   sendTelegramExpenseReport,
-  sendTelegramExpenseAddedConfirmation
+  sendTelegramExpenseAddedConfirmation,
+  sendTelegramTransactionNotification
 } from '../services/telegramBackupService';
 import { kickCashDrawer } from '../services/printService';
 import {
@@ -765,7 +767,7 @@ export const AppProvider = ({ children }) => {
         const tenantKey = `hk360_t_${activeEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${baseKey}`;
         const tenantVal = localStorage.getItem(tenantKey);
         if (tenantVal) {
-          const parsed = JSON.parse(tenantVal);
+          const parsed = safeJsonParse(tenantVal, null);
           return Array.isArray(parsed) ? filterOutDemoItems(parsed) : parsed;
         }
       }
@@ -773,7 +775,7 @@ export const AppProvider = ({ children }) => {
       if (isMaster) {
         const globalVal = localStorage.getItem(`hk360_${baseKey}`);
         if (globalVal) {
-          const parsed = JSON.parse(globalVal);
+          const parsed = safeJsonParse(globalVal, null);
           return Array.isArray(parsed) ? filterOutDemoItems(parsed) : parsed;
         }
       }
@@ -1132,17 +1134,17 @@ export const AppProvider = ({ children }) => {
       // Load saved data for this specific tenant
       try {
         const tSales = localStorage.getItem(`${tenantPrefix}biz_sales`);
-        if (tSales) setSalesHistory(JSON.parse(tSales));
+        if (tSales) setSalesHistory(safeJsonParse(tSales, []));
         const tProds = localStorage.getItem(`${tenantPrefix}biz_products`);
-        if (tProds) setProducts(JSON.parse(tProds));
+        if (tProds) setProducts(safeJsonParse(tProds, []));
         const tInvs = localStorage.getItem(`${tenantPrefix}biz_invoices`);
-        if (tInvs) setInvoices(JSON.parse(tInvs));
+        if (tInvs) setInvoices(safeJsonParse(tInvs, []));
         const tCusts = localStorage.getItem(`${tenantPrefix}biz_customers`);
-        if (tCusts) setCustomers(JSON.parse(tCusts));
+        if (tCusts) setCustomers(safeJsonParse(tCusts, []));
         const tDebts = localStorage.getItem(`${tenantPrefix}biz_debts`);
-        if (tDebts) setBusinessDebts(JSON.parse(tDebts));
+        if (tDebts) setBusinessDebts(safeJsonParse(tDebts, []));
         const tExps = localStorage.getItem(`${tenantPrefix}biz_expenses`);
-        if (tExps) setBusinessExpenses(JSON.parse(tExps));
+        if (tExps) setBusinessExpenses(safeJsonParse(tExps, []));
       } catch (err) {
         console.warn('[TenantIsolation] Failed to load tenant data:', err);
       }
@@ -1951,6 +1953,19 @@ export const AppProvider = ({ children }) => {
       }, 'add_personal_expense');
       return next;
     });
+
+    // Realtime Telegram Detail Notification & Instant Backup
+    sendTelegramTransactionNotification({
+      type: 'personal_expense',
+      title: newEntry.item,
+      amount: newEntry.amount,
+      quantity: newEntry.quantity,
+      unit: newEntry.unit,
+      category: newEntry.folder,
+      note: newEntry.note,
+      date: newEntry.date
+    }).catch(() => {});
+
     showToast(lang === 'bn' ? 'খরচ সফলভাবে যোগ করা হয়েছে' : 'Expense recorded successfully');
     return newEntry;
   };
@@ -1984,6 +1999,21 @@ export const AppProvider = ({ children }) => {
       }, 'add_multiple_expenses');
       return next;
     });
+
+    // Realtime Telegram Detail Notifications
+    formatted.forEach(item => {
+      sendTelegramTransactionNotification({
+        type: 'personal_expense',
+        title: item.item,
+        amount: item.amount,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.folder,
+        note: item.note,
+        date: item.date
+      }).catch(() => {});
+    });
+
     showToast(lang === 'bn' ? `মোট ${formatted.length}টি খরচ সফলভাবে যুক্ত হয়েছে` : `${formatted.length} expenses recorded successfully`, 'success');
     return formatted.length;
   };
@@ -2355,6 +2385,17 @@ export const AppProvider = ({ children }) => {
       }, 'add_personal_income');
       return next;
     });
+
+    // Realtime Telegram Detail Notification & Instant Backup
+    sendTelegramTransactionNotification({
+      type: 'personal_income',
+      title: newEntry.source || newEntry.title || newEntry.item,
+      amount: newEntry.amount,
+      category: newEntry.category,
+      note: newEntry.note,
+      date: newEntry.date
+    }).catch(() => {});
+
     showToast(lang === 'bn' ? 'আয়ের হিসাব সফলভাবে যোগ করা হয়েছে' : 'Income added');
   };
 
@@ -2537,6 +2578,17 @@ export const AppProvider = ({ children }) => {
     } else {
       setBusinessDebts(updater);
     }
+
+    // Realtime Telegram Detail Notification & Instant Backup
+    sendTelegramTransactionNotification({
+      type: 'due_payment',
+      companyName: isPersonal ? 'ব্যক্তিগত ধার-দেনা' : (businessSettings?.companyName || 'হিসাবকিতাব ৩৬০'),
+      customerName: txData.personName || 'পার্টি/গ্রাহক',
+      title: txData.type === 'lend' ? 'ধার দেওয়া হয়েছে' : txData.type === 'borrow' ? 'ধার নেওয়া হয়েছে' : 'ধার পরিশোধ',
+      amount: newTx.amount,
+      date: newTx.date,
+      note: newTx.purpose || newTx.note
+    }).catch(() => {});
 
     showToast(lang === 'bn' ? 'লেনদেনের নতুন এন্ট্রি সফল হয়েছে' : 'Transaction recorded successfully');
     return newTx;
@@ -2773,10 +2825,33 @@ export const AppProvider = ({ children }) => {
         return;
       }
       hapticFeedback.light();
-      setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
+      const newQty = existing.qty + 1;
+      const retailPrice = existing.retailPrice || product.retailPrice || product.sellPrice;
+      const minWholesaleQty = Number(product.wholesaleMinQty) || 10;
+      const isWholesale = Number(product.wholesalePrice) > 0 && newQty >= minWholesaleQty;
+      const appliedPrice = isWholesale ? Number(product.wholesalePrice) : retailPrice;
+
+      setCart(cart.map(item => item.id === product.id ? {
+        ...item,
+        retailPrice,
+        sellPrice: appliedPrice,
+        isWholesaleApplied: isWholesale,
+        qty: newQty
+      } : item));
     } else {
       hapticFeedback.light();
-      setCart([...cart, { ...product, qty: 1 }]);
+      const retailPrice = product.sellPrice;
+      const minWholesaleQty = Number(product.wholesaleMinQty) || 10;
+      const isWholesale = Number(product.wholesalePrice) > 0 && 1 >= minWholesaleQty;
+      const appliedPrice = isWholesale ? Number(product.wholesalePrice) : retailPrice;
+
+      setCart([...cart, {
+        ...product,
+        retailPrice,
+        sellPrice: appliedPrice,
+        isWholesaleApplied: isWholesale,
+        qty: 1
+      }]);
     }
   };
 
@@ -2792,7 +2867,23 @@ export const AppProvider = ({ children }) => {
       return;
     }
     hapticFeedback.light();
-    setCart(cart.map(item => item.id === productId ? { ...item, qty: newQty } : item));
+    setCart(cart.map(item => {
+      if (item.id === productId) {
+        const prodRef = product || item;
+        const retailPrice = item.retailPrice || prodRef.retailPrice || prodRef.sellPrice;
+        const minWholesaleQty = Number(prodRef.wholesaleMinQty) || 10;
+        const isWholesale = Number(prodRef.wholesalePrice) > 0 && newQty >= minWholesaleQty;
+        const appliedPrice = isWholesale ? Number(prodRef.wholesalePrice) : retailPrice;
+        return {
+          ...item,
+          retailPrice,
+          sellPrice: appliedPrice,
+          isWholesaleApplied: isWholesale,
+          qty: newQty
+        };
+      }
+      return item;
+    }));
   };
 
   const removeFromCart = (productId) => {
@@ -2893,6 +2984,8 @@ export const AppProvider = ({ children }) => {
       })),
       subtotal,
       discount: Number(discount),
+      usedLoyaltyPoints: Number(usedLoyaltyPoints) || 0,
+      pointsEarned: customerId ? Math.floor(grandTotal / 100) : 0,
       vat,
       grandTotal,
       paidAmount: actualPaid,
@@ -3019,6 +3112,20 @@ export const AppProvider = ({ children }) => {
     if (businessSettings.autoOpenCashDrawer !== false && (paymentMethod === 'cash' || actualPaid > 0)) {
       openCashDrawer('sale');
     }
+
+    // Realtime Telegram Detail Notification & Instant Backup
+    sendTelegramTransactionNotification({
+      type: 'business_sale',
+      companyName: businessSettings?.companyName || 'হিসাবকিতাব ৩৬০',
+      invoiceId: saleRecord.id,
+      customerName: saleRecord.customerName,
+      amount: saleRecord.grandTotal,
+      paidAmount: saleRecord.paidAmount,
+      dueAmount: saleRecord.dueAmount,
+      paymentMethod: saleRecord.paymentMethod,
+      items: saleRecord.items || cart,
+      date: saleRecord.date
+    }).catch(() => {});
 
     // Instant 0ms broadcast to sibling counter terminals on LAN/Tabs
     try {
@@ -3414,6 +3521,18 @@ export const AppProvider = ({ children }) => {
       broadcastLiveEvent('EXPENSE_SYNC', { businessExpenses: next });
     } catch (_) {}
     triggerImmediateCloudPush({ ...latestStateRef.current, businessExpenses: next }, 'add_business_expense');
+
+    // Realtime Telegram Detail Notification & Instant Backup
+    sendTelegramTransactionNotification({
+      type: 'business_expense',
+      companyName: businessSettings?.companyName || 'হিসাবকিতাব ৩৬০',
+      title: newExpense.subCategory || newExpense.category,
+      amount: newExpense.amount,
+      recipient: newExpense.person || newExpense.recipient,
+      note: newExpense.note,
+      date: newExpense.date
+    }).catch(() => {});
+
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ যুক্ত করা হয়েছে' : 'Business expense recorded');
     return newExpense;
   };
@@ -3437,6 +3556,20 @@ export const AppProvider = ({ children }) => {
       broadcastLiveEvent('EXPENSE_SYNC', { businessExpenses: next });
     } catch (_) {}
     triggerImmediateCloudPush({ ...latestStateRef.current, businessExpenses: next }, 'add_multiple_business_expenses');
+
+    // Realtime Telegram Detail Notifications
+    formatted.forEach(item => {
+      sendTelegramTransactionNotification({
+        type: 'business_expense',
+        companyName: businessSettings?.companyName || 'হিসাবকিতাব ৩৬০',
+        title: item.subCategory || item.category,
+        amount: item.amount,
+        recipient: item.person || item.recipient,
+        note: item.note,
+        date: item.date
+      }).catch(() => {});
+    });
+
     showToast(lang === 'bn' ? `মোট ${formatted.length}টি ব্যবসায়িক খরচ যুক্ত হয়েছে` : `${formatted.length} business expenses recorded successfully`, 'success');
     return formatted.length;
   };
@@ -4349,7 +4482,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // Perform Shift Closing / Handover
-  const performCounterClosing = ({ counterId, closingCash, note, cashierName }) => {
+  const performCounterClosing = ({ counterId, closingCash, note, cashierName, drawerExpensesAmount }) => {
     const today = new Date().toISOString().split('T')[0];
     const targetCounterId = counterId || activeCounterId;
     const counterSales = salesHistory.filter(s => 
@@ -4361,8 +4494,18 @@ export const AppProvider = ({ children }) => {
     const totalDigitalSales = counterSales
       .filter(s => s.paymentMethod !== 'cash' && s.paymentMethod !== 'due')
       .reduce((sum, s) => sum + (Number(s.paidAmount) || 0), 0);
+    
+    // Calculate petty cash / drawer expenses paid during this shift
+    const targetDrawerExpenses = (businessExpenses || []).filter(e =>
+      (e.isDrawerExpense || e.subCategory === 'ক্যাশ ড্রয়ার খরচ' || e.counterId === targetCounterId) &&
+      String(e.date || '').startsWith(today)
+    );
+    const calculatedDrawerExpenses = drawerExpensesAmount !== undefined
+      ? Number(drawerExpensesAmount) || 0
+      : targetDrawerExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
     const openingFloat = Number(activeCounter?.openingFloat) || 0;
-    const expectedDrawerCash = openingFloat + totalCashSales;
+    const expectedDrawerCash = openingFloat + totalCashSales - calculatedDrawerExpenses;
     const actualCash = Number(closingCash) || 0;
     const discrepancy = actualCash - expectedDrawerCash;
 
@@ -4377,6 +4520,7 @@ export const AppProvider = ({ children }) => {
       date: today,
       openingFloat,
       totalCashSales,
+      drawerExpenses: calculatedDrawerExpenses,
       totalDigitalSales,
       totalTransactions: counterSales.length,
       expectedDrawerCash,
@@ -4856,16 +5000,14 @@ export const AppProvider = ({ children }) => {
     return () => window.removeEventListener('hk360_transaction_recorded', handleTransactionEvent);
   }, []);
 
-  // Dedicated 5-Minute (Configurable) Telegram Routine Backup Loop
+  // Dedicated 20-Second Telegram Routine Auto-Backup Loop (User Specific Requirement)
   useEffect(() => {
-    const tgConfig = getTelegramBackupConfig();
-    const intervalMs = Math.max(1, (tgConfig.intervalMinutes || 5)) * 60 * 1000;
     const tgTimer = setInterval(() => {
       const activeConfig = getTelegramBackupConfig();
       if (activeConfig.enabled && activeConfig.autoSync && activeConfig.botToken && activeConfig.chatId && !isTelegramSyncingRef.current) {
         syncToTelegram(null, true).catch(() => {});
       }
-    }, intervalMs);
+    }, 20 * 1000); // Exactly every 20 seconds!
 
     return () => clearInterval(tgTimer);
   }, []);

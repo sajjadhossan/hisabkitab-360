@@ -24,7 +24,8 @@ import {
   AlertCircle,
   Download,
   MessageCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Gift
 } from 'lucide-react';
 import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
@@ -60,6 +61,7 @@ export const CRMCustomers = () => {
     address: '',
     creditLimit: '20000',
     outstandingDue: '',
+    loyaltyPoints: 0,
     nidNo: '',
     tradeLicenseNo: '',
     nidDoc: null,
@@ -138,6 +140,7 @@ export const CRMCustomers = () => {
       address: cust.address || '',
       creditLimit: cust.creditLimit || '20000',
       outstandingDue: cust.outstandingDue || '0',
+      loyaltyPoints: cust.loyaltyPoints || 0,
       nidNo: cust.nidNo || '',
       tradeLicenseNo: cust.tradeLicenseNo || '',
       nidDoc: cust.nidDoc || null,
@@ -156,7 +159,8 @@ export const CRMCustomers = () => {
       updateCustomer(editingCustomerId, {
         ...customerForm,
         creditLimit: Number(customerForm.creditLimit) || 0,
-        outstandingDue: Number(customerForm.outstandingDue) || 0
+        outstandingDue: Number(customerForm.outstandingDue) || 0,
+        loyaltyPoints: Number(customerForm.loyaltyPoints) || 0
       });
     } else {
       addCustomer({
@@ -415,6 +419,10 @@ export const CRMCustomers = () => {
                       <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
                         {cust.customerType || 'খুচরা'}
                       </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#ec4899', fontWeight: '700', marginTop: '3px' }}>
+                        <Gift size={11} />
+                        <span>{Number(cust.loyaltyPoints || 0)} pts</span>
+                      </div>
                     </td>
 
                     <td style={{ padding: '12px 10px' }}>
@@ -969,7 +977,7 @@ export const CRMCustomers = () => {
             </div>
 
             {/* Financial Overview Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '1.25rem' }}>
               <div style={{ background: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{lang === 'bn' ? 'মোট ক্রয়' : 'Total Spent'}</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', fontFamily: 'monospace' }}>
@@ -990,6 +998,40 @@ export const CRMCustomers = () => {
                   ৳{(Number(selectedCustomer.creditLimit) || 20000).toLocaleString()}
                 </div>
               </div>
+
+              <div style={{ background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(168, 85, 247, 0.05))', padding: '10px', borderRadius: '8px', border: '1px solid rgba(236, 72, 153, 0.35)', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.75rem', color: '#ec4899', fontWeight: '700' }}>{lang === 'bn' ? '🎁 লয়ালটি পয়েন্ট' : 'Loyalty Points'}</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ec4899', fontFamily: 'monospace' }}>
+                  {(Number(selectedCustomer.loyaltyPoints) || 0).toLocaleString()} <span style={{ fontSize: '0.7rem' }}>pts</span>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  = ৳{(Number(selectedCustomer.loyaltyPoints) || 0).toLocaleString()} ক্যাশব্যাক
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Loyalty Points Bonus / Adjust Button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.25rem', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const input = prompt(lang === 'bn' ? 'কাস্টমারকে বোনাস পয়েন্ট যোগ করতে ধনাত্মক সংখ্যা (যেমন: 50) অথবা কর্তন করতে ঋণাত্মক সংখ্যা (যেমন: -20) লিখুন:' : 'Enter points to add or deduct:', '50');
+                  if (input !== null) {
+                    const delta = parseInt(input, 10);
+                    if (!isNaN(delta)) {
+                      const nextPts = Math.max(0, (Number(selectedCustomer.loyaltyPoints) || 0) + delta);
+                      updateCustomer(selectedCustomer.id, { loyaltyPoints: nextPts });
+                      setSelectedCustomer({ ...selectedCustomer, loyaltyPoints: nextPts });
+                      if (showToast) showToast(lang === 'bn' ? `লয়ালটি পয়েন্ট আপডেট হয়েছে (${nextPts} pts)` : 'Points updated', 'success');
+                    }
+                  }
+                }}
+                style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#ec4899', borderColor: 'rgba(236, 72, 153, 0.4)', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '700' }}
+              >
+                <Gift size={13} />
+                <span>{lang === 'bn' ? '🎁 রিওয়ার্ড পয়েন্ট বোনাস / সমন্বয়' : 'Adjust Points'}</span>
+              </button>
             </div>
 
             {/* Contact Details */}

@@ -327,20 +327,34 @@ export const fetchDeltaChangesFromCloud = async (sinceIsoTimestamp, targetTenant
     const isMasterTenant = currentTenant === 'tenant_hossansajjad1994_gmail_com';
 
     // 1. Delta Products
-    const { data: deltaProducts } = await supabase
+    const { data: rawDeltaProducts } = await supabase
       .from('products')
       .select('*')
       .gt('updated_at', since)
       .order('updated_at', { ascending: true })
       .limit(500);
 
+    // Multi-tenant product filtering
+    const deltaProducts = (rawDeltaProducts || []).filter((prod) => {
+      const prodTenant = prod?.tenant_key || prod?.tenant_id || prod?.tenantKey;
+      if (prodTenant) return prodTenant === currentTenant;
+      return isMasterTenant;
+    });
+
     // 2. Delta Customers
-    const { data: deltaCustomers } = await supabase
+    const { data: rawDeltaCustomers } = await supabase
       .from('customers')
       .select('*')
       .gt('updated_at', since)
       .order('updated_at', { ascending: true })
       .limit(500);
+
+    // Multi-tenant customer filtering
+    const deltaCustomers = (rawDeltaCustomers || []).filter((cust) => {
+      const custTenant = cust?.tenant_key || cust?.tenant_id || cust?.tenantKey;
+      if (custTenant) return custTenant === currentTenant;
+      return isMasterTenant;
+    });
 
     // 3. Delta Invoices
     const { data: rawDeltaInvoices } = await supabase

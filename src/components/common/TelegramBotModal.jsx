@@ -464,6 +464,24 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                 </p>
               </div>
 
+              {/* Critical Bot Father Start Alert */}
+              <div
+                style={{
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: '12px',
+                  padding: '10px 14px',
+                  fontSize: '0.78rem',
+                  lineHeight: 1.5,
+                  color: '#f59e0b'
+                }}
+              >
+                <strong>⚠️ জরুরি নির্দেশনা (টোকেন পরিবর্তন করলে):</strong>
+                <div style={{ marginTop: '4px' }}>
+                  @BotFather থেকে নতুন টোকেন নেওয়ার পর টেলিগ্রামে আপনার বটে প্রবেশ করে অবশ্যই একবার <strong>START</strong> বাটনে চাপ দিন (অথবা <code>/start</code> লিখে পাঠান)। অন্যথায় টেলিগ্রাম চ্যাট ব্লক করে রাখে এবং কোনো মেসেজ পাঠাতে দেয় না।
+                </div>
+              </div>
+
               {/* Bot Token */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -694,7 +712,7 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
                 <select
-                  value={tgConfig.intervalMinutes || 5}
+                  value={tgConfig.intervalMinutes || 0.33}
                   onChange={(e) => setTgConfig(prev => ({ ...prev, intervalMinutes: Number(e.target.value) }))}
                   style={{
                     padding: '6px 12px',
@@ -706,9 +724,11 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                     fontWeight: '700'
                   }}
                 >
-                  <option value={5}>⚡ {lang === 'bn' ? 'প্রতি ৫ মিনিট (সুপার ফাস্ট)' : 'Every 5 Minutes'}</option>
+                  <option value={0.33}>⚡ {lang === 'bn' ? 'প্রতি ২০ সেকেন্ড (আল্ট্রা ফাস্ট লাইভ)' : 'Every 20 Seconds'}</option>
+                  <option value={1}>⚡ {lang === 'bn' ? 'প্রতি ১ মিনিট' : 'Every 1 Minute'}</option>
+                  <option value={5}>⏱️ {lang === 'bn' ? 'প্রতি ৫ মিনিট' : 'Every 5 Minutes'}</option>
                   <option value={15}>⏱️ {lang === 'bn' ? 'প্রতি ১৫ মিনিট' : 'Every 15 Minutes'}</option>
-                  <option value={30}>⭐ {lang === 'bn' ? 'প্রতি ৩০ মিনিট (প্রস্তাবিত)' : 'Every 30 Minutes'}</option>
+                  <option value={30}>⭐ {lang === 'bn' ? 'প্রতি ৩০ মিনিট' : 'Every 30 Minutes'}</option>
                   <option value={60}>🕒 {lang === 'bn' ? 'প্রতি ১ ঘণ্টা (Hourly)' : 'Every 1 Hour'}</option>
                   <option value={1440}>📅 {lang === 'bn' ? 'প্রতিদিন একবার (Daily)' : 'Daily Once'}</option>
                 </select>

@@ -15,14 +15,15 @@ export const getTelegramBackupConfig = () => {
     const localKey = typeof window !== 'undefined' ? localStorage.getItem('hk360_gemini_api_key') : '';
 
     return {
-      botToken: parsed.botToken || '8692661339:AAE0gFE0oCt1_Rsm1B1W5GuD2tDb-lXj9bY',
-      chatId: parsed.chatId || '7928605566',
+      botToken: parsed.botToken || '',
+      chatId: parsed.chatId || '',
       geminiApiKey: parsed.geminiApiKey || localKey || envKey || '',
       groqApiKey: parsed.groqApiKey || '',
       enabled: parsed.enabled !== undefined ? parsed.enabled : true,
       autoSync: parsed.autoSync !== undefined ? parsed.autoSync : true,
       syncOnSaleOrExpense: parsed.syncOnSaleOrExpense !== false,
-      intervalMinutes: parsed.intervalMinutes || 5,
+      intervalMinutes: parsed.intervalMinutes || 1,
+      intervalSeconds: 20,
       lastSync: parsed.lastSync || null,
       lastFileName: parsed.lastFileName || null
     };
@@ -31,14 +32,15 @@ export const getTelegramBackupConfig = () => {
     const localKey = typeof window !== 'undefined' ? localStorage.getItem('hk360_gemini_api_key') : '';
 
     return {
-      botToken: '8692661339:AAE0gFE0oCt1_Rsm1B1W5GuD2tDb-lXj9bY',
-      chatId: '7928605566',
+      botToken: '',
+      chatId: '',
       geminiApiKey: localKey || envKey || '',
       groqApiKey: '',
       enabled: true,
       autoSync: true,
       syncOnSaleOrExpense: true,
-      intervalMinutes: 5,
+      intervalMinutes: 1,
+      intervalSeconds: 20,
       lastSync: null,
       lastFileName: null
     };
@@ -555,7 +557,11 @@ export const sendBackupToTelegram = async (backupPayload, customConfig = null) =
       const proxyRes = await fetch('/api/telegram/send_backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(backupPayload)
+        body: JSON.stringify({
+          ...backupPayload,
+          botToken: token,
+          chatId: chatId
+        })
       });
       if (proxyRes.ok) {
         const proxyData = await proxyRes.json();
@@ -631,7 +637,132 @@ export const sendTelegramMessage = async (text, customConfig = null, customMarku
     }
     return true;
   } catch (err) {
+    // If direct fetch fails (e.g. CORS or network restrictions), attempt local host proxy
+    try {
+      const proxyRes = await fetch('/api/telegram/send_msg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          botToken: token,
+          chatId,
+          text,
+          parse_mode: parseMode
+        })
+      });
+      if (proxyRes.ok) return true;
+    } catch {}
+
     console.warn('sendTelegramMessage error:', err);
+    return false;
+  }
+};
+
+/**
+ * Sends an instant, rich transaction notification to Telegram whenever any transaction occurs.
+ * Supports:
+ * 1. Personal Expense (হলুদ, মরিচ, ডিম, বাজার ইত্যাদি)
+ * 2. Personal Income (বেতন, আয় ইত্যাদি)
+ * 3. Business Sale (দোকানের নাম, মেমো নং, পণ্যের তালিকা, মোট টাকা, পরিশোধ/বাকি)
+ * 4. Business Expense (দোকানের খরচ, ভাউচার, প্রাপক)
+ * 5. Khata Due Payment / Receive (কাস্টমার দেনা-পাওনা)
+ */
+export const sendTelegramTransactionNotification = async (trx, customConfig = null) => {
+  const config = customConfig || getTelegramBackupConfig();
+  const token = (config.botToken || '').trim().replace(/^bot/i, '');
+  const chatId = (config.chatId || '').trim();
+  if (!token || !chatId || !config.enabled) return false;
+
+  const now = new Date();
+  const timeFormatted = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const dateFormatted = now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  let text = '';
+
+  if (trx.type === 'personal_expense') {
+    const qtyText = trx.quantity ? ` (${trx.quantity} ${trx.unit || ''})` : '';
+    text = `🏠 <b>ব্যক্তিগত খরচ এন্ট্রি (Personal Expense)</b>
+━━━━━━━━━━━━━━━━━━━━━
+🛒 <b>পণ্য/বিবরণ:</b> ${trx.title || trx.item || 'সাধারণ খরচ'}${qtyText}
+💰 <b>খরচের পরিমাণ:</b> <b>৳${(Number(trx.amount) || 0).toLocaleString()}</b>
+📂 <b>খরচের খাত:</b> ${trx.category || trx.folder || 'দৈনন্দিন বাজার'}
+📅 <b>তারিখ ও সময়:</b> ${trx.date || dateFormatted} • ${timeFormatted}
+${trx.note && trx.note !== trx.title ? `📝 <b>মন্তব্য:</b> ${trx.note}\n` : ''}━━━━━━━━━━━━━━━━━━━━━
+✓ হিসাবকিতাব ৩৬০ ইনস্ট্যান্ট রিয়েল-টাইম এলার্ট`;
+  } else if (trx.type === 'personal_income') {
+    text = `💵 <b>ব্যক্তিগত আয় জমা (Personal Income)</b>
+━━━━━━━━━━━━━━━━━━━━━
+💼 <b>আয়ের খাত/উৎস:</b> ${trx.title || 'সাধারণ আয়'}
+💰 <b>আয়ের পরিমাণ:</b> <b>+৳${(Number(trx.amount) || 0).toLocaleString()}</b>
+📂 <b>ক্যাটাগরি:</b> ${trx.category || 'ব্যক্তিগত জমা'}
+📅 <b>তারিখ ও সময়:</b> ${trx.date || dateFormatted} • ${timeFormatted}
+${trx.note ? `📝 <b>মন্তব্য:</b> ${trx.note}\n` : ''}━━━━━━━━━━━━━━━━━━━━━
+✓ হিসাবকিতাব ৩৬০ ইনস্ট্যান্ট রিয়েল-টাইম এলার্ট`;
+  } else if (trx.type === 'business_sale') {
+    let itemsSummary = '';
+    if (Array.isArray(trx.items) && trx.items.length > 0) {
+      itemsSummary = trx.items.slice(0, 10).map((it, idx) => {
+        const name = it.name || it.title || 'পণ্য';
+        const qty = it.qty || it.quantity || 1;
+        const price = Number(it.price || it.sellPrice || 0) * qty;
+        return `   ${idx + 1}. ${name} x ${qty} = ৳${price.toLocaleString()}`;
+      }).join('\n');
+      if (trx.items.length > 10) {
+        itemsSummary += `\n   ...আরও ${trx.items.length - 10} টি আইটেম`;
+      }
+    } else {
+      itemsSummary = `   ${trx.title || 'পণ্য বিক্রি'}`;
+    }
+
+    const grandTotal = Number(trx.amount || trx.grandTotal || 0);
+    const paid = Number(trx.paidAmount !== undefined ? trx.paidAmount : grandTotal);
+    const due = Number(trx.dueAmount || 0);
+
+    text = `🏢 <b>ব্যবসায়িক নতুন বিক্রি (Business Sale)</b>
+━━━━━━━━━━━━━━━━━━━━━
+🏪 <b>প্রতিষ্ঠান:</b> <b>${trx.companyName || 'হিসাবকিতাব ৩৬০'}</b>
+🧾 <b>ইনভয়েস নম্বর:</b> #${trx.invoiceId || trx.id || Date.now().toString().slice(-6)}
+👤 <b>ক্রেতা/গ্রাহক:</b> ${trx.customerName || 'খুচরা গ্রাহক'}
+━━━━━━━━━━━━━━━━━━━━━
+📦 <b>বিক্রিত পণ্য তালিকা:</b>
+${itemsSummary}
+━━━━━━━━━━━━━━━━━━━━━
+💰 <b>মোট বিক্রয় মূল্য:</b> <b>৳${grandTotal.toLocaleString()}</b>
+💵 <b>পরিশোধিত:</b> ৳${paid.toLocaleString()} (${trx.paymentMethod || 'নগদ'})
+${due > 0 ? `⚠️ <b>বকেয়া/বাকি:</b> <b style="color:red">৳${due.toLocaleString()}</b>\n` : ''}📅 <b>তারিখ ও সময়:</b> ${trx.date || dateFormatted} • ${timeFormatted}
+━━━━━━━━━━━━━━━━━━━━━
+✓ হিসাবকিতাব ৩৬০ ইনস্ট্যান্ট রিয়েল-টাইম এলার্ট`;
+  } else if (trx.type === 'business_expense') {
+    text = `🏢 <b>ব্যবসায়িক খরচ ভাউচার (Business Expense)</b>
+━━━━━━━━━━━━━━━━━━━━━
+🏪 <b>প্রতিষ্ঠান:</b> <b>${trx.companyName || 'হিসাবকিতাব ৩৬০'}</b>
+💸 <b>খরচের খাত:</b> ${trx.title || trx.category || 'কাউন্টার খরচ'}
+💰 <b>খরচের পরিমাণ:</b> <b>-৳${(Number(trx.amount) || 0).toLocaleString()}</b>
+👤 <b>প্রাপক/গ্রহীতা:</b> ${trx.recipient || trx.person || 'কাউন্টার পেটি ক্যাশ'}
+📅 <b>তারিখ ও সময়:</b> ${trx.date || dateFormatted} • ${timeFormatted}
+${trx.note && trx.note !== trx.title ? `📝 <b>মন্তব্য:</b> ${trx.note}\n` : ''}━━━━━━━━━━━━━━━━━━━━━
+✓ হিসাবকিতাব ৩৬০ ইনস্ট্যান্ট রিয়েল-টাইম এলার্ট`;
+  } else if (trx.type === 'due_payment') {
+    text = `📒 <b>বকেয়া খাতা দেনা-পাওনা (Khata Ledger)</b>
+━━━━━━━━━━━━━━━━━━━━━
+🏪 <b>প্রতিষ্ঠান:</b> ${trx.companyName || 'হিসাবকিতাব ৩৬০'}
+👤 <b>পার্টি/গ্রাহক:</b> ${trx.customerName || 'গ্রাহক'}
+💰 <b>পরিমাণ:</b> <b>৳${(Number(trx.amount) || 0).toLocaleString()}</b>
+⚖️ <b>লেনদেনের ধরন:</b> ${trx.title || 'বকেয়া লেনদেন'}
+📅 <b>তারিখ ও সময়:</b> ${trx.date || dateFormatted} • ${timeFormatted}
+━━━━━━━━━━━━━━━━━━━━━
+✓ হিসাবকিতাব ৩৬০ ইনস্ট্যান্ট রিয়েল-টাইম এলার্ট`;
+  } else {
+    text = `🔔 <b>নতুন লেনদেন রেকর্ড (New Transaction)</b>
+━━━━━━━━━━━━━━━━━━━━━
+📝 <b>বিবরণ:</b> ${trx.title || 'লেনদেন'}
+💰 <b>পরিমাণ:</b> ৳${(Number(trx.amount) || 0).toLocaleString()}
+📅 <b>তারিখ:</b> ${dateFormatted} • ${timeFormatted}`;
+  }
+
+  try {
+    return await sendTelegramMessage(text, config, null, 'HTML');
+  } catch (err) {
+    console.debug('Failed to send telegram transaction notification:', err);
     return false;
   }
 };

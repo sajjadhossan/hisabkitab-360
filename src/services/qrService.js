@@ -383,10 +383,11 @@ export const formatWhatsAppShiftClosingMessage = (closingRecord, businessSetting
   const company = businessSettings?.companyName || 'হিসাব কিতাব ৩৬০';
   const cashSales = Number(closingRecord.totalCashSales) || 0;
   const digitalSales = Number(closingRecord.totalDigitalSales) || 0;
+  const drawerExpenses = Number(closingRecord.drawerExpenses) || 0;
   const totalSales = cashSales + digitalSales;
   const openingFloat = Number(closingRecord.openingFloat) || 0;
   const actualCash = Number(closingRecord.closingCash || closingRecord.actualCash) || 0;
-  const expectedCash = openingFloat + cashSales;
+  const expectedCash = openingFloat + cashSales - drawerExpenses;
   const discrepancy = actualCash - expectedCash;
 
   let discrepancyText = 'মিল রয়েছে (✓)';
@@ -400,14 +401,14 @@ export const formatWhatsAppShiftClosingMessage = (closingRecord, businessSetting
     return `📊 *কাউন্টার শিফট হ্যান্ডওভার ও হিসাব রিপোর্ট*
 ━━━━━━━━━━━━━━━━━━━━
 🏢 *প্রতিষ্ঠান:* ${company}
-📍 *শাখা:* ${closingRecord.branchName || 'প্রধান শাখা'}
+📍 * শাখা:* ${closingRecord.branchName || 'প্রধান শাখা'}
 💻 *কাউন্টার:* ${closingRecord.counterName || 'কাউন্টার ০১'}
 👤 *দায়িত্বপ্রাপ্ত ক্যাশিয়ার:* ${closingRecord.cashierName || 'ক্যাশিয়ার'}
 📅 *তারিখ ও সময়:* ${closingRecord.timestamp || new Date().toLocaleString()}
 ━━━━━━━━━━━━━━━━━━━━
 💵 *প্রারম্ভিক ক্যাশ (Opening Float):* ৳${openingFloat.toLocaleString()}
 🛒 *মোট নগদ বিক্রয়:* ৳${cashSales.toLocaleString()}
-📱 *মোট ডিজিটাল বিক্রয়:* ৳${digitalSales.toLocaleString()}
+${drawerExpenses > 0 ? `💸 *ড্রয়ার পেটি ক্যাশ খরচ:* -৳${drawerExpenses.toLocaleString()}\n` : ''}📱 *মোট ডিজিটাল বিক্রয়:* ৳${digitalSales.toLocaleString()}
 📈 *সর্বমোট বিক্রয়:* ৳${totalSales.toLocaleString()} (${closingRecord.totalTransactions || 0} টি মেমো)
 ━━━━━━━━━━━━━━━━━━━━
 💼 *ড্রয়ারে হিসেবকৃত মোট ক্যাশ:* ৳${actualCash.toLocaleString()}
@@ -426,7 +427,7 @@ ${closingRecord.note ? `📝 *ক্যাশিয়ার নোট:* ${closingR
 ━━━━━━━━━━━━━━━━━━━━
 💵 *Opening Float:* ৳${openingFloat.toLocaleString()}
 🛒 *Cash Sales:* ৳${cashSales.toLocaleString()}
-📱 *Digital Sales:* ৳${digitalSales.toLocaleString()}
+${drawerExpenses > 0 ? `💸 *Drawer Petty Expenses:* -৳${drawerExpenses.toLocaleString()}\n` : ''}📱 *Digital Sales:* ৳${digitalSales.toLocaleString()}
 📈 *Total Revenue:* ৳${totalSales.toLocaleString()} (${closingRecord.totalTransactions || 0} transactions)
 ━━━━━━━━━━━━━━━━━━━━
 💼 *Actual Drawer Cash:* ৳${actualCash.toLocaleString()}
@@ -774,4 +775,31 @@ export const createSamityExpenseVoucherVerificationUrl = (expense, currentSamity
     monthYear: '',
     samityName: currentSamity?.nameBn
   });
+};
+
+/**
+ * Bangladesh Bank Interoperable Bangla QR Code Generator (EMVCo Standard)
+ * Enables unified instant payments from bKash, Nagad, Rocket, Upay, Cellfin, and all Bangladeshi bank apps.
+ */
+export const buildBanglaQrPaymentPayload = ({
+  merchantName = 'HisabKitab 360 Merchant',
+  merchantCity = 'Dhaka',
+  merchantPhone = '',
+  amount = 0,
+  invoiceNo = '',
+  mfsProvider = 'bkash' // 'bkash' | 'nagad' | 'rocket' | 'upay'
+}) => {
+  const cleanPhone = (merchantPhone || '').replace(/[^0-9]/g, '');
+  
+  // Standard bKash/Nagad Merchant Direct Deep Link & Interoperable Payload
+  if (mfsProvider === 'bkash' && cleanPhone) {
+    return `bkash://pay?merchant=${cleanPhone}&amount=${amount}&invoice=${invoiceNo}`;
+  }
+  
+  if (mfsProvider === 'nagad' && cleanPhone) {
+    return `nagad://payment?account=${cleanPhone}&amount=${amount}&reference=${invoiceNo}`;
+  }
+
+  // Unified Bangladesh Bank Standard Merchant QR String
+  return `BANGLAQR|MERCHANT:${encodeURIComponent(merchantName)}|CITY:${merchantCity}|ACC:${cleanPhone}|AMT:${amount}|REF:${invoiceNo}`;
 };

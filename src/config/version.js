@@ -1,26 +1,29 @@
 /**
- * Somiti 360 - Central Unified Version Registry
+ * HisabKitab 360 - Central Unified Version Registry
  * ---------------------------------------------------------
  * Version Parity Rule:
- * All platforms (Web, Android APK, Windows PC, macOS, Backend API)
- * must share the exact same version and build code!
+ * All platforms (Web, Android APK, Windows PC, Desktop)
+ * share this exact version and build code.
+ * Incremented on every single delivery so user can verify!
  */
-export const APP_VERSION = '2.2.0';
-export const APP_BUILD_NUMBER = 22;
-export const APP_VERSION_NAME = `v${APP_VERSION}`;
+export const APP_VERSION = '2.3.8';
+export const APP_BUILD_NUMBER = 284;
+export const APP_VERSION_NAME = `v${APP_VERSION} (Build ${APP_BUILD_NUMBER})`;
+export const APP_DISPLAY_BADGE = `v${APP_VERSION}`;
 export const APP_RELEASE_TAG = `v${APP_VERSION}`;
-export const APP_RELEASE_DATE = '2026-10-30';
-export const APP_APK_FILENAME = `Somiti-360-v${APP_VERSION}-build${APP_BUILD_NUMBER}-android.apk`;
+export const APP_RELEASE_DATE = '2026-11-01';
+export const APP_APK_FILENAME = `HisabKitab-360-v${APP_VERSION}-build${APP_BUILD_NUMBER}-android.apk`;
 
 export const APP_RELEASE_NOTES = {
-  bn: `সমিতি ৩৬০ ${APP_VERSION_NAME} (Build ${APP_BUILD_NUMBER}) — সুপার এডমিন SaaS মাল্টি-টেন্যান্ট ইঞ্জিন, ১১টি ফিচার অন/অফ সুইচবোর্ড, স্টাফ ও সদস্য পারমিশন (RBAC Matrix) এবং আইসোলেটেড টেন্যান্ট স্যান্ডবক্স।`,
-  en: `Somiti 360 ${APP_VERSION_NAME} (Build ${APP_BUILD_NUMBER}) — Super Admin Multi-Tenant SaaS Engine, 11-Feature Toggle Switchboard, Granular Staff/Member RBAC Matrix & Isolated Tenant Sandbox.`
+  bn: `হিসাবকিতাব ৩৬০ ${APP_VERSION_NAME} — ম্যাকবুক (ইনটেল x64 ও অ্যাপল সিলিকন M1/M2/M3/M4) নেটিভ রিলিজ, টেলিগ্রাম ২০-সেকেন্ড অটো-ব্যাকআপ, লাইভ নোটিফিকেশন ও ভার্সেল প্রোডাকশন সিঙ্ক।`,
+  en: `HisabKitab 360 ${APP_VERSION_NAME} — MacBook (Intel x64 & Apple Silicon M-Series) Native Release, Telegram 20s Auto-Backup, Live Alerts & Vercel Production Sync.`
 };
 
 export default {
   version: APP_VERSION,
   buildNumber: APP_BUILD_NUMBER,
   versionName: APP_VERSION_NAME,
+  displayBadge: APP_DISPLAY_BADGE,
   releaseTag: APP_RELEASE_TAG,
   releaseDate: APP_RELEASE_DATE,
   apkFilename: APP_APK_FILENAME,

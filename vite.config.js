@@ -30,6 +30,15 @@ export default defineConfig({
             if (id.includes('xlsx')) {
               return 'vendor-excel';
             }
+            if (id.includes('src/components/samity')) {
+              return 'bundle-samity';
+            }
+            if (id.includes('src/components/healthcare')) {
+              return 'bundle-healthcare';
+            }
+            if (id.includes('src/components/superadmin') || id.includes('src/components/admin')) {
+              return 'bundle-admin';
+            }
             return 'vendor-core';
           }
         }

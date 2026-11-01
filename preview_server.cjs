@@ -7,6 +7,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -846,15 +847,44 @@ function serveStatic(req, res) {
     }
   }
 
+  // Telegram Send Message API (Dual delivery proxy for CORS/network resilience)
+  if (req.url === '/api/telegram/send_msg' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const msgData = JSON.parse(body || '{}');
+        const cfg = loadTelegramConfig() || {};
+        const token = (msgData.botToken || cfg.botToken || '').trim().replace(/^bot/i, '');
+        const chatId = (msgData.chatId || cfg.chatId || '').trim();
+        const text = msgData.text || '';
+        const parseMode = msgData.parse_mode || 'HTML';
+        if (!token || !chatId || !text) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Token, Chat ID or Text missing' }));
+          return;
+        }
+        await sendTelegramMsg(token, chatId, text, msgData.reply_markup || null, parseMode);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
   // Telegram Send Test Message API
   if (req.url === '/api/telegram/send_test' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
+        const testData = JSON.parse(body || '{}');
         const cfg = loadTelegramConfig() || {};
-        const token = (cfg.botToken || '').trim().replace(/^bot/i, '');
-        const chatId = (cfg.chatId || '').trim();
+        const token = (testData.botToken || cfg.botToken || '').trim().replace(/^bot/i, '');
+        const chatId = (testData.chatId || cfg.chatId || '').trim();
         if (!token || !chatId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Token or Chat ID missing' }));
@@ -864,14 +894,14 @@ function serveStatic(req, res) {
         const pingMsg = `📡 <b>হিসাবকিতাব ৩৬০ - লাইভ কানেকশন টেস্ট পিং</b>\n━━━━━━━━━━━━━━━━━━━━━\n⏰ <b>সময়:</b> ${timeNow}\n📲 <b>স্ট্যাটাস:</b> দ্বি-মুখী কানেকশন পরীক্ষা করা হচ্ছে...`;
         await sendTelegramMsg(token, chatId, pingMsg, null, 'HTML');
 
-        const pongMsg = `🤖 <b>বট রেসপন্স কনফার্মেশন (Pong Received):</b>\n━━━━━━━━━━━━━━━━━━━━━\n✅ <b>বট:</b> @${cfg.botUsername || 'Backup_hisabkitab_bot'}\n⚡ <b>স্ট্যাটাস:</b> ১০০% কানেক্টেড ও প্রস্তুত\n💡 <i>আপনার হিসাব-কিতাব ৩৬০ সিস্টেমের সাথে এই টেলিগ্রাম বট রিয়েল-টাইমে সফলভাবে সংযুক্ত রয়েছে।</i>`;
+        const pongMsg = `🤖 <b>বট রেসপন্স কনফার্মেশন (Pong Received):</b>\n━━━━━━━━━━━━━━━━━━━━━\n✅ <b>বট:</b> @${cfg.botUsername || 'HisabKitab_Telegram_Bot'}\n⚡ <b>স্ট্যাটাস:</b> ১০০% কানেক্টেড ও প্রস্তুত\n💡 <i>আপনার হিসাব-কিতাব ৩৬০ সিস্টেমের সাথে এই টেলিগ্রাম বট রিয়েল-টাইমে সফলভাবে সংযুক্ত রয়েছে।</i>`;
         await sendTelegramMsg(token, chatId, pongMsg, null, 'HTML');
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
           message: 'Two-way test ping-pong completed',
-          botUsername: cfg.botUsername || 'Backup_hisabkitab_bot',
+          botUsername: cfg.botUsername || 'HisabKitab_Telegram_Bot',
           timeNow
         }));
       } catch (e) {
@@ -888,16 +918,16 @@ function serveStatic(req, res) {
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
+        const backupData = JSON.parse(body || '{}');
         const cfg = loadTelegramConfig() || {};
-        const token = (cfg.botToken || '').trim().replace(/^bot/i, '');
-        const chatId = (cfg.chatId || '').trim();
+        const token = (backupData.botToken || cfg.botToken || '').trim().replace(/^bot/i, '');
+        const chatId = (backupData.chatId || cfg.chatId || '').trim();
         if (!token || !chatId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Token or Chat ID missing' }));
           return;
         }
 
-        const backupData = JSON.parse(body || '{}');
         const now = new Date();
         const dateFormatted = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const fileName = `hisabkitab_backup_${dateFormatted}.json`;
@@ -990,9 +1020,10 @@ function startServer(port) {
     process.exit(1);
   }
 
-  const server = http.createServer(serveStatic);
+  // 1. Create standard HTTP server on port (e.g. 5173)
+  const httpServer = http.createServer(serveStatic);
 
-  server.on('error', (err) => {
+  httpServer.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.log(`[INFO] পোর্ট ${port} ব্যবহৃত হচ্ছে, পরবর্তী পোর্ট ${port + 1} চেষ্টা করা হচ্ছে...`);
       startServer(port + 1);
@@ -1002,19 +1033,45 @@ function startServer(port) {
     }
   });
 
-  server.listen(port, '0.0.0.0', () => {
+  httpServer.listen(port, '0.0.0.0', () => {
     const localIps = getLocalIpList();
-    const primaryIp = localIps.find(ip => ip.startsWith('192.168.')) || localIps[0] || 'localhost';
+    const primaryIp = localIps.find(ip => ip.startsWith('172.20.') || ip.startsWith('192.168.')) || localIps[0] || 'localhost';
+
+    // 2. Also start secure HTTPS server on port + 10 (e.g. 5183) if certificates exist
+    const httpsPort = port + 10;
+    const certDir = path.join(__dirname, '.cert');
+    const keyPath = path.join(certDir, 'key.pem');
+    const certPath = path.join(certDir, 'cert.pem');
+    let hasHttps = false;
+
+    if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+      try {
+        const httpsOptions = {
+          key: fs.readFileSync(keyPath),
+          cert: fs.readFileSync(certPath)
+        };
+        const httpsServer = https.createServer(httpsOptions, serveStatic);
+        httpsServer.listen(httpsPort, '0.0.0.0', () => {
+          hasHttps = true;
+          console.log(`  🔒 HTTPS সিকিউর লিংক (ক্যামেরা ও বারকোড সাপোর্টেড):`);
+          console.log(`       👉 পিসিতে:  https://localhost:${httpsPort}`);
+          console.log(`       👉 মোবাইলে: https://${primaryIp}:${httpsPort}`);
+          console.log('-------------------------------------------------------------------');
+        });
+      } catch (sslErr) {
+        console.debug('[HTTPS] Setup notice:', sslErr.message);
+      }
+    }
 
     console.log('\n===================================================================');
     console.log('       হিসাব-কিতাব ৩৬০ - লাইভ হোস্ট প্রিভিউ ও টেলিগ্রাম বট সার্ভার       ');
     console.log('===================================================================');
-    console.log('  স্ট্যাটাস: সার্ভার সফলভাবে চালু ও প্রস্তুত (Active & Ready)');
+    console.log('  স্ট্যাটাস: সার্ভার সফলভাবে চালু ও প্রস্তুত (Active & Dual HTTP/HTTPS Ready)');
     console.log('-------------------------------------------------------------------');
-    console.log('  💻 আপনার কম্পিউটারে দেখতে (PC Browser):');
+    console.log('  💻 আপনার কম্পিউটারে দেখতে (PC Browser - HTTP):');
     console.log(`       👉 http://localhost:${port}`);
     console.log('');
-    console.log('  📱 আপনার মোবাইল থেকে দেখতে (Mobile Wi-Fi):');
+    console.log('  📱 আপনার মোবাইল থেকে দেখতে (Mobile Wi-Fi - HTTP):');
     console.log('     ১. মোবাইল ও কম্পিউটার একই Wi-Fi / হটস্পটে কানেক্ট করুন।');
     console.log(`     ২. মোবাইলের Chrome ব্রাউজারে নিচের লিংকে যান:`);
     console.log(`       👉 http://${primaryIp}:${port}`);
