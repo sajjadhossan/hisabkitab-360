@@ -5731,7 +5731,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       } finally {
         isPolling = false;
       }
-    }, 3000); // Poll every 3 seconds for fast interactive response
+    }, 1000); // Poll every 1 second for ultra-fast instant interactive response
 
     return () => clearInterval(pollTimer);
   }, [

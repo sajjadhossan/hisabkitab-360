@@ -363,7 +363,7 @@ function startTelegramDaemon() {
     isPolling = true;
 
     try {
-      const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId ? lastUpdateId + 1 : 0}&timeout=0`;
+      const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId ? lastUpdateId + 1 : 0}&timeout=1`;
       const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 409) {
@@ -805,7 +805,7 @@ ${isAuthorized ? '✅ <i>চ্যাটটি হিসাবকিতাব �
     } finally {
       isPolling = false;
     }
-  }, 2500);
+  }, 800);
 }
 
 function serveStatic(req, res) {
