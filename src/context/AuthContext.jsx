@@ -1,3 +1,4 @@
+import { signInWithNeon, signUpWithNeon, getNeonSession, signOutNeon } from '../services/neonAuthService';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getSupabase, isSupabaseReady, getSupabaseConfig, saveSupabaseConfig } from '../services/supabaseClient';
 import { broadcastDeviceHeartbeat } from '../services/deviceManagerService';
@@ -519,6 +520,38 @@ export const AuthProvider = ({ children }) => {
 
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     const targetEmail = cleanRaw.toLowerCase();
+
+    
+    // 0.9 ONLINE AUTHENTICATION VIA NEON AUTH ENGINE
+    if (isOnline && (email || '').includes('@')) {
+      try {
+        const neonRes = await signInWithNeon(targetEmail, password);
+        if (neonRes?.success && neonRes?.user) {
+          const loggedInUser = {
+            id: neonRes.user.id || `neon_${Date.now()}`,
+            email: neonRes.user.email || targetEmail,
+            name: neonRes.user.name || cleanRaw.split('@')[0],
+            role: targetEmail === 'hossansajjad1994@gmail.com' ? 'superadmin' : 'admin',
+            shopName: 'আমার প্রতিষ্ঠান',
+            isNeonUser: true
+          };
+
+          setUser(loggedInUser);
+          setRememberMe(remember);
+          localStorage.setItem('hk360_active_session_user', JSON.stringify(loggedInUser));
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(loggedInUser));
+          if (remember) {
+            localStorage.setItem(STORAGE_KEYS.SAVED_EMAIL, targetEmail);
+            localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+          }
+          setIsAuthModalOpen(false);
+          setAuthLoading(false);
+          return { success: true, user: loggedInUser };
+        }
+      } catch (neonErr) {
+        console.warn('Neon Auth login attempt skipped, trying Supabase:', neonErr);
+      }
+    }
 
     // 1. ONLINE AUTHENTICATION VIA SUPABASE
     if (isOnline && isSupabaseReady()) {
