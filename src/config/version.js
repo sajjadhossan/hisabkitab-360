@@ -1,9 +1,9 @@
 // HisabKitab 360 - Version Management
 // Auto-incremented on each verified release build
 
-export const APP_VERSION = '2.4.3';
-export const BUILD_NUMBER = 289;
-export const APP_BUILD_NUMBER = 289;
+export const APP_VERSION = '2.4.4';
+export const BUILD_NUMBER = 290;
+export const APP_BUILD_NUMBER = 290;
 export const APP_VERSION_NAME = `v${APP_VERSION}`;
 export const APP_RELEASE_TAG = `v${APP_VERSION}`;
 export const APP_DISPLAY_BADGE = `v${APP_VERSION} (Build ${BUILD_NUMBER})`;
@@ -13,8 +13,8 @@ export const RELEASE_DATE = '2026-11-02';
 export const APP_APK_FILENAME = `HisabKitab-360-v${APP_VERSION}-build${BUILD_NUMBER}-android.apk`;
 
 export const APP_RELEASE_NOTES = {
-  bn: `হিসাবকিতাব ৩৬০ v${APP_VERSION} (Build ${BUILD_NUMBER}) — ৫০টি বাস্তব অসামঞ্জস্যের সমাধান: বাসের জেন্ডার-লক Pink Protection, ফার্মেসির লুজ ট্যাবলেট ক্যালকুলেটর, রেস্তোরাঁ KOT ও ডোমেইন হেলথ ড্যাশবোর্ড কার্ড।`,
-  en: `HisabKitab 360 v${APP_VERSION} (Build ${BUILD_NUMBER}) — Resolution of 50 field discrepancies: bus gender-lock, pharmacy loose tablets, KOT kitchen tickets and domain health KPI cards.`
+  bn: `হিসাবকিতাব ৩৬০ v${APP_VERSION} (Build ${BUILD_NUMBER}) — থার্মাল রসিদে স্বয়ংক্রিয় জুয়েলারি ওজন-ক্যারেট-মজুরি, বাস সিট জেন্ডার ও ফার্মেসি ব্যাচ নম্বর মেটাডাটা সরাসরি ইন্টিগ্রেশন।`,
+  en: `HisabKitab 360 v${APP_VERSION} (Build ${BUILD_NUMBER}) — Receipt thermal integration of jewelry weight-carat-making charges, bus gender seat tagging, and pharmacy FEFO batch metadata.`
 };
 
 export const VERSION_METADATA = {
@@ -31,10 +31,10 @@ export const VERSION_METADATA = {
   apkFilename: APP_APK_FILENAME,
   releaseNotes: APP_RELEASE_NOTES,
   features: [
-    'Resolution of 50 field friction points across POS, dashboard and templates',
-    'Bus Pink Protection gender-lock seat matrix',
-    'Pharmacy loose tablet fraction calculator directly to POS cart',
-    'Domain-specific KPI and health cards in Business Cockpit'
+    'Direct thermal receipt metadata for gold weight, karat, and making charge',
+    'Bus passenger gender tag and seat print on receipts',
+    'Pharmacy batch and FEFO expiry print on customer slips',
+    'Zero-friction domain alignment between POS calculations and final invoice'
   ]
 };
 

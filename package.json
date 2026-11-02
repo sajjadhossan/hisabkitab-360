@@ -1,7 +1,7 @@
 {
   "name": "hisabkitab-360",
   "private": true,
-  "version": "2.4.3",
+  "version": "2.4.4",
   "homepage": "https://hisabkitab360.netlify.app",
   "main": "electron/main.cjs",
   "scripts": {

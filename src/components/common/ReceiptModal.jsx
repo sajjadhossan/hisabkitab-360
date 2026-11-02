@@ -356,7 +356,24 @@ export const ReceiptModal = () => {
                 </div>
                 {activeReceipt.items.map((item, idx) => (
                   <div key={idx} style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr', padding: '4px 0', borderBottom: '1px dotted #e2e8f0', fontSize: '11px' }}>
-                    <span style={{ wordBreak: 'break-word' }}>{item.name}</span>
+                    <span style={{ wordBreak: 'break-word' }}>
+                      {item.name}
+                      {item.goldDetails && (
+                        <div style={{ fontSize: '9px', color: '#b45309', marginTop: '2px' }}>
+                          ⚖️ ওজন: {item.goldDetails.weightText} ({item.goldDetails.carat}) | মজুরি: ৳{item.goldDetails.makingCharge}
+                        </div>
+                      )}
+                      {item.ticketDetails && (
+                        <div style={{ fontSize: '9px', color: '#0369a1', marginTop: '2px' }}>
+                          🚌 সিট: {item.ticketDetails.seats} ({item.ticketDetails.passengerGender || 'যাত্রী'})
+                        </div>
+                      )}
+                      {item.batchNo && (
+                        <div style={{ fontSize: '9px', color: '#047857', marginTop: '2px' }}>
+                          🏷️ ব্যাচ: {item.batchNo} {item.expiryDate ? `| মেয়াদ: ${item.expiryDate}` : ''}
+                        </div>
+                      )}
+                    </span>
                     <span style={{ textAlign: 'center' }}>{item.qty} × {item.price}</span>
                     <span style={{ textAlign: 'right', fontWeight: '600' }}>৳{(item.qty * item.price).toLocaleString()}</span>
                   </div>
