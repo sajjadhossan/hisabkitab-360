@@ -1,3 +1,4 @@
+import { getTemplatePosArchetype } from '../../data/industryTemplates';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Printer, X, Check, ShieldCheck, MessageCircle, MessageSquare, Bluetooth, Share2 } from 'lucide-react';
@@ -23,7 +24,8 @@ export const ReceiptModal = () => {
   const [qrMode, setQrMode] = useState('url'); // 'url' (web verifiable link) | 'payload' | 'bkash'
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [isBtPrinting, setIsBtPrinting] = useState(false);
-  const [isMushak63, setIsMushak63] = useState(false); // Item 89: NBR Standard Mushak 6.3 format
+  const [isMushak63, setIsMushak63] = useState(false);
+  const activeArchetype = getTemplatePosArchetype(activeReceipt?.industryId || businessSettings?.industryTemplateId || businessSettings?.industryType); // Item 89: NBR Standard Mushak 6.3 format
 
   const handleBluetoothPrint = async () => {
     setIsBtPrinting(true);
@@ -304,6 +306,33 @@ export const ReceiptModal = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#334155', marginTop: '3px' }}>
                     <span>{lang === 'bn' ? 'গ্রাহক:' : 'Customer:'} {activeReceipt.customerName}</span>
                     {activeReceipt.customerPhone && <span>{activeReceipt.customerPhone}</span>}
+                  </div>
+                )}
+
+                
+                {/* 14-PILLAR DOMAIN RECEIPTS SPECIFICATION */}
+                {activeArchetype === 'bhori_gold' && (
+                  <div style={{ background: '#fef3c7', padding: '4px 6px', borderRadius: '4px', margin: '4px 0', border: '1px solid #fde68a', fontSize: '10px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: '800', color: '#92400e' }}>বাংলাদেশ জুয়েলার্স অ্যাসোসিয়েশন (BAJUS) মেমো</div>
+                    <div style={{ fontSize: '9px', color: '#b45309' }}>হলমার্ক সার্টিফিকেটযুক্ত খাঁটি স্বর্ণ ও রৌপ্য অলংকার</div>
+                  </div>
+                )}
+                {activeArchetype === 'clinical_fefo' && (
+                  <div style={{ background: '#ecfdf5', padding: '4px 6px', borderRadius: '4px', margin: '4px 0', border: '1px solid #a7f3d0', fontSize: '10px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: '800', color: '#065f46' }}>ঔষধ প্রশাসন অধিদপ্তর (DGDA) ফার্মেসি ক্যাশ মেমো</div>
+                    <div style={{ fontSize: '9px', color: '#047857' }}>ড্রাগ লাইসেন্স ও ব্যাচ নম্বরযুক্ত প্রেসক্রিপশন রসিদ</div>
+                  </div>
+                )}
+                {activeArchetype === 'seat_matrix' && (
+                  <div style={{ background: '#eff6ff', padding: '4px 6px', borderRadius: '4px', margin: '4px 0', border: '1px solid #bfdbfe', fontSize: '10px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: '800', color: '#1e40af' }}>🚌 যাত্রী টিকেট ও বোর্ডিং পাস</div>
+                    <div style={{ fontSize: '9px', color: '#1d4ed8' }}>নির্ধারিত সময়ের ৩০ মিনিট পূর্বে কাউন্টারে রিপোর্ট করুন</div>
+                  </div>
+                )}
+                {activeArchetype === 'parcel_courier' && (
+                  <div style={{ background: '#f5f3ff', padding: '4px 6px', borderRadius: '4px', margin: '4px 0', border: '1px solid #ddd6fe', fontSize: '10px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: '800', color: '#5b21b6' }}>📦 এক্সপ্রেস কুরিয়ার চালান ও ক্যাশ অন ডেলিভারি (COD)</div>
+                    <div style={{ fontSize: '9px', color: '#6d28d9' }}>ট্র্যাকিং আইডি দিয়ে যেকোনো সময় পার্সেল ট্র্যাক করুন</div>
                   </div>
                 )}
 

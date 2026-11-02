@@ -58,6 +58,7 @@ import {
   LayoutGrid,
   ChevronDown,
   ChevronUp,
+  Crown,
   SlidersHorizontal,
   X,
   Rocket
@@ -129,7 +130,16 @@ export const SuperAdminPanel = () => {
     verifySuperAdminOtpAndResetPin,
     isEmailRecoveryActivated,
     lockSuperAdmin,
-    getMasterPin
+    getMasterPin,
+    staffAccounts = [],
+    makeUserOwner,
+    reassignUserRole,
+    impersonateOwner,
+    stopImpersonation,
+    impersonatedOwner,
+    strictOwnerDeleteLock,
+    toggleStrictOwnerDeleteLock,
+    addStaffAccount
   } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState('executive_ops');
@@ -173,6 +183,14 @@ export const SuperAdminPanel = () => {
     {
       title: lang === 'bn' ? '📜 লাইসেন্স, সাবস্ক্রিপশন ও ব্র্যান্ডিং' : '📜 License, Subscription & Branding',
       items: [
+        {
+          id: 'owner_management',
+          label: lang === 'bn' ? 'মাস্টার ওনার্স হাব' : 'Master Owners Hub',
+          desc: lang === 'bn' ? 'ইউজারকে ওনার বানান, ওনারশিপ রোল পরিবর্তন ও ডিলিট লক' : 'Assign owners, change roles & anti-fraud locks',
+          icon: Crown,
+          color: '#eab308',
+          badge: 'OWNER'
+        },
         {
           id: 'license',
           label: lang === 'bn' ? 'লাইসেন্স ও মেয়াদ লক' : 'License & Subscription',
@@ -4058,6 +4076,423 @@ export const SuperAdminPanel = () => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUBTAB: MASTER OWNER MANAGEMENT & ANTI-FRAUD CONTROLS     */}
+      {/* ======================================================== */}
+      {activeSubTab === 'owner_management' && (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          
+          {/* Header Banner */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(161, 98, 7, 0.08))',
+            border: '1px solid rgba(234, 179, 8, 0.35)',
+            borderRadius: '16px',
+            padding: '1.25rem 1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                background: 'rgba(234, 179, 8, 0.2)',
+                color: '#eab308',
+                borderRadius: '12px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(234, 179, 8, 0.2)'
+              }}>
+                <Crown size={28} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {lang === 'bn' ? '👑 মাস্টার ওনার্স ও ক্লায়েন্ট ওনারশিপ হাব' : '👑 Master Owners & Client Ownership Hub'}
+                  <span style={{ fontSize: '0.72rem', background: '#eab308', color: '#000', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>ROOT</span>
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn'
+                    ? 'যেকোনো ইউজারকে ওনার (মালিক) বানান, মালিকানা রোল পরিবর্তন করুন এবং ওনার ডিলিট লক নিয়ন্ত্রণ করুন।'
+                    : 'Assign owner roles, reassign store ownership and control anti-fraud owner deletion locks.'}
+                </p>
+              </div>
+            </div>
+
+            {impersonatedOwner && (
+              <button
+                type="button"
+                onClick={() => {
+                  stopImpersonation();
+                  showToast(lang === 'bn' ? 'ওনার ভিউ থেকে প্রস্থান সম্পন্ন হয়েছে।' : 'Exited owner impersonation.', 'info');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid #ef4444',
+                  color: '#ef4444',
+                  fontWeight: '800',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer'
+                }}
+              >
+                🛑 {lang === 'bn' ? 'ওনার ভিউ থেকে বের হন' : 'Exit Owner Mode'}
+              </button>
+            )}
+          </div>
+
+          {/* Anti-Fraud Owner Delete Lock Card */}
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                background: strictOwnerDeleteLock ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                color: strictOwnerDeleteLock ? '#ef4444' : '#10b981',
+                padding: '10px',
+                borderRadius: '10px'
+              }}>
+                <ShieldCheck size={24} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {lang === 'bn' ? '🛡️ ওনার হিসাব ডিলিট লক (Anti-Fraud Ledger Lock)' : '🛡️ Anti-Fraud Owner Delete Lock'}
+                </h4>
+                <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  {strictOwnerDeleteLock
+                    ? (lang === 'bn' ? 'সক্রিয়: সাধারণ ওনাররা কোনো বিক্রয় মেমো বা লেজার মুছতে পারবে না।' : 'ACTIVE: Store owners cannot delete sales invoices or ledger entries.')
+                    : (lang === 'bn' ? 'নিষ্ক্রিয়: ওনাররা চাইলে বিক্রয় মেমো ডিলিট করতে পারবে।' : 'INACTIVE: Store owners are allowed to delete sales.')}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                toggleStrictOwnerDeleteLock();
+                showToast(
+                  !strictOwnerDeleteLock
+                    ? (lang === 'bn' ? '🔒 ওনার ডিলিট লক সফলভাবে চালু করা হয়েছে!' : 'Owner delete lock activated!')
+                    : (lang === 'bn' ? '🔓 ওনার ডিলিট লক নিষ্ক্রিয় করা হয়েছে।' : 'Owner delete lock disabled.'),
+                  !strictOwnerDeleteLock ? 'warning' : 'info'
+                );
+              }}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '10px',
+                border: 'none',
+                background: strictOwnerDeleteLock ? '#ef4444' : '#10b981',
+                color: '#fff',
+                fontWeight: '800',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {strictOwnerDeleteLock ? <Lock size={16} /> : <Unlock size={16} />}
+              {strictOwnerDeleteLock ? (lang === 'bn' ? 'লক করা আছে (সক্রিয়)' : 'Locked') : (lang === 'bn' ? 'লক চালু করুন' : 'Lock Deletions')}
+            </button>
+          </div>
+
+          {/* Accounts & Owners Management Table */}
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '1.5rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users size={20} color="#eab308" />
+                  {lang === 'bn' ? 'সকল অ্যাকাউন্ট ও ওনারশিপ তালিকা' : 'All Accounts & Ownership Registry'}
+                </h4>
+                <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? 'যেকোনো অ্যাকাউন্টকে ১-ক্লিকে ওনার বানান অথবা ওনারশিপ পরিবর্তন করুন।' : 'Promote any account to Owner or change staff roles.'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255, 255, 255, 0.04)', borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '10px 14px' }}>{lang === 'bn' ? 'অ্যাকাউন্টের নাম' : 'Name'}</th>
+                    <th style={{ padding: '10px 14px' }}>{lang === 'bn' ? 'যোগাযোগ' : 'Contact'}</th>
+                    <th style={{ padding: '10px 14px' }}>{lang === 'bn' ? 'বর্তমান রোল' : 'Current Role'}</th>
+                    <th style={{ padding: '10px 14px' }}>{lang === 'bn' ? 'শাখা / কাউন্টার' : 'Branch / Counter'}</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>{lang === 'bn' ? 'অ্যাকশন ও নিয়ন্ত্রণ' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Current Business Owner */}
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(234, 179, 8, 0.05)' }}>
+                    <td style={{ padding: '12px 14px', fontWeight: '700', color: 'var(--text-main)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>👑</span>
+                        <span>{user?.name || (lang === 'bn' ? 'মালিক অ্যাকাউন্ট' : 'Primary Owner')}</span>
+                        <span style={{ fontSize: '0.68rem', background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>PRIMARY OWNER</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                      {user?.email || user?.phone || 'primary@shop.local'}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span style={{ background: 'rgba(234, 179, 8, 0.2)', color: '#eab308', border: '1px solid rgba(234, 179, 8, 0.4)', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '800' }}>
+                        👑 ওনার (Owner)
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                      হেড অফিস / মেইন ব্রাঞ্চ
+                    </td>
+                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          impersonateOwner({ name: user?.name || 'Owner', email: user?.email, role: 'owner' });
+                          setActiveTab('dashboard');
+                          showToast(lang === 'bn' ? 'ওনার ড্যাশবোর্ডে প্রবেশ করা হয়েছে!' : 'Entered owner view!', 'success');
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(234, 179, 8, 0.15)',
+                          border: '1px solid #eab308',
+                          color: '#eab308',
+                          fontSize: '0.78rem',
+                          fontWeight: '800',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        👁️ {lang === 'bn' ? 'ওনার ভিউ' : 'View as Owner'}
+                      </button>
+                    </td>
+                  </tr>
+
+                  {/* Staff and Secondary Accounts */}
+                  {staffAccounts.map((account) => {
+                    const isAccOwner = account.role === 'owner';
+                    return (
+                      <tr key={account.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: '700', color: 'var(--text-main)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>{isAccOwner ? '👑' : '👤'}</span>
+                            <span>{account.name}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                          {account.email || account.phone || 'N/A'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{
+                            background: isAccOwner ? 'rgba(234, 179, 8, 0.2)' : 'rgba(99, 102, 241, 0.15)',
+                            color: isAccOwner ? '#eab308' : '#6366f1',
+                            border: `1px solid ${isAccOwner ? 'rgba(234, 179, 8, 0.4)' : 'rgba(99, 102, 241, 0.3)'}`,
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '800'
+                          }}>
+                            {isAccOwner ? '👑 ওনার (Owner)' : (account.role === 'supervisor' ? '👔 সুপারভাইজার' : (account.role === 'cashier' ? '⚡ ক্যাশিয়ার' : (account.role === 'salesman' ? '📝 সেলসম্যান' : account.role)))}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                          {account.branchId || 'মেইন শাখা'}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            {!isAccOwner ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  makeUserOwner(account.id);
+                                  showToast(lang === 'bn' ? `🎉 "${account.name}"-কে সফলভাবে ওনার বানানো হয়েছে!` : `Promoted ${account.name} to Owner!`, 'success');
+                                }}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(234, 179, 8, 0.2)',
+                                  border: '1px solid #eab308',
+                                  color: '#eab308',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '800',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                👑 {lang === 'bn' ? 'ওনার বানান' : 'Make Owner'}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  reassignUserRole(account.id, 'supervisor');
+                                  showToast(lang === 'bn' ? `"${account.name}"-এর ওনার রোল পরিবর্তন করে সুপারভাইজার করা হয়েছে।` : 'Role changed to Supervisor.', 'info');
+                                }}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(99, 102, 241, 0.15)',
+                                  border: '1px solid #6366f1',
+                                  color: '#6366f1',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                🔄 {lang === 'bn' ? 'রোল পরিবর্তন' : 'Demote'}
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                impersonateOwner(account);
+                                setActiveTab('dashboard');
+                                showToast(lang === 'bn' ? `"${account.name}"-এর ওনার ড্যাশবোর্ডে প্রবেশ করা হয়েছে!` : `Entered ${account.name} view!`, 'success');
+                              }}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid #10b981',
+                                color: '#10b981',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              👁️ {lang === 'bn' ? 'লগইন মোড' : 'Impersonate'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Quick Create New Store Owner Card */}
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '1.5rem'
+          }}>
+            <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={18} color="#0ea5e9" />
+              {lang === 'bn' ? '✨ নতুন ক্লায়েন্ট স্টোর ও ওনার তৈরি করুন' : '✨ Create New Store Owner Account'}
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  {lang === 'bn' ? 'মালিকের পূর্ণ নাম' : 'Owner Name'}
+                </label>
+                <input
+                  type="text"
+                  id="new_owner_name_input"
+                  placeholder={lang === 'bn' ? 'যেমন: মোহাম্মদ সাজ্জাদ' : 'e.g. Sajjad Hossan'}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  {lang === 'bn' ? 'মোবাইল নম্বর' : 'Phone'}
+                </label>
+                <input
+                  type="text"
+                  id="new_owner_phone_input"
+                  placeholder={lang === 'bn' ? 'যেমন: 01712345678' : '017XXXXXXXX'}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  {lang === 'bn' ? 'প্রতিষ্ঠানের নাম' : 'Store / Company Name'}
+                </label>
+                <input
+                  type="text"
+                  id="new_owner_shop_input"
+                  placeholder={lang === 'bn' ? 'যেমন: ভাই ভাই স্টোর' : 'Store Name'}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  {lang === 'bn' ? 'লগইন পিন' : 'PIN'}
+                </label>
+                <input
+                  type="text"
+                  id="new_owner_pin_input"
+                  defaultValue="1234"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const nameEl = document.getElementById('new_owner_name_input');
+                const phoneEl = document.getElementById('new_owner_phone_input');
+                const shopEl = document.getElementById('new_owner_shop_input');
+                const pinEl = document.getElementById('new_owner_pin_input');
+                const name = (nameEl?.value || '').trim();
+                const phone = (phoneEl?.value || '').trim();
+                const shop = (shopEl?.value || '').trim();
+                const pin = (pinEl?.value || '1234').trim();
+
+                if (!name || !phone) {
+                  showToast(lang === 'bn' ? 'দয়া করে নাম ও মোবাইল নম্বর পূরণ করুন।' : 'Please fill name and phone.', 'warning');
+                  return;
+                }
+
+                addStaffAccount({
+                  name,
+                  phone,
+                  email: `${phone}@shop.local`,
+                  role: 'owner',
+                  shopName: shop || 'আমার প্রতিষ্ঠান',
+                  pin
+                });
+
+                if (nameEl) nameEl.value = '';
+                if (phoneEl) phoneEl.value = '';
+                if (shopEl) shopEl.value = '';
+
+                showToast(lang === 'bn' ? `🎉 নতুন ওনার "${name}" সফলভাবে যুক্ত হয়েছে!` : 'New Owner created successfully!', 'success');
+              }}
+              style={{
+                padding: '9px 20px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                border: 'none',
+                color: '#000',
+                fontWeight: '800',
+                fontSize: '0.86rem',
+                cursor: 'pointer'
+              }}
+            >
+              👑 {lang === 'bn' ? 'নতুন ওনার অ্যাকাউন্ট তৈরি করুন' : 'Create Owner Account'}
+            </button>
+          </div>
+
         </div>
       )}
 

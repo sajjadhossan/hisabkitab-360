@@ -64,13 +64,34 @@ class BengaliVoiceCommandDispatcher {
       // Extract item name by removing keywords
       const cleaned = query
         .replace(/(\d+|[০-৯]+)\s*(?:কেজি|পিস|লিটার|টা|কার্টন|kg|pcs)?/g, '')
-        .replace(/(?:বিক্রি|করো|যোগ|দাও|অ্যাড|বিল|কার্ট|টাকার)/g, '')
+        .replace(/(?:বিক্রি|করো|যোগ|দাও|অ্যাড|বিল|কার্ট|টাকার|ডিসপেন্স|বুকিং|অর্ডার|পার্সেল)/g, '')
         .trim();
 
       return {
         intent: 'ADD_TO_CART',
         productQuery: cleaned || 'চাল',
         quantity: quantity || 1,
+        rawText: query
+      };
+    }
+
+    
+    // 14-Pillar Domain Voice Commands (Samity, Gold, Pharmacy)
+    if (/(?:সঞ্চয়|কিস্তি|জমা|উত্তোলন)/.test(query)) {
+      return {
+        intent: 'SAMITY_TRANSACTION',
+        rawText: query
+      };
+    }
+    if (/(?:স্বর্ণ|ভরি|ক্যারেট|বাজুস|হলমার্ক)/.test(query)) {
+      return {
+        intent: 'GOLD_INQUIRY',
+        rawText: query
+      };
+    }
+    if (/(?:প্রেসক্রিপশন|মেয়াদ|জেনেরিক)/.test(query)) {
+      return {
+        intent: 'PHARMACY_FEFO_INQUIRY',
         rawText: query
       };
     }

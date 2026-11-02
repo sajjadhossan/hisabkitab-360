@@ -1254,6 +1254,81 @@ export const AuthProvider = ({ children }) => {
     return verifySuperAdminOtpAndResetPin(recoveryInput, newPin);
   }, [verifySuperAdminOtpAndResetPin]);
 
+  const [strictOwnerDeleteLock, setStrictOwnerDeleteLock] = useState(() => {
+    try {
+      return localStorage.getItem('hk360_strict_owner_delete_lock') === 'true';
+    } catch { return false; }
+  });
+
+  const toggleStrictOwnerDeleteLock = (val = null) => {
+    setStrictOwnerDeleteLock(prev => {
+      const next = val !== null ? Boolean(val) : !prev;
+      try { localStorage.setItem('hk360_strict_owner_delete_lock', String(next)); } catch {}
+      return next;
+    });
+  };
+
+  const [impersonatedOwner, setImpersonatedOwner] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_impersonated_owner');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const impersonateOwner = (ownerData) => {
+    if (!isSuperAdmin) return false;
+    setImpersonatedOwner(ownerData);
+    try {
+      localStorage.setItem('hk360_impersonated_owner', JSON.stringify(ownerData));
+    } catch {}
+    return true;
+  };
+
+  const stopImpersonation = () => {
+    setImpersonatedOwner(null);
+    try {
+      localStorage.removeItem('hk360_impersonated_owner');
+    } catch {}
+  };
+
+  // Promote any user/staff account to Owner
+  const makeUserOwner = (userIdOrEmail) => {
+    if (!isSuperAdmin) return false;
+    setStaffAccounts(prev => {
+      const next = prev.map(s => {
+        if (s.id === userIdOrEmail || s.email === userIdOrEmail) {
+          return { ...s, role: 'owner', permissions: { ...s.permissions, all: true } };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(next));
+        broadcastLiveEvent('STAFF_ACCOUNTS_SYNC', { staffAccounts: next });
+      } catch {}
+      return next;
+    });
+    return true;
+  };
+
+  // Reassign or demote owner/staff role
+  const reassignUserRole = (userIdOrEmail, newRole) => {
+    if (!isSuperAdmin) return false;
+    setStaffAccounts(prev => {
+      const next = prev.map(s => {
+        if (s.id === userIdOrEmail || s.email === userIdOrEmail) {
+          return { ...s, role: newRole };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEYS.STAFF_ACCOUNTS, JSON.stringify(next));
+        broadcastLiveEvent('STAFF_ACCOUNTS_SYNC', { staffAccounts: next });
+      } catch {}
+      return next;
+    });
+    return true;
+  };
+
   const userEmail = (user?.email || '').trim().toLowerCase();
   
   // STRICT AUDIT: Super Admin is ONLY EVER hossansajjad1994@gmail.com
@@ -1261,8 +1336,8 @@ export const AuthProvider = ({ children }) => {
   const isMasterAccount = Boolean(user && userEmail === 'hossansajjad1994@gmail.com');
   const isSuperAdmin = Boolean(user && userEmail === 'hossansajjad1994@gmail.com' && (user?.isSuperAdmin || isSuperAdminUnlocked || user?.role === 'superadmin'));
 
-  const currentRole = isMasterAccount ? 'superadmin' : (user?.role || 'owner');
-  const isOwner = currentRole === 'owner' || currentRole === 'admin' || isMasterAccount;
+  const currentRole = isMasterAccount ? 'superadmin' : (impersonatedOwner ? 'owner' : (user?.role || 'owner'));
+  const isOwner = currentRole === 'owner' || currentRole === 'admin' || isMasterAccount || isSuperAdmin;
   const isManager = currentRole === 'manager';
   const isCashier = currentRole === 'cashier';
   const isSalesman = currentRole === 'salesman';
@@ -1299,17 +1374,27 @@ export const AuthProvider = ({ children }) => {
         isGodownKeeper,
         isAuditor,
 
-        // Granular Security & Permission Matrix
-        canViewCostPrice: isOwner || isManager || isAuditor,
-        canViewNetProfit: isOwner,
-        canDeleteSales: isOwner,
-        canManageStaff: isOwner,
-        canAccessSettings: isOwner || isManager,
-        canMakeSale: isOwner || isManager || isCashier || isSalesman,
-        canOpenCashDrawer: isOwner || isManager || isCashier,
-        canCollectDue: isOwner || isManager || isCashier || isSR || isDelivery,
-        canManageCustomers: isOwner || isManager || isCashier || isSR,
+        // Granular Security & Permission Matrix with Supreme Super Admin Authority
+        canViewCostPrice: isSuperAdmin || isOwner || isManager || isAuditor,
+        canViewNetProfit: isSuperAdmin || isOwner,
+        canDeleteSales: isSuperAdmin || (!strictOwnerDeleteLock && isOwner),
+        canManageStaff: isSuperAdmin || isOwner,
+        canAccessSettings: isSuperAdmin || isOwner || isManager,
+        canMakeSale: isSuperAdmin || isOwner || isManager || isCashier || isSalesman,
+        canOpenCashDrawer: isSuperAdmin || isOwner || isManager || isCashier,
+        canCollectDue: isSuperAdmin || isOwner || isManager || isCashier || isSR || isDelivery,
+        canManageCustomers: isSuperAdmin || isOwner || isManager || isCashier || isSR,
         canViewInventory: true,
+        canManageOwners: isSuperAdmin,
+
+        // Super Admin Owner & Tenant Control
+        makeUserOwner,
+        reassignUserRole,
+        impersonateOwner,
+        stopImpersonation,
+        impersonatedOwner,
+        strictOwnerDeleteLock,
+        toggleStrictOwnerDeleteLock,
 
         // Modals & Views
         isAuthModalOpen,

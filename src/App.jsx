@@ -1033,8 +1033,23 @@ const AppContent = () => {
     } else {
       switch (activeTab) {
         case 'dashboard':
+          if (businessSettings?.primaryOperatingMode === 'samity') {
+            return <SamityManagementHub onClose={() => {}} />;
+          }
+          if (businessSettings?.primaryOperatingMode === 'healthcare') {
+            return <HealthcareHub />;
+          }
+          if (businessSettings?.primaryOperatingMode === 'cattle') {
+            return <CattleFarmHubView onClose={() => {}} />;
+          }
           return <BusinessDashboard />;
         case 'pos':
+          if (businessSettings?.primaryOperatingMode === 'samity') {
+            return <SamityManagementHub onClose={() => {}} />;
+          }
+          if (businessSettings?.primaryOperatingMode === 'cattle') {
+            return <CattleFarmHubView onClose={() => {}} />;
+          }
           return (
             <ErrorBoundary>
               <POSTerminal />

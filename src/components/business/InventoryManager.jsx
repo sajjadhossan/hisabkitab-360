@@ -1,3 +1,4 @@
+import { getTemplatePosArchetype } from '../../data/industryTemplates';
 import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { useApp } from '../../context/AppContext';
 import { printElement } from '../../services/printService';
@@ -68,6 +69,7 @@ const PRESET_PRODUCT_IMAGES = [
 
 export const InventoryManager = () => {
   const { canViewCostPrice, isOwner } = useAuth();
+  const activeArchetype = getTemplatePosArchetype(businessSettings?.industryTemplateId || businessSettings?.industryType);
   const {
     products,
     addProduct,
@@ -1774,11 +1776,39 @@ export const InventoryManager = () => {
             </div>
           ) : (
             <div className="glass-card">
-              <div className="table-responsive">
+              
+            {/* 14-PILLAR ARCHETYPE BADGE */}
+            <div style={{ padding: '8px 14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--primary-color, #3b82f6)' }}>
+                {activeArchetype === 'clinical_fefo' && '💊 ফার্মেসি ও ক্লিনিক্যাল ইনভেন্টরি মোড (জেনেরিক, ব্যাচ ও FEFO ট্র্যাকিং সক্রিয়)'}
+                {activeArchetype === 'bhori_gold' && '💎 জুয়েলারি ও স্বর্ণ ইনভেন্টরি মোড (ভরি, আনা, ক্যারেট ও মজুরি সক্রিয়)'}
+                {activeArchetype === 'restaurant_kot' && '🍽️ রেস্তোরাঁ ও ফুড ইনভেন্টরি মোড (রেসিপি, কিচেন আইটেম ও মেনু ক্যাটাগরি)'}
+                {activeArchetype === 'imei_serial' && '📱 গ্যাজেট ও মোবাইল মোড (IMEI / সিরিয়াল ও ওয়্যারেন্টি ট্র্যাকিং)'}
+                {activeArchetype === 'weight_scale' && '⚖️ পাইকারি ও ডিজিটাল ওজন মোড (কেজি / গ্রাম নির্ভুল পরিমাপ)'}
+                {activeArchetype === 'seat_matrix' && '🚌 পরিবহন ও সিট ইনভেন্টরি মোড (বাস / লঞ্চ সিট সংখ্যা ও রুট)'}
+                {activeArchetype === 'tailor_fit' && '✂️ টেইলারিং ও মাপ ইনভেন্টরি মোড (কাপড় গজ ও কাটিং হিসেব)'}
+                {activeArchetype === 'cft_materials' && '🏗️ হার্ডওয়্যার ও নির্মাণ ইনভেন্টরি মোড (CFT, টন ও বস্তা হিসেব)'}
+                {activeArchetype === 'parcel_courier' && '📦 কুরিয়ার ও লজিস্টিকস মোড (কনসাইনমেন্ট ও বুকিং কোড)'}
+                {activeArchetype === 'rapid_barcode' && '⚡ রিটেইল ও সুপারশপ মোড (র‍্যাপিড বারকোড ট্র্যাকিং)'}
+                {activeArchetype === 'service_desk' && '🛠️ সার্ভিস ও মেরামত ইনভেন্টরি মোড (পার্টস ও চার্জ ট্র্যাকিং)'}
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                {displayedProducts.length} টি নির্দিষ্ট পণ্য
+              </span>
+            </div>
+            <div className="table-responsive">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>{t.business.productName}</th>
+                      <th>{
+    activeArchetype === 'clinical_fefo' ? 'ওষুধ / ব্র্যান্ড ও জেনেরিক' :
+    activeArchetype === 'restaurant_kot' ? 'খাবার / মেনু আইটেম' :
+    activeArchetype === 'bhori_gold' ? 'জুয়েলারি অলংকার ও ক্যারেট' :
+    activeArchetype === 'seat_matrix' ? 'যানবাহন / রুট ও সিট' :
+    activeArchetype === 'imei_serial' ? 'ডিভাইস ও মডেল' :
+    activeArchetype === 'tailor_fit' ? 'পোশাকের ধরন ও মাপ' :
+    t.business.productName
+  }</th>
                       <th>{t.business.skuBarcode}</th>
                       <th>{t.category}</th>
                       <th style={{ textAlign: 'right' }}>{t.business.costPrice}</th>

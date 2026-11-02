@@ -1,3 +1,4 @@
+import { getTemplatePosArchetype } from '../../data/industryTemplates';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +23,7 @@ import {
 } from '../../services/qrService';
 
 export const CounterShiftClosingModal = ({ isOpen, onClose }) => {
+  const activeArchetype = getTemplatePosArchetype(businessSettings?.industryTemplateId || businessSettings?.industryType);
   const {
     activeBranch,
     activeCounter,

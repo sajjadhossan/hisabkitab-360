@@ -10,7 +10,11 @@ export const STAFF_ROLES = [
   { id: 'cashier', label: 'ক্যাশিয়ার / কাউন্টারম্যান', enLabel: 'Cashier / Counter', badge: 'POS', color: '#10b981', icon: 'ScanLine' },
   { id: 'salesman', label: 'সেলসম্যান / এসআর', enLabel: 'Salesman / SR', badge: 'FIELD', color: '#f59e0b', icon: 'FileText' },
   { id: 'delivery', label: 'ডেলিভারি ম্যান / ম্যানেজার', enLabel: 'Delivery Rider / Mgr', badge: 'ROUTE', color: '#0ea5e9', icon: 'Truck' },
-  { id: 'staff', label: 'সাধারণ কর্মচারী / স্টাফ', enLabel: 'General Staff', badge: 'STAFF', color: '#8b5cf6', icon: 'Users' }
+  { id: 'staff', label: 'সাধারণ কর্মচারী / স্টাফ', enLabel: 'General Staff', badge: 'STAFF', color: '#8b5cf6', icon: 'Users' },
+  { id: 'pharmacist', label: 'ফার্মাসিস্ট / ড্রাগ ডিসপেন্সার', enLabel: 'Registered Pharmacist', badge: 'RX', color: '#10b981', icon: 'ShieldCheck' },
+  { id: 'chef_waiter', label: 'রেস্তোরাঁ শেফ / ক্যাপ্টেন / ওয়েটার', enLabel: 'Chef / Captain / Waiter', badge: 'KOT', color: '#f97316', icon: 'Utensils' },
+  { id: 'gold_karigar', label: 'স্বর্ণ কারিগর / জুয়েলারি এক্সিকিউটিভ', enLabel: 'Gold Artisan / Jeweler', badge: 'GOLD', color: '#eab308', icon: 'Award' },
+  { id: 'field_officer', label: 'সমিতি মাঠকর্মী / কিস্তি আদায়কারী', enLabel: 'Samity Field Officer', badge: 'SOMITI', color: '#3b82f6', icon: 'Users' },
 ];
 
 export const MENU_CATEGORIES = [

@@ -46,6 +46,7 @@ import {
   FileSpreadsheet,
   Building2,
   FolderOpen,
+  Store,
   Rocket,
   Menu,
   X,
@@ -68,7 +69,9 @@ import {
   Zap,
   BarChart3,
   Send,
-  Monitor
+  Monitor,
+  UtensilsCrossed,
+  Pill
 } from 'lucide-react';
 import { isSoundMuted, toggleSoundMute, playButtonClick, playSuccessChime } from '../services/soundFeedback';
 import { QuickToolsModal } from './common/QuickToolsModal';
@@ -145,7 +148,9 @@ export const Navbar = () => {
     isSR,
     switchRole,
     isSupabaseActive,
-    isSuperAdmin
+    isSuperAdmin,
+    impersonatedOwner,
+    stopImpersonation
   } = useAuth();
 
   const currentCashierBranch = branches.find(b => b.id === (user?.branchId || user?.branch)) || activeBranch || (branches.length > 0 ? branches[0] : null);
@@ -481,9 +486,25 @@ export const Navbar = () => {
 
     if (opMode === 'healthcare') {
       return [
-        { id: 'healthcare', label: lang === 'bn' ? '🏥 হেলথকেয়ার ও ক্লিনিক হাব' : '🏥 Healthcare Hub', icon: Activity, highlight: true },
-        ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 ক্লিনিক আয়-ব্যয় ও ফি' : 'Clinic Accounts', icon: Calculator }] : []),
-        ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 ডায়াগনস্টিক রিপোর্ট' : 'Reports', icon: BarChart3 }] : []),
+        { id: 'healthcare', label: lang === 'bn' ? '🏥 ক্লিনিক ও হেলথকেয়ার হাব' : '🏥 Healthcare Hub', icon: Activity, highlight: true },
+        { id: 'pos', label: lang === 'bn' ? '💊 ফার্মেসি POS (FEFO)' : '💊 Pharmacy POS', icon: Pill, highlight: true },
+        ...(isModEnabled('inventory') ? [{ id: 'inventory', label: lang === 'bn' ? '📦 ঔষধ ও ড্রাগ স্টক' : 'Medicine Stock', icon: Boxes }] : []),
+        ...(isModEnabled('debts') ? [{ id: 'debts', label: lang === 'bn' ? '📒 কাস্টমার বাকি খতিয়ান' : 'Debts', icon: HandCoins }] : []),
+        ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 ক্লিনিক আয়-ব্যয়' : 'Clinic Accounts', icon: Calculator }] : []),
+        ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 প্রেসক্রিপশন ও ড্রাগ রিপোর্ট' : 'Reports', icon: BarChart3 }] : []),
+        { id: 'settings', label: t?.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
+        ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
+      ];
+    }
+
+    if (opMode === 'restaurant') {
+      return [
+        { id: 'dashboard', label: lang === 'bn' ? '🍽️ রেস্তোরাঁ ড্যাশবোর্ড' : '🍽️ Restaurant Dashboard', icon: LayoutDashboard },
+        { id: 'pos', label: lang === 'bn' ? '🍽️ রেস্তোরাঁ POS (টেবিল ও KOT)' : '🍽️ Restaurant POS', icon: UtensilsCrossed, highlight: true },
+        ...(isModEnabled('inventory') ? [{ id: 'inventory', label: lang === 'bn' ? '📦 কিচেন ও ফুড স্টক' : 'Food Stock', icon: Boxes }] : []),
+        ...(isModEnabled('debts') ? [{ id: 'debts', label: lang === 'bn' ? '📒 দেনা-পাওনা' : 'Debts', icon: HandCoins }] : []),
+        ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 আয়-ব্যয় ও লাভ-ক্ষতি' : 'Accounts', icon: Calculator }] : []),
+        ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 ফুড ও দৈনিক রিপোর্ট' : 'Reports', icon: BarChart3 }] : []),
         { id: 'settings', label: t?.businessNav?.settings || '⚙️ সেটিংস', icon: Settings },
         ...(isSuperAdmin ? [{ id: 'super_admin', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', icon: ShieldCheck, highlight: true }] : [])
       ];
@@ -531,8 +552,7 @@ export const Navbar = () => {
 
   const primaryQuickTabs = useMemo(() => {
     if (profile === 'business') {
-      const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-      const opMode = isVercelHost ? 'samity' : businessSettings?.primaryOperatingMode;
+      const opMode = businessSettings?.primaryOperatingMode || 'standard';
       if (opMode === 'samity') {
         return [
           { id: 'samity', label: lang === 'bn' ? '🤝 সমিতি' : 'Samity', icon: Users },
@@ -544,7 +564,8 @@ export const Navbar = () => {
       if (opMode === 'healthcare') {
         return [
           { id: 'healthcare', label: lang === 'bn' ? '🏥 ক্লিনিক' : 'Clinic', icon: Activity },
-          { id: 'erp', label: lang === 'bn' ? '💹 আয়-ব্যয়' : 'Accounts', icon: Calculator },
+          { id: 'pos', label: lang === 'bn' ? '💊 ফার্মেসি' : 'Pharmacy', icon: Pill },
+          { id: 'inventory', label: lang === 'bn' ? '📦 স্টক' : 'Stock', icon: Boxes },
           { id: 'reports', label: lang === 'bn' ? '📊 রিপোর্ট' : 'Reports', icon: BarChart3 },
           { id: 'settings', label: lang === 'bn' ? '⚙️ সেটিংস' : 'Settings', icon: Settings }
         ];
@@ -553,6 +574,15 @@ export const Navbar = () => {
         return [
           { id: 'cattle', label: lang === 'bn' ? '🐄 ডেইরি' : 'Dairy', icon: Wheat },
           { id: 'erp', label: lang === 'bn' ? '💹 লাভ-ক্ষতি' : 'Accounts', icon: Calculator },
+          { id: 'reports', label: lang === 'bn' ? '📊 রিপোর্ট' : 'Reports', icon: BarChart3 },
+          { id: 'settings', label: lang === 'bn' ? '⚙️ সেটিংস' : 'Settings', icon: Settings }
+        ];
+      }
+      if (opMode === 'restaurant') {
+        return [
+          { id: 'dashboard', label: lang === 'bn' ? '🍽️ রেস্তোরাঁ' : 'Restaurant', icon: LayoutDashboard },
+          { id: 'pos', label: lang === 'bn' ? '🍽️ পিওএস' : 'POS', icon: UtensilsCrossed },
+          { id: 'inventory', label: lang === 'bn' ? '📦 মেনু স্টক' : 'Stock', icon: Boxes },
           { id: 'reports', label: lang === 'bn' ? '📊 রিপোর্ট' : 'Reports', icon: BarChart3 },
           { id: 'settings', label: lang === 'bn' ? '⚙️ সেটিংস' : 'Settings', icon: Settings }
         ];
@@ -685,24 +715,7 @@ export const Navbar = () => {
         }] : [])
       ]
     },
-    {
-      title: lang === 'bn' ? '🐄 কৃষি, খামার ও ডেইরি অপারেশনস' : '🐄 Cattle & Dairy Farm Hub',
-      items: [
-        { id: 'cattle', label: lang === 'bn' ? 'গরুর খামার ও ডেইরি হাব' : 'Cattle & Dairy Hub', desc: lang === 'bn' ? 'গরুর পাল, খাদ্য হিস্ট্রি, টিকা, দুধ ও লাভ-ক্ষতি' : 'Herd, Feed Log, Vaccine, Milk & P&L', icon: Wheat, color: '#10b981', badge: 'PRO' }
-      ]
-    },
-    {
-      title: lang === 'bn' ? '🏥 হেলথকেয়ার ও ক্লিনিক অপারেশনস' : '🏥 Healthcare & Clinic Operations',
-      items: [
-        { id: 'healthcare', label: lang === 'bn' ? 'হেলথকেয়ার ইআরপি হাব' : 'Healthcare ERP Hub', desc: lang === 'bn' ? 'রোগী, প্রেসক্রিপশন, ডায়াগনস্টিক ল্যাব ও ফার্মেসি' : 'Patient, Rx, LIMS & Pharmacy', icon: Activity, color: '#0d9488', badge: 'PRO' }
-      ]
-    },
-    {
-      title: lang === 'bn' ? '🤝 সমিতি, সমবায় ও ক্লাব ব্যবস্থাপনা' : '🤝 Samity, Club & Association',
-      items: [
-        { id: 'samity', label: lang === 'bn' ? 'সমিতি ইআরপি হাব' : 'Samity & Association ERP', desc: lang === 'bn' ? 'সদস্য চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার' : 'Member, Dues, Bank Deposit, Multi-Channel Reminders & Letterhead', icon: Users, color: '#14b8a6', badge: 'NEW' }
-      ]
-    },
+
     {
       title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টুলস' : '⚙️ System & Backup',
       items: [
@@ -718,6 +731,18 @@ export const Navbar = () => {
             setShowStaffPermissionsModal(true);
           }
         }] : []),
+        {
+          id: 'tool_templates',
+          label: lang === 'bn' ? '🎨 ১০০+ ব্যবসা টেমপ্লেট হাব' : '🎨 100+ Industry Templates',
+          desc: lang === 'bn' ? 'ফার্মেসি, রেস্তোরাঁ, সমিতি, খামার সহ টেমপ্লেট পরিবর্তন' : 'Switch 100+ specialized industry templates',
+          icon: Store,
+          color: '#8b5cf6',
+          badge: '100+',
+          isAction: () => {
+            setShowMobileDrawer(false);
+            setShowTemplateReviewModal(true);
+          }
+        },
         { id: 'settings', label: lang === 'bn' ? 'সফটওয়্যার সেটিংস' : 'Business Settings', desc: lang === 'bn' ? 'দোকানের নাম, ভ্যাট ও প্রিন্ট' : 'Store profile & print', icon: Settings, color: '#64748b' },
         { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 সিস্টেম ডায়াগনোসিস ও SOS' : 'System Diagnostics & SOS', desc: lang === 'bn' ? 'প্রিন্টার, মেমোরি ও SOS রিপোর্ট' : 'Hardware & repair hub', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); }, badge: 'SOS' },
         { id: 'tool_categories', label: lang === 'bn' ? 'ক্যাটাগরি হাব' : 'Category Manager', desc: lang === 'bn' ? 'সকল ক্যাটাগরি ম্যানেজ' : 'Manage all categories', icon: Tag, color: '#06b6d4', isTool: 'categories' },
@@ -796,15 +821,112 @@ export const Navbar = () => {
   };
 
   const enabledBusinessDrawerGroups = useMemo(() => {
+    const opMode = businessSettings?.primaryOperatingMode || 'standard';
+
+    if (opMode === 'samity') {
+      return [
+        {
+          title: lang === 'bn' ? '🤝 সমিতি ও সমবায় অপারেশনস' : '🤝 Samity & Association ERP',
+          items: [
+            { id: 'samity', label: lang === 'bn' ? 'সমিতি ইআরপি হাব' : 'Samity & Association ERP', desc: lang === 'bn' ? 'সদস্য চাঁদা, ব্যাংক জমা, বকেয়া ও মাল্টি-চ্যানেল রিমাইন্ডার' : 'Member, Dues, Bank Deposit, Multi-Channel Reminders & Letterhead', icon: Users, color: '#14b8a6', badge: 'ERP' },
+            ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? 'সমিতি ফান্ড ও আয়-ব্যয়' : 'Fund Accounts', desc: lang === 'bn' ? 'সমিতির আয়, ব্যয় ও ফান্ড ব্যালেন্স' : 'Fund balance & expenditure', icon: Calculator, color: '#10b981' }] : []),
+            ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? 'বার্ষিক ও অডিট রিপোর্ট' : 'Reports & Audits', desc: lang === 'bn' ? 'সমিতির বার্ষিক অডিট ও স্টেটমেন্ট' : 'Annual audit & statement', icon: BarChart3, color: '#6366f1' }] : [])
+          ]
+        },
+        {
+          title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টেমপ্লেট' : '⚙️ System, Backup & Templates',
+          items: [
+            { id: 'tool_templates', label: lang === 'bn' ? '🎨 ১০০+ ব্যবসা টেমপ্লেট' : '🎨 100+ Industry Templates', desc: lang === 'bn' ? 'অন্যান্য ব্যবসায়িক টেমপ্লেটে পরিবর্তন করুন' : 'Switch industry template', icon: Store, color: '#8b5cf6', badge: '100+', isAction: () => { setShowMobileDrawer(false); setShowTemplateReviewModal(true); } },
+            { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'সমিতির ডাটা ব্যাকআপ ও এক্সপোর্ট' : 'Full backup & export', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setExportImportDefaultTab('cloud_drive'); setShowExportImportHub(true); } },
+            { id: 'settings', label: lang === 'bn' ? 'সমিতি সেটিংস' : 'Samity Settings', desc: lang === 'bn' ? 'সমিতির প্রোফাইল ও প্রিন্ট ফরম্যাট' : 'Profile & print format', icon: Settings, color: '#64748b' },
+            { id: 'tool_diagnostics', label: lang === 'bn' ? '🩺 সিস্টেম ডায়াগনোসিস' : 'System Diagnostics', desc: lang === 'bn' ? 'ডাটাবেজ ও মেমোরি টেস্ট' : 'Storage & health', icon: Activity, color: '#10b981', isAction: () => { setShowDiagnosticsModal(true); setShowMobileDrawer(false); } },
+            { id: 'support_helpdesk', label: lang === 'bn' ? '📞 হেল্পডেস্ক ও সহায়তা' : 'Support & Helpdesk', desc: lang === 'bn' ? 'সাপোর্ট ও সাহায্য' : 'Help & Hotline', icon: HelpCircle, color: '#10b981', isAction: () => openHelpSupport('support'), badge: '24/7' },
+            ...(isSuperAdmin ? [{ id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম কন্ট্রোল' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
+          ]
+        }
+      ];
+    }
+
+    if (opMode === 'cattle') {
+      return [
+        {
+          title: lang === 'bn' ? '🐄 কৃষি, খামার ও ডেইরি অপারেশনস' : '🐄 Cattle & Dairy Farm Hub',
+          items: [
+            { id: 'cattle', label: lang === 'bn' ? 'গরুর খামার ও ডেইরি হাব' : 'Cattle & Dairy Hub', desc: lang === 'bn' ? 'গরুর পাল, খাদ্য হিস্ট্রি, টিকা, দুধ ও লাভ-ক্ষতি' : 'Herd, Feed Log, Vaccine, Milk & P&L', icon: Wheat, color: '#10b981', badge: 'PRO' },
+            ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? 'খামার লাভ-ক্ষতি ও হিসাব' : 'Farm Accounts', desc: lang === 'bn' ? 'খামারের আয়-ব্যয় ও নিট প্রফিট' : 'Farm income, expense & profit', icon: Calculator, color: '#14b8a6' }] : []),
+            ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? 'দুধ ও উৎপাদন রিপোর্ট' : 'Reports & Production', desc: lang === 'bn' ? 'দুধ সংগ্রহ ও বিক্রয় পরিসংখ্যান' : 'Milk production stats', icon: BarChart3, color: '#6366f1' }] : [])
+          ]
+        },
+        {
+          title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টেমপ্লেট' : '⚙️ System, Backup & Templates',
+          items: [
+            { id: 'tool_templates', label: lang === 'bn' ? '🎨 ১০০+ ব্যবসা টেমপ্লেট' : '🎨 100+ Industry Templates', desc: lang === 'bn' ? 'অন্যান্য ব্যবসায়িক টেমপ্লেটে পরিবর্তন করুন' : 'Switch industry template', icon: Store, color: '#8b5cf6', badge: '100+', isAction: () => { setShowMobileDrawer(false); setShowTemplateReviewModal(true); } },
+            { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'খামারের ডাটা ব্যাকআপ ও এক্সপোর্ট' : 'Full backup & export', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setExportImportDefaultTab('cloud_drive'); setShowExportImportHub(true); } },
+            { id: 'settings', label: lang === 'bn' ? 'খামার সেটিংস' : 'Farm Settings', desc: lang === 'bn' ? 'খামারের প্রোফাইল' : 'Farm profile', icon: Settings, color: '#64748b' },
+            ...(isSuperAdmin ? [{ id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম কন্ট্রোল' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
+          ]
+        }
+      ];
+    }
+
+    if (opMode === 'healthcare') {
+      return [
+        {
+          title: lang === 'bn' ? '🏥 হেলথকেয়ার ও ক্লিনিক অপারেশনস' : '🏥 Healthcare & Clinic Operations',
+          items: [
+            { id: 'healthcare', label: lang === 'bn' ? 'হেলথকেয়ার ইআরপি হাব' : 'Healthcare ERP Hub', desc: lang === 'bn' ? 'রোগী, প্রেসক্রিপশন, ডায়াগনস্টিক ল্যাব ও ফার্মেসি' : 'Patient, Rx, LIMS & Pharmacy', icon: Activity, color: '#0d9488', badge: 'PRO' },
+            { id: 'pos', label: lang === 'bn' ? '💊 ফার্মেসি POS কাউন্টার' : 'Pharmacy POS', desc: lang === 'bn' ? 'FEFO, এক্সপায়ারি ও ড্রাগ সেলস' : 'Batch, FEFO & Expiry POS', icon: Pill, color: '#06b6d4', badge: 'POS' },
+            ...(isModEnabled('inventory') ? [{ id: 'inventory', label: lang === 'bn' ? 'ঔষধ ও ড্রাগ স্টক' : 'Medicine Stock', desc: lang === 'bn' ? 'ফার্মেসি ঔষধ ইনভেন্টরি' : 'Pharmacy stock logs', icon: Boxes, color: '#10b981' }] : []),
+            ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? 'ক্লিনিক আয়-ব্যয় ও ফি' : 'Clinic Accounts', desc: lang === 'bn' ? 'রোগী ফি, ডাক্তার ফি ও ঔষধ আয়' : 'Patient fee & accounts', icon: Calculator, color: '#14b8a6' }] : []),
+            ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? 'ডায়াগনস্টিক ও ল্যাব রিপোর্ট' : 'Reports & Lab Logs', desc: lang === 'bn' ? 'রোগী টেস্ট ও ঔষধ রিপোর্ট' : 'Diagnostics & Pharmacy logs', icon: BarChart3, color: '#6366f1' }] : [])
+          ]
+        },
+        {
+          title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টেমপ্লেট' : '⚙️ System, Backup & Templates',
+          items: [
+            { id: 'tool_templates', label: lang === 'bn' ? '🎨 ১০০+ ব্যবসা টেমপ্লেট' : '🎨 100+ Industry Templates', desc: lang === 'bn' ? 'অন্যান্য ব্যবসায়িক টেমপ্লেটে পরিবর্তন করুন' : 'Switch industry template', icon: Store, color: '#8b5cf6', badge: '100+', isAction: () => { setShowMobileDrawer(false); setShowTemplateReviewModal(true); } },
+            { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'ক্লিনিক ডাটা ব্যাকআপ' : 'Clinic data backup', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setExportImportDefaultTab('cloud_drive'); setShowExportImportHub(true); } },
+            { id: 'settings', label: lang === 'bn' ? 'ক্লিনিক সেটিংস' : 'Clinic Settings', desc: lang === 'bn' ? 'ক্লিনিক প্রোফাইল' : 'Clinic profile', icon: Settings, color: '#64748b' },
+            ...(isSuperAdmin ? [{ id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম কন্ট্রোল' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
+          ]
+        }
+      ];
+    }
+
+    if (opMode === 'restaurant') {
+      return [
+        {
+          title: lang === 'bn' ? '🍽️ রেস্তোরাঁ ও ক্যাফে অপারেশনস' : '🍽️ Restaurant & Dining Hub',
+          items: [
+            { id: 'pos', label: lang === 'bn' ? '🍽️ রেস্তোরাঁ POS (টেবিল ও KOT)' : '🍽️ Table & KOT POS', desc: lang === 'bn' ? 'টেবিল অর্ডার, ডাইন-ইন, পার্সেল ও কিচেন টিকিট' : 'Table order, parcel & KOT', icon: UtensilsCrossed, color: '#f59e0b', badge: 'POS' },
+            { id: 'dashboard', label: lang === 'bn' ? '📊 রেস্তোরাঁ ড্যাশবোর্ড' : '📊 Restaurant Dashboard', desc: lang === 'bn' ? 'আজকের ডাইনিং সেলস ও সারসংক্ষেপ' : 'Dining sales summary', icon: LayoutDashboard, color: '#10b981' },
+            ...(isModEnabled('inventory') ? [{ id: 'inventory', label: lang === 'bn' ? '📦 মেনু ও খাদ্য উপাদান স্টক' : 'Menu & Food Inventory', desc: lang === 'bn' ? 'রেসিপি ও কাঁচামাল স্টক' : 'Recipe & raw ingredients', icon: Boxes, color: '#06b6d4' }] : []),
+            ...(isModEnabled('debts') ? [{ id: 'debts', label: lang === 'bn' ? '📒 কাস্টমার ও ফুড দেনা-পাওনা' : 'Debts & Ledger', desc: lang === 'bn' ? 'কাস্টমার ও সরবরাহকারী বাকি' : 'Suppliers & customers debt', icon: HandCoins, color: '#f59e0b' }] : []),
+            ...(isModEnabled('erp') ? [{ id: 'erp', label: lang === 'bn' ? '💹 রেস্তোরাঁ আয়-ব্যয় ও হিসাব' : 'Accounts & P&L', desc: lang === 'bn' ? 'ফুড কস্টিং ও নিট মুনাফা' : 'Food costing & profit', icon: Calculator, color: '#14b8a6' }] : []),
+            ...(isModEnabled('reports') ? [{ id: 'reports', label: lang === 'bn' ? '📊 ফুড ও দৈনিক বিক্রয় রিপোর্ট' : 'Reports & Food Sales', desc: lang === 'bn' ? 'দৈনিক সেলস ও আইটেম রিপোর্ট' : 'Daily food sales summary', icon: BarChart3, color: '#6366f1' }] : [])
+          ]
+        },
+        {
+          title: lang === 'bn' ? '⚙️ সিস্টেম, ব্যাকআপ ও টেমপ্লেট' : '⚙️ System, Backup & Templates',
+          items: [
+            { id: 'tool_templates', label: lang === 'bn' ? '🎨 ১০০+ ব্যবসা টেমপ্লেট' : '🎨 100+ Industry Templates', desc: lang === 'bn' ? 'অন্যান্য ব্যবসায়িক টেমপ্লেটে পরিবর্তন করুন' : 'Switch industry template', icon: Store, color: '#8b5cf6', badge: '100+', isAction: () => { setShowMobileDrawer(false); setShowTemplateReviewModal(true); } },
+            { id: 'tool_backup', label: lang === 'bn' ? '💾 ব্যাকআপ ও ডেটা সেন্টার' : 'Backup & Data Center', desc: lang === 'bn' ? 'রেস্তোরাঁ ডাটা ব্যাকআপ ও এক্সপোর্ট' : 'Full backup & export', icon: Database, color: '#0ea5e9', badge: 'PRO', isAction: () => { setShowMobileDrawer(false); setExportImportDefaultTab('cloud_drive'); setShowExportImportHub(true); } },
+            { id: 'settings', label: lang === 'bn' ? 'রেস্তোরাঁ সেটিংস' : 'Restaurant Settings', desc: lang === 'bn' ? 'ভ্যাট, সার্ভিস চার্জ ও টেবিল সেটআপ' : 'VAT, service charge & tables', icon: Settings, color: '#64748b' },
+            ...(isSuperAdmin ? [{ id: 'super_admin_drawer', label: lang === 'bn' ? '🛡️ সুপার অ্যাডমিন' : '🛡️ Super Admin', desc: lang === 'bn' ? 'মাস্টার পিন ও সিস্টেম কন্ট্রোল' : 'Master PIN control', icon: ShieldCheck, color: '#ef4444', isAction: () => { setShowMobileDrawer(false); setActiveTab('super_admin'); }, badge: 'ROOT' }] : [])
+          ]
+        }
+      ];
+    }
+
     return businessDrawerGroups.map(group => ({
       ...group,
       items: group.items.filter(item => {
         // 1. System module activation check
         let modOk = true;
-        if (item.id === 'healthcare') modOk = isModEnabled('healthcare');
-        else if (item.id === 'samity') modOk = isModEnabled('samity');
+        if (item.id === 'healthcare') modOk = false;
+        else if (item.id === 'samity') modOk = false;
+        else if (item.id === 'cattle') modOk = false;
         else if (item.id === 'branch_control') modOk = isModEnabled('branch_control');
-        else if (item.id === 'cattle') modOk = true;
         else if (!item.isAction && !item.isTool) modOk = isModEnabled(item.id);
         if (!modOk) return false;
 
@@ -812,7 +934,7 @@ export const Navbar = () => {
         return isMenuItemAllowedForRole(item.id, role, staffMenuPermissions, isOwner, isSuperAdmin);
       })
     })).filter(group => group.items && group.items.length > 0);
-  }, [businessDrawerGroups, licenseInfo, role, staffMenuPermissions, isOwner, isSuperAdmin]);
+  }, [businessDrawerGroups, licenseInfo, role, staffMenuPermissions, isOwner, isSuperAdmin, businessSettings?.primaryOperatingMode]);
 
   const currentDrawerGroups = profile === 'business' ? enabledBusinessDrawerGroups : personalDrawerGroups;
 
@@ -830,63 +952,112 @@ export const Navbar = () => {
 
   // Dynamic business mobile bottom nav items based on admin/owner active modules and staff role permissions
   const businessBottomNavSlots = useMemo(() => {
-    const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-    const opMode = isVercelHost ? 'samity' : businessSettings?.primaryOperatingMode;
-    const isSamityMode = isVercelHost || opMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub';
+    const opMode = businessSettings?.primaryOperatingMode || 'standard';
+    const isSamityMode = opMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub';
     const isHealthcareMode = opMode === 'healthcare';
     const isCattleMode = opMode === 'cattle';
-    const isSpecialMode = isSamityMode || isHealthcareMode || isCattleMode;
+    const isRestaurantMode = opMode === 'restaurant';
 
-    const isPosPermitted = !businessSettings?.hideRetailPos && isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
-    const isPosActive = !isSpecialMode && !businessSettings?.hideRetailPos && isModEnabled('pos') && isPosPermitted;
-
-    let heroConfig = null;
+    // Samity Mode: Pure Non-POS Cooperative Desk
     if (isSamityMode) {
-      heroConfig = {
-        id: 'samity',
-        label: lang === 'bn' ? 'সমিতি' : 'Samity',
-        icon: Users,
-        gradient: 'linear-gradient(135deg, #14b8a6, #0d9488)',
-        shadow: '0 4px 18px rgba(20, 184, 166, 0.45)',
-        title: lang === 'bn' ? 'সমিতি ইআরপি হাব' : 'Samity ERP Hub'
-      };
-    } else if (isHealthcareMode) {
-      heroConfig = {
-        id: 'healthcare',
-        label: lang === 'bn' ? 'ক্লিনিক' : 'Clinic',
-        icon: Activity,
-        gradient: 'linear-gradient(135deg, #06b6d4, #0284c7)',
-        shadow: '0 4px 18px rgba(6, 182, 212, 0.45)',
-        title: lang === 'bn' ? 'হেলথকেয়ার ও ক্লিনিক হাব' : 'Healthcare Hub'
-      };
-    } else if (isCattleMode) {
-      heroConfig = {
-        id: 'cattle',
-        label: lang === 'bn' ? 'ডেইরি' : 'Dairy',
-        icon: Wheat,
-        gradient: 'linear-gradient(135deg, #16a34a, #15803d)',
-        shadow: '0 4px 18px rgba(22, 163, 74, 0.45)',
-        title: lang === 'bn' ? 'ক্যাটেল ও খামার হাব' : 'Cattle Hub'
-      };
-    }
-
-    if (isSpecialMode && heroConfig) {
-      const leftItems = [
-        { id: heroConfig.id, label: lang === 'bn' ? 'প্রধান হাব' : 'Main Hub', icon: heroConfig.icon },
-        { id: 'erp', label: lang === 'bn' ? 'আয়-ব্যয়' : 'Accounts', icon: Calculator }
-      ];
-      const rightItems = [
-        { id: 'reports', label: lang === 'bn' ? 'রিপোর্ট' : 'Reports', icon: BarChart3 },
-        { id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings }
-      ];
       return {
         isSpecialMode: true,
-        heroConfig,
+        heroConfig: {
+          id: 'samity',
+          label: lang === 'bn' ? 'সমিতি' : 'Samity',
+          icon: Users,
+          gradient: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+          shadow: '0 4px 18px rgba(20, 184, 166, 0.45)',
+          title: lang === 'bn' ? 'সমিতি ইআরপি হাব' : 'Samity ERP Hub'
+        },
         isPosActive: false,
-        leftItems,
-        rightItems
+        leftItems: [
+          { id: 'samity', label: lang === 'bn' ? 'সমিতি হাব' : 'Samity Hub', icon: Users },
+          { id: 'erp', label: lang === 'bn' ? 'ফান্ড হিসাব' : 'Fund', icon: Calculator }
+        ],
+        rightItems: [
+          { id: 'reports', label: lang === 'bn' ? 'রিপোর্ট' : 'Reports', icon: BarChart3 },
+          { id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings }
+        ]
       };
     }
+
+    // Cattle & Dairy Mode: Pure Non-POS Farm & Livestock Desk
+    if (isCattleMode) {
+      return {
+        isSpecialMode: true,
+        heroConfig: {
+          id: 'cattle',
+          label: lang === 'bn' ? 'ডেইরি' : 'Dairy',
+          icon: Wheat,
+          gradient: 'linear-gradient(135deg, #16a34a, #15803d)',
+          shadow: '0 4px 18px rgba(22, 163, 74, 0.45)',
+          title: lang === 'bn' ? 'ক্যাটেল ও খামার হাব' : 'Cattle Hub'
+        },
+        isPosActive: false,
+        leftItems: [
+          { id: 'cattle', label: lang === 'bn' ? 'খামার হাব' : 'Farm Hub', icon: Wheat },
+          { id: 'erp', label: lang === 'bn' ? 'আয়-ব্যয়' : 'Accounts', icon: Calculator }
+        ],
+        rightItems: [
+          { id: 'reports', label: lang === 'bn' ? 'রিপোর্ট' : 'Reports', icon: BarChart3 },
+          { id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings }
+        ]
+      };
+    }
+
+    // Healthcare & Pharmacy Mode: Dedicated FEFO/Batch Pharmacy POS
+    if (isHealthcareMode) {
+      const isPosPermitted = !businessSettings?.hideRetailPos && isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
+      return {
+        isSpecialMode: true,
+        heroConfig: {
+          id: 'pos',
+          label: lang === 'bn' ? 'ফার্মেসি POS' : 'Pharma POS',
+          icon: Pill,
+          gradient: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+          shadow: '0 4px 18px rgba(6, 182, 212, 0.45)',
+          title: lang === 'bn' ? 'ফার্মেসি FEFO ও ব্যাচ পিওএস' : 'Pharmacy POS'
+        },
+        isPosActive: isPosPermitted,
+        leftItems: [
+          { id: 'healthcare', label: lang === 'bn' ? 'ক্লিনিক হাব' : 'Clinic', icon: Activity },
+          { id: 'inventory', label: lang === 'bn' ? 'ঔষধ স্টক' : 'Stock', icon: Boxes }
+        ],
+        rightItems: [
+          { id: 'debts', label: lang === 'bn' ? 'বাকি খাতা' : 'Debts', icon: HandCoins },
+          { id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings }
+        ]
+      };
+    }
+
+    // Restaurant & Cafe Mode: Dedicated Table & KOT POS
+    if (isRestaurantMode) {
+      const isPosPermitted = !businessSettings?.hideRetailPos && isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
+      return {
+        isSpecialMode: true,
+        heroConfig: {
+          id: 'pos',
+          label: lang === 'bn' ? 'রেস্তোরাঁ POS' : 'Food POS',
+          icon: UtensilsCrossed,
+          gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          shadow: '0 4px 18px rgba(245, 158, 11, 0.45)',
+          title: lang === 'bn' ? 'রেস্তোরাঁ টেবিল ও KOT পিওএস' : 'Restaurant Table & KOT POS'
+        },
+        isPosActive: isPosPermitted,
+        leftItems: [
+          { id: 'dashboard', label: lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home', icon: LayoutDashboard },
+          { id: 'inventory', label: lang === 'bn' ? 'মেনু স্টক' : 'Food Stock', icon: Boxes }
+        ],
+        rightItems: [
+          { id: 'debts', label: lang === 'bn' ? 'দেনা-পাওনা' : 'Debts', icon: HandCoins },
+          { id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings }
+        ]
+      };
+    }
+
+    const isPosPermitted = !businessSettings?.hideRetailPos && isMenuItemAllowedForRole('pos', role, staffMenuPermissions, isOwner, isSuperAdmin);
+    const isPosActive = !businessSettings?.hideRetailPos && isModEnabled('pos') && isPosPermitted;
 
     const allCandidates = [
       { id: 'dashboard', label: lang === 'bn' ? 'ড্যাশবোর্ড' : 'Home', icon: LayoutDashboard },
@@ -1082,6 +1253,32 @@ export const Navbar = () => {
                     }}
                   >
                     🐄 {lang === 'bn' ? 'ক্যাটেল ও ডেইরি মোড' : 'Cattle Mode'}
+                  </span>
+                )}
+
+                {/* Impersonation Mode Active Indicator */}
+                {impersonatedOwner && (
+                  <span
+                    className="badge"
+                    onClick={() => {
+                      if (typeof stopImpersonation === 'function') stopImpersonation();
+                      setActiveTab('super_admin');
+                    }}
+                    title="ওনার ভিউ থেকে বের হয়ে সুপার অ্যাডমিন মোডে ফিরুন"
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.25)',
+                      color: '#ef4444',
+                      border: '1.5px solid #ef4444',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer',
+                      fontWeight: '900',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 0 12px rgba(239, 68, 68, 0.4)'
+                    }}
+                  >
+                    🛑 {lang === 'bn' ? `ওনার মোড: ${impersonatedOwner.name || ''} (প্রস্থান)` : `Exit Owner: ${impersonatedOwner.name || ''}`}
                   </span>
                 )}
 

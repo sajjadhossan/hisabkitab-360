@@ -19,7 +19,11 @@ const LABEL_SIZES = [
   { id: '52x38', label: '৫২ x ৩৮ মিমি (স্ট্যান্ডার্ড স্টিকার)', width: '52mm', height: '38mm', widthMm: 52, heightMm: 38 },
   { id: '50x30', label: '৫০ x ৩০ মিমি (কমপ্যাক্ট রিটেল)', width: '50mm', height: '30mm', widthMm: 50, heightMm: 30 },
   { id: '38x25', label: '৩৮ x ২৫ মিমি (মাইক্রো বারকোড)', width: '38mm', height: '25mm', widthMm: 38, heightMm: 25 },
-  { id: '40x30', label: '৪০ x ৩০ মিমি (ফার্মেসি ও মুদি)', width: '40mm', height: '30mm', widthMm: 40, heightMm: 30 }
+  { id: '40x30', label: '৪০ x ৩০ মিমি (ফার্মেসি ও মুদি)', width: '40mm', height: '30mm', widthMm: 40, heightMm: 30 },
+
+  { id: 'jewelry_butterfly', label: 'জুয়েলারি প্রজাপতি ট্যাগ (স্বর্ণ অলংকার)', width: '60mm', height: '15mm', widthMm: 60, heightMm: 15 },
+  { id: 'fashion_hangtag', label: 'পোশাক হ্যাং-ট্যাগ ও বারকোড', width: '50mm', height: '70mm', widthMm: 50, heightMm: 70 },
+  { id: 'courier_waybill_a6', label: 'কুরিয়ার A6 ওয়েবিল ও শিপমেন্ট স্টিকার', width: '100mm', height: '150mm', widthMm: 100, heightMm: 150 },
 ];
 
 export const ThermalLabelPrinterModal = ({

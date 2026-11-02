@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { getTemplatePosArchetype } from '../../data/industryTemplates';
 import { useAuth } from '../../context/AuthContext';
 import {
   TrendingUp,
@@ -36,7 +37,12 @@ import {
   ChevronUp,
   Activity,
   Check,
-  BarChart3
+  BarChart3,
+  UtensilsCrossed,
+  Pill,
+  Gem,
+  Bus,
+  Truck
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { NLReportSearchModal } from './NLReportSearchModal';
@@ -913,20 +919,260 @@ export const BusinessDashboard = () => {
                 borderRadius: '11px',
                 fontWeight: '800',
                 fontSize: '0.88rem',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
+                background: businessSettings?.primaryOperatingMode === 'restaurant'
+                  ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                  : (businessSettings?.primaryOperatingMode === 'healthcare'
+                    ? 'linear-gradient(135deg, #06b6d4, #0284c7)'
+                    : 'linear-gradient(135deg, #10b981, #059669)'),
                 border: 'none',
                 color: '#ffffff',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                boxShadow: businessSettings?.primaryOperatingMode === 'restaurant'
+                  ? '0 4px 14px rgba(245, 158, 11, 0.4)'
+                  : (businessSettings?.primaryOperatingMode === 'healthcare'
+                    ? '0 4px 14px rgba(6, 182, 212, 0.4)'
+                    : '0 4px 14px rgba(16, 185, 129, 0.4)'),
                 cursor: 'pointer'
               }}
               title={lang === 'bn' ? 'পিওএস সেলস কাউন্টার খুলুন (F1)' : 'Open POS Terminal (F1)'}
             >
-              <ScanLine size={17} />
-              <span>{lang === 'bn' ? '⚡ নতুন বিক্রয় (POS)' : '⚡ New Sale (POS)'}</span>
+              {businessSettings?.primaryOperatingMode === 'restaurant' ? (
+                <>
+                  <UtensilsCrossed size={17} />
+                  <span>{lang === 'bn' ? '🍽️ রেস্তোরাঁ POS (টেবিল ও KOT)' : '🍽️ Restaurant POS'}</span>
+                </>
+              ) : businessSettings?.primaryOperatingMode === 'healthcare' ? (
+                <>
+                  <Pill size={17} />
+                  <span>{lang === 'bn' ? '💊 ফার্মেসি POS (FEFO)' : '💊 Pharmacy POS'}</span>
+                </>
+              ) : (
+                <>
+                  <ScanLine size={17} />
+                  <span>{lang === 'bn' ? '⚡ নতুন বিক্রয় (POS)' : '⚡ New Sale (POS)'}</span>
+                </>
+              )}
             </button>
           )}
         </div>
       </div>
+
+      {/* 🍽️ Restaurant Mode Quick Access Banner */}
+      {businessSettings?.primaryOperatingMode === 'restaurant' && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.08) 100%)',
+            border: '1.5px solid rgba(245, 158, 11, 0.4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+              <UtensilsCrossed size={22} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                {lang === 'bn' ? '🍽️ আপনার ব্যবসা বর্তমানে রেস্তোরাঁ ও ক্যাফে মোডে পরিচালিত হচ্ছে' : '🍽️ Running in Restaurant & Cafe Mode'}
+              </strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn'
+                  ? 'টেবিল বুকিং, ডাইন-ইন/পার্সেল অর্ডার, কিচেন KOT টিকিট ও দ্রুত বিল তৈরির জন্য রেস্তোরাঁ পিওএসে যান।'
+                  : 'Manage tables, dine-in/takeaway, KOT kitchen tickets, and fast billing in Restaurant POS.'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pos')}
+            className="btn btn-primary"
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '0.84rem',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              border: 'none',
+              color: '#fff'
+            }}
+          >
+            <UtensilsCrossed size={16} />
+            <span>{lang === 'bn' ? '🚀 রেস্তোরাঁ POS খুলুন ➔' : 'Open Restaurant POS ➔'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 🪙 Gold & Jewelry Archetype Banner */}
+      {getTemplatePosArchetype(activeIndustryId) === 'bhori_gold' && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.14) 0%, rgba(245, 158, 11, 0.08) 100%)',
+            border: '1.5px solid rgba(217, 119, 6, 0.4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(217, 119, 6, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #d97706, #b45309)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+              <Gem size={22} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                {lang === 'bn' ? '🪙 স্বর্ণ ও জুয়েলারি মোড সক্রিয় (২২ ক্যারেট লাইভ রেট: ৳১,২৫,০০০/ভরি)' : '🪙 Gold & Jewelry Mode (22K Rate Active)'}
+              </strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn' ? 'ভরি-আনা-রতি ক্যালকুলেটর ও খাঁটি স্বর্ণ মেকিং ইনভয়েস ব্যবহারের জন্য পিওএসে যান।' : 'Use Bhori-Ana-Rati converter and official gold bills in POS.'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pos')}
+            className="btn btn-primary"
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '0.84rem',
+              background: 'linear-gradient(135deg, #d97706, #b45309)',
+              border: 'none',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <Gem size={16} />
+            <span>{lang === 'bn' ? '🪙 জুয়েলারি POS খুলুন ➔' : 'Open Gold POS ➔'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 🚌 Transport & Ticket Reservation Banner */}
+      {getTemplatePosArchetype(activeIndustryId) === 'seat_matrix' && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.14) 0%, rgba(2, 132, 199, 0.08) 100%)',
+            border: '1.5px solid rgba(6, 182, 212, 0.4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(6, 182, 212, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #06b6d4, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+              <Bus size={22} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                {lang === 'bn' ? '🚌 পরিবহন ও ট্রাভেল টিকিট কাউন্টার মোড সক্রিয়' : '🚌 Transport Ticket Counter Mode'}
+              </strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn' ? '৪০-সিট ইন্টারেক্টিভ বাস/লঞ্চ ম্যাপ এবং প্যাসেঞ্জার টিকিট বুকিংয়ের জন্য পিওএসে যান।' : 'Reserve seats via interactive 40-seat map and print passenger tickets.'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pos')}
+            className="btn btn-primary"
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '0.84rem',
+              background: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+              border: 'none',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <Bus size={16} />
+            <span>{lang === 'bn' ? '🚌 টিকিট কাউন্টার খুলুন ➔' : 'Open Counter ➔'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 📦 Courier & Logistics Banner */}
+      {getTemplatePosArchetype(activeIndustryId) === 'parcel_courier' && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(79, 70, 229, 0.08) 100%)',
+            border: '1.5px solid rgba(99, 102, 241, 0.4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+              <Truck size={22} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block' }}>
+                {lang === 'bn' ? '📦 কুরিয়ার, পার্সেল ও সিএন্ডএফ লজিস্টিকস মোড সক্রিয়' : '📦 Courier & Logistics Mode Active'}
+              </strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn' ? 'ওয়েবিল বারকোড লেবেল, ক্যাশ অন ডেলিভারি (COD) ও পার্সেল ট্র্যাকিং চালুর জন্য পিওএসে যান।' : 'Track waybills, print shipping labels, and manage COD payments in POS.'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pos')}
+            className="btn btn-primary"
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '0.84rem',
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              border: 'none',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <Truck size={16} />
+            <span>{lang === 'bn' ? '📦 কুরিয়ার হাব খুলুন ➔' : 'Open Courier POS ➔'}</span>
+          </button>
+        </div>
+      )}
 
       {/* 🏛️ Samity Mode Quick Access Banner */}
       {(businessSettings?.primaryOperatingMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub') && (

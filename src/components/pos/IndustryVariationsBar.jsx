@@ -15,9 +15,14 @@ import {
   Wheat,
   Stethoscope,
   FlaskConical,
-  Activity
+  Activity,
+  Scale,
+  Barcode,
+  Truck,
+  Scissors
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { getTemplatePosArchetype } from '../../data/industryTemplates';
 import { GoldRateCalcModal } from './modals/GoldRateCalcModal';
 import { BusSeatBookingModal } from './modals/BusSeatBookingModal';
 import { ConstructionCFTModal } from './modals/ConstructionCFTModal';
@@ -66,12 +71,17 @@ export const IndustryVariationsBar = ({
     sectorId: 'retail_grocery'
   };
 
-  const isGold = activeIndustryId?.includes('jewel') || activeIndustryId?.includes('gold');
-  const isBus = activeIndustryId?.includes('bus') || activeIndustryId?.includes('travel') || activeIndustryId?.includes('ticket');
-  const isFood = activeIndustryId?.includes('restaurant') || activeIndustryId?.includes('food') || activeIndustryId?.includes('cafe');
-  const isConstruction = activeIndustryId?.includes('const_') || activeIndustryId?.includes('rod') || activeIndustryId?.includes('cement') || activeIndustryId?.includes('sand');
-  const isPharmacy = activeIndustryId?.includes('pharmacy') || activeIndustryId?.includes('health');
-  const isCattle = activeIndustryId?.includes('cattle') || activeIndustryId?.includes('dairy') || activeIndustryId?.includes('milk') || activeIndustryId?.includes('agro') || activeIndustryId?.includes('cow');
+  const archetype = getTemplatePosArchetype(activeIndustryId);
+  const isGold = archetype === 'bhori_gold';
+  const isBus = archetype === 'seat_matrix';
+  const isFood = archetype === 'restaurant_kot';
+  const isConstruction = archetype === 'cft_materials';
+  const isPharmacy = archetype === 'clinical_fefo';
+  const isWeight = archetype === 'weight_scale';
+  const isImei = archetype === 'imei_serial';
+  const isTailor = archetype === 'tailor_fit';
+  const isCourier = archetype === 'parcel_courier';
+  const isCattle = archetype === 'non_pos_cattle';
 
   return (
     <>
@@ -131,34 +141,7 @@ export const IndustryVariationsBar = ({
             <span>{lang === 'bn' ? 'ফিচার কাস্টমাইজ' : 'Customizer'}</span>
           </button>
 
-          {activeIndustryId !== 'agro_cattle_farm' && (
-            <button
-              type="button"
-              onClick={() => {
-                if (setActiveIndustryId) {
-                  setActiveIndustryId('agro_cattle_farm');
-                  if (showToast) showToast(lang === 'bn' ? 'গরুর খামার ও ডেইরি মোড চালু হয়েছে!' : 'Cattle & Dairy mode activated!', 'success');
-                }
-              }}
-              className="press-scale"
-              style={{
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
-                color: '#10b981',
-                borderRadius: '6px',
-                fontSize: '0.72rem',
-                fontWeight: '800',
-                padding: '3px 8px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="গরুর খামার টেমপ্লেট সক্রিয় করুন"
-            >
-              <span>🐄 খামার মোড অন</span>
-            </button>
-          )}
+
         </div>
 
         {/* Right: Specialized Industry Actions */}
@@ -431,70 +414,109 @@ export const IndustryVariationsBar = ({
             </div>
           )}
 
-          {/* 6. CATTLE & DAIRY FARM (ALWAYS VISIBLE FOR INSTANT ACCESS) */}
-          <button
-            type="button"
-            onClick={() => setShowCattleModal(true)}
-            className="btn btn-secondary press-scale"
-            style={{
-              padding: '5px 11px',
-              fontSize: '0.76rem',
-              fontWeight: '800',
-              color: '#10b981',
-              borderColor: isCattle ? 'rgba(16, 185, 129, 0.6)' : 'rgba(16, 185, 129, 0.4)',
-              background: isCattle ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
-            title="গরুর খামার, খাদ্য ও চিকিৎসা খরচ এবং লাভ-ক্ষতি"
-          >
-            <Wheat size={14} />
-            <span>🐄 ক্যাটেল ও ডেইরি হাব</span>
-          </button>
+          {/* 6. WEIGHT SCALE TARE BUTTON */}
+          {isWeight && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', padding: '3px 8px', borderRadius: '6px' }}>
+                ⚖️ ডিজিটাল স্কেল রেডি
+              </span>
+              <button
+                type="button"
+                onClick={() => showToast && showToast(lang === 'bn' ? '⚖️ ডিজিটাল স্কেল তারে ওজন (Tare Weight) ০.০০ সেট হয়েছে' : 'Tare weight zeroed', 'info')}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#10b981',
+                  borderColor: 'rgba(16, 185, 129, 0.4)',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="খালি বক্স বা পাত্রের ওজন বাদ দিন"
+              >
+                <Scale size={13} />
+                <span>তারে (Tare) বাদ</span>
+              </button>
+            </div>
+          )}
 
-          {/* Generic fallback: All customizers button if none matched */}
-          {!isGold && !isBus && !isFood && !isConstruction && !isPharmacy && !isCattle && (
+          {/* 7. IMEI / SERIAL NUMBER */}
+          {isImei && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 type="button"
-                onClick={() => setShowCattleModal(true)}
-                title="গরুর খামার ও ডেইরি হাব"
-                style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#10b981', cursor: 'pointer' }}
+                onClick={() => showToast && showToast(lang === 'bn' ? '📱 ডিভাইসের বারকোড বা আইএমইআই (IMEI) স্ক্যান করুন' : 'Scan IMEI barcode', 'info')}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#3b82f6',
+                  borderColor: 'rgba(59, 130, 246, 0.4)',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="ডিভাইসের আইএমইআই ও সিরিয়াল নম্বর ট্র্যাকিং"
               >
-                🐄 খামার
+                <Smartphone size={13} />
+                <span>IMEI স্ক্যান</span>
               </button>
+            </div>
+          )}
+
+          {/* 8. COURIER & PARCEL WAYBILL */}
+          {isCourier && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 type="button"
-                onClick={() => setShowGoldModal(true)}
-                title="স্বর্ণের ভরি-আনা ক্যালকুলেটর"
-                style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#f59e0b', cursor: 'pointer' }}
+                onClick={() => showToast && showToast(lang === 'bn' ? '📦 পার্সেল ট্র্যাকিং ও সিওডি (COD) কালেকশন রেডি' : 'Waybill tracking active', 'info')}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#6366f1',
+                  borderColor: 'rgba(99, 102, 241, 0.4)',
+                  background: 'rgba(99, 102, 241, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="পার্সেল ট্র্যাকিং ও সিওডি কালেকশন"
               >
-                💎 স্বর্ণ
+                <Truck size={13} />
+                <span>ওয়েবিল ও COD</span>
               </button>
+            </div>
+          )}
+
+          {/* 9. TAILOR MEASUREMENTS */}
+          {isTailor && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 type="button"
-                onClick={() => setShowBusModal(true)}
-                title="বাসের সিট বুকিং"
-                style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#06b6d4', cursor: 'pointer' }}
+                onClick={() => showToast && showToast(lang === 'bn' ? '✂️ কাস্টমার বডি মেজারমেন্ট ও কাটিং জব কার্ড রেডি' : 'Body measurement ready', 'info')}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: '#ec4899',
+                  borderColor: 'rgba(236, 72, 153, 0.4)',
+                  background: 'rgba(236, 72, 153, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="দর্জির বডি মেজারমেন্ট ও ট্রায়াল"
               >
-                🚌 বাস
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCftModal(true)}
-                title="CFT ঘনফুট ক্যালকুলেটর"
-                style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#e11d48', cursor: 'pointer' }}
-              >
-                🏗️ CFT
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPharmaModal(true)}
-                title="পাতা-পিস কনভার্টার"
-                style={{ padding: '3px 8px', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}
-              >
-                💊 ওষুধ
+                <Scissors size={13} />
+                <span>বডি মেজারমেন্ট</span>
               </button>
             </div>
           )}

@@ -1,3 +1,4 @@
+import { getDomainTerminology, DOMAIN_TERMINOLOGY_MAP } from '../utils/domainTerminology.js';
 import { safeJsonParse } from '../utils/safeJson';
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useAuth } from './AuthContext';
@@ -840,9 +841,15 @@ export const AppProvider = ({ children }) => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        const savedPrimaryMode = localStorage.getItem('hk360_primary_operating_mode');
+        const savedHideRetailPos = localStorage.getItem('hk360_hide_retail_pos');
+        const savedActivePosEngine = localStorage.getItem('hk360_active_pos_engine');
         return {
           ...initialData.businessSettings,
           ...parsed,
+          primaryOperatingMode: savedPrimaryMode || parsed.primaryOperatingMode || initialData.businessSettings.primaryOperatingMode,
+          hideRetailPos: savedHideRetailPos !== null ? savedHideRetailPos === 'true' : (parsed.hideRetailPos !== undefined ? parsed.hideRetailPos : initialData.businessSettings.hideRetailPos),
+          activePosEngine: savedActivePosEngine || parsed.activePosEngine || 'retail',
           googleDriveWebhookUrl: parsed.googleDriveWebhookUrl || initialData.businessSettings.googleDriveWebhookUrl,
           googleDriveEnabled: parsed.googleDriveEnabled !== undefined ? parsed.googleDriveEnabled : true
         };
@@ -6289,11 +6296,67 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
       } catch {}
     }
 
-    setBusinessSettings(prev => ({
-      ...prev,
-      industryType: templateId,
-      industryName: tpl.name
-    }));
+    // Determine target primary operating mode with strict domain isolation
+    let targetOpMode = 'standard';
+    let targetTab = 'dashboard';
+    let hideRetailPos = false;
+    let targetPosEngine = 'retail';
+    const lowId = (templateId || '').toLowerCase();
+    const uiMode = (tpl.uiMode || '').toLowerCase();
+    const sectorId = (tpl.sectorId || '').toLowerCase();
+
+    if (uiMode === 'samity' || lowId.includes('samity') || sectorId.includes('samity')) {
+      targetOpMode = 'samity';
+      targetTab = 'samity';
+      hideRetailPos = true;
+      targetPosEngine = 'none';
+    } else if (uiMode === 'cattle' || lowId.includes('cattle') || lowId.includes('dairy') || lowId.includes('agro_cattle')) {
+      targetOpMode = 'cattle';
+      targetTab = 'cattle';
+      hideRetailPos = true;
+      targetPosEngine = 'none';
+    } else if (uiMode === 'healthcare' || uiMode === 'pharmacy' || lowId.includes('health') || lowId.includes('pharmacy') || lowId.includes('clinic') || sectorId.includes('pharmacy')) {
+      targetOpMode = 'healthcare';
+      targetTab = 'healthcare';
+      hideRetailPos = false;
+      targetPosEngine = 'pharmacy';
+    } else if (uiMode === 'restaurant' || lowId.includes('restaurant') || lowId.includes('food') || lowId.includes('cafe') || sectorId.includes('food_dining')) {
+      targetOpMode = 'restaurant';
+      targetTab = 'dashboard';
+      hideRetailPos = false;
+      targetPosEngine = 'restaurant';
+    } else {
+      targetOpMode = 'standard';
+      targetTab = 'dashboard';
+      hideRetailPos = false;
+      targetPosEngine = 'retail';
+    }
+
+    try {
+      localStorage.setItem('hk360_primary_operating_mode', targetOpMode);
+      localStorage.setItem('hk360_active_pos_engine', targetPosEngine);
+      localStorage.setItem('hk360_hide_retail_pos', hideRetailPos ? 'true' : 'false');
+    } catch {}
+
+    setBusinessSettings(prev => {
+      const updated = {
+        ...prev,
+        industryType: templateId,
+        industryName: tpl.name,
+        industryTemplateId: templateId,
+        primaryOperatingMode: targetOpMode,
+        hideRetailPos: hideRetailPos,
+        activePosEngine: targetPosEngine
+      };
+      try {
+        localStorage.setItem('hisabkitab_settings', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (typeof setActiveTab === 'function') {
+      setActiveTab(targetTab);
+    }
 
     const shouldLoadSampleProducts = customFeaturesOrLoadSample === true;
     if (shouldLoadSampleProducts && tpl.sampleProducts && tpl.sampleProducts.length > 0) {
@@ -6686,6 +6749,9 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
   return (
     <AppContext.Provider
       value={{
+    domainTerminology: getDomainTerminology(businessSettings?.industryTemplateId || businessSettings?.industryType),
+    getDomainTerminology,
+    DOMAIN_TERMINOLOGY_MAP,
         operatingMode,
         setOperatingMode,
         profile,

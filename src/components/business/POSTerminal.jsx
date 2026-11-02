@@ -429,26 +429,27 @@ export const POSTerminal = () => {
   };
 
   // --- TEMPLATE-ADAPTIVE POS ENGINE ARCHITECTURE ---
-  const isCattleIndustry = Boolean(
-    activeIndustryId?.includes('cattle') ||
-    activeIndustryId?.includes('dairy') ||
-    activeIndustryId?.includes('milk') ||
-    activeIndustryId?.includes('agro') ||
-    activeIndustryId?.includes('cow')
-  );
-
   const isPharmacyIndustry = Boolean(
     activeIndustryId?.includes('pharmacy') ||
     activeIndustryId?.includes('health') ||
-    activeIndustryId?.includes('medic')
+    activeIndustryId?.includes('medic') ||
+    businessSettings?.primaryOperatingMode === 'healthcare'
   );
 
-  const autoDefaultEngine = isCattleIndustry ? 'cattle' : (isPharmacyIndustry ? 'pharmacy' : 'retail');
+  const isRestaurantIndustry = Boolean(
+    activeIndustryId?.includes('restaurant') ||
+    activeIndustryId?.includes('food') ||
+    activeIndustryId?.includes('cafe') ||
+    activeIndustryId?.includes('fastfood') ||
+    businessSettings?.primaryOperatingMode === 'restaurant'
+  );
+
+  const autoDefaultEngine = isPharmacyIndustry ? 'pharmacy' : (isRestaurantIndustry ? 'restaurant' : 'retail');
 
   const [activePosEngine, setActivePosEngine] = useState(() => {
     try {
       const saved = localStorage.getItem('hk360_active_pos_engine');
-      if (saved && ['retail', 'cattle', 'pharmacy'].includes(saved)) {
+      if (saved && ['retail', 'restaurant', 'pharmacy'].includes(saved)) {
         return saved;
       }
     } catch {}
@@ -457,12 +458,12 @@ export const POSTerminal = () => {
 
   // Automatically adapt POS engine when business template switches
   useEffect(() => {
-    const targetEngine = isCattleIndustry ? 'cattle' : (isPharmacyIndustry ? 'pharmacy' : 'retail');
+    const targetEngine = isPharmacyIndustry ? 'pharmacy' : (isRestaurantIndustry ? 'restaurant' : 'retail');
     setActivePosEngine(targetEngine);
     try {
       localStorage.setItem('hk360_active_pos_engine', targetEngine);
     } catch {}
-  }, [activeIndustryId, isCattleIndustry, isPharmacyIndustry]);
+  }, [activeIndustryId, isPharmacyIndustry, isRestaurantIndustry]);
 
   const handleSwitchPosEngine = (engine) => {
     hapticFeedback.light();
@@ -472,12 +473,12 @@ export const POSTerminal = () => {
       localStorage.setItem('hk360_active_pos_engine', engine);
     } catch {}
     if (showToast) {
-      const label = engine === 'cattle' ? '🐄 খামার ও ডেইরি POS' : engine === 'pharmacy' ? '💊 ফার্মেসি ও মেডিকেল POS' : '🏪 সাধারণ রিটেইল POS';
+      const label = engine === 'restaurant' ? '🍽️ রেস্তোরাঁ ও ডাইনিং POS' : engine === 'pharmacy' ? '💊 ফার্মেসি ও মেডিকেল POS' : '🏪 সাধারণ রিটেইল POS';
       showToast(`${label} সক্রিয় হয়েছে`, 'info');
     }
   };
 
-  const isCattleMode = isCattleIndustry;
+  const isCattleMode = false;
   const [cattlePosSubTab, setCattlePosSubTab] = useState('milk'); // 'milk' | 'live' | 'compost_feed' | 'custom_milk'
   const [customMilkLiters, setCustomMilkLiters] = useState('10');
   const [customMilkRate, setCustomMilkRate] = useState('80');

@@ -1,3 +1,4 @@
+import { getTemplatePosArchetype } from '../../data/industryTemplates';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -111,7 +112,8 @@ export const BusinessSettings = () => {
 
   const { user } = useAuth();
 
-  const [activeSubTab, setActiveSubTab] = useState('profile'); // 'profile' | 'receipt' | 'hardware' | 'backup' | 'commercial'
+  const [activeSubTab, setActiveSubTab] = useState('profile');
+  const activeArchetype = getTemplatePosArchetype(businessSettings?.industryTemplateId || businessSettings?.industryType); // 'profile' | 'receipt' | 'hardware' | 'backup' | 'commercial'
   const [showMoreSubTabs, setShowMoreSubTabs] = useState(false);
   const [formState, setFormState] = useState({ ...businessSettings });
   const [scannerLiveInput, setScannerLiveInput] = useState('');
@@ -1654,6 +1656,117 @@ export const BusinessSettings = () => {
         {/* TAB 1: COMPANY PROFILE, BRANDING & DOCUMENTS */}
         {/* ========================================================= */}
         {activeSubTab === 'profile' && (
+          <>
+          {/* 14-PILLAR DOMAIN-SPECIFIC BUSINESS SETTINGS */}
+          <div className="glass-card" style={{ padding: '16px', marginBottom: '16px', border: '1px solid rgba(59, 130, 246, 0.25)', background: 'rgba(59, 130, 246, 0.04)' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: '800', marginBottom: '8px', color: 'var(--primary-color, #3b82f6)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🎯 বর্তমান ব্যবসার ডোমেইন-নির্দিষ্ট কনফিগারেশন ({activeArchetype})
+            </h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              নির্বাচিত টেমপ্লেটের সাথে সামঞ্জস্য রেখে শুধুমাত্র প্রয়োজনীয় সরকারি লাইসেন্স, রেগুলেশন ও প্যারামিটার সেট করুন।
+            </p>
+
+            {activeArchetype === 'clinical_fefo' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>💊 ডিজিডিএ ড্রাগ লাইসেন্স নং</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="যেমন: DL-DHK-2024-987"
+                    value={formState.drugLicenseNo || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, drugLicenseNo: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>👨‍⚕️ রেজিস্টার্ড ফার্মাসিস্টের নাম</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="ফার্মাসিস্টের নাম ও রেজিস্ট্রেশন"
+                    value={formState.pharmacistName || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, pharmacistName: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeArchetype === 'bhori_gold' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>💎 বাজুস (BAJUS) মেম্বারশিপ নম্বর</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="যেমন: BAJUS-MEM-5541"
+                    value={formState.bajusRegNo || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, bajusRegNo: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>⚖️ স্বর্ণ হলমার্ক সেন্টার কোড</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="যেমন: HMK-BD-22K"
+                    value={formState.hallmarkCode || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, hallmarkCode: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeArchetype === 'restaurant_kot' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>🍽️ মোট ডাইনিং টেবিল সংখ্যা</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="যেমন: 20"
+                    value={formState.totalDiningTables || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, totalDiningTables: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>🛎️ রেস্তোরাঁ সার্ভিস চার্জ (%)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="যেমন: 5"
+                    value={formState.serviceChargePercent || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, serviceChargePercent: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeArchetype === 'seat_matrix' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>🚌 ফ্লিট / বাস ও নৌযান রুট পারমিট</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="যেমন: BRTA-ROUTE-DHAKA-CTG"
+                    value={formState.routePermitNo || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, routePermitNo: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700' }}>🎟️ টিকেট বুকিং রিপোর্টিং কাউন্টার</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="কাউন্টারের নাম ও অবস্থান"
+                    value={formState.reportingCounter || ''}
+                    onChange={(e) => setFormState(prev => ({ ...prev, reportingCounter: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="settings-two-col-grid">
             {/* Left: Company Details Form */}
             <div className="glass-card">
@@ -2020,6 +2133,7 @@ export const BusinessSettings = () => {
               </div>
             </div>
           </div>
+          </>
         )}
 
         {/* ========================================================= */}

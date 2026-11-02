@@ -58,6 +58,13 @@ export const AdaptivePosSwitcherBar = ({
     activeIndustryId?.includes('medic')
   );
 
+  const isTemplateRestaurant = Boolean(
+    activeIndustryId?.includes('restaurant') ||
+    activeIndustryId?.includes('food') ||
+    activeIndustryId?.includes('cafe') ||
+    activeIndustryId?.includes('fastfood')
+  );
+
   // Switch POS by Template
   const handleSelectTemplate = (templateKey, engineKey, templateNameBn, templateNameEn) => {
     hapticFeedback.light();
@@ -151,7 +158,7 @@ export const AdaptivePosSwitcherBar = ({
 
       {/* Center: Dynamic Single Converted POS Indicator (No 3-button clutter) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        {activeEngine === 'cattle' && (
+        {activeEngine === 'restaurant' && (
           <div
             style={{
               display: 'inline-flex',
@@ -159,17 +166,17 @@ export const AdaptivePosSwitcherBar = ({
               gap: '6px',
               padding: '6px 14px',
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3))',
-              border: '1.5px solid #10b981',
-              color: '#10b981',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.3))',
+              border: '1.5px solid #f59e0b',
+              color: '#f59e0b',
               fontWeight: '800',
               fontSize: '0.82rem',
-              boxShadow: '0 2px 10px rgba(16, 185, 129, 0.25)'
+              boxShadow: '0 2px 10px rgba(245, 158, 11, 0.25)'
             }}
           >
-            <span>🐄</span>
-            <span>{lang === 'bn' ? 'ডেইরি ও খামার POS সক্রিয়' : 'Dairy & Cattle Farm POS Active'}</span>
-            <Check size={14} style={{ color: '#10b981' }} />
+            <span>🍽️</span>
+            <span>{lang === 'bn' ? 'রেস্তোরাঁ ও ডাইনিং POS সক্রিয়' : 'Restaurant & Dining POS Active'}</span>
+            <Check size={14} style={{ color: '#f59e0b' }} />
           </div>
         )}
 
@@ -271,10 +278,10 @@ export const AdaptivePosSwitcherBar = ({
                 {lang === 'bn' ? 'পিওএস কোন ব্যবসায় কনভার্ট করবেন?' : 'Convert POS to which business?'}
               </div>
 
-              {/* 1. Dairy & Cattle Farm */}
+              {/* 1. Restaurant & Dining */}
               <button
                 type="button"
-                onClick={() => handleSelectTemplate('agro_cattle_farm', 'cattle', 'ডেইরি ও খামার পিওএস', 'Dairy & Cattle Farm POS')}
+                onClick={() => handleSelectTemplate('food_restaurant', 'restaurant', 'রেস্তোরাঁ ও ক্যাফে পিওএস', 'Restaurant & Dining POS')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -282,9 +289,9 @@ export const AdaptivePosSwitcherBar = ({
                   padding: '8px 10px',
                   borderRadius: '9px',
                   border: 'none',
-                  background: activeEngine === 'cattle' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-                  color: activeEngine === 'cattle' ? '#10b981' : 'var(--text-main)',
-                  fontWeight: activeEngine === 'cattle' ? '800' : '600',
+                  background: activeEngine === 'restaurant' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                  color: activeEngine === 'restaurant' ? '#f59e0b' : 'var(--text-main)',
+                  fontWeight: activeEngine === 'restaurant' ? '800' : '600',
                   fontSize: '0.8rem',
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -292,13 +299,13 @@ export const AdaptivePosSwitcherBar = ({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '1rem' }}>🐄</span>
+                  <span style={{ fontSize: '1rem' }}>🍽️</span>
                   <div>
-                    <div>{lang === 'bn' ? 'ডেইরি ও খামার মোড' : 'Dairy & Cattle Farm'}</div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>দুধ, পাল, খাদ্য ও ডেইরি POS</div>
+                    <div>{lang === 'bn' ? 'রেস্তোরাঁ ও ডাইনিং মোড' : 'Restaurant & Dining'}</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>টেবিল অর্ডার, ডাইন-ইন ও KOT কিচেন</div>
                   </div>
                 </div>
-                {activeEngine === 'cattle' && <Check size={14} style={{ color: '#10b981' }} />}
+                {activeEngine === 'restaurant' && <Check size={14} style={{ color: '#f59e0b' }} />}
               </button>
 
               {/* 2. Pharmacy & Healthcare */}

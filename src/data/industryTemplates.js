@@ -907,8 +907,8 @@ export const MASTER_INDUSTRY_TEMPLATES = [
     name: 'ডেইরি খামার ও খাঁটি গরুর তরল দুধ',
     enName: 'Dairy Farm & Fresh Milk',
     icon: 'Wheat',
-    uiMode: 'standard',
-    posViewMode: 'compact',
+    uiMode: 'cattle',
+    posViewMode: null,
     supportsPhotos: false,
     units: ['লিটার', 'কেজি', 'বোতল'],
     features: ['daily_morning_evening_dispatch', 'customer_monthly_milk_khata', 'fat_percentage'],
@@ -923,8 +923,8 @@ export const MASTER_INDUSTRY_TEMPLATES = [
     name: 'গরুর খামার, ডেইরি ও ক্যাটেল ফার্মিং',
     enName: 'Cattle Farm, Dairy & Livestock Hub',
     icon: 'Wheat',
-    uiMode: 'standard',
-    posViewMode: 'compact',
+    uiMode: 'cattle',
+    posViewMode: null,
     supportsPhotos: true,
     units: ['টি', 'লিটার', 'কেজি', 'বস্তা', 'আঁটি'],
     features: [
@@ -953,6 +953,40 @@ export const MASTER_INDUSTRY_TEMPLATES = [
     ]
   },
   // ==========================================
+  // 14. LOGISTICS & COURIER PARCEL HUB
+  // ==========================================
+  {
+    id: 'logistics_courier_hub',
+    sectorId: 'logistics_courier',
+    name: 'কুরিয়ার, পার্সেল ও সিএন্ডএফ লজিস্টিকস হাব',
+    enName: 'Courier, Parcel & Logistics Freight Hub',
+    icon: 'Truck',
+    uiMode: 'standard',
+    posArchetype: 'parcel_courier',
+    posViewMode: 'compact',
+    supportsPhotos: false,
+    units: ['পার্সেল', 'কেজি', 'টন', 'বক্স', 'প্যাকেট', 'কার্টন'],
+    features: [
+      'waybill_tracking',
+      'cod_cash_collection',
+      'origin_destination_routes',
+      'merchant_payout_ledger',
+      'barcode_sticker_label'
+    ],
+    defaultCategories: [
+      'ডকুমেন্ট ও জরুরি খাম',
+      'ই-কমার্স ছোট পার্সেল (১ কেজি)',
+      'মাঝারি বক্স ও কার্টন (২-৫ কেজি)',
+      'ভারী লাগেজ ও বস্তা (১০-৫০ কেজি)',
+      'কন্ডিশন / সিওডি (COD) পার্সেল',
+      'সিএন্ডএফ বাল্ক ফ্রেইট'
+    ],
+    sampleProducts: [
+      { name: 'ঢাকা টু চট্টগ্রাম এক্সপ্রেস পার্সেল (১ কেজি)', category: 'ই-কমার্স ছোট পার্সেল (১ কেজি)', costPrice: 40, sellPrice: 120, unit: 'পার্সেল', stock: 999 },
+      { name: 'সারাদেশ কন্ডিশন পার্সেল বুকিং ফি', category: 'কন্ডিশন / সিওডি (COD) পার্সেল', costPrice: 50, sellPrice: 150, unit: 'পার্সেল', stock: 999 }
+    ]
+  },
+  // ==========================================
   // 13. SAMITY, CLUB & CO-OPERATIVE ASSOCIATION
   // ==========================================
   {
@@ -962,7 +996,7 @@ export const MASTER_INDUSTRY_TEMPLATES = [
     enName: 'Samity Member, Bank Deposit, Due, Multi-Channel Reminder, Letterhead & Signature Management Template',
     icon: 'Users',
     uiMode: 'samity',
-    posViewMode: 'compact',
+    posViewMode: null,
     supportsPhotos: true,
     units: ['জন', 'কিস্তি', 'শেয়ার', 'টাকা', 'মাস'],
     features: [
@@ -995,4 +1029,57 @@ export const MASTER_INDUSTRY_TEMPLATES = [
 // Helper to look up template
 export const getTemplateById = (templateId) => {
   return MASTER_INDUSTRY_TEMPLATES.find(t => t.id === templateId) || MASTER_INDUSTRY_TEMPLATES[0];
+};
+
+// Master Template POS Archetype Resolver
+export const getTemplatePosArchetype = (templateOrId) => {
+  const tpl = typeof templateOrId === 'string' ? getTemplateById(templateOrId) : templateOrId;
+  if (!tpl) return 'rapid_barcode';
+  if (tpl.posArchetype) return tpl.posArchetype;
+
+  const lowId = (tpl.id || '').toLowerCase();
+  const uiMode = (tpl.uiMode || '').toLowerCase();
+  const sectorId = (tpl.sectorId || '').toLowerCase();
+
+  // 1. Pure Non-POS Operational Desks (Zero Retail POS)
+  if (uiMode === 'samity' || lowId.includes('samity') || sectorId.includes('samity')) {
+    return 'non_pos_samity';
+  }
+  if (uiMode === 'cattle' || lowId.includes('cattle') || lowId.includes('dairy') || lowId.includes('agro_cattle')) {
+    return 'non_pos_cattle';
+  }
+
+  // 2. Specialized Vertical POS Engines
+  if (uiMode === 'pharmacy' || uiMode === 'healthcare' || lowId.includes('pharmacy') || lowId.includes('health') || lowId.includes('medic') || lowId.includes('clinic')) {
+    return 'clinical_fefo';
+  }
+  if (uiMode === 'restaurant' || lowId.includes('restaurant') || lowId.includes('food') || lowId.includes('cafe') || lowId.includes('biryani') || lowId.includes('shwarma') || sectorId.includes('food_dining')) {
+    return 'restaurant_kot';
+  }
+  if (lowId.includes('gold') || lowId.includes('jewel') || sectorId.includes('jewelry')) {
+    return 'bhori_gold';
+  }
+  if (uiMode === 'bus_counter' || uiMode === 'cinema' || lowId.includes('bus') || lowId.includes('launch') || lowId.includes('cinema') || lowId.includes('ticket')) {
+    return 'seat_matrix';
+  }
+  if (lowId.includes('sand') || lowId.includes('stone') || lowId.includes('const_') || lowId.includes('cement') || lowId.includes('rod')) {
+    return 'cft_materials';
+  }
+  if (lowId.includes('sweet') || lowId.includes('meat') || lowId.includes('fish') || lowId.includes('raw_market')) {
+    return 'weight_scale';
+  }
+  if (lowId.includes('mobile') || lowId.includes('computer') || lowId.includes('elec_') || lowId.includes('cctv')) {
+    return 'imei_serial';
+  }
+  if (lowId.includes('tailor')) {
+    return 'tailor_fit';
+  }
+  if (lowId.includes('courier') || sectorId.includes('logistics')) {
+    return 'parcel_courier';
+  }
+  if (lowId.includes('salon') || lowId.includes('laundry') || lowId.includes('gym') || lowId.includes('photo')) {
+    return 'service_desk';
+  }
+
+  return 'rapid_barcode';
 };
