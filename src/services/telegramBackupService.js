@@ -11,23 +11,44 @@ export const getTelegramBackupConfig = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     const parsed = saved ? JSON.parse(saved) : {};
+
+    // Also check cloud/tenant synchronized businessSettings for multi-device parity
+    let bizTg = null;
+    try {
+      const rawBiz = localStorage.getItem('hk360_biz_settings');
+      if (rawBiz) {
+        const parsedBiz = JSON.parse(rawBiz);
+        bizTg = parsedBiz?.telegramConfig || null;
+      }
+    } catch {}
+
     const envBotToken = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_BOT_TOKEN ? import.meta.env.VITE_TELEGRAM_BOT_TOKEN : '';
     const envChatId = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_CHAT_ID ? import.meta.env.VITE_TELEGRAM_CHAT_ID : '';
     const envKey = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY : '';
     const localKey = typeof window !== 'undefined' ? localStorage.getItem('hk360_gemini_api_key') : '';
 
+    const botToken = parsed.botToken || bizTg?.botToken || envBotToken || '';
+    const chatId = parsed.chatId || bizTg?.chatId || envChatId || '';
+    const geminiApiKey = parsed.geminiApiKey || bizTg?.geminiApiKey || localKey || envKey || '';
+    const isLocked = parsed.isLocked !== undefined ? parsed.isLocked : (bizTg?.isLocked || Boolean(botToken && chatId));
+
     return {
-      botToken: parsed.botToken || envBotToken || '',
-      chatId: parsed.chatId || envChatId || '',
-      geminiApiKey: parsed.geminiApiKey || localKey || envKey || '',
-      groqApiKey: parsed.groqApiKey || '',
-      enabled: parsed.enabled !== undefined ? parsed.enabled : true,
-      autoSync: parsed.autoSync !== undefined ? parsed.autoSync : true,
+      botToken,
+      chatId,
+      geminiApiKey,
+      groqApiKey: parsed.groqApiKey || bizTg?.groqApiKey || '',
+      enabled: parsed.enabled !== undefined ? parsed.enabled : (bizTg?.enabled !== undefined ? bizTg.enabled : true),
+      autoSync: parsed.autoSync !== undefined ? parsed.autoSync : (bizTg?.autoSync !== undefined ? bizTg.autoSync : true),
       syncOnSaleOrExpense: parsed.syncOnSaleOrExpense !== false,
       intervalMinutes: parsed.intervalMinutes || 1,
       intervalSeconds: 20,
-      lastSync: parsed.lastSync || null,
-      lastFileName: parsed.lastFileName || null
+      isLocked,
+      botTokenLocked: parsed.botTokenLocked !== undefined ? parsed.botTokenLocked : isLocked,
+      chatIdLocked: parsed.chatIdLocked !== undefined ? parsed.chatIdLocked : isLocked,
+      geminiKeyLocked: parsed.geminiKeyLocked !== undefined ? parsed.geminiKeyLocked : isLocked,
+      lastSync: parsed.lastSync || bizTg?.lastSync || null,
+      lastSyncFormatted: parsed.lastSyncFormatted || bizTg?.lastSyncFormatted || null,
+      lastFileName: parsed.lastFileName || bizTg?.lastFileName || null
     };
   } catch {
     const envKey = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY : '';
@@ -43,7 +64,12 @@ export const getTelegramBackupConfig = () => {
       syncOnSaleOrExpense: true,
       intervalMinutes: 1,
       intervalSeconds: 20,
+      isLocked: false,
+      botTokenLocked: false,
+      chatIdLocked: false,
+      geminiKeyLocked: false,
       lastSync: null,
+      lastSyncFormatted: null,
       lastFileName: null
     };
   }
@@ -53,9 +79,22 @@ export const saveTelegramBackupConfig = async (config) => {
   try {
     const payload = {
       ...config,
-      enabled: config?.botToken ? true : Boolean(config?.enabled)
+      enabled: config?.botToken ? true : Boolean(config?.enabled),
+      intervalSeconds: 20
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    if (payload.geminiApiKey) {
+      localStorage.setItem('hk360_gemini_api_key', payload.geminiApiKey);
+    }
+
+    // Mirror to businessSettings for seamless cloud multi-device sync
+    try {
+      const rawBiz = localStorage.getItem('hk360_biz_settings');
+      const bizSettings = rawBiz ? JSON.parse(rawBiz) : {};
+      bizSettings.telegramConfig = payload;
+      localStorage.setItem('hk360_biz_settings', JSON.stringify(bizSettings));
+    } catch {}
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('hk360_telegram_config_updated', { detail: payload }));
       // Notify preview server / local host daemon immediately
@@ -577,12 +616,19 @@ export const sendBackupToTelegram = async (backupPayload, customConfig = null) =
       throw directErr;
     }
   }
-  const syncTime = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+  const syncTime = now.toISOString();
+  let formattedBn = '';
+  try {
+    formattedBn = now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) + ', ' + now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch {
+    formattedBn = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString()}`;
+  }
 
-  // Update local config with lastSync
+  // Update local config with lastSync and human-readable timestamp
   const updatedConfig = {
     ...config,
     lastSync: syncTime,
+    lastSyncFormatted: formattedBn,
     lastFileName: fileName
   };
   saveTelegramBackupConfig(updatedConfig);
@@ -590,6 +636,7 @@ export const sendBackupToTelegram = async (backupPayload, customConfig = null) =
   return {
     success: true,
     timestamp: syncTime,
+    lastSyncFormatted: formattedBn,
     fileName,
     messageId: resData.result?.message_id
   };

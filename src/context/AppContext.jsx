@@ -1973,6 +1973,12 @@ export const AppProvider = ({ children }) => {
       date: newEntry.date
     }).catch(() => {});
 
+    try {
+      window.dispatchEvent(new CustomEvent('hk360_transaction_recorded', {
+        detail: { type: 'personal_expense', expense: newEntry }
+      }));
+    } catch {}
+
     showToast(lang === 'bn' ? 'খরচ সফলভাবে যোগ করা হয়েছে' : 'Expense recorded successfully');
     return newEntry;
   };
@@ -3143,6 +3149,13 @@ export const AppProvider = ({ children }) => {
       });
     } catch {}
 
+    // Instant transaction trigger for real-time Telegram cloud backup
+    try {
+      window.dispatchEvent(new CustomEvent('hk360_transaction_recorded', {
+        detail: { type: 'sale', sale: saleRecord }
+      }));
+    } catch {}
+
     showToast(lang === 'bn' ? `ইনভয়েস #${invoiceId} সফলভাবে সম্পন্ন হয়েছে!` : `Sale #${invoiceId} completed!`);
     return saleRecord;
   };
@@ -3540,6 +3553,12 @@ export const AppProvider = ({ children }) => {
       date: newExpense.date
     }).catch(() => {});
 
+    try {
+      window.dispatchEvent(new CustomEvent('hk360_transaction_recorded', {
+        detail: { type: 'business_expense', expense: newExpense }
+      }));
+    } catch {}
+
     showToast(lang === 'bn' ? 'ব্যবসায়িক খরচ যুক্ত করা হয়েছে' : 'Business expense recorded');
     return newExpense;
   };
@@ -3699,6 +3718,12 @@ export const AppProvider = ({ children }) => {
       invoices: nextInvoices,
       salesHistory: [newInv, ...salesHistory]
     }, 'add_invoice');
+
+    try {
+      window.dispatchEvent(new CustomEvent('hk360_transaction_recorded', {
+        detail: { type: 'sale', sale: newInv }
+      }));
+    } catch {}
 
     showToast(lang === 'bn' ? `ইনভয়েস #${newInv.id} সফলভাবে তৈরি হয়েছে!` : `Invoice #${newInv.id} created!`);
     return newInv;
@@ -4850,6 +4875,7 @@ export const AppProvider = ({ children }) => {
 
   // Telegram Cloud Bot Auto-Sync
   const isTelegramSyncingRef = useRef(false);
+  const syncToTelegramRef = useRef(null);
 
   const syncToTelegram = async (customConfig = null, silent = false) => {
     if (isTelegramSyncingRef.current) return { success: false, inProgress: true };
@@ -4991,15 +5017,18 @@ export const AppProvider = ({ children }) => {
   ]);
 
   // Global transaction listener for explicit triggers
+  syncToTelegramRef.current = syncToTelegram;
+
+  // Realtime instant backup event listener (triggered immediately on every sale, invoice or expense)
   useEffect(() => {
     const handleTransactionEvent = () => {
       const tgConfig = getTelegramBackupConfig();
       if (tgConfig.enabled && tgConfig.autoSync && tgConfig.syncOnSaleOrExpense !== false && tgConfig.botToken && tgConfig.chatId) {
         setTimeout(() => {
-          if (!isTelegramSyncingRef.current) {
-            syncToTelegram(null, true).catch(() => {});
+          if (!isTelegramSyncingRef.current && syncToTelegramRef.current) {
+            syncToTelegramRef.current(null, true).catch(() => {});
           }
-        }, 1200);
+        }, 1000);
       }
     };
 
@@ -5012,7 +5041,9 @@ export const AppProvider = ({ children }) => {
     const tgTimer = setInterval(() => {
       const activeConfig = getTelegramBackupConfig();
       if (activeConfig.enabled && activeConfig.autoSync && activeConfig.botToken && activeConfig.chatId && !isTelegramSyncingRef.current) {
-        syncToTelegram(null, true).catch(() => {});
+        if (syncToTelegramRef.current) {
+          syncToTelegramRef.current(null, true).catch(() => {});
+        }
       }
     }, 20 * 1000); // Exactly every 20 seconds!
 
@@ -6637,6 +6668,11 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
     if (cloudState.businessSettings && typeof cloudState.businessSettings === 'object') {
       setBusinessSettings(prev => ({ ...prev, ...cloudState.businessSettings }));
       localStorage.setItem(STORAGE_KEYS.BIZ_SETTINGS, JSON.stringify(cloudState.businessSettings));
+      if (cloudState.businessSettings.telegramConfig && typeof cloudState.businessSettings.telegramConfig === 'object') {
+        try {
+          saveTelegramBackupConfig(cloudState.businessSettings.telegramConfig);
+        } catch (_) {}
+      }
     }
     if (Array.isArray(cloudState.trashBin)) {
       setTrashBin(prev => {

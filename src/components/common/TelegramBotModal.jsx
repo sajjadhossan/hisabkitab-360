@@ -19,6 +19,10 @@ import {
   Package,
   CreditCard,
   Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  Clock,
   Radio,
   Terminal,
   HelpCircle,
@@ -49,6 +53,12 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
   const { user } = useAuth();
 
   const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig());
+  const [isLocked, setIsLocked] = useState(() => {
+    const cfg = getTelegramBackupConfig();
+    return cfg.isLocked !== undefined ? cfg.isLocked : Boolean(cfg.botToken && cfg.chatId);
+  });
+  const [showToken, setShowToken] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState(null);
   const [testError, setTestError] = useState(null);
@@ -64,7 +74,9 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setTgConfig(getTelegramBackupConfig());
+      const cfg = getTelegramBackupConfig();
+      setTgConfig(cfg);
+      setIsLocked(cfg.isLocked !== undefined ? cfg.isLocked : Boolean(cfg.botToken && cfg.chatId));
       setTestSuccess(null);
       setTestError(null);
       setGeminiTestStatus(null);
@@ -119,13 +131,22 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = (shouldLock = null) => {
+    const lockVal = shouldLock !== null ? shouldLock : isLocked;
     const payload = {
       ...tgConfig,
-      enabled: tgConfig.botToken ? true : Boolean(tgConfig.enabled)
+      enabled: tgConfig.botToken ? true : Boolean(tgConfig.enabled),
+      isLocked: lockVal,
+      botTokenLocked: lockVal,
+      chatIdLocked: lockVal,
+      geminiKeyLocked: lockVal,
+      intervalSeconds: 20
     };
     saveTelegramBackupConfig(payload);
     setTgConfig(payload);
+    if (shouldLock !== null) {
+      setIsLocked(shouldLock);
+    }
     if (payload.geminiApiKey && typeof window !== 'undefined') {
       localStorage.setItem('hk360_gemini_api_key', payload.geminiApiKey);
     }
@@ -135,7 +156,9 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
     hapticFeedback?.success?.();
     if (showToast) {
       showToast(
-        lang === 'bn' ? 'টেলিগ্রাম বট ও ভয়েস এআই কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Telegram & Voice AI configuration saved!',
+        lockVal
+          ? (lang === 'bn' ? '🔒 সকল কি ও কনফিগারেশন লক ও সংরক্ষিত হয়েছে! সমস্ত ডিভাইসে সিঙ্ক সফল।' : 'Configuration locked & synced to all devices!')
+          : (lang === 'bn' ? 'টেলিগ্রাম বট ও ভয়েস এআই কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Telegram & Voice AI configuration saved!'),
         'success'
       );
     }
@@ -445,95 +468,199 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
           {/* TAB 1: Bot Credentials & Test */}
           {activeTab === 'config' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* MASTER LOCK & SECURITY STATUS BANNER */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  background: isLocked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                  border: `1.5px solid ${isLocked ? '#10b981' : '#f59e0b'}`,
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: isLocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isLocked ? '#10b981' : '#f59e0b'
+                  }}>
+                    {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '0.88rem', color: isLocked ? '#10b981' : '#f59e0b' }}>
+                      {isLocked ? '🔒 কি ও ক্রেডেনশিয়াল সংরক্ষিত ও সুরক্ষিত (Locked & Active)' : '🔓 এডিট মোড চালু আছে (Unprotected)'}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      {isLocked
+                        ? 'কি-গুলো লকড অবস্থায় রয়েছে যেন মুছে না যায়। টেস্ট করতে টেস্ট বাটন চাপুন অথবা পরিবর্তন করতে আনলক করুন।'
+                        : 'টোকেন ও এআই কি বসিয়ে "🔒 লক ও সেভ করুন" চাপলে সমস্ত ডিভাইসে সুরক্ষিতভাবে সিঙ্ক হয়ে যাবে।'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isLocked) {
+                      setIsLocked(false);
+                      hapticFeedback?.light?.();
+                      if (showToast) showToast('এডিটের জন্য আনলক করা হয়েছে। কি পরিবর্তন শেষে পুনরায় লক করুন।', 'info');
+                    } else {
+                      handleSave(true);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: isLocked ? 'var(--bg-primary)' : 'linear-gradient(135deg, #10b981, #059669)',
+                    color: isLocked ? 'var(--text-main)' : '#fff',
+                    fontWeight: '800',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: isLocked ? '0 1px 4px rgba(0,0,0,0.1)' : '0 4px 12px rgba(16, 185, 129, 0.35)'
+                  }}
+                >
+                  {isLocked ? <Unlock size={15} /> : <Lock size={15} />}
+                  <span>{isLocked ? 'আনলক করুন' : 'লক ও সেভ করুন'}</span>
+                </button>
+              </div>
+
+              {/* 20-SECOND LIVE AUTO BACKUP STATUS & DISTINCT TIMESTAMP */}
               <div
                 style={{
                   background: 'rgba(14, 165, 233, 0.08)',
-                  border: '1px solid rgba(14, 165, 233, 0.3)',
+                  border: '1px solid rgba(14, 165, 233, 0.25)',
                   borderRadius: '12px',
-                  padding: '12px 14px'
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0ea5e9', fontWeight: '800', fontSize: '0.85rem' }}>
-                  <ShieldCheck size={16} />
-                  <span>{lang === 'bn' ? '১০০% ফ্রি ও আনলিমিটেড লাইভ রিমোট কন্ট্রোল' : '100% Free & Unlimited Remote Control'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', display: 'inline-block' }} />
+                    <span style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0ea5e9' }}>
+                      ⚡ প্রতি ২০ সেকেন্ডে স্বয়ংক্রিয় ক্লাউড ব্যাকআপ সক্রিয়
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '3px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                    📱 পিসি ও মোবাইল সব ডিভাইসে অটো-সিঙ্কড
+                  </span>
                 </div>
-                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                  {lang === 'bn'
-                    ? 'টেলিগ্রামে আপনার নিজস্ব বট তৈরি করে দোকানে না থেকেও যেকোনো স্থান থেকে বিক্রয়, খরচ, বকেয়া এবং লাভ-ক্ষতি পরিচালনা করুন।'
-                    : 'Remotely control your business and personal accounting via Telegram with instant 2-way live sync.'}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '6px' }}>
+                  <span>⏰ <strong>সর্বশেষ ব্যাকআপ সময়:</strong> {tgConfig.lastSyncFormatted || tgConfig.lastSync || 'এইমাত্র প্রস্তুত / লাইভ ব্যাকআপ চালু'}</span>
+                  <span>💾 <strong>ফাইল:</strong> <code>{tgConfig.lastFileName || 'hisabkitab_auto_backup.json'}</code></span>
+                </div>
               </div>
 
               {/* Critical Bot Father Start Alert */}
               <div
                 style={{
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  border: '1px solid rgba(245, 158, 11, 0.35)',
-                  borderRadius: '12px',
-                  padding: '10px 14px',
-                  fontSize: '0.78rem',
-                  lineHeight: 1.5,
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  borderRadius: '10px',
+                  padding: '8px 12px',
+                  fontSize: '0.75rem',
+                  lineHeight: 1.4,
                   color: '#f59e0b'
                 }}
               >
-                <strong>⚠️ জরুরি নির্দেশনা (টোকেন পরিবর্তন করলে):</strong>
-                <div style={{ marginTop: '4px' }}>
-                  @BotFather থেকে নতুন টোকেন নেওয়ার পর টেলিগ্রামে আপনার বটে প্রবেশ করে অবশ্যই একবার <strong>START</strong> বাটনে চাপ দিন (অথবা <code>/start</code> লিখে পাঠান)। অন্যথায় টেলিগ্রাম চ্যাট ব্লক করে রাখে এবং কোনো মেসেজ পাঠাতে দেয় না।
-                </div>
+                <strong>⚠️ জরুরি নির্দেশনা:</strong> @BotFather থেকে টোকেন নেওয়ার পর টেলিগ্রামে আপনার বটে প্রবেশ করে অবশ্যই একবার <strong>START</strong> বাটনে চাপ দিন (অথবা <code>/start</code> লিখে পাঠান)।
               </div>
 
               {/* Bot Token */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: '800' }}>
-                    {lang === 'bn' ? '১. টেলিগ্রাম বট টোকেন (Bot Token):' : '1. Telegram Bot Token:'}
+                  <label style={{ fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>১. টেলিগ্রাম বট টোকেন (Bot Token):</span>
+                    {isLocked && <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>🔒 সুরক্ষিত</span>}
                   </label>
-                  <a
-                    href="https://t.me/BotFather"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: '0.74rem', color: '#0ea5e9', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
-                  >
-                    <span>@BotFather থেকে টোকেন নিন</span>
-                    <ExternalLink size={12} />
-                  </a>
+                  {!isLocked && (
+                    <a
+                      href="https://t.me/BotFather"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '0.74rem', color: '#0ea5e9', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
+                    >
+                      <span>@BotFather থেকে টোকেন নিন</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
-                <input
-                  type="text"
-                  value={tgConfig.botToken || ''}
-                  onChange={(e) => setTgConfig(prev => ({ ...prev, botToken: e.target.value.trim() }))}
-                  placeholder="উদা: 7123456789:AAHk...qweRTY"
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.85rem',
-                    fontFamily: 'monospace'
-                  }}
-                />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type={showToken ? 'text' : 'password'}
+                    readOnly={isLocked}
+                    value={tgConfig.botToken || ''}
+                    onChange={(e) => setTgConfig(prev => ({ ...prev, botToken: e.target.value.trim() }))}
+                    placeholder="উদা: 7123456789:AAHk...qweRTY"
+                    style={{
+                      width: '100%',
+                      padding: '9px 40px 9px 12px',
+                      borderRadius: '8px',
+                      border: `1px solid ${isLocked ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-color)'}`,
+                      background: isLocked ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-primary)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.85rem',
+                      fontFamily: 'monospace'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowToken(!showToken)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                    title={showToken ? 'হাইড করুন' : 'দেখুন'}
+                  >
+                    {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               {/* Chat ID */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: '800' }}>
-                    {lang === 'bn' ? '২. আপনার টেলিগ্রাম চ্যাট আইডি (Chat ID):' : '2. Your Telegram Chat ID:'}
+                  <label style={{ fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>২. আপনার টেলিগ্রাম চ্যাট আইডি (Chat ID):</span>
+                    {isLocked && <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>🔒 সুরক্ষিত</span>}
                   </label>
-                  <a
-                    href="https://t.me/userinfobot"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: '0.74rem', color: '#0ea5e9', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
-                  >
-                    <span>@userinfobot থেকে আইডি জানুন</span>
-                    <ExternalLink size={12} />
-                  </a>
+                  {!isLocked && (
+                    <a
+                      href="https://t.me/userinfobot"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '0.74rem', color: '#0ea5e9', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
+                    >
+                      <span>@userinfobot থেকে আইডি জানুন</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
                 <input
                   type="text"
+                  readOnly={isLocked}
                   value={tgConfig.chatId || ''}
                   onChange={(e) => setTgConfig(prev => ({ ...prev, chatId: e.target.value.trim() }))}
                   placeholder="উদা: 123456789"
@@ -541,8 +668,8 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                     width: '100%',
                     padding: '9px 12px',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-primary)',
+                    border: `1px solid ${isLocked ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-color)'}`,
+                    background: isLocked ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-primary)',
                     color: 'var(--text-main)',
                     fontSize: '0.85rem',
                     fontFamily: 'monospace'
@@ -554,7 +681,7 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
               <div
                 style={{
                   background: 'rgba(236, 72, 153, 0.05)',
-                  border: '1px solid rgba(236, 72, 153, 0.25)',
+                  border: `1px solid ${isLocked ? 'rgba(16, 185, 129, 0.4)' : 'rgba(236, 72, 153, 0.3)'}`,
                   borderRadius: '12px',
                   padding: '12px 14px'
                 }}
@@ -562,40 +689,62 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', color: '#ec4899' }}>
                     <Sparkles size={15} />
-                    <span>{lang === 'bn' ? '৩. ভয়েস-টু-টেক্সট এআই কি (Google Gemini API Key):' : '3. Voice-to-Text AI Key (Gemini):'}</span>
+                    <span>৩. ভয়েস-টু-টেক্সট এআই কি (Google Gemini API Key):</span>
+                    {isLocked && <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>🔒 সুরক্ষিত</span>}
                   </label>
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: '0.74rem', color: '#ec4899', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
-                  >
-                    <span>ফ্রি কি নিন (Free)</span>
-                    <ExternalLink size={12} />
-                  </a>
+                  {!isLocked && (
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '0.74rem', color: '#ec4899', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: '700' }}
+                    >
+                      <span>ফ্রি কি নিন (AI Studio)</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  {lang === 'bn'
-                    ? 'টেলিগ্রামে অডিও রেকর্ড বা ভয়েস নোট পাঠালে তা সরাসরি বাংলায় টেক্সট ও হিসাবে রূপান্তরের জন্য ব্যবহৃত হয়।'
-                    : 'Transcribes Telegram voice notes directly into Bengali software entries.'}
+                  টেলিগ্রামে অডিও রেকর্ড বা ভয়েস নোট পাঠালে তা সরাসরি বাংলায় টেক্সট ও হিসাবে রূপান্তরের জন্য ব্যবহৃত হয়।
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="password"
-                    value={tgConfig.geminiApiKey || ''}
-                    onChange={(e) => setTgConfig(prev => ({ ...prev, geminiApiKey: e.target.value.trim() }))}
-                    placeholder="উদা: AIzaSyD..."
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-main)',
-                      fontSize: '0.85rem',
-                      fontFamily: 'monospace'
-                    }}
-                  />
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showGeminiKey ? 'text' : 'password'}
+                      readOnly={isLocked}
+                      value={tgConfig.geminiApiKey || ''}
+                      onChange={(e) => setTgConfig(prev => ({ ...prev, geminiApiKey: e.target.value.trim() }))}
+                      placeholder="উদা: AIzaSyD..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 40px 8px 12px',
+                        borderRadius: '8px',
+                        border: `1px solid ${isLocked ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-color)'}`,
+                        background: isLocked ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-primary)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.85rem',
+                        fontFamily: 'monospace'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGeminiKey(!showGeminiKey)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '4px'
+                      }}
+                      title={showGeminiKey ? 'হাইড করুন' : 'দেখুন'}
+                    >
+                      {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleTestGemini}
@@ -611,13 +760,27 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                       cursor: (isTestingGemini || !tgConfig.geminiApiKey) ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     {isTestingGemini ? <RefreshCw size={13} className="animate-spin" /> : <Key size={13} />}
-                    <span>{lang === 'bn' ? 'যাচাই' : 'Verify'}</span>
+                    <span>{isTestingGemini ? 'যাচাই হচ্ছে...' : 'টেস্ট এআই কি'}</span>
                   </button>
                 </div>
+
+                {/* Instant Key Guidance Alert */}
+                {tgConfig.geminiApiKey && tgConfig.geminiApiKey.startsWith('AQ.') && (
+                  <div style={{ marginTop: '8px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', color: '#f59e0b', padding: '8px 10px', borderRadius: '8px', fontSize: '0.76rem', lineHeight: 1.4 }}>
+                    ⚠️ <strong>ভুল কি ফরম্যাট:</strong> আপনি যে কোডটি দিয়েছেন তা "AQ." দিয়ে শুরু হয়েছে (এটি Antigravity সেশন টোকেন)। আসল Google Gemini API Key সবসময় <strong>AIzaSy...</strong> দিয়ে শুরু হয়। দয়া করে <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#ec4899', fontWeight: '800' }}>Google AI Studio</a> থেকে ফ্রি কি সংগ্রহ করুন।
+                  </div>
+                )}
+                {tgConfig.geminiApiKey && tgConfig.geminiApiKey.startsWith('AIza') && (
+                  <div style={{ marginTop: '6px', color: '#10b981', fontSize: '0.74rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <CheckCircle2 size={13} />
+                    <span>সঠিক ফরম্যাট (Google AI Studio Gemini Key)</span>
+                  </div>
+                )}
 
                 {geminiTestStatus === 'success' && (
                   <div style={{ marginTop: '8px', color: '#10b981', fontSize: '0.76rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -777,10 +940,10 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
 
                 <button
                   type="button"
-                  onClick={handleSave}
+                  onClick={() => handleSave(true)}
                   style={{
                     flex: 1,
-                    background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
                     border: 'none',
                     color: '#fff',
                     padding: '9px 14px',
@@ -792,11 +955,11 @@ export const TelegramBotModal = ({ isOpen, onClose }) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
-                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)'
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
                   }}
                 >
-                  <Check size={16} />
-                  <span>সেটিংস সংরক্ষণ করুন</span>
+                  <Lock size={15} />
+                  <span>🔒 লক ও ক্লাউডে সংরক্ষণ</span>
                 </button>
 
                 <button

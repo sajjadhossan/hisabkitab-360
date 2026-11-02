@@ -83,23 +83,23 @@ Rules:
 3. If Bengali numbers are spoken, transcribe them in Bengali digits (e.g. ৫০০, ১০) or English digits (e.g. 500, 10). Both are accepted by the parser.
 4. Keep it concise, clean, and directly executable.`;
 
-  // Try gemini-1.5-flash first, fallback to gemini-2.0-flash
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+  // Try modern gemini-2.0-flash first, fallback to gemini-1.5-flash
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
   let lastErr = null;
 
   const isAqKey = cleanKey.startsWith('AQ.');
+  if (isAqKey) {
+    throw new Error('ভুল কি ফরম্যাট: "AQ." দিয়ে শুরু হওয়া টোকেন জেমিনি এপিআই কি নয়। আসল কি "AIzaSy..." দিয়ে শুরু হয় (aistudio.google.com/app/apikey)।');
+  }
 
   for (const model of models) {
     try {
-      const url = isAqKey
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
-        : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
 
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': cleanKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           contents: [{
@@ -215,37 +215,52 @@ export const testGeminiApiKey = async (apiKey) => {
     throw new Error('দয়া করে Gemini API Key লিখুন।');
   }
 
-  const isAqKey = cleanKey.startsWith('AQ.');
-  const url = isAqKey
-    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
-    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': cleanKey
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: 'Reply with "OK" in 2 letters.' }]
-      }],
-      generationConfig: {
-        maxOutputTokens: 5
-      }
-    })
-  });
-
-  if (!res.ok) {
-    const errJson = await res.json().catch(() => ({}));
-    const reason = errJson.error?.details?.[0]?.reason || '';
-    const msg = errJson.error?.message || `Error status ${res.status}`;
-
-    if (reason === 'ACCESS_TOKEN_TYPE_UNSUPPORTED' || msg.includes('API_KEY_INVALID') || res.status === 401) {
-      throw new Error('Google AI Studio থেকে একটি ফ্রেশ API Key তৈরি করুন (aistudio.google.com/app/apikey)। অথবা কোনো অতিরিক্ত স্পেস ছাড়াই কি-টি পেস্ট করুন।');
-    }
-    throw new Error(msg);
+  if (cleanKey.startsWith('AQ.')) {
+    throw new Error('ভুল কি: "AQ." দিয়ে শুরু হওয়া কোডটি আসল জেমিনি কি নয় (এটি অ্যান্টিগ্র্যাভিটি সেশন টোকেন)। আসল Google Gemini API Key সবসময় "AIzaSy..." দিয়ে শুরু হয়। দয়া করে aistudio.google.com/app/apikey থেকে ফ্রি কি সংগ্রহ করুন।');
   }
 
-  return { success: true };
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+  let lastErr = null;
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: 'Hello, respond with OK.' }]
+          }],
+          generationConfig: {
+            maxOutputTokens: 5
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const reason = errJson.error?.details?.[0]?.reason || '';
+        const msg = errJson.error?.message || `Error status ${res.status}`;
+
+        if (reason === 'ACCESS_TOKEN_TYPE_UNSUPPORTED' || msg.includes('API_KEY_INVALID') || res.status === 401) {
+          throw new Error('ভুল বা মেয়াদোত্তীর্ণ কি। Google AI Studio (aistudio.google.com/app/apikey) থেকে "Create API key" চেপে AIzaSy... দিয়ে শুরু হওয়া ফ্রেশ কি কপি করুন।');
+        }
+        throw new Error(msg);
+      }
+
+      // Successfully verified with this model!
+      return { success: true, model };
+    } catch (err) {
+      lastErr = err;
+      if (err.message && err.message.includes('ভুল বা মেয়াদোত্তীর্ণ')) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastErr || new Error('Gemini API যাচাই ব্যর্থ হয়েছে। অনুগ্রহ করে ইন্টারনেট ও কি চেক করুন।');
 };

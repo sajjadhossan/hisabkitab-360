@@ -67,6 +67,8 @@ import {
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
 import { POSPermissionsSettings } from './POSPermissionsSettings';
 import { GoogleDriveBackupManager } from './GoogleDriveBackupManager';
+import { TelegramBotModal } from '../common/TelegramBotModal';
+import { getTelegramBackupConfig, testTelegramBackupBot } from '../../services/telegramBackupService';
 import { INDUSTRY_SECTORS, MASTER_INDUSTRY_TEMPLATES, getTemplateById } from '../../data/industryTemplates';
 import { SupabaseScheduledBackupCard } from '../common/SupabaseScheduledBackupCard';
 
@@ -125,6 +127,9 @@ export const BusinessSettings = () => {
   const [selectedSector, setSelectedSector] = useState('all');
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
   const [orgIdentitySaved, setOrgIdentitySaved] = useState(false);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [tgCfg, setTgCfg] = useState(() => getTelegramBackupConfig());
+  const [isTestingTgQuick, setIsTestingTgQuick] = useState(false);
 
   const handleSelectTemplate = (templateId) => {
     let mode = 'pos';
@@ -3478,8 +3483,103 @@ export const BusinessSettings = () => {
         {/* ========================================================= */}
         {activeSubTab === 'backup' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            {/* 1. DEDICATED TELEGRAM CLOUD AUTO-BACKUP & REMOTE BOT CARD */}
+            <div className="glass-card" style={{ borderLeft: '4px solid #0ea5e9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ background: 'rgba(14, 165, 233, 0.15)', padding: '10px', borderRadius: '10px', color: '#0ea5e9' }}>
+                    <Bot size={24} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'টেলিগ্রাম ক্লাউড অটো-ব্যাকআপ ও এআই রিমোট কন্ট্রোল বট' : 'Telegram Cloud Auto-Backup & AI Bot'}
+                      </h3>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: tgCfg?.isLocked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                        color: tgCfg?.isLocked ? '#10b981' : '#f59e0b',
+                        border: `1px solid ${tgCfg?.isLocked ? '#10b981' : '#f59e0b'}`
+                      }}>
+                        {tgCfg?.isLocked ? '🔒 লকড ও সুরক্ষিত' : '🔓 আনলকড'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {lang === 'bn' ? 'প্রতি ২০ সেকেন্ড অন্তর এবং প্রতিটি লেনদেনে স্বয়ংক্রিয় ব্যাকআপ আপনার নিজস্ব টেলিগ্রাম বটে চলে যায়।' : 'Autonomous 20-second and event-driven cloud backup to your private Telegram bot.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={isTestingTgQuick || !tgCfg?.botToken || !tgCfg?.chatId}
+                    onClick={async () => {
+                      setIsTestingTgQuick(true);
+                      try {
+                        const res = await testTelegramBackupBot(tgCfg.botToken, tgCfg.chatId);
+                        if (showToast) showToast(lang === 'bn' ? `✅ বট @${res.botUsername} লাইভ ও সক্রিয়!` : 'Bot active!', 'success');
+                      } catch (e) {
+                        if (showToast) showToast(`❌ টেস্ট ব্যর্থ: ${e.message}`, 'danger');
+                      } finally {
+                        setIsTestingTgQuick(false);
+                      }
+                    }}
+                    style={{ fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <RefreshCw size={14} className={isTestingTgQuick ? 'animate-spin' : ''} />
+                    <span>{isTestingTgQuick ? 'টেস্ট চলছে...' : 'টেস্ট সংযোগ'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setShowTelegramModal(true)}
+                    style={{ fontSize: '0.8rem', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', borderColor: '#0ea5e9', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '800' }}
+                  >
+                    <Lock size={14} />
+                    <span>{lang === 'bn' ? 'বট ও কি কনফিগারেশন (লক ম্যানেজমেন্ট)' : 'Configure & Lock Keys'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live 20-Second Status & Distinct Backup Time Box */}
+              <div style={{
+                background: 'rgba(14, 165, 233, 0.06)',
+                border: '1px solid rgba(14, 165, 233, 0.2)',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', display: 'inline-block' }} />
+                    <span style={{ fontWeight: '800', fontSize: '0.84rem', color: '#0ea5e9' }}>
+                      ⚡ প্রতি ২০ সেকেন্ডে স্বয়ংক্রিয় ব্যাকআপ সক্রিয়
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.74rem', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', padding: '3px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                    📱 সমস্ত ডিভাইসে রিয়েল-টাইমে সিঙ্কড
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  <div>⏰ <strong>সর্বশেষ ব্যাকআপ সময়:</strong> <span style={{ color: 'var(--text-main)', fontWeight: '700' }}>{tgCfg?.lastSyncFormatted || tgCfg?.lastSync || 'এইমাত্র প্রস্তুত / রুটিন ব্যাকআপ চালু'}</span></div>
+                  <div>💾 <strong>ফাইল:</strong> <code>{tgCfg?.lastFileName || 'hisabkitab_auto_backup.json'}</code></div>
+                  <div>🔑 <strong>ভয়েস এআই কি:</strong> <span style={{ color: tgCfg?.geminiApiKey ? '#10b981' : '#f59e0b', fontWeight: '700' }}>{tgCfg?.geminiApiKey ? '✅ সেট ও লকড (Gemini Active)' : '⚠️ কি সেট করা প্রয়োজন'}</span></div>
+                  <div>🤖 <strong>বট স্ট্যাটাস:</strong> <span style={{ color: tgCfg?.botToken ? '#10b981' : '#f59e0b', fontWeight: '700' }}>{tgCfg?.botToken ? '✅ কানেক্টেড' : '⚠️ টোকেন প্রয়োজন'}</span></div>
+                </div>
+              </div>
+            </div>
             
-            {/* 1. GOOGLE DRIVE CLOUD AUTO-BACKUP & SYNC MANAGER */}
+            {/* 2. GOOGLE DRIVE CLOUD AUTO-BACKUP & SYNC MANAGER */}
             <GoogleDriveBackupManager
               formState={formState}
               setFormState={setFormState}
@@ -4285,6 +4385,15 @@ export const BusinessSettings = () => {
           </div>
         )}
       </form>
+
+      {/* DEDICATED TELEGRAM BOT & CLOUD BACKUP MODAL */}
+      <TelegramBotModal
+        isOpen={showTelegramModal}
+        onClose={() => {
+          setShowTelegramModal(false);
+          setTgCfg(getTelegramBackupConfig());
+        }}
+      />
     </div>
   );
 };

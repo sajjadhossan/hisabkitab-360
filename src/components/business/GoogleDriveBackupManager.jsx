@@ -34,6 +34,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { hapticFeedback } from '../../services/nativeAppService';
 import { registerTelegramCommands } from '../../services/telegramBackupService';
+import { testGeminiApiKey } from '../../services/telegramVoiceToTextService';
 import { broadcastDeviceHeartbeat } from '../../services/deviceManagerService';
 
 export const GoogleDriveBackupManager = ({
@@ -85,14 +86,22 @@ export const GoogleDriveBackupManager = ({
   const [tgConfig, setTgConfig] = useState(() => getTelegramBackupConfig ? getTelegramBackupConfig() : {
     botToken: '',
     chatId: '',
+    geminiApiKey: '',
     enabled: false,
     autoSync: true,
     lastSync: null
+  });
+  const [isLockedTg, setIsLockedTg] = useState(() => {
+    const cfg = getTelegramBackupConfig ? getTelegramBackupConfig() : null;
+    return cfg?.isLocked !== undefined ? cfg.isLocked : Boolean(cfg?.botToken && cfg?.chatId);
   });
   const [isTestingTg, setIsTestingTg] = useState(false);
   const [tgTestSuccess, setTgTestSuccess] = useState(null);
   const [tgTestError, setTgTestError] = useState(null);
   const [isSyncingTg, setIsSyncingTg] = useState(false);
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState(null);
+  const [geminiMsg, setGeminiMsg] = useState('');
 
   const [nowTime, setNowTime] = useState(() => Date.now());
   const connectedAdminEmail = driveUser?.email || 
@@ -307,19 +316,58 @@ export const GoogleDriveBackupManager = ({
     }
   };
 
-  const handleSaveTelegram = (updated = null) => {
+  const handleSaveTelegram = (updated = null, shouldLock = null) => {
     const raw = updated || tgConfig;
+    const lockVal = shouldLock !== null ? shouldLock : isLockedTg;
     const configToSave = {
       ...raw,
-      enabled: raw.botToken ? true : Boolean(raw.enabled)
+      enabled: raw.botToken ? true : Boolean(raw.enabled),
+      isLocked: lockVal,
+      botTokenLocked: lockVal,
+      chatIdLocked: lockVal,
+      geminiKeyLocked: lockVal,
+      intervalSeconds: 20
     };
     saveTelegramBackupConfig(configToSave);
     setTgConfig(configToSave);
+    if (shouldLock !== null) {
+      setIsLockedTg(shouldLock);
+    }
     if (configToSave.botToken) {
       registerTelegramCommands(configToSave.botToken).catch(() => {});
     }
     hapticFeedback?.success?.();
-    if (showToast) showToast(lang === 'bn' ? 'টেলিগ্রাম ব্যাকআপ কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Telegram configuration saved!', 'success');
+    if (showToast) {
+      showToast(
+        lockVal
+          ? (lang === 'bn' ? '🔒 টেলিগ্রাম কি লক ও সংরক্ষিত হয়েছে! সমস্ত ডিভাইসে সিঙ্ক সফল।' : 'Telegram config locked & synced!')
+          : (lang === 'bn' ? 'টেলিগ্রাম ব্যাকআপ কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Telegram configuration saved!'),
+        'success'
+      );
+    }
+  };
+
+  const handleTestGeminiKey = async () => {
+    const key = (tgConfig.geminiApiKey || '').trim();
+    if (!key) {
+      if (showToast) showToast(lang === 'bn' ? 'দয়া করে Gemini API Key ফিল্ডে কি লিখুন।' : 'Please enter Gemini API Key.', 'warning');
+      return;
+    }
+    setIsTestingGemini(true);
+    setGeminiStatus(null);
+    setGeminiMsg('');
+    try {
+      await testGeminiApiKey(key);
+      setGeminiStatus('success');
+      setGeminiMsg(lang === 'bn' ? 'Gemini এআই কি সফলভাবে ভেরিফাই হয়েছে!' : 'Gemini Key verified successfully!');
+      if (showToast) showToast(lang === 'bn' ? 'Gemini এআই কি সফলভাবে ভেরিফাই হয়েছে!' : 'Gemini Key verified!', 'success');
+    } catch (e) {
+      setGeminiStatus('error');
+      setGeminiMsg(e.message || 'ভেরিফিকেশন ব্যর্থ হয়েছে।');
+      if (showToast) showToast(lang === 'bn' ? `ত্রুটি: ${e.message}` : `Error: ${e.message}`, 'danger');
+    } finally {
+      setIsTestingGemini(false);
+    }
   };
 
   const handleManualTelegramSync = async () => {
@@ -1331,6 +1379,93 @@ export const GoogleDriveBackupManager = ({
             border: '1px solid rgba(14, 165, 233, 0.25)',
             marginBottom: '1.25rem'
           }}>
+            {/* MASTER LOCK & SECURITY STATUS BANNER */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: isLockedTg ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                border: `1.5px solid ${isLockedTg ? '#10b981' : '#f59e0b'}`,
+                marginBottom: '1rem',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isLockedTg ? <Lock size={18} style={{ color: '#10b981' }} /> : <Unlock size={18} style={{ color: '#f59e0b' }} />}
+                <div>
+                  <div style={{ fontWeight: '800', fontSize: '0.84rem', color: isLockedTg ? '#10b981' : '#f59e0b' }}>
+                    {isLockedTg ? '🔒 টেলিগ্রাম ও এআই কি সুরক্ষিত ও লক করা আছে' : '🔓 এডিট মোড সক্রিয় (আনলকড)'}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {isLockedTg ? 'অসাবধানতাবশত মুছে যাওয়া রোধে লকড। পরিবর্তন করতে আনলক করুন।' : 'টোকেন ও কি লিখে "লক ও সেভ" চাপলে সব ডিভাইসে সিঙ্ক হয়ে যাবে।'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (isLockedTg) {
+                    setIsLockedTg(false);
+                    hapticFeedback?.light?.();
+                    if (showToast) showToast('এডিটের জন্য আনলক করা হয়েছে।', 'info');
+                  } else {
+                    handleSaveTelegram(null, true);
+                  }
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: isLockedTg ? 'var(--bg-card)' : 'linear-gradient(135deg, #10b981, #059669)',
+                  color: isLockedTg ? 'var(--text-main)' : '#fff',
+                  fontWeight: '800',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {isLockedTg ? <Unlock size={14} /> : <Lock size={14} />}
+                <span>{isLockedTg ? 'আনলক করুন' : 'লক ও সেভ করুন'}</span>
+              </button>
+            </div>
+
+            {/* 20-SECOND LIVE AUTO BACKUP STATUS & DISTINCT TIMESTAMP */}
+            <div
+              style={{
+                background: 'rgba(14, 165, 233, 0.08)',
+                border: '1px solid rgba(14, 165, 233, 0.25)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                marginBottom: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', display: 'inline-block' }} />
+                  <span style={{ fontWeight: '800', fontSize: '0.82rem', color: '#0ea5e9' }}>
+                    ⚡ প্রতি ২০ সেকেন্ডে স্বয়ংক্রিয় ক্লাউড ব্যাকআপ সক্রিয়
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                  সব ডিভাইসে সিঙ্কড
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '6px' }}>
+                <span>⏰ <strong>সর্বশেষ ব্যাকআপ সময়:</strong> {tgConfig.lastSyncFormatted || tgConfig.lastSync || 'এইমাত্র প্রস্তুত / লাইভ ব্যাকআপ চালু'}</span>
+                <span>💾 <strong>ফাইল:</strong> <code>{tgConfig.lastFileName || 'hisabkitab_auto_backup.json'}</code></span>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1339,7 +1474,7 @@ export const GoogleDriveBackupManager = ({
                 </h4>
                 <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                   {lang === 'bn'
-                    ? 'আপনার তৈরি করা টেলিগ্রাম বট প্রতি ক্লিকে ও প্রতিদিন স্বয়ংক্রিয়ভাবে ডাটাবেজ ব্যাকআপ ফাইল আপনার টেলিগ্রাম চ্যাটে পাঠিয়ে দেবে।'
+                    ? 'আপনার তৈরি করা টেলিগ্রাম বট প্রতি ২০ সেকেন্ডে ও প্রতিটি লেনদেনে স্বয়ংক্রিয় ব্যাকআপ পাঠিয়ে দেবে।'
                     : 'Your bot sends database backup files directly to your Telegram chat or channel with instant alerts.'}
                 </p>
               </div>
@@ -1364,16 +1499,18 @@ export const GoogleDriveBackupManager = ({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
               {/* Bot Token */}
               <div>
-                <label className="field-label" style={{ fontSize: '0.78rem', fontWeight: '700' }}>
-                  {lang === 'bn' ? 'টেলিগ্রাম Bot Token *' : 'Telegram Bot Token *'}
+                <label className="field-label" style={{ fontSize: '0.78rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{lang === 'bn' ? '১. টেলিগ্রাম Bot Token *' : '1. Telegram Bot Token *'}</span>
+                  {isLockedTg && <span style={{ fontSize: '0.68rem', color: '#10b981' }}>🔒 লকড</span>}
                 </label>
                 <input
                   type="password"
+                  readOnly={isLockedTg}
                   className="input-field"
                   placeholder="যেমন: 7489201845:AAH-..."
                   value={tgConfig.botToken || ''}
                   onChange={(e) => setTgConfig({ ...tgConfig, botToken: e.target.value })}
-                  style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}
+                  style={{ fontSize: '0.82rem', fontFamily: 'monospace', background: isLockedTg ? 'rgba(16, 185, 129, 0.04)' : undefined }}
                 />
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                   {lang === 'bn' ? 'টেলিগ্রামে @BotFather থেকে পাওয়া গোপন টোকেন' : 'Secret token from @BotFather'}
@@ -1382,26 +1519,96 @@ export const GoogleDriveBackupManager = ({
 
               {/* Chat ID */}
               <div>
-                <label className="field-label" style={{ fontSize: '0.78rem', fontWeight: '700' }}>
-                  {lang === 'bn' ? 'টেলিগ্রাম Chat ID / Channel ID *' : 'Telegram Chat ID *'}
+                <label className="field-label" style={{ fontSize: '0.78rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{lang === 'bn' ? '২. টেলিগ্রাম Chat ID *' : '2. Telegram Chat ID *'}</span>
+                  {isLockedTg && <span style={{ fontSize: '0.68rem', color: '#10b981' }}>🔒 লকড</span>}
                 </label>
                 <input
                   type="text"
+                  readOnly={isLockedTg}
                   className="input-field"
                   placeholder="যেমন: 123456789 বা -1001234567890"
                   value={tgConfig.chatId || ''}
                   onChange={(e) => setTgConfig({ ...tgConfig, chatId: e.target.value })}
-                  style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}
+                  style={{ fontSize: '0.82rem', fontFamily: 'monospace', background: isLockedTg ? 'rgba(16, 185, 129, 0.04)' : undefined }}
                 />
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {lang === 'bn' ? 'আপনার ব্যক্তিগত Chat ID অথবা প্রাইভেট চ্যানেলের ID' : 'Your Chat ID or Channel ID'}
+                  {lang === 'bn' ? 'আপনার ব্যক্তিগত Chat ID (@userinfobot থেকে প্রাপ্ত)' : 'Your Chat ID from @userinfobot'}
                 </div>
               </div>
             </div>
 
+            {/* Google Gemini AI Key for Voice-to-Text */}
+            <div style={{ background: 'rgba(236, 72, 153, 0.05)', border: `1px solid ${isLockedTg ? 'rgba(16, 185, 129, 0.4)' : 'rgba(236, 72, 153, 0.3)'}`, borderRadius: '10px', padding: '10px 14px', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#ec4899', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} />
+                  <span>{lang === 'bn' ? '৩. ভয়েস-টু-টেক্সট এআই কি (Google Gemini API Key):' : '3. Voice-to-Text AI Key (Gemini):'}</span>
+                  {isLockedTg && <span style={{ fontSize: '0.68rem', color: '#10b981' }}>🔒 লকড</span>}
+                </label>
+                {!isLockedTg && (
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ fontSize: '0.72rem', color: '#ec4899', fontWeight: '700', textDecoration: 'none' }}>
+                    ফ্রি কি নিন (AI Studio) ↗
+                  </a>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="password"
+                  readOnly={isLockedTg}
+                  className="input-field"
+                  placeholder="উদা: AIzaSyD..."
+                  value={tgConfig.geminiApiKey || ''}
+                  onChange={(e) => setTgConfig({ ...tgConfig, geminiApiKey: e.target.value.trim() })}
+                  style={{ flex: 1, fontSize: '0.82rem', fontFamily: 'monospace', background: isLockedTg ? 'rgba(16, 185, 129, 0.04)' : undefined }}
+                />
+                <button
+                  type="button"
+                  onClick={handleTestGeminiKey}
+                  disabled={isTestingGemini || !tgConfig.geminiApiKey}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #ec4899',
+                    background: 'rgba(236, 72, 153, 0.15)',
+                    color: '#ec4899',
+                    fontWeight: '800',
+                    fontSize: '0.76rem',
+                    cursor: (isTestingGemini || !tgConfig.geminiApiKey) ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <Key size={13} />
+                  <span>{isTestingGemini ? 'যাচাই হচ্ছে...' : 'টেস্ট এআই কি'}</span>
+                </button>
+              </div>
+
+              {/* Instant Key Guidance Alert */}
+              {tgConfig.geminiApiKey && tgConfig.geminiApiKey.startsWith('AQ.') && (
+                <div style={{ marginTop: '6px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', color: '#f59e0b', padding: '6px 10px', borderRadius: '6px', fontSize: '0.74rem' }}>
+                  ⚠️ <strong>ভুল কি ফরম্যাট:</strong> কোডটি "AQ." দিয়ে শুরু হয়েছে। আসল Google Gemini API Key সবসময় <strong>AIzaSy...</strong> দিয়ে শুরু হয়।
+                </div>
+              )}
+              {geminiStatus === 'success' && (
+                <div style={{ marginTop: '6px', color: '#10b981', fontSize: '0.74rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle2 size={13} />
+                  <span>{geminiMsg}</span>
+                </div>
+              )}
+              {geminiStatus === 'error' && (
+                <div style={{ marginTop: '6px', color: '#ef4444', fontSize: '0.74rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertTriangle size={13} />
+                  <span>{geminiMsg}</span>
+                </div>
+              )}
+            </div>
+
             {/* Test & Save Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1416,11 +1623,22 @@ export const GoogleDriveBackupManager = ({
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => handleSaveTelegram()}
-                  style={{ fontSize: '0.78rem', background: '#0ea5e9', borderColor: '#0ea5e9', padding: '6px 16px', fontWeight: '800' }}
+                  onClick={() => handleSaveTelegram(null, true)}
+                  style={{ fontSize: '0.78rem', background: 'linear-gradient(135deg, #10b981, #059669)', borderColor: '#10b981', padding: '6px 16px', fontWeight: '800' }}
                 >
-                  <Check size={14} />
-                  <span>{lang === 'bn' ? 'কনফিগারেশন সংরক্ষণ' : 'Save Config'}</span>
+                  <Lock size={14} />
+                  <span>{lang === 'bn' ? '🔒 লক ও ক্লাউডে সংরক্ষণ' : 'Lock & Save'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={isSyncingTg || !tgConfig.botToken || !tgConfig.chatId}
+                  onClick={handleManualTelegramSync}
+                  style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+                >
+                  <RefreshCw size={13} className={isSyncingTg ? 'animate-spin' : ''} />
+                  <span>{isSyncingTg ? 'পাঠানো হচ্ছে...' : 'এখনই ব্যাকআপ পাঠান'}</span>
                 </button>
               </div>
 

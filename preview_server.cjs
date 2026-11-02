@@ -281,8 +281,11 @@ async function transcribeVoice(token, fileId, mimeType, geminiApiKey) {
   const buffer = await fileRes.arrayBuffer();
   const base64Audio = Buffer.from(buffer).toString('base64');
 
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
-  const isAq = (geminiApiKey || '').startsWith('AQ.');
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  if ((geminiApiKey || '').startsWith('AQ.')) {
+    console.warn('[TelegramDaemon] ⚠️ Provided key starts with AQ. - this is not a Gemini AI Studio key. Valid keys start with AIzaSy...');
+    return null;
+  }
 
   for (const model of models) {
     try {
