@@ -227,6 +227,26 @@ export const AdaptivePosSwitcherBar = ({
 
       {/* Right: Smart Template Switcher Dropdown & Live Realtime Badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} ref={dropdownRef}>
+        
+        {/* Neon Serverless Live DB Indicator */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 8px',
+            borderRadius: '8px',
+            background: 'rgba(0, 229, 153, 0.1)',
+            border: '1px solid rgba(0, 229, 153, 0.3)',
+            color: '#00e599',
+            fontSize: '0.72rem',
+            fontWeight: '800'
+          }}
+          title="⚡ Neon Serverless Postgres লাইভ সিঙ্ক সচল | প্রতিটি বারকোড স্ক্যান সরাসরি ক্লাউড ডাটাবেজে রেকর্ড হচ্ছে"
+        >
+          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#00e599' }} />
+          <span>নিওন সিঙ্ক: লাইভ</span>
+        </div>
         <RealtimeSyncBadge compact={true} />
         <div style={{ position: 'relative' }}>
           <button

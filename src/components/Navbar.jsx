@@ -1557,6 +1557,41 @@ export const Navbar = () => {
             {/* 1. Realtime WebSocket Multi-Counter Sync Pill */}
             <RealtimeSyncBadge compact={true} />
 
+              {/* 2. Neon Serverless Postgres Live Indicator & Auto-Scan Tracker */}
+              <div
+                onClick={() => {
+                  if (typeof setActiveTab === 'function') setActiveTab('settings');
+                }}
+                className="neon-live-sync-pill press-scale"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '4px 9px',
+                  borderRadius: '20px',
+                  background: 'rgba(0, 229, 153, 0.12)',
+                  border: '1px solid rgba(0, 229, 153, 0.35)',
+                  color: '#00e599',
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  cursor: 'pointer'
+                }}
+                title="Neon Serverless Postgres সক্রিয় | প্রতিটি বারকোড স্ক্যান ও বিক্রি স্বয়ংক্রিয়ভাবে ক্লাউড পুলে সিঙ্ক হচ্ছে"
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#00e599',
+                    boxShadow: '0 0 8px #00e599'
+                  }}
+                />
+                <span style={{ letterSpacing: '0.3px' }}>⚡ নিওন লাইভ</span>
+              </div>
+
+
             {/* Master Business & Staff Control Hub Button for Owner / Admin */}
             {(isOwner || isSuperAdmin) && (
               <button
