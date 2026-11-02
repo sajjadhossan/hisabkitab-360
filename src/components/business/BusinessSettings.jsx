@@ -62,6 +62,8 @@ import {
   ArrowRight,
   MoreHorizontal,
   ChevronDown,
+  Bot,
+  Lock,
   X
 } from 'lucide-react';
 import { triggerSoundboxPayment, isSoundboxEnabled, setSoundboxEnabled } from '../../services/soundboxService';
