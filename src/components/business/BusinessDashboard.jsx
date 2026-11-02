@@ -1352,6 +1352,66 @@ export const BusinessDashboard = () => {
           </div>
         </div>
 
+        
+        {/* 14-PILLAR SPECIALIZED DOMAIN HEALTH CARDS */}
+        {(() => {
+          const arch = getTemplatePosArchetype(activeIndustryId);
+          if (arch === 'clinical_fefo') {
+            const expSoonCount = products.filter(p => {
+              if (!p.expiryDate) return false;
+              const days = Math.ceil((new Date(p.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+              return days <= 30 && days >= 0;
+            }).length;
+            return (
+              <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#fca5a5' }}>
+                  💊 ফার্মেসি স্বাস্থ্য সূচক: আগামী ৩০ দিনে মেয়াদোত্তীর্ণ ঔষধ {expSoonCount} টি | ড্রাগ সেলস সক্রিয়
+                </span>
+                <button type="button" onClick={() => setActiveTab('inventory')} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer' }}>
+                  FEFO স্টক দেখুন ➔
+                </button>
+              </div>
+            );
+          }
+          if (arch === 'bhori_gold') {
+            return (
+              <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#fcd34d' }}>
+                  🪙 জুয়েলারি ভল্ট রিজার্ভ: ২২K খাঁটি স্বর্ণ রেট ৳১,২৫,০০০/ভরি | বাজুস মেমো সক্রিয়
+                </span>
+                <span style={{ fontSize: '0.74rem', color: '#fde68a' }}>
+                  হলমার্ক ভেরিফাইড
+                </span>
+              </div>
+            );
+          }
+          if (arch === 'restaurant_kot') {
+            return (
+              <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#fcd34d' }}>
+                  🍽️ রেস্তোরাঁ কিচেন ও ডাইনিং: KOT অটো-প্রিন্ট সচল | দ্রুত টেবিল বিলিং ও পার্সেল
+                </span>
+                <span style={{ fontSize: '0.74rem', color: '#fde68a' }}>
+                  কিচেন ট্র্যাকার লাইভ
+                </span>
+              </div>
+            );
+          }
+          if (arch === 'seat_matrix') {
+            return (
+              <div style={{ background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '12px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#67e8f9' }}>
+                  🚌 ট্রিপ ও সিট অকুপেন্সি: ৪০-সিট ইন্টারেক্টিভ রিজার্ভেশন ও জেন্ডার প্রটেকশন লক
+                </span>
+                <span style={{ fontSize: '0.74rem', color: '#a5f3fc' }}>
+                  কাউন্টার সক্রিয়
+                </span>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         {/* 4 Fintech HUD Grid Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '14px' }}>
           {/* Tile 1: Cash in Drawer */}

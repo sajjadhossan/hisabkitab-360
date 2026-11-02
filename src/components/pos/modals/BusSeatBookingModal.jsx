@@ -24,6 +24,7 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
   const [selectedRoute, setSelectedRoute] = useState(ROUTES[0]);
   const [passengerName, setPassengerName] = useState('');
   const [passengerPhone, setPassengerPhone] = useState('');
+  const [passengerGender, setPassengerGender] = useState('male'); // 'male' | 'female'
   const [selectedSeats, setSelectedSeats] = useState(['A1']);
 
   // Load genuine booked seats per route from persistent storage
@@ -37,6 +38,18 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
   };
 
   const [bookedSeats, setBookedSeats] = useState(() => getStoredBookedSeats(ROUTES[0].id));
+
+  // Stored seat gender mapping { seatId: 'male' | 'female' }
+  const getStoredSeatGenders = (routeId) => {
+    try {
+      const data = localStorage.getItem('hk360_bus_seat_genders_' + routeId);
+      return data ? JSON.parse(data) : {};
+    } catch {
+      return {};
+    }
+  };
+  const [seatGenders, setSeatGenders] = useState(() => getStoredSeatGenders(ROUTES[0].id));
+
 
   // Sync booked seats when route changes
   useEffect(() => {
@@ -80,6 +93,10 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
     const currentBooked = getStoredBookedSeats(selectedRoute.id);
     const updatedBooked = Array.from(new Set([...currentBooked, ...selectedSeats]));
     localStorage.setItem('hk360_bus_booked_seats_' + selectedRoute.id, JSON.stringify(updatedBooked));
+    const currentGenders = getStoredSeatGenders(selectedRoute.id);
+    selectedSeats.forEach(s => { currentGenders[s] = passengerGender; });
+    localStorage.setItem('hk360_bus_seat_genders_' + selectedRoute.id, JSON.stringify(currentGenders));
+    setSeatGenders(currentGenders);
     setBookedSeats(updatedBooked);
 
     const ticketProduct = {
@@ -99,7 +116,8 @@ export const BusSeatBookingModal = ({ isOpen, onClose }) => {
         seatCount: selectedSeats.length,
         farePerSeat: selectedRoute.fare,
         passengerName,
-        passengerPhone
+        passengerPhone,
+        passengerGender: passengerGender === 'female' ? 'মহিলা যাত্রী' : 'পুরুষ যাত্রী'
       }
     };
 

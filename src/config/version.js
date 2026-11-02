@@ -1,9 +1,9 @@
 // HisabKitab 360 - Version Management
 // Auto-incremented on each verified release build
 
-export const APP_VERSION = '2.4.2';
-export const BUILD_NUMBER = 288;
-export const APP_BUILD_NUMBER = 288;
+export const APP_VERSION = '2.4.3';
+export const BUILD_NUMBER = 289;
+export const APP_BUILD_NUMBER = 289;
 export const APP_VERSION_NAME = `v${APP_VERSION}`;
 export const APP_RELEASE_TAG = `v${APP_VERSION}`;
 export const APP_DISPLAY_BADGE = `v${APP_VERSION} (Build ${BUILD_NUMBER})`;
@@ -13,8 +13,8 @@ export const RELEASE_DATE = '2026-11-02';
 export const APP_APK_FILENAME = `HisabKitab-360-v${APP_VERSION}-build${BUILD_NUMBER}-android.apk`;
 
 export const APP_RELEASE_NOTES = {
-  bn: `হিসাবকিতাব ৩৬০ v${APP_VERSION} (Build ${BUILD_NUMBER}) — ১০০+ ইন্ডাস্ট্রির বিশুদ্ধ ডোমেইন আইসোলেশন, নির্দিষ্ট কলাম, BAJUS গোল্ড, DGDA ড্রাগ মেমো, বাস টিকেট এবং ভার্টিক্যাল স্টাফ রোলস।`,
-  en: `HisabKitab 360 v${APP_VERSION} (Build ${BUILD_NUMBER}) — 14-Pillar pure domain isolation across 100+ templates with archetype receipts and vertical roles.`
+  bn: `হিসাবকিতাব ৩৬০ v${APP_VERSION} (Build ${BUILD_NUMBER}) — ৫০টি বাস্তব অসামঞ্জস্যের সমাধান: বাসের জেন্ডার-লক Pink Protection, ফার্মেসির লুজ ট্যাবলেট ক্যালকুলেটর, রেস্তোরাঁ KOT ও ডোমেইন হেলথ ড্যাশবোর্ড কার্ড।`,
+  en: `HisabKitab 360 v${APP_VERSION} (Build ${BUILD_NUMBER}) — Resolution of 50 field discrepancies: bus gender-lock, pharmacy loose tablets, KOT kitchen tickets and domain health KPI cards.`
 };
 
 export const VERSION_METADATA = {
@@ -31,10 +31,10 @@ export const VERSION_METADATA = {
   apkFilename: APP_APK_FILENAME,
   releaseNotes: APP_RELEASE_NOTES,
   features: [
-    '14-Pillar pure domain isolation across 100+ industry templates',
-    'Domain-specific inventory columns, terminology, and legal receipts',
-    'Customized BAJUS gold, DGDA pharmacy, and transport tickets',
-    'Archetype-driven vertical staff roles, hotkeys & label printer'
+    'Resolution of 50 field friction points across POS, dashboard and templates',
+    'Bus Pink Protection gender-lock seat matrix',
+    'Pharmacy loose tablet fraction calculator directly to POS cart',
+    'Domain-specific KPI and health cards in Business Cockpit'
   ]
 };
 

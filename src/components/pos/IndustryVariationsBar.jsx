@@ -19,7 +19,8 @@ import {
   Scale,
   Barcode,
   Truck,
-  Scissors
+  Scissors,
+  Calculator
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getTemplatePosArchetype } from '../../data/industryTemplates';
@@ -59,6 +60,7 @@ export const IndustryVariationsBar = ({
 
   // Modals
   const [showGoldModal, setShowGoldModal] = useState(false);
+  const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [showBusModal, setShowBusModal] = useState(false);
   const [showCftModal, setShowCftModal] = useState(false);
   const [showPharmaModal, setShowPharmaModal] = useState(false);
@@ -291,6 +293,29 @@ export const IndustryVariationsBar = ({
           {/* 5. PHARMACY / HEALTHCARE 3-IN-1 SUITE */}
           {isPharmacy && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              
+              {/* Loose Tablet Fraction Button */}
+              <button
+                type="button"
+                onClick={() => setShowPharmacyModal(true)}
+                className="btn btn-secondary press-scale"
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  color: '#10b981',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  borderColor: 'rgba(16, 185, 129, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="খুচরা ট্যাবলেট বা পাতার ভগ্নাংশ বিক্রি"
+              >
+                <Calculator size={13} />
+                <span>💊 পাতা/লুজ ট্যাবলেট ক্যালকুলেটর</span>
+              </button>
+
               {/* Direct Pharmacy Terminal Button */}
               <button
                 type="button"
