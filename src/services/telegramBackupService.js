@@ -11,12 +11,14 @@ export const getTelegramBackupConfig = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     const parsed = saved ? JSON.parse(saved) : {};
+    const envBotToken = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_BOT_TOKEN ? import.meta.env.VITE_TELEGRAM_BOT_TOKEN : '';
+    const envChatId = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEGRAM_CHAT_ID ? import.meta.env.VITE_TELEGRAM_CHAT_ID : '';
     const envKey = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY : '';
     const localKey = typeof window !== 'undefined' ? localStorage.getItem('hk360_gemini_api_key') : '';
 
     return {
-      botToken: parsed.botToken || '',
-      chatId: parsed.chatId || '',
+      botToken: parsed.botToken || envBotToken || '',
+      chatId: parsed.chatId || envChatId || '',
       geminiApiKey: parsed.geminiApiKey || localKey || envKey || '',
       groqApiKey: parsed.groqApiKey || '',
       enabled: parsed.enabled !== undefined ? parsed.enabled : true,
