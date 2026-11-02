@@ -53,3 +53,4 @@ archive_dead_code.cjs
 deep_scan.cjs
 generate_cert.cjs
 
+.neon
