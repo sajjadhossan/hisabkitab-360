@@ -37,7 +37,8 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Truck,
-  Clock
+  Clock,
+  ClipboardList
 } from 'lucide-react';
 import { CategoryManagerModal } from '../common/CategoryManagerModal';
 import { MasterHubModal } from '../common/MasterHubModal';
@@ -49,6 +50,9 @@ import { BarcodeStickerModal } from '../common/BarcodeStickerModal';
 import { StockTransferModal } from '../inventory/StockTransferModal';
 import { ExpiryLifecycleTrackerModal } from '../inventory/ExpiryLifecycleTrackerModal';
 import { BarcodeShelfDesignerModal } from '../inventory/BarcodeShelfDesignerModal';
+import { StockAuditModal } from './StockAuditModal';
+import { SupplierPurchaseReturnModal } from './SupplierPurchaseReturnModal';
+import { STANDARD_UNITS, formatCompoundStockDisplay } from '../../services/unitConversionService';
 import { soundService } from '../../services/soundService';
 import { compressImageToWebP, optimizeProductImageAI, hapticFeedback } from '../../services/nativeAppService';
 import { OptimizedImage } from '../common/OptimizedImage';
@@ -84,6 +88,8 @@ export const InventoryManager = () => {
     bulkAddProducts,
     categories = {},
     businessSettings = {},
+    suppliers = [],
+    paySupplier,
     salesHistory = [],
     showToast,
     t,
@@ -102,6 +108,8 @@ export const InventoryManager = () => {
   const [showStockTransferModal, setShowStockTransferModal] = useState(false);
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [showShelfLabelModal, setShowShelfLabelModal] = useState(false);
+  const [showStockAuditModal, setShowStockAuditModal] = useState(false);
+  const [showSupplierReturnModal, setShowSupplierReturnModal] = useState(false);
 
   // Responsive Mobile Screen Detection (< 768px)
   const [isMobileScreen, setIsMobileScreen] = useState(() => {
@@ -142,6 +150,10 @@ export const InventoryManager = () => {
     batchNumber: '',
     expiryDate: '',
     category: 'খাদ্যপণ্য',
+    unit: 'পিস',
+    secondaryUnit: '',
+    conversionFactor: '',
+    secondarySellPrice: '',
     costPrice: '',
     sellPrice: '',
     wholesalePrice: '',
@@ -164,6 +176,10 @@ export const InventoryManager = () => {
     batchNumber: '',
     expiryDate: '',
     category: 'খাদ্যপণ্য',
+    unit: 'পিস',
+    secondaryUnit: '',
+    conversionFactor: '',
+    secondarySellPrice: '',
     costPrice: '',
     sellPrice: '',
     stock: '',
@@ -249,6 +265,26 @@ export const InventoryManager = () => {
   const displayedProducts = useMemo(() => {
     return filteredProducts.slice(0, productDisplayLimit);
   }, [filteredProducts, productDisplayLimit]);
+
+  // Seamless Infinite Windowing: automatically increments displayed products on scroll
+  const inventorySentinelRef = useRef(null);
+  useEffect(() => {
+    const sentinel = inventorySentinelRef.current;
+    if (!sentinel) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0] && entries[0].isIntersecting && filteredProducts.length > displayedProducts.length) {
+          setProductDisplayLimit((prev) => Math.min(prev + 50, filteredProducts.length));
+        }
+      },
+      { root: null, rootMargin: '400px', threshold: 0.05 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredProducts.length, displayedProducts.length]);
 
   const totalProducts = products.length;
   const totalStockUnits = useMemo(() => products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0), [products]);
@@ -417,6 +453,10 @@ export const InventoryManager = () => {
       batchNumber: product.batchNumber || '',
       expiryDate: product.expiryDate || '',
       category: product.category || 'খাদ্যপণ্য',
+      unit: product.unit || product.baseUnit || 'পিস',
+      secondaryUnit: product.secondaryUnit || '',
+      conversionFactor: product.conversionFactor || '',
+      secondarySellPrice: product.secondarySellPrice || '',
       costPrice: product.costPrice || 0,
       sellPrice: product.sellPrice || 0,
       wholesalePrice: product.wholesalePrice || '',
@@ -438,6 +478,10 @@ export const InventoryManager = () => {
       batchNumber: editProductForm.batchNumber || '',
       expiryDate: editProductForm.expiryDate || '',
       category: editProductForm.category,
+      unit: editProductForm.unit || 'পিস',
+      secondaryUnit: editProductForm.secondaryUnit || '',
+      conversionFactor: Number(editProductForm.conversionFactor) || 0,
+      secondarySellPrice: Number(editProductForm.secondarySellPrice) || 0,
       costPrice: Number(editProductForm.costPrice) || 0,
       sellPrice: Number(editProductForm.sellPrice) || 0,
       wholesalePrice: Number(editProductForm.wholesalePrice) || 0,
@@ -469,6 +513,10 @@ export const InventoryManager = () => {
       batchNumber: '',
       expiryDate: '',
       category: 'খাদ্যপণ্য',
+      unit: 'পিস',
+      secondaryUnit: '',
+      conversionFactor: '',
+      secondarySellPrice: '',
       costPrice: '',
       sellPrice: '',
       wholesalePrice: '',
@@ -478,6 +526,16 @@ export const InventoryManager = () => {
       image: ''
     });
     setShowAddModal(false);
+  };
+
+  const handleApplyStockReconciliation = async (updates) => {
+    for (const upd of updates) {
+      if (typeof adjustStock === 'function') {
+        adjustStock(upd.productId, upd.variance, 'in', `শারীরিক স্টক অডিট: ${upd.reason}`);
+      } else if (typeof updateProduct === 'function') {
+        updateProduct(upd.productId, { stock: upd.newStock });
+      }
+    }
   };
 
   const handleStockInSubmit = (e) => {
@@ -787,6 +845,30 @@ export const InventoryManager = () => {
                 <span>{lang === 'bn' ? 'স্ক্যান' : 'Scan'}</span>
               </button>
 
+              {/* Physical Stock Audit Button */}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowStockAuditModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.84rem',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  borderColor: 'rgba(16, 185, 129, 0.35)',
+                  color: '#10b981',
+                  cursor: 'pointer'
+                }}
+                title={lang === 'bn' ? 'দোকানের বাস্তব সংখ্যা গুনে ঘাটতি বা উদ্বৃত্ত সমন্বয় করুন' : 'Physical Stock Take & Reconciliation'}
+              >
+                <ClipboardList size={15} style={{ color: '#10b981' }} />
+                <span>{lang === 'bn' ? '📋 স্টক অডিট' : 'Stock Audit'}</span>
+              </button>
+
               {/* Tools & Utilities Dropdown Menu Container (Strictly Right-Aligned) */}
               <div style={{ position: 'relative' }}>
                 <button
@@ -1035,6 +1117,58 @@ export const InventoryManager = () => {
                       >
                         <Tag size={16} style={{ color: '#f59e0b' }} />
                         <span>{lang === 'bn' ? '🏷️ তাকের প্রাইস ট্যাগ স্টুডিও' : '🏷️ Shelf Price Studio'}</span>
+                      </button>
+
+                      {/* Physical Stock Audit & Take */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowStockAuditModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <ClipboardList size={16} style={{ color: '#10b981' }} />
+                        <span>{lang === 'bn' ? '📋 শারীরিক স্টক অডিট ও গণনা' : '📋 Stock Take & Audit'}</span>
+                      </button>
+
+                      {/* Supplier Purchase Return & Debit Note (Domain 3 Tip 105) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          setShowSupplierReturnModal(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.82rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <ArrowUpRight size={16} style={{ color: '#ec4899' }} />
+                        <span>{lang === 'bn' ? '🔄 সাপ্লায়ার পারচেজ রিটার্ন (ডেবিট নোট)' : '🔄 Supplier Return (Debit Note)'}</span>
                       </button>
 
                       {/* Categories */}
@@ -1548,7 +1682,7 @@ export const InventoryManager = () => {
                               }}
                             >
                               {isLow && <AlertTriangle size={11} />}
-                              <span>{lang === 'bn' ? 'স্টক:' : 'Stock:'} <strong>{p.stock}</strong></span>
+                              <span>{lang === 'bn' ? 'স্টক:' : 'Stock:'} <strong>{formatCompoundStockDisplay(p.stock, p, lang)}</strong></span>
                             </span>
                           </div>
 
@@ -1752,6 +1886,10 @@ export const InventoryManager = () => {
               )}
 
               {filteredProducts.length > productDisplayLimit && (
+                <div ref={inventorySentinelRef} style={{ height: '20px', width: '100%' }} />
+              )}
+
+              {filteredProducts.length > productDisplayLimit && (
                 <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                   <button
                     type="button"
@@ -1902,7 +2040,7 @@ export const InventoryManager = () => {
                           <td style={{ textAlign: 'center' }}>
                             <span className={`badge ${isLow ? 'badge-danger' : 'badge-success'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               {isLow && <AlertTriangle size={12} />}
-                              <span style={{ fontWeight: '700' }}>{p.stock}</span>
+                              <span style={{ fontWeight: '700' }}>{formatCompoundStockDisplay(p.stock, p, lang)}</span>
                             </span>
                             {productForecastMap[p.id]?.runwayDays !== null && productForecastMap[p.id]?.runwayDays !== undefined && (
                               <div style={{
@@ -1984,6 +2122,11 @@ export const InventoryManager = () => {
                         </tr>
                       );
                     })}
+                    {filteredProducts.length > productDisplayLimit && (
+                      <tr ref={inventorySentinelRef} style={{ height: '1px' }}>
+                        <td colSpan="8" style={{ padding: 0, border: 'none' }} />
+                      </tr>
+                    )}
                     {filteredProducts.length > productDisplayLimit && (
                       <tr>
                         <td colSpan="8" style={{ textAlign: 'center', padding: '1.25rem' }}>
@@ -2759,6 +2902,69 @@ export const InventoryManager = () => {
                 </div>
               </div>
 
+              {/* Multi-UOM & Unit Conversion */}
+              <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '10px', borderRadius: '10px', border: '1px dashed rgba(16, 185, 129, 0.3)', marginBottom: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="field-label" style={{ color: '#10b981', fontWeight: '700' }}>
+                      ⚖️ মূল পরিমাপের একক (Base Unit)
+                    </label>
+                    <select
+                      className="input-field"
+                      value={newProductForm.unit || 'পিস'}
+                      onChange={(e) => setNewProductForm({ ...newProductForm, unit: e.target.value })}
+                    >
+                      {STANDARD_UNITS.map(u => (
+                        <option key={u.id} value={u.label.split(' ')[0]}>{u.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label" style={{ color: '#10b981', fontWeight: '700' }}>
+                      📦 দ্বিতীয়/পাইকারি একক (ঐচ্ছিক)
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="যেমন: কার্টুন বা বস্তা"
+                      value={newProductForm.secondaryUnit || ''}
+                      onChange={(e) => setNewProductForm({ ...newProductForm, secondaryUnit: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {newProductForm.secondaryUnit && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '8px' }}>
+                    <div>
+                      <label className="field-label" style={{ color: '#059669', fontSize: '0.74rem' }}>
+                        ১ {newProductForm.secondaryUnit} = কত {newProductForm.unit || 'পিস'}?
+                      </label>
+                      <input
+                        type="number"
+                        min="2"
+                        className="input-field"
+                        placeholder="যেমন: ২৪"
+                        value={newProductForm.conversionFactor || ''}
+                        onChange={(e) => setNewProductForm({ ...newProductForm, conversionFactor: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label" style={{ color: '#059669', fontSize: '0.74rem' }}>
+                        প্রতি {newProductForm.secondaryUnit} বিক্রয় মূল্য (ঐচ্ছিক ৳)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-field"
+                        placeholder="ঐচ্ছিক কার্টুন দর"
+                        value={newProductForm.secondarySellPrice || ''}
+                        onChange={(e) => setNewProductForm({ ...newProductForm, secondarySellPrice: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
                 <div>
                   <label className="field-label">{t.business.stockQty}</label>
@@ -3089,6 +3295,69 @@ export const InventoryManager = () => {
                     onChange={(e) => setEditProductForm({ ...editProductForm, sellPrice: Number(e.target.value) })}
                   />
                 </div>
+              </div>
+
+              {/* Edit Multi-UOM & Unit Conversion */}
+              <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '10px', borderRadius: '10px', border: '1px dashed rgba(16, 185, 129, 0.3)', marginBottom: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="field-label" style={{ color: '#10b981', fontWeight: '700' }}>
+                      ⚖️ মূল পরিমাপের একক (Base Unit)
+                    </label>
+                    <select
+                      className="input-field"
+                      value={editProductForm.unit || 'পিস'}
+                      onChange={(e) => setEditProductForm({ ...editProductForm, unit: e.target.value })}
+                    >
+                      {STANDARD_UNITS.map(u => (
+                        <option key={u.id} value={u.label.split(' ')[0]}>{u.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="field-label" style={{ color: '#10b981', fontWeight: '700' }}>
+                      📦 দ্বিতীয়/পাইকারি একক (ঐচ্ছিক)
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="যেমন: কার্টুন বা বস্তা"
+                      value={editProductForm.secondaryUnit || ''}
+                      onChange={(e) => setEditProductForm({ ...editProductForm, secondaryUnit: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {editProductForm.secondaryUnit && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '8px' }}>
+                    <div>
+                      <label className="field-label" style={{ color: '#059669', fontSize: '0.74rem' }}>
+                        ১ {editProductForm.secondaryUnit} = কত {editProductForm.unit || 'পিস'}?
+                      </label>
+                      <input
+                        type="number"
+                        min="2"
+                        className="input-field"
+                        placeholder="যেমন: ২৪"
+                        value={editProductForm.conversionFactor || ''}
+                        onChange={(e) => setEditProductForm({ ...editProductForm, conversionFactor: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label" style={{ color: '#059669', fontSize: '0.74rem' }}>
+                        প্রতি {editProductForm.secondaryUnit} বিক্রয় মূল্য (ঐচ্ছিক ৳)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-field"
+                        placeholder="ঐচ্ছিক কার্টুন দর"
+                        value={editProductForm.secondarySellPrice || ''}
+                        onChange={(e) => setEditProductForm({ ...editProductForm, secondarySellPrice: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
@@ -3682,6 +3951,44 @@ export const InventoryManager = () => {
         initialProduct={selectedStickerProduct || products[0]}
         businessSettings={businessSettings}
         lang={lang}
+      />
+
+      {/* PHYSICAL STOCK AUDIT & RECONCILIATION MODAL */}
+      <StockAuditModal
+        isOpen={showStockAuditModal}
+        onClose={() => setShowStockAuditModal(false)}
+        products={products}
+        onApplyStockReconciliation={handleApplyStockReconciliation}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* SUPPLIER PURCHASE RETURN & DEBIT NOTE MODAL (DOMAIN 3 TIP 105) */}
+      <SupplierPurchaseReturnModal
+        isOpen={showSupplierReturnModal}
+        onClose={() => setShowSupplierReturnModal(false)}
+        suppliers={suppliers}
+        products={products}
+        lang={lang}
+        showToast={showToast}
+        onConfirmPurchaseReturn={(debitNote) => {
+          // 1. Deduct returned inventory stock
+          (debitNote.items || []).forEach(it => {
+            adjustStock(it.productId, -it.qty, 'out', `সাপ্লায়ার ফেরত ডেবিট নোট: ${debitNote.debitNoteNo}`);
+          });
+
+          // 2. Adjust supplier balance if deduct_due selected
+          if (debitNote.adjustmentType === 'deduct_due' && debitNote.supplierId && typeof paySupplier === 'function') {
+            paySupplier(debitNote.supplierId, debitNote.totalReturnAmount);
+          }
+
+          showToast(
+            lang === 'bn' 
+              ? `ডেবিট নোট #${debitNote.debitNoteNo} সফলভাবে তৈরি ও স্টক সমন্বয় করা হয়েছে!` 
+              : `Debit Note #${debitNote.debitNoteNo} completed & stock adjusted!`,
+            'success'
+          );
+        }}
       />
     </div>
   );

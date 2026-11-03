@@ -32,6 +32,11 @@ import {
 } from '../../services/imageRecognitionService';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { registerBackAction } from '../../services/nativeAppService';
+import {
+  decodeCascadingFrame,
+  parseWeightEmbeddedBarcode,
+  isNativeBarcodeDetectorSupported
+} from '../../services/multiEngineBarcodeOrchestrator';
 
 export const BarcodeScannerModal = () => {
   const {
@@ -72,6 +77,7 @@ export const BarcodeScannerModal = () => {
   const [uploadedPreview, setUploadedPreview] = useState(null);
 
   const [isHardwareAccelerated, setIsHardwareAccelerated] = useState(false);
+  const [activeEngineBadge, setActiveEngineBadge] = useState('⚡ নেটিভ GPU ইঞ্জিন (Stage 1)');
 
   const html5QrCodeRef = useRef(null);
   const isStartingScannerRef = useRef(false);
@@ -233,7 +239,7 @@ export const BarcodeScannerModal = () => {
         }
       }
 
-      const onScanSuccess = (decodedText) => {
+      const onScanSuccess = (decodedText, engineMeta = null) => {
         if (!decodedText) return;
         const clean = String(decodedText).trim();
         const now = Date.now();
@@ -243,7 +249,18 @@ export const BarcodeScannerModal = () => {
         ) {
           lastScannedCodeRef.current = clean;
           lastScanTimestampRef.current = now;
-          triggerBarcodeScan(clean);
+
+          const meta = engineMeta || {
+            engine: 'zxing_wasm',
+            engineLabel: '🛡️ WASM সফটওয়্যার ইঞ্জিন (Stage 3 Fallover)',
+            weightMeta: parseWeightEmbeddedBarcode(clean)
+          };
+
+          if (meta.engineLabel) {
+            setActiveEngineBadge(meta.engineLabel);
+          }
+
+          triggerBarcodeScan(clean, meta);
 
           if (!isBatchScan) {
             stopCamera();
@@ -297,9 +314,10 @@ export const BarcodeScannerModal = () => {
                 if (!nativeDetectorRunningRef.current) return;
                 if (videoElem.readyState >= 2 && !videoElem.paused && !videoElem.ended) {
                   try {
-                    const detectedList = await nativeDetector.detect(videoElem);
-                    if (detectedList && detectedList.length > 0 && detectedList[0].rawValue) {
-                      onScanSuccess(detectedList[0].rawValue);
+                    // Multi-Engine Cascading Decode: Native GPU -> Adaptive Contrast -> Fallback
+                    const res = await decodeCascadingFrame(videoElem);
+                    if (res && res.rawValue) {
+                      onScanSuccess(res.rawValue, res);
                     }
                   } catch {}
                 }
@@ -487,9 +505,10 @@ export const BarcodeScannerModal = () => {
     }
   };
 
-  const triggerBarcodeScan = (code) => {
+  const triggerBarcodeScan = (code, engineMeta = null) => {
     if (!code) return;
     const clean = String(code).trim();
+    const weightMeta = engineMeta?.weightMeta || parseWeightEmbeddedBarcode(clean);
 
     // 0. Auto-Intercept Samity Official Document QR code
     if (
@@ -522,17 +541,31 @@ export const BarcodeScannerModal = () => {
     setScanFlash(true);
     setTimeout(() => setScanFlash(false), 300);
 
-    // Find matched product in inventory
+    // Find matched product in inventory (handles weight scale barcodes by SKU)
+    const targetSku = weightMeta?.isWeightBarcode ? weightMeta.productSku : null;
     const matched = products.find(
-      p => p.barcode === clean || (p.sku && p.sku.toLowerCase() === clean.toLowerCase())
+      p => p.barcode === clean ||
+           (targetSku && (p.sku === targetSku || p.barcode === targetSku || p.id === targetSku)) ||
+           (p.sku && p.sku.toLowerCase() === clean.toLowerCase())
     );
 
     setLastScannedItem({
       code: clean,
       product: matched,
+      weightMeta,
+      engine: engineMeta?.engineLabel || activeEngineBadge,
       time: new Date().toLocaleTimeString()
     });
     setScannedSessionCount(prev => prev + 1);
+
+    if (weightMeta?.isWeightBarcode && weightMeta.weightKg && showToast) {
+      showToast(
+        lang === 'bn'
+          ? `⚖️ ডিজিটাল স্কেল ওজন: ${weightMeta.weightKg} কেজি (${matched?.name || 'পণ্য'})`
+          : `Scale Weight: ${weightMeta.weightKg} kg (${matched?.name || 'Item'})`,
+        'success'
+      );
+    }
 
     // Bengali Voice Announcement
     if (isSpeechEnabled && matched) {
@@ -1147,30 +1180,58 @@ export const BarcodeScannerModal = () => {
                   <div style={{ position: 'absolute', bottom: '16px', left: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderLeft: '3px solid #10b981', borderRadius: '0 0 0 4px' }} />
                   <div style={{ position: 'absolute', bottom: '16px', right: '16px', width: '20px', height: '20px', borderBottom: '3px solid #10b981', borderRight: '3px solid #10b981', borderRadius: '0 0 4px 0' }} />
 
-                  {/* 60fps ML Kit Hardware Acceleration Status Indicator */}
-                  {isHardwareAccelerated && (
+                  {/* Multi-Engine Cascading Failover Status HUD Badge */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(15, 23, 42, 0.88)',
+                      border: '1px solid rgba(16, 185, 129, 0.5)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#ffffff',
+                      fontSize: '0.68rem',
+                      fontWeight: '800',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.5)',
+                      pointerEvents: 'none',
+                      whiteSpace: 'nowrap',
+                      zIndex: 20
+                    }}
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                    <span>{activeEngineBadge}</span>
+                  </div>
+
+                  {/* Weight-Embedded Electronic Scale Barcode Live Pill */}
+                  {lastScannedItem?.weightMeta?.isWeightBarcode && (
                     <div
                       style={{
                         position: 'absolute',
-                        top: '12px',
+                        bottom: '24px',
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        background: 'rgba(16, 185, 129, 0.9)',
-                        backdropFilter: 'blur(6px)',
+                        background: 'rgba(16, 185, 129, 0.95)',
+                        backdropFilter: 'blur(8px)',
                         color: '#ffffff',
-                        fontSize: '0.68rem',
+                        fontSize: '0.74rem',
                         fontWeight: '800',
-                        padding: '3px 10px',
+                        padding: '5px 14px',
                         borderRadius: '20px',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '5px',
-                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
-                        pointerEvents: 'none'
+                        gap: '6px',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.5)',
+                        pointerEvents: 'none',
+                        zIndex: 20
                       }}
                     >
-                      <Zap size={11} fill="#ffffff" />
-                      <span>{lang === 'bn' ? '⚡ ৬০fps ML Kit অ্যাক্সিলারেশন' : '⚡ 60fps ML Kit Accelerated'}</span>
+                      <span>⚖️ ডিজিটাল স্কেল ওজন: {lastScannedItem.weightMeta.weightKg} কেজি</span>
                     </div>
                   )}
                 </div>

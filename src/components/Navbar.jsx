@@ -1090,7 +1090,7 @@ export const Navbar = () => {
 
   return (
     <>
-      <header className="no-print" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 1100 }}>
+      <header className="no-print" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 1100, paddingTop: 'max(0px, env(safe-area-inset-top, 0px))' }}>
         {/* Top Bar: Brand, Switcher, Controls */}
         <div className="navbar-top-bar" style={{ maxWidth: '1440px', margin: '0 auto' }}>
           
@@ -1194,10 +1194,10 @@ export const Navbar = () => {
                     🛡️ {lang === 'bn' ? 'স্টাফ কন্ট্রোল' : 'Staff Control'}
                   </span>
                 )}
-                {/* Specialized Vertical Operating Mode Badges */}
+                {/* Specialized Vertical Operating Mode Badges (Desktop Header Only - Clean Mobile Boundary) */}
                 {(businessSettings?.primaryOperatingMode === 'samity' || businessSettings?.industryTemplateId === 'samity_management_hub') && (
                   <span
-                    className="badge"
+                    className="badge hide-mobile"
                     onClick={() => setActiveTab('samity')}
                     title={lang === 'bn' ? 'সমিতি ইআরপি হাব খুলুন' : 'Open Samity ERP Hub'}
                     style={{
@@ -1218,7 +1218,7 @@ export const Navbar = () => {
                 )}
                 {businessSettings?.primaryOperatingMode === 'healthcare' && (
                   <span
-                    className="badge"
+                    className="badge hide-mobile"
                     onClick={() => setActiveTab('healthcare')}
                     title={lang === 'bn' ? 'হেলথকেয়ার ও ক্লিনিক হাব খুলুন' : 'Open Healthcare Hub'}
                     style={{
@@ -1239,7 +1239,7 @@ export const Navbar = () => {
                 )}
                 {businessSettings?.primaryOperatingMode === 'cattle' && (
                   <span
-                    className="badge"
+                    className="badge hide-mobile"
                     onClick={() => setActiveTab('cattle')}
                     title={lang === 'bn' ? 'ক্যাটেল ও খামার হাব খুলুন' : 'Open Cattle & Dairy Hub'}
                     style={{
@@ -1262,7 +1262,7 @@ export const Navbar = () => {
                 {/* Impersonation Mode Active Indicator */}
                 {impersonatedOwner && (
                   <span
-                    className="badge"
+                    className="badge hide-mobile"
                     onClick={() => {
                       if (typeof stopImpersonation === 'function') stopImpersonation();
                       setActiveTab('super_admin');
@@ -1330,7 +1330,7 @@ export const Navbar = () => {
                 {/* Dedicated Samity ERP Badge on Vercel */}
                 {typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') && (
                   <span
-                    className="badge"
+                    className="badge hide-mobile"
                     onClick={() => setActiveTab('samity')}
                     title="Vercel Dedicated Samity ERP Portal"
                     style={{

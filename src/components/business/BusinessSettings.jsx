@@ -73,6 +73,10 @@ import { TelegramBotModal } from '../common/TelegramBotModal';
 import { getTelegramBackupConfig, testTelegramBackupBot } from '../../services/telegramBackupService';
 import { INDUSTRY_SECTORS, MASTER_INDUSTRY_TEMPLATES, getTemplateById } from '../../data/industryTemplates';
 import { SupabaseScheduledBackupCard } from '../common/SupabaseScheduledBackupCard';
+import { idbCompactAndOptimize } from '../../utils/idbStorage';
+import { getStorageQuotaEstimate } from '../../services/storageQuotaService';
+import { EnterpriseHardwareHub } from './EnterpriseHardwareHub';
+import { MultiCloudFailoverHub } from '../common/MultiCloudFailoverHub';
 
 export const BusinessSettings = () => {
   const {
@@ -111,11 +115,16 @@ export const BusinessSettings = () => {
     getGoogleClientId,
     saveGoogleClientId,
     switchDriveOAuth,
-    showToast
+    showToast,
+    storageQuota,
+    invoices = [],
+    customers = [],
+    syncToTelegram
   } = useApp();
 
   const { user } = useAuth();
 
+  const [isOptimizingStorage, setIsOptimizingStorage] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('profile');
   const activeArchetype = getTemplatePosArchetype(businessSettings?.industryTemplateId || businessSettings?.industryType); // 'profile' | 'receipt' | 'hardware' | 'backup' | 'commercial'
   const [showMoreSubTabs, setShowMoreSubTabs] = useState(false);
@@ -3462,6 +3471,9 @@ export const BusinessSettings = () => {
               </div>
             </div>
 
+            {/* 4. ENTERPRISE HYBRID HARDWARE & ADVANCED ENGINES HUB */}
+            <EnterpriseHardwareHub lang={lang} showToast={showToast} invoices={invoices} />
+
             {/* Save Hardware Settings Button */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
               <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', fontWeight: '700' }}>
@@ -3485,6 +3497,133 @@ export const BusinessSettings = () => {
         {/* ========================================================= */}
         {activeSubTab === 'backup' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            {/* MULTI-CLOUD DATABASE FAILOVER & HIGH-AVAILABILITY CLUSTER HUB */}
+            <MultiCloudFailoverHub
+              lang={lang}
+              showToast={showToast}
+              syncToTelegram={syncToTelegram}
+              storageQuota={storageQuota}
+              invoices={invoices}
+              products={products}
+              customers={customers}
+            />
+
+            {/* 0. PERSISTENT STORAGE & GIGABYTE-CAPACITY INDEXEDDB ENGINE */}
+            <div className="glass-card" style={{ borderLeft: '4px solid #10b981' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '10px', borderRadius: '10px', color: '#10b981' }}>
+                    <HardDrive size={24} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                        {lang === 'bn' ? 'অসীম ধারণক্ষমতা সম্পন্ন IndexedDB লোকাল ইঞ্জিন ও মেমোরি কোটা' : 'High-Capacity IndexedDB & Storage Quota'}
+                      </h3>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        background: storageQuota?.isPersisted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                        color: storageQuota?.isPersisted ? '#10b981' : '#3b82f6',
+                        border: `1px solid ${storageQuota?.isPersisted ? '#10b981' : '#3b82f6'}`
+                      }}>
+                        {storageQuota?.isPersisted ? (lang === 'bn' ? '🔒 পারসিস্টেন্ট সক্রিয় (OS Eviction Protected)' : '🔒 Persistent Storage (Protected)') : (lang === 'bn' ? '🛡️ নিরাপদ মোড' : 'Protected')}
+                      </span>
+                    </div>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {lang === 'bn'
+                        ? 'সাধারণ ৫ মেগাবাইট সীমা মুক্ত; ডিভাইসের মোট ফাঁকা মেমরির ৬০% পর্যন্ত (GB লেভেলে) লক্ষাধিক পণ্যের জন্য উন্মুক্ত।'
+                        : 'Uncapped multi-gigabyte local persistence. Utilizes up to 60% of device free storage.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary press-scale"
+                    disabled={isOptimizingStorage}
+                    onClick={async () => {
+                      setIsOptimizingStorage(true);
+                      try {
+                        const res = await idbCompactAndOptimize();
+                        await getStorageQuotaEstimate();
+                        if (showToast) {
+                          showToast(
+                            lang === 'bn'
+                              ? `✅ স্টোরেজ অপ্টিমাইজড! মোট কি: ${res.totalKeys || 0}, ক্লিনড: ${res.cleanedKeys || 0}`
+                              : 'Storage compact & optimized!',
+                            'success'
+                          );
+                        }
+                      } catch (e) {
+                        if (showToast) showToast(`❌ এরর: ${e.message}`, 'danger');
+                      } finally {
+                        setIsOptimizingStorage(false);
+                      }
+                    }}
+                    style={{ fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}
+                  >
+                    <RefreshCw size={14} className={isOptimizingStorage ? 'animate-spin' : ''} />
+                    <span>{isOptimizingStorage ? (lang === 'bn' ? 'অপ্টিমাইজ হচ্ছে...' : 'Optimizing...') : (lang === 'bn' ? 'স্টোরেজ অপ্টিমাইজ ও রিফ্রেশ' : 'Optimize Storage')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quota Telemetry Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {lang === 'bn' ? 'অনুমোদিত মোট মেমোরি কোটা' : 'Total Allocated Quota'}
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#10b981', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                    {storageQuota?.quotaFormatted || 'স্বয়ংক্রিয়'}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'ডিভাইসের ফ্রি স্পেসের ওপর ভিত্তি করে' : 'Based on free disk space'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {lang === 'bn' ? 'ডাটাবেজে বর্তমানে ব্যবহৃত' : 'Current DB Usage'}
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--business-primary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                    {storageQuota?.usageFormatted || '০ MB'}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'পণ্য, ইনভয়েস ও লেজার' : 'Products & Ledgers'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {lang === 'bn' ? 'অবশিষ্ট কোটা ফাঁকা' : 'Available Free Space'}
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#8b5cf6', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                    {(100 - (storageQuota?.percentUsed || 0)).toFixed(2)}%
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'ব্যবহারের জন্য প্রস্তুত' : 'Free for new data'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                    {lang === 'bn' ? 'অ্যান্ড্রয়েড অটো-ডিলিট সুরক্ষা' : 'OS Eviction Protection'}
+                  </div>
+                  <div style={{ fontSize: '1rem', fontWeight: '800', color: storageQuota?.isPersisted ? '#10b981' : '#f59e0b', marginTop: '4px' }}>
+                    {storageQuota?.isPersisted ? (lang === 'bn' ? '✅ ১০০% সুরক্ষিত' : '✅ Protected') : (lang === 'bn' ? '🛡️ নিরাপদ মোড' : '🛡️ Safe Mode')}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {lang === 'bn' ? 'কখনও স্বয়ংক্রিয় ফাইল মুছবে না' : 'Never auto-evicted by OS'}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* 1. DEDICATED TELEGRAM CLOUD AUTO-BACKUP & REMOTE BOT CARD */}
             <div className="glass-card" style={{ borderLeft: '4px solid #0ea5e9' }}>

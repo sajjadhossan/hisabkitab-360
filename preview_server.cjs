@@ -1026,6 +1026,35 @@ function startServer(port) {
   // 1. Create standard HTTP server on port (e.g. 5173)
   const httpServer = http.createServer(serveStatic);
 
+  // Open Source Zero-Cost Multi-Counter LAN WebSocket Relay Engine
+  function attachWebSocketMeshRelay(server, label) {
+    try {
+      const { WebSocketServer } = require('ws');
+      const wss = new WebSocketServer({ server, path: '/hk360-mesh-sync' });
+      const clients = new Set();
+
+      wss.on('connection', (ws) => {
+        clients.add(ws);
+        ws.on('message', (message, isBinary) => {
+          for (const client of clients) {
+            if (client !== ws && client.readyState === 1 /* OPEN */) {
+              client.send(message, { binary: isBinary });
+            }
+          }
+        });
+        ws.on('close', () => clients.delete(ws));
+        ws.on('error', () => clients.delete(ws));
+      });
+      console.log(`  ⚡ [LAN-Sync] মাল্টি-কাউন্টার লোকাল রিলে সকেট সক্রিয় (${label} /hk360-mesh-sync)`);
+      return wss;
+    } catch (err) {
+      console.debug(`[LAN-Sync] Relay notice (${label}):`, err.message);
+      return null;
+    }
+  }
+
+  attachWebSocketMeshRelay(httpServer, 'HTTP');
+
   httpServer.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.log(`[INFO] পোর্ট ${port} ব্যবহৃত হচ্ছে, পরবর্তী পোর্ট ${port + 1} চেষ্টা করা হচ্ছে...`);
@@ -1054,6 +1083,7 @@ function startServer(port) {
           cert: fs.readFileSync(certPath)
         };
         const httpsServer = https.createServer(httpsOptions, serveStatic);
+        attachWebSocketMeshRelay(httpsServer, 'HTTPS');
         httpsServer.listen(httpsPort, '0.0.0.0', () => {
           hasHttps = true;
           console.log(`  🔒 HTTPS সিকিউর লিংক (ক্যামেরা ও বারকোড সাপোর্টেড):`);

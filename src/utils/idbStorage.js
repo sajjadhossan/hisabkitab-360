@@ -182,3 +182,86 @@ export const idbCompactAndOptimize = async () => {
     return { success: false, error: err.message };
   }
 };
+
+/**
+ * Request Persistent Storage from Browser / Android WebView
+ * ---------------------------------------------------------
+ * Prevents OS from evicting IndexedDB data when device storage gets low.
+ * Unlocks 60%+ of available free disk space (Tens to hundreds of Gigabytes).
+ */
+export const requestPersistentStorage = async () => {
+  if (typeof window === 'undefined' || !navigator.storage || !navigator.storage.persist) {
+    return { supported: false, persisted: false };
+  }
+
+  try {
+    const isAlreadyPersisted = await navigator.storage.persisted();
+    if (isAlreadyPersisted) {
+      console.debug('[StorageEngine] Persistent storage is already granted.');
+      return { supported: true, persisted: true };
+    }
+
+    const granted = await navigator.storage.persist();
+    console.debug(`[StorageEngine] Persistent storage requested, granted: ${granted}`);
+    return { supported: true, persisted: granted };
+  } catch (err) {
+    console.debug('[StorageEngine] Persist request error:', err);
+    return { supported: true, persisted: false, error: err.message };
+  }
+};
+
+/**
+ * Retrieve device disk quota and current IndexedDB storage usage metrics
+ * ---------------------------------------------------------------------
+ * Returns exact free space, allocated quota in GB, and current MB used.
+ */
+export const getStorageQuotaMetrics = async () => {
+  if (typeof window === 'undefined' || !navigator.storage || !navigator.storage.estimate) {
+    return {
+      supported: false,
+      quotaGB: 0,
+      usageMB: 0,
+      availableGB: 0,
+      percentUsed: 0,
+      isPersisted: false
+    };
+  }
+
+  try {
+    const [estimate, isPersisted] = await Promise.all([
+      navigator.storage.estimate(),
+      navigator.storage.persisted ? navigator.storage.persisted() : Promise.resolve(false)
+    ]);
+
+    const quotaBytes = estimate.quota || 0;
+    const usageBytes = estimate.usage || 0;
+
+    const quotaGB = (quotaBytes / (1024 * 1024 * 1024)).toFixed(2);
+    const usageMB = (usageBytes / (1024 * 1024)).toFixed(2);
+    const availableBytes = Math.max(0, quotaBytes - usageBytes);
+    const availableGB = (availableBytes / (1024 * 1024 * 1024)).toFixed(2);
+    const percentUsed = quotaBytes > 0 ? ((usageBytes / quotaBytes) * 100).toFixed(2) : 0;
+
+    return {
+      supported: true,
+      quotaBytes,
+      usageBytes,
+      quotaGB: Number(quotaGB),
+      usageMB: Number(usageMB),
+      availableGB: Number(availableGB),
+      percentUsed: Number(percentUsed),
+      isPersisted: Boolean(isPersisted)
+    };
+  } catch (err) {
+    console.debug('[StorageEngine] Estimate error:', err);
+    return {
+      supported: false,
+      quotaGB: 0,
+      usageMB: 0,
+      availableGB: 0,
+      percentUsed: 0,
+      isPersisted: false,
+      error: err.message
+    };
+  }
+};

@@ -393,6 +393,69 @@ export const DeviceStatusIndicator = () => {
               </button>
             </div>
 
+            {/* Hybrid Multi-Counter Realtime Engine Status Deck */}
+            <div style={{
+              background: 'var(--bg-secondary, #0f172a)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              marginBottom: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚡ হাইব্রিড ডুয়েল-ট্র্যাক রিয়েলটাইম সিঙ্ক আর্কিটেকচার</span>
+                </span>
+                <span style={{ fontSize: '0.7rem', fontWeight: '800', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '6px' }}>
+                  v2.4.5 Active
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginTop: '2px' }}>
+                <div style={{ background: 'var(--card-bg, #1e293b)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color, #334155)' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>১. লোকাল ওয়াইফাই রিলে (LAN WS)</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span>
+                    <span>সক্রিয় (&lt;১০ms, ০ টাকা খরচ)</span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--card-bg, #1e293b)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color, #334155)' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>২. ক্লাউড সিঙ্ক (Supabase/Neon)</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#38bdf8' }}></span>
+                    <span>সক্রিয় ও রিয়েলটাইম ক্লাউড</span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--card-bg, #1e293b)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color, #334155)' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>৩. অফলাইন ডাটাবেজ (IndexedDB)</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#a855f7', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#a855f7' }}></span>
+                    <span>GB কোটা লকড (অফলাইন ১০০%)</span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--card-bg, #1e293b)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color, #334155)' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>৪. ওয়েব সিরিয়াল স্কেল ও সাউন্ডবক্স</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }}></span>
+                    <span>হার্ডওয়্যার ব্রিজ ও অডিও সক্রিয়</span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--card-bg, #1e293b)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color, #334155)' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>৫. ক্রিপ্টো সিল ও ব্যাকগ্রাউন্ড সিঙ্ক</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#ec4899', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ec4899' }}></span>
+                    <span>SHA-256 Merkle Chain সক্রিয়</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Enhanced Live Mesh Status & Dual Countdown Real-Time Bar */}
             <div
               style={{

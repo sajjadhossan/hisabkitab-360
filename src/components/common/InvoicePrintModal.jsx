@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Printer, X, Check, Clock, Building, Phone, Mail, MapPin, MessageCircle, ShieldCheck } from 'lucide-react';
+import { Printer, X, Check, Clock, Building, Phone, Mail, MapPin, MessageCircle, ShieldCheck, Download } from 'lucide-react';
 import { printElement } from '../../services/printService';
 import { generateQrDataUrl, createInvoiceVerificationUrl, generateInvoiceQrPayload } from '../../services/qrService';
+import { downloadDocumentPdf } from '../../services/pdfGeneratorService';
+import { nbrVatComplianceService } from '../../services/nbrVatComplianceService';
 
 export const InvoicePrintModal = () => {
   const {
@@ -42,11 +44,35 @@ export const InvoicePrintModal = () => {
   const isPaid = !isReturned && (inv.status === 'paid' || dueVal === 0);
   const isPartial = !isPaid && !isReturned && !isPartialReturn && paidVal > 0;
 
+  const [invoiceLayoutMode, setInvoiceLayoutMode] = useState('standard'); // 'standard' | 'mushak63'
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const mushakData = useMemo(() => {
+    if (!inv) return null;
+    return nbrVatComplianceService.generateMushak63Challan(inv, businessSettings);
+  }, [inv, businessSettings]);
+
   const handlePrint = () => {
     printElement('printable-a4-invoice', {
       title: `Invoice #${inv.id}`,
       paperType: 'a4'
     });
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      await downloadDocumentPdf({
+        elementId: 'printable-a4-invoice',
+        fileName: `${invoiceLayoutMode === 'mushak63' ? 'Mushak6.3' : 'Invoice'}-${inv.id || 'MEMO'}.pdf`,
+        docType: invoiceLayoutMode === 'mushak63' ? 'mushak_6_3' : 'invoice',
+        docNumber: String(inv.id || '001')
+      });
+    } catch (e) {
+      console.error('Invoice PDF download error:', e);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const stampBorderColor = isReturned
@@ -133,7 +159,28 @@ export const InvoicePrintModal = () => {
               </button>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Invoice Layout Mode: Standard vs NBR Mushak-6.3 */}
+            <div style={{ display: 'inline-flex', background: 'var(--bg-secondary)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)', gap: '2px' }}>
+              <button
+                type="button"
+                className={`btn ${invoiceLayoutMode === 'standard' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '3px 9px', fontSize: '0.74rem', height: 'auto', minHeight: 'unset', borderRadius: '6px' }}
+                onClick={() => setInvoiceLayoutMode('standard')}
+              >
+                📄 {lang === 'bn' ? 'সাধারণ ইনভয়েস' : 'Standard'}
+              </button>
+              <button
+                type="button"
+                className={`btn ${invoiceLayoutMode === 'mushak63' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '3px 9px', fontSize: '0.74rem', height: 'auto', minHeight: 'unset', borderRadius: '6px' }}
+                onClick={() => setInvoiceLayoutMode('mushak63')}
+                title="জাতীয় রাজস্ব বোর্ড (NBR) অনুমোদিত মূসক-৬.৩ কর চালানপত্র"
+              >
+                🏛️ {lang === 'bn' ? 'মূসক-৬.৩ চালান' : 'Mushak-6.3'}
+              </button>
+            </div>
+
             <button
               type="button"
               className="btn"
@@ -153,6 +200,25 @@ export const InvoicePrintModal = () => {
             >
               <MessageCircle size={16} />
               <span>{lang === 'bn' ? '📲 হোয়াটসঅ্যাপে পাঠান' : '📲 WhatsApp'}</span>
+            </button>
+
+            <button
+              className="btn btn-primary"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 2px 8px rgba(14, 165, 233, 0.35)'
+              }}
+              title={lang === 'bn' ? 'অফিসিয়াল PDF ফাইল সরাসরি ডাউনলোড করুন' : 'Download Official PDF'}
+            >
+              <Download size={16} />
+              <span>{isGeneratingPdf ? (lang === 'bn' ? 'PDF তৈরি হচ্ছে...' : 'Generating...') : (lang === 'bn' ? '📄 PDF ডাউনলোড' : 'Download PDF')}</span>
             </button>
 
             <button
@@ -186,6 +252,108 @@ export const InvoicePrintModal = () => {
             position: 'relative'
           }}
         >
+          {invoiceLayoutMode === 'mushak63' ? (
+            <div style={{ color: '#0f172a', fontSize: '11px', fontFamily: "'Hind Siliguri', sans-serif" }}>
+              {/* Government Header */}
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '10px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 800 }}>গণপ্রজাতন্ত্রী বাংলাদেশ সরকার - জাতীয় রাজস্ব বোর্ড</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '2px', letterSpacing: '0.5px' }}>কর চালানপত্র (মূসক-৬.৩)</div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>[বিধি ৪০ এর উপ-বিধি (১) এর দফা (গ) দ্রষ্টব্য]</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>চালানপত্র নম্বর: {mushakData?.challanNo || `MSK-${inv.id}`}</div>
+              </div>
+
+              {/* Seller & Buyer Details */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', border: '1.5px solid #0f172a', padding: '10px 14px', borderRadius: '4px', marginBottom: '14px', fontSize: '11.5px', lineHeight: 1.6 }}>
+                <div>
+                  <div><strong>নিবন্ধিত ব্যক্তির নাম:</strong> {businessSettings.companyName}</div>
+                  <div><strong>নিবন্ধিত ব্যক্তির বিআইএন:</strong> {businessSettings.binNo || '004829104-0101'}</div>
+                  <div><strong>চালানপত্র জারির ঠিকানা:</strong> {businessSettings.address}</div>
+                  <div><strong>যোগাযোগ:</strong> {businessSettings.phone}</div>
+                </div>
+                <div>
+                  <div><strong>ক্রেতার নাম:</strong> {inv.customerName || 'সাধারণ খুচরা ক্রেতা'}</div>
+                  <div><strong>ক্রেতার বিআইএন (যদি থাকে):</strong> {inv.customerBin || 'প্রযোজ্য নয়'}</div>
+                  <div><strong>সরবরাহের গন্তব্যস্থল:</strong> {inv.customerAddress || 'কাউন্টার সেলস'}</div>
+                  <div><strong>ইস্যুর তারিখ ও সময়:</strong> {inv.date} {inv.time || ''}</div>
+                </div>
+              </div>
+
+              {/* 10-Column Mushak Itemized Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #0f172a', fontSize: '10px', marginBottom: '14px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #0f172a' }}>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 3px' }}>ক্র.</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'left' }}>পণ্য / সেবার বিবরণ</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 3px' }}>একক</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 3px' }}>পরিমাণ</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'right' }}>একক মূল্য (৳)</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'right' }}>মোট মূল্য (৳)</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 3px' }}>SD</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 3px' }}>মূসক %</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'right' }}>মূসক (৳)</th>
+                    <th style={{ border: '1px solid #cbd5e1', padding: '5px 4px', textAlign: 'right' }}>সর্বমোট (৳)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(inv.items || []).map((it, idx) => {
+                    const qty = Number(it.quantity || it.qty || 1);
+                    const price = Number(it.price || it.sellPrice || 0);
+                    const total = qty * price;
+                    const vatRate = Number(it.vatRate ?? inv.vatRate ?? 5);
+                    const vatAmount = Number((total * (vatRate / 100)).toFixed(2));
+                    const grand = total + vatAmount;
+                    return (
+                      <tr key={idx} style={{ textAlign: 'center' }}>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 3px' }}>{idx + 1}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 4px', textAlign: 'left', fontWeight: 600 }}>{it.name}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 3px' }}>{it.unit || 'পিস'}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 3px' }}>{qty}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 4px', textAlign: 'right' }}>৳{price.toLocaleString()}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 4px', textAlign: 'right' }}>৳{total.toLocaleString()}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 3px' }}>০.০০</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 3px' }}>{vatRate}%</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 4px', textAlign: 'right' }}>৳{vatAmount.toLocaleString()}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '4px 4px', textAlign: 'right', fontWeight: 700 }}>৳{grand.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 800, background: '#f1f5f9', borderTop: '2px solid #0f172a' }}>
+                    <td colSpan="5" style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>সর্বমোট প্রদেয়:</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>৳{Number(inv.subtotal).toLocaleString()}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'center' }}>০.০০</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'center' }}>-</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>৳{Number(inv.vat).toLocaleString()}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right', color: '#16a34a' }}>৳{grandTotal.toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {/* Mushak Footer & Verification QR */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '24px', paddingTop: '10px' }}>
+                <div style={{ width: '200px', textAlign: 'center' }}>
+                  <div style={{ borderTop: '1px solid #0f172a', paddingTop: '6px', fontWeight: 600, fontSize: '11px' }}>
+                    ক্রেতা / প্রাপকের স্বাক্ষর
+                  </div>
+                </div>
+
+                {qrCodeUrl && (
+                  <div style={{ textAlign: 'center' }}>
+                    <img src={qrCodeUrl} alt="NBR Verification QR" style={{ width: '68px', height: '68px', margin: '0 auto' }} />
+                    <span style={{ fontSize: '8px', color: '#64748b', display: 'block', marginTop: '2px' }}>NBR ভেরিফায়েড কিউআর</span>
+                  </div>
+                )}
+
+                <div style={{ width: '240px', textAlign: 'center' }}>
+                  <div style={{ borderTop: '1px solid #0f172a', paddingTop: '6px', fontWeight: 700, fontSize: '11px' }}>
+                    প্রতিষ্ঠান কর্তৃপক্ষের দায়িত্বপ্রাপ্ত কর্মকর্তার স্বাক্ষর ও নাম
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Status Stamp */}
           <div
             style={{
@@ -488,6 +656,14 @@ export const InvoicePrintModal = () => {
                   <span>{isReturned ? (lang === 'bn' ? 'সম্পূর্ণ ফেরত (Returned)' : 'Returned') : (lang === 'bn' ? 'সম্পূর্ণ পরিশোধিত (All Clear)' : 'Fully Paid')}</span>
                 </div>
               )}
+
+              {/* Loyalty Reward Points Badge */}
+              {inv.customerId && grandTotal >= 100 && (
+                <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dotted #cbd5e1', fontSize: '11px', color: '#6366f1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{lang === 'bn' ? '🎁 এই চালানে অর্জিত পয়েন্ট:' : 'Points Earned:'}</span>
+                  <span style={{ fontWeight: '800', fontFamily: 'monospace' }}>+{Math.floor(grandTotal / 100)} pts</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -520,6 +696,8 @@ export const InvoicePrintModal = () => {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

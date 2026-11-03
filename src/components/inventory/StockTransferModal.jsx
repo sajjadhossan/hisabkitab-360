@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Truck,
   ArrowRight,
@@ -16,6 +16,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { soundService } from '../../services/soundService';
+import { idbGet } from '../../utils/idbStorage';
+import { scheduleStorageWrite } from '../../utils/storageQueue';
 
 export const StockTransferModal = ({
   isOpen,
@@ -25,6 +27,28 @@ export const StockTransferModal = ({
   onConfirmTransfer,
   lang = 'bn'
 }) => {
+  const [activeTab, setActiveTab] = useState('new'); // 'new' | 'history'
+  const [transfersHistory, setTransfersHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hk360_stock_transfers');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // IndexedDB Hydration Bridge: Restore stock transfers if localStorage was empty or cleared
+  useEffect(() => {
+    let isMounted = true;
+    if (transfersHistory.length === 0) {
+      idbGet('hk360_stock_transfers').then((idbList) => {
+        if (isMounted && Array.isArray(idbList) && idbList.length > 0) {
+          setTransfersHistory(idbList);
+        }
+      }).catch(() => {});
+    }
+    return () => { isMounted = false; };
+  }, []);
   const [fromBranch, setFromBranch] = useState('main');
   const [toBranch, setToBranch] = useState(branches[1]?.id || 'branch_2');
   const [challanNo, setChallanNo] = useState(() => `CHL-${Date.now().toString().slice(-6)}`);
@@ -95,21 +119,40 @@ export const StockTransferModal = ({
     }
 
     soundService.playSuccessChime();
+    const transferRecord = {
+      challanNo,
+      fromBranch,
+      toBranch,
+      driverName: driverName.trim(),
+      vehicleNo: vehicleNo.trim(),
+      transferDate,
+      items,
+      notes: notes.trim(),
+      totalItemsCount: items.reduce((sum, i) => sum + i.qty, 0),
+      status: 'in_transit',
+      createdAt: new Date().toISOString()
+    };
+
+    const nextList = [transferRecord, ...transfersHistory];
+    setTransfersHistory(nextList);
+    scheduleStorageWrite('hk360_stock_transfers', nextList);
+
     if (onConfirmTransfer) {
-      onConfirmTransfer({
-        challanNo,
-        fromBranch,
-        toBranch,
-        driverName: driverName.trim(),
-        vehicleNo: vehicleNo.trim(),
-        transferDate,
-        items,
-        notes: notes.trim(),
-        totalItemsCount: items.reduce((sum, i) => sum + i.qty, 0),
-        status: 'in_transit'
-      });
+      onConfirmTransfer(transferRecord);
     }
     onClose();
+  };
+
+  const handleAcknowledgeReceive = (challanId) => {
+    soundService.playSuccessChime();
+    const updated = transfersHistory.map(tr => {
+      if (tr.challanNo === challanId) {
+        return { ...tr, status: 'received', receivedAt: new Date().toISOString() };
+      }
+      return tr;
+    });
+    setTransfersHistory(updated);
+    scheduleStorageWrite('hk360_stock_transfers', updated);
   };
 
   const availableProducts = products.filter((p) => (Number(p.stock) || 0) > 0);
@@ -196,8 +239,46 @@ export const StockTransferModal = ({
           </button>
         </div>
 
-        {/* Form Body */}
-        <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Sub-Tabs: New Challan vs In-Transit History */}
+        <div style={{ display: 'flex', gap: '8px', padding: '10px 24px 0', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('new')}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderBottom: activeTab === 'new' ? '2px solid #0284c7' : '2px solid transparent',
+              background: 'transparent',
+              color: activeTab === 'new' ? '#38bdf8' : '#94a3b8',
+              fontWeight: 800,
+              fontSize: '0.84rem',
+              cursor: 'pointer'
+            }}
+          >
+            🚚 {lang === 'bn' ? 'নতুন চালান তৈরি' : 'New Transfer'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderBottom: activeTab === 'history' ? '2px solid #0284c7' : '2px solid transparent',
+              background: 'transparent',
+              color: activeTab === 'history' ? '#38bdf8' : '#94a3b8',
+              fontWeight: 800,
+              fontSize: '0.84rem',
+              cursor: 'pointer'
+            }}
+          >
+            📋 {lang === 'bn' ? `ট্রানজিট ও চালান হিস্ট্রি (${transfersHistory.length})` : `In-Transit Logs (${transfersHistory.length})`}
+          </button>
+        </div>
+
+        {activeTab === 'new' ? (
+          <>
+            {/* Form Body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Branch Transfer Route Box */}
           <div
             style={{
@@ -465,6 +546,113 @@ export const StockTransferModal = ({
             </button>
           </div>
         </div>
+        </>
+      ) : (
+        /* HISTORY TAB */
+        <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {transfersHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748b' }}>
+              <Truck size={36} style={{ opacity: 0.4, marginBottom: '8px' }} />
+              <div>কোনো পূর্ববর্তী চালান পাওয়া যায়নি।</div>
+            </div>
+          ) : (
+            transfersHistory.map(tr => {
+              const isReceived = tr.status === 'received';
+              return (
+                <div
+                  key={tr.challanNo}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', fontFamily: 'monospace' }}>
+                        #{tr.challanNo}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          background: isReceived ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+                          color: isReceived ? '#10b981' : '#38bdf8',
+                          border: `1px solid ${isReceived ? '#10b981' : '#38bdf8'}40`
+                        }}
+                      >
+                        {isReceived ? '✓ গন্তব্যে প্রাপ্ত (Received)' : '🚚 মাঝপথে আছে (In-Transit)'}
+                      </span>
+                    </div>
+
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      {tr.transferDate}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#94a3b8' }}>
+                    <span>উৎস: <strong>{tr.fromBranch}</strong></span>
+                    <ArrowRight size={13} style={{ color: '#0284c7' }} />
+                    <span>গন্তব্য: <strong>{tr.toBranch}</strong></span>
+                    {tr.driverName && <span style={{ marginLeft: '10px' }}>চালক: {tr.driverName} ({tr.vehicleNo || 'যানবাহন'})</span>}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
+                      আইটেম: <strong>{tr.totalItemsCount || (tr.items || []).reduce((s, i) => s + i.qty, 0)}টি</strong> ({ (tr.items || []).map(i => `${i.name} (${i.qty}টি)`).join(', ') })
+                    </span>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {!isReceived && (
+                        <button
+                          type="button"
+                          onClick={() => handleAcknowledgeReceive(tr.challanNo)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(16, 185, 129, 0.2)',
+                            border: '1px solid #10b981',
+                            color: '#10b981',
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✓ পণ্য বুঝে পেলাম
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: 'none',
+                          color: '#f8fafc',
+                          fontSize: '0.74rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <Printer size={13} /> প্রিন্ট
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
       </div>
     </div>
   );

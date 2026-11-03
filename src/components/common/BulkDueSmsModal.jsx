@@ -11,9 +11,17 @@ import {
   ExternalLink,
   Phone,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Settings,
+  Zap
 } from 'lucide-react';
 import { hapticFeedback } from '../../services/nativeAppService';
+import {
+  getSmsGatewayConfig,
+  saveSmsGatewayConfig,
+  sendBulkPersonalizedGatewaySms,
+  SMS_PROVIDERS
+} from '../../services/smsGatewayService';
 
 export const BulkDueSmsModal = ({
   isOpen,
@@ -72,6 +80,69 @@ export const BulkDueSmsModal = ({
       ? `সম্মানিত গ্রাহক, [দোকান]-এ আপনার বকেয়া [টাকা] টাকা। অনুগ্রহ করে দ্রুত পরিশোধের বিনীত অনুরোধ রইল।`
       : `Dear customer, your due at [store] is BDT [amount]. Kindly clear at your earliest convenience.`
   );
+
+  const [showGatewayConfig, setShowGatewayConfig] = useState(false);
+  const [gatewayConfig, setGatewayConfig] = useState(getSmsGatewayConfig);
+  const [isSendingGateway, setIsSendingGateway] = useState(false);
+  const [gatewayProgress, setGatewayProgress] = useState(null);
+
+  const handleSaveConfig = () => {
+    saveSmsGatewayConfig(gatewayConfig);
+    setShowGatewayConfig(false);
+    showToast?.(lang === 'bn' ? '✓ এসএমএস গেটওয়ে সেটিংস সফলভাবে সংরক্ষিত হয়েছে!' : 'SMS Gateway settings saved!', 'success');
+  };
+
+  const handleSendGatewayBulk = async () => {
+    if (selectedDebtors.length === 0) {
+      showToast?.(lang === 'bn' ? 'অনুগ্রহ করে অন্তত একজন কাস্টমার নির্বাচন করুন' : 'Select at least one customer', 'warning');
+      return;
+    }
+
+    if (!gatewayConfig.apiKey && gatewayConfig.provider !== 'custom') {
+      setShowGatewayConfig(true);
+      showToast?.(lang === 'bn' ? 'অনুগ্রহ করে প্রথমে এসএমএস গেটওয়ে API Key সেট করুন।' : 'Please configure SMS Gateway API Key first.', 'warning');
+      return;
+    }
+
+    const payload = selectedDebtors
+      .filter(d => d.hasPhone)
+      .map(d => ({
+        phone: d.phone,
+        name: d.name,
+        message: formatMessageForDebtor(d)
+      }));
+
+    if (payload.length === 0) {
+      showToast?.(lang === 'bn' ? 'নির্বাচিত গ্রাহকদের কোনো বৈধ ফোন নম্বর নেই।' : 'No valid phone numbers found.', 'warning');
+      return;
+    }
+
+    setIsSendingGateway(true);
+    setGatewayProgress({ current: 0, total: payload.length });
+
+    try {
+      hapticFeedback.medium();
+      const results = await sendBulkPersonalizedGatewaySms({
+        recipients: payload,
+        config: gatewayConfig,
+        onProgress: (prog) => {
+          setGatewayProgress(prog);
+        }
+      });
+
+      showToast?.(
+        lang === 'bn'
+          ? `✓ মোট ${results.sent} জনের কাছে সফলভাবে স্বয়ংক্রিয় এসএমএস পাঠানো হয়েছে!`
+          : `SMS sent successfully to ${results.sent} customers!`,
+        'success'
+      );
+    } catch (err) {
+      showToast?.(err.message || 'এসএমএস পাঠাতে সমস্যা হয়েছে', 'error');
+    } finally {
+      setIsSendingGateway(false);
+      setGatewayProgress(null);
+    }
+  };
 
   const toggleSelectAll = () => {
     if (selectedIds.size === eligibleDebtors.length) {
@@ -189,15 +260,131 @@ export const BulkDueSmsModal = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={onClose}
-            style={{ borderRadius: '50%', background: 'var(--bg-secondary)' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => setShowGatewayConfig(!showGatewayConfig)}
+              title={lang === 'bn' ? 'এসএমএস গেটওয়ে সেটিংস (GreenWeb / BulkSMSBD)' : 'SMS Gateway Settings'}
+              style={{
+                borderRadius: '8px',
+                background: showGatewayConfig ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-secondary)',
+                color: showGatewayConfig ? '#818cf8' : 'var(--text-muted)'
+              }}
+            >
+              <Settings size={18} />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={onClose}
+              style={{ borderRadius: '50%', background: 'var(--bg-secondary)' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* SMS Gateway Settings Panel (Collapsible) */}
+        {showGatewayConfig && (
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '12px',
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              marginBottom: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--business-primary)' }}>
+                ⚙️ এসএমএস গেটওয়ে সেটিংস (Automated SMS API)
+              </span>
+              <button
+                type="button"
+                onClick={handleSaveConfig}
+                style={{
+                  background: 'var(--business-primary)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                সংরক্ষণ করুন
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>প্রোভাইডার:</label>
+                <select
+                  value={gatewayConfig.provider}
+                  onChange={(e) => setGatewayConfig({ ...gatewayConfig, provider: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '12px'
+                  }}
+                >
+                  {SMS_PROVIDERS.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>সেন্ডার আইডি / মাস্কিং:</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 8809612... বা Non-Masking"
+                  value={gatewayConfig.senderId || ''}
+                  onChange={(e) => setGatewayConfig({ ...gatewayConfig, senderId: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '12px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>API Token / Key:</label>
+              <input
+                type="password"
+                placeholder="GreenWeb Token বা BulkSMSBD API Key"
+                value={gatewayConfig.apiKey || ''}
+                onChange={(e) => setGatewayConfig({ ...gatewayConfig, apiKey: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '12px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Stats Highlight Bar */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
@@ -385,13 +572,33 @@ export const BulkDueSmsModal = ({
           </div>
         </div>
 
+        {/* Gateway Send Progress Bar */}
+        {gatewayProgress && (
+          <div style={{ marginBottom: '8px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', marginBottom: '4px', fontWeight: 600 }}>
+              <span>🚀 এসএমএস পাঠানো হচ্ছে: {gatewayProgress.current} / {gatewayProgress.total}</span>
+              <span style={{ color: '#10b981' }}>সফল: {gatewayProgress.sent} | ব্যর্থ: {gatewayProgress.failed}</span>
+            </div>
+            <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${(gatewayProgress.current / gatewayProgress.total) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #6366f1, #10b981)',
+                  transition: 'width 0.2s ease'
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-secondary"
             onClick={onClose}
-            style={{ flex: 1, padding: '10px', fontWeight: '700' }}
+            style={{ flex: 1, minWidth: '90px', padding: '10px', fontWeight: '700' }}
           >
             {lang === 'bn' ? 'বাতিল' : 'Cancel'}
           </button>
@@ -400,10 +607,37 @@ export const BulkDueSmsModal = ({
             type="button"
             className="btn press-scale"
             onClick={handleSendNativeBulkSms}
-            disabled={selectedDebtors.length === 0}
+            disabled={selectedDebtors.length === 0 || isSendingGateway}
+            style={{
+              flex: 1.5,
+              minWidth: '150px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--border-color)',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: selectedDebtors.length === 0 ? 'not-allowed' : 'pointer'
+            }}
+            title="ফোনের মেসেজ অ্যাপ দিয়ে পাঠান"
+          >
+            <Send size={15} />
+            <span>{lang === 'bn' ? 'মোবাইল মেসেজ অ্যাপ' : 'Mobile SMS'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn press-scale"
+            onClick={handleSendGatewayBulk}
+            disabled={selectedDebtors.length === 0 || isSendingGateway}
             style={{
               flex: 2,
-              background: 'linear-gradient(135deg, #ef4444, #f97316)',
+              minWidth: '170px',
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
               color: '#ffffff',
               border: 'none',
               padding: '10px 16px',
@@ -413,15 +647,18 @@ export const BulkDueSmsModal = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              boxShadow: selectedDebtors.length > 0 ? '0 4px 16px rgba(239, 68, 68, 0.4)' : 'none',
-              cursor: selectedDebtors.length === 0 ? 'not-allowed' : 'pointer'
+              boxShadow: selectedDebtors.length > 0 ? '0 4px 16px rgba(99, 102, 241, 0.4)' : 'none',
+              cursor: selectedDebtors.length === 0 || isSendingGateway ? 'not-allowed' : 'pointer'
             }}
+            title="GreenWeb বা BulkSMSBD গেটওয়ে দিয়ে ১-ক্লিকে স্বয়ংক্রিয় পাঠান"
           >
-            <Send size={16} />
+            <Zap size={16} />
             <span>
-              {lang === 'bn' 
-                ? `এক-ক্লিকে এসএমএস পাঠান (${selectedDebtors.length} জন)` 
-                : `Send Bulk SMS (${selectedDebtors.length})`}
+              {isSendingGateway
+                ? (lang === 'bn' ? 'পাঠানো হচ্ছে...' : 'Sending...')
+                : (lang === 'bn'
+                    ? `🚀 অটোমেটিক গেটওয়ে দিয়ে পাঠান (${selectedDebtors.length})`
+                    : `Send via Gateway (${selectedDebtors.length})`)}
             </span>
           </button>
         </div>

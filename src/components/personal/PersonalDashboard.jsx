@@ -34,6 +34,15 @@ import RecycleBinModal from './RecycleBinModal';
 import SmartExpenseExportModal from './SmartExpenseExportModal';
 import SmartAITextImportModal from './SmartAITextImportModal';
 import SmartGroceryFolderModal from './SmartGroceryFolderModal';
+import PersonalMultiWalletModal from './PersonalMultiWalletModal';
+import PersonalNetWorthModal from './PersonalNetWorthModal';
+import { 
+  getPersonalWallets, 
+  getWalletTransfers, 
+  computeLiveWalletBalances, 
+  calculateBudgetBurnVelocity, 
+  QUICK_MICRO_PRESETS 
+} from '../../services/personalFinanceEngine';
 import { showConfirmDialog, showPromptDialog } from '../../services/dialogService';
 import { isPersonalExpenseTombstoned } from '../../services/cloudStateSyncService';
 
@@ -43,6 +52,8 @@ export const PersonalDashboard = () => {
     personalIncomes,
     personalSavings,
     personalEvents = [],
+    personalDebts = [],
+    addPersonalExpense,
     updatePersonalExpense,
     deletePersonalExpense,
     addPersonalIncome,
@@ -61,6 +72,9 @@ export const PersonalDashboard = () => {
   const [showSmartExportModal, setShowSmartExportModal] = useState(false);
   const [showAIImportModal, setShowAIImportModal] = useState(false);
   const [showGroceryModal, setShowGroceryModal] = useState(false);
+  const [showMultiWalletModal, setShowMultiWalletModal] = useState(false);
+  const [showNetWorthModal, setShowNetWorthModal] = useState(false);
+  const [walletRefreshKey, setWalletRefreshKey] = useState(0);
   const [showQuickIncomeModal, setShowQuickIncomeModal] = useState(false);
   const [quickIncomeForm, setQuickIncomeForm] = useState({
     amount: '',
@@ -209,6 +223,74 @@ export const PersonalDashboard = () => {
 
   const thisMonthNetBalance = thisMonthIncome - thisMonthTotalExpense;
   const totalAllTimeNetBalance = totalAllTimeIncome - totalAllTimeExpense;
+
+  // ----------------------------------------------------
+  // ⚡ DOMAIN 1: WALLET, NET-WORTH & VELOCITY METRICS
+  // ----------------------------------------------------
+  const personalWalletsData = useMemo(() => {
+    const rawWallets = getPersonalWallets();
+    const rawTransfers = getWalletTransfers();
+    const balances = computeLiveWalletBalances(personalIncomes, activePersonalExpenses, rawTransfers);
+    return { wallets: rawWallets, balances, transfers: rawTransfers };
+  }, [personalIncomes, activePersonalExpenses, walletRefreshKey]);
+
+  const budgetVelocityData = useMemo(() => {
+    // Standard monthly target budget (falls back to this month's income or total expense baseline)
+    const baselineBudget = thisMonthIncome > 0 ? thisMonthIncome : Math.max(10000, thisMonthTotalExpense * 1.2);
+    return calculateBudgetBurnVelocity(thisMonthExpenseList, baselineBudget, now);
+  }, [thisMonthExpenseList, thisMonthIncome, thisMonthTotalExpense, now]);
+
+  const personalNetWorthMetrics = useMemo(() => {
+    const balances = personalWalletsData.balances || {};
+    const cash = balances['wallet_cash'] || 0;
+    const bank = (balances['wallet_bank'] || 0) + (balances['wallet_card'] || 0) + (balances['wallet_bkash'] || 0) + (balances['wallet_nagad'] || 0);
+    const savings = (personalSavings || []).reduce((s, item) => s + (Number(item.currentAmount || item.amount) || 0), 0);
+    
+    // Calculate debts
+    let debtReceivable = 0;
+    let debtPayable = 0;
+    (personalDebts || []).forEach(d => {
+      const remaining = Number(d.amount || 0) - Number(d.paidAmount || 0);
+      if (remaining > 0) {
+        if (d.type === 'give' || d.type === 'receivable') {
+          debtReceivable += remaining;
+        } else {
+          debtPayable += remaining;
+        }
+      }
+    });
+
+    return { cash, bank, savings, debtReceivable, debtPayable };
+  }, [personalWalletsData.balances, personalSavings, personalDebts]);
+
+  const handleQuickMicroExpense = (preset) => {
+    if (typeof addPersonalExpense !== 'function') return;
+    const nowIso = new Date().toISOString();
+    const todayStr = toYMD(now);
+    
+    addPersonalExpense({
+      title: preset.title,
+      item: preset.title,
+      amount: preset.amount,
+      category: preset.category || 'daily',
+      type: 'daily',
+      date: todayStr,
+      time: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }),
+      paymentMethod: 'wallet_cash',
+      walletId: 'wallet_cash',
+      note: '১-ট্যাপ কুইক এন্ট্রি (Micro-Expense)',
+      createdAt: nowIso
+    });
+
+    if (showToast) {
+      showToast(
+        lang === 'bn' 
+          ? `⚡ ${preset.icon} ${preset.title} (৳${preset.amount}) খরচ ক্যাশ থেকে যুক্ত হয়েছে!` 
+          : `⚡ Added ${preset.title} (৳${preset.amount}) to Cash!`, 
+        'success'
+      );
+    }
+  };
 
   const familySharePercent = thisMonthTotalExpense > 0
     ? Math.round((thisMonthFamilyTotal / thisMonthTotalExpense) * 100)
@@ -397,6 +479,54 @@ export const PersonalDashboard = () => {
             WebkitOverflowScrolling: 'touch'
           }}
         >
+          {/* 0. Multi-Wallet Cashless Manager */}
+          <button
+            onClick={() => setShowMultiWalletModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.15))',
+              color: '#34d399',
+              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
+            }}
+          >
+            <Wallet size={15} />
+            <span>{lang === 'bn' ? '💳 মাল্টি-ওয়ালেট লেজার' : '💳 Multi-Wallet Ledger'}</span>
+          </button>
+
+          {/* 0.1 Net-Worth Solvency */}
+          <button
+            onClick={() => setShowNetWorthModal(true)}
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(234, 88, 12, 0.15))',
+              color: '#fbbf24',
+              border: '1.5px solid rgba(245, 158, 11, 0.4)',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.2)'
+            }}
+          >
+            <Coins size={15} />
+            <span>{lang === 'bn' ? '⚖️ নিট সম্পদ ও সচ্ছলতা' : '⚖️ Net-Worth Solvency'}</span>
+          </button>
+
           {/* 1. Trash (রিসাইকেল বিন) */}
           <button
             onClick={() => setShowRecycleBinModal(true)}
@@ -678,6 +808,208 @@ export const PersonalDashboard = () => {
             <ShoppingCart size={15} />
             <span>{lang === 'bn' ? 'বাজারের ফর্দ' : 'Shopping List'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* 💳 DOMAIN 1: Multi-Wallet Cashless Strip */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '12px 14px',
+          borderRadius: '16px',
+          marginBottom: '1rem',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.6))',
+          border: '1.5px solid rgba(16, 185, 129, 0.3)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Wallet size={16} />
+            </div>
+            <div>
+              <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#f1f5f9' }}>
+                {lang === 'bn' ? 'মাল্টি-ওয়ালেট ক্যাশলেস লেজার' : 'Multi-Wallet Cashless Balances'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block' }}>
+                {lang === 'bn' ? 'ক্যাশ, বিকাশ, নগদ ও ব্যাংকের রিয়েল-টাইম ব্যালেন্স' : 'Real-time multi-account tracking'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMultiWalletModal(true)}
+            style={{
+              padding: '4px 10px',
+              borderRadius: '8px',
+              background: 'rgba(16, 185, 129, 0.2)',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              fontSize: '0.72rem',
+              fontWeight: '800',
+              cursor: 'pointer'
+            }}
+          >
+            {lang === 'bn' ? '⚙️ ওয়ালেট ট্রান্সফার ও ব্যালেন্স' : '⚙️ Manage & Transfer'}
+          </button>
+        </div>
+
+        {/* Wallet Pill List */}
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+          {personalWalletsData.wallets.map((w) => {
+            const bal = (personalWalletsData.balances && personalWalletsData.balances[w.id]) || 0;
+            return (
+              <div
+                key={w.id}
+                style={{
+                  flex: '1 0 110px',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  minWidth: '105px'
+                }}
+              >
+                <div style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>{w.icon}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</span>
+                </div>
+                <div style={{ fontSize: '0.95rem', fontWeight: '800', color: bal >= 0 ? '#34d399' : '#f87171', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                  ৳{bal.toLocaleString('en-IN')}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ⚡ DOMAIN 1: Quick 1-Tap Micro-Expense Pad */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '12px 14px',
+          borderRadius: '16px',
+          marginBottom: '1rem',
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(234, 88, 12, 0.05))',
+          border: '1.5px solid rgba(245, 158, 11, 0.3)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '1rem' }}>⚡</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#fbbf24' }}>
+              {lang === 'bn' ? '১-ট্যাপ দ্রুত খরচ এন্ট্রি (Micro-Expense Pad):' : '1-Tap Micro-Expense Pad:'}
+            </span>
+          </div>
+          <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+            {lang === 'bn' ? 'ক্যাশ থেকে সরাসরি যুক্ত হয়' : 'Auto-deducts from cash'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '3px', scrollbarWidth: 'none' }}>
+          {QUICK_MICRO_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => handleQuickMicroExpense(preset)}
+              className="press-scale"
+              style={{
+                flex: '0 0 auto',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 12px',
+                borderRadius: '10px',
+                background: 'rgba(15, 23, 42, 0.9)',
+                color: '#f8fafc',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                fontSize: '0.76rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span>{preset.icon}</span>
+              <span>{preset.title}</span>
+              <span style={{ color: '#fbbf24', fontWeight: '900', background: 'rgba(245, 158, 11, 0.15)', padding: '1px 5px', borderRadius: '6px' }}>
+                ৳{preset.amount}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 🚀 DOMAIN 1: Smart AI Budget Velocity & Runaway Predictor */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '14px 16px',
+          borderRadius: '16px',
+          marginBottom: '1.25rem',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.08))',
+          border: '1.5px solid rgba(99, 102, 241, 0.35)',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.15)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.25)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={16} />
+            </div>
+            <div>
+              <span style={{ fontSize: '0.84rem', fontWeight: '800', color: '#e0e7ff' }}>
+                {lang === 'bn' ? 'স্মার্ট এআই বাজেট ভেলোসিটি ও পূর্বাভাস (Velocity Predictor)' : 'Smart AI Budget Velocity & Forecast'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: '#a5b4fc', display: 'block' }}>
+                {lang === 'bn' 
+                  ? `মাসের বাকি ${budgetVelocityData.remainingDaysInMonth} দিন এই গতিতে চললে মাস শেষে আনুমানিক খরচ হবে ৳${Math.round(budgetVelocityData.projectedMonthEndExpense).toLocaleString('en-IN')}`
+                  : `At current burn rate, projected month end is BDT ${Math.round(budgetVelocityData.projectedMonthEndExpense).toLocaleString()}`}
+              </span>
+            </div>
+          </div>
+          <span 
+            style={{ 
+              padding: '3px 8px', 
+              borderRadius: '6px', 
+              fontSize: '0.7rem', 
+              fontWeight: '800',
+              background: budgetVelocityData.riskLevel === 'critical' ? 'rgba(239, 68, 68, 0.2)' : budgetVelocityData.riskLevel === 'warning' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+              color: budgetVelocityData.riskLevel === 'critical' ? '#f87171' : budgetVelocityData.riskLevel === 'warning' ? '#fbbf24' : '#34d399',
+              border: `1px solid ${budgetVelocityData.riskLevel === 'critical' ? 'rgba(239, 68, 68, 0.4)' : budgetVelocityData.riskLevel === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`
+            }}
+          >
+            {budgetVelocityData.riskLevel === 'critical' ? '⚠️ অতিমাত্রায় বেশি খরচ' : budgetVelocityData.riskLevel === 'warning' ? '⚡ সতর্ক খরচ সীমা' : '✅ স্বাভাবিক নিয়ন্ত্রণ'}
+          </span>
+        </div>
+
+        {/* 4 Velocity Stat Badges */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+          <div style={{ background: 'rgba(15, 23, 42, 0.7)', borderRadius: '10px', padding: '8px 10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>দৈনিক বর্তমান বার্ন-রেট</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#f8fafc', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              ৳{Math.round(budgetVelocityData.dailyBurnRate).toLocaleString('en-IN')}/দিন
+            </div>
+          </div>
+          <div style={{ background: 'rgba(15, 23, 42, 0.7)', borderRadius: '10px', padding: '8px 10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>বাকি দিনের অনুমোদিত বার্ন</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#38bdf8', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              ৳{Math.round(budgetVelocityData.suggestedDailyBurn).toLocaleString('en-IN')}/দিন
+            </div>
+          </div>
+          <div style={{ background: 'rgba(15, 23, 42, 0.7)', borderRadius: '10px', padding: '8px 10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>বাকি দিন টিকে থাকার রানওয়ে</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '800', color: budgetVelocityData.runwayDaysRemaining < 10 ? '#f87171' : '#34d399', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              {budgetVelocityData.runwayDaysRemaining} দিন
+            </div>
+          </div>
+          <div style={{ background: 'rgba(15, 23, 42, 0.7)', borderRadius: '10px', padding: '8px 10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>বাজেট ব্যবহার শতাংশ</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '800', color: budgetVelocityData.budgetUtilizationPct > 100 ? '#f87171' : '#fbbf24', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              {budgetVelocityData.budgetUtilizationPct}%
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1286,6 +1618,27 @@ export const PersonalDashboard = () => {
       <SmartGroceryFolderModal
         isOpen={showGroceryModal}
         onClose={() => setShowGroceryModal(false)}
+      />
+
+      {/* 💳 DOMAIN 1: Multi-Wallet Cashless Manager Modal */}
+      <PersonalMultiWalletModal
+        isOpen={showMultiWalletModal}
+        onClose={() => setShowMultiWalletModal(false)}
+        incomes={personalIncomes}
+        expenses={activePersonalExpenses}
+        onWalletsChanged={() => setWalletRefreshKey(k => k + 1)}
+      />
+
+      {/* ⚖️ DOMAIN 1: Personal Net-Worth Solvency Modal */}
+      <PersonalNetWorthModal
+        isOpen={showNetWorthModal}
+        onClose={() => setShowNetWorthModal(false)}
+        liquidCash={personalNetWorthMetrics.cash}
+        bankBalances={personalNetWorthMetrics.bank}
+        savingsDeposit={personalNetWorthMetrics.savings}
+        personalDebtsReceivable={personalNetWorthMetrics.debtReceivable}
+        personalDebtsPayable={personalNetWorthMetrics.debtPayable}
+        loansPayable={0}
       />
 
       {/* 💵 Quick Monthly Income Entry Modal (Requirement 12) */}

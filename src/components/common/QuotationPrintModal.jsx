@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Printer, X, FileCheck, ArrowRight, ShieldCheck, QrCode } from 'lucide-react';
+import { Printer, X, FileCheck, ArrowRight, ShieldCheck, QrCode, Download } from 'lucide-react';
 import { printElement } from '../../services/printService';
 import { generateQrDataUrl, createInvoiceVerificationUrl } from '../../services/qrService';
+import { downloadDocumentPdf } from '../../services/pdfGeneratorService';
 
 export const QuotationPrintModal = () => {
   const {
@@ -35,11 +36,29 @@ export const QuotationPrintModal = () => {
     }
   }, [quote, businessSettings]);
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   const handlePrint = () => {
     printElement('printable-a4-quotation', {
       title: `Quotation #${quote.id}`,
       paperType: 'a4'
     });
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      await downloadDocumentPdf({
+        elementId: 'printable-a4-quotation',
+        fileName: `Quotation-${quote?.id || 'QUOTE'}.pdf`,
+        docType: 'quotation',
+        docNumber: String(quote?.id || '001')
+      });
+    } catch (e) {
+      console.error('Quotation PDF error:', e);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleConvert = () => {
@@ -96,6 +115,25 @@ export const QuotationPrintModal = () => {
                 <span>{lang === 'bn' ? 'ইনভয়েসে রূপান্তর করুন' : 'Convert to Invoice'}</span>
               </button>
             )}
+            <button
+              className="btn btn-primary"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 2px 8px rgba(14, 165, 233, 0.35)'
+              }}
+              title={lang === 'bn' ? 'অফিসিয়াল PDF ফাইল সরাসরি ডাউনলোড করুন' : 'Download Official PDF'}
+            >
+              <Download size={16} />
+              <span>{isGeneratingPdf ? (lang === 'bn' ? 'PDF তৈরি হচ্ছে...' : 'Generating...') : (lang === 'bn' ? '📄 PDF ডাউনলোড' : 'Download PDF')}</span>
+            </button>
+
             <button
               className="btn btn-primary"
               onClick={handlePrint}

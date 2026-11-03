@@ -22,6 +22,7 @@ export const AdaptivePosSwitcherBar = ({
   onSwitchEngine,
   activeIndustryId,
   onOpenTemplateManager,
+  onOpenVerticalsHub,
   onBackToDashboard
 }) => {
   const { lang, MASTER_INDUSTRY_TEMPLATES = [], setActiveIndustryId, showToast } = useApp();
@@ -388,7 +389,38 @@ export const AdaptivePosSwitcherBar = ({
                 {activeEngine === 'retail' && <Check size={14} style={{ color: 'var(--business-primary)' }} />}
               </button>
 
-              {/* 4. Open 100+ Template Customizer */}
+              {/* 4. Open Specialized Verticals Hub (Domain 5) */}
+              {onOpenVerticalsHub && (
+                <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSwitchDropdown(false);
+                      onOpenVerticalsHub();
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      color: '#10b981',
+                      fontWeight: '800',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <Sparkles size={14} style={{ color: '#10b981' }} />
+                    <span>{lang === 'bn' ? '🚀 বিশেষায়িত ইন্ডাস্ট্রি হাব (Verticals Hub)' : '🚀 Specialized Verticals Hub'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 5. Open 100+ Template Customizer */}
               {onOpenTemplateManager && (
                 <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '4px' }}>
                   <button

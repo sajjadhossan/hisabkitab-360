@@ -5620,9 +5620,9 @@ ${samityTitle}
           box-shadow: ${isLight ? "0 4px 14px rgba(0,0,0,0.03)" : "0 8px 24px rgba(0,0,0,0.35)"};
         }
         
-        /* Tier 1: Executive Brand Identity & Primary Operations CTA Deck */
+        /* Tier 1: Executive Brand Identity & Primary Operations CTA Deck (Notch / Safe-Area Protected) */
         .samity-hub-tier1 {
-          padding: 10px 16px;
+          padding: max(12px, env(safe-area-inset-top, 12px)) max(16px, env(safe-area-inset-right, 16px)) 10px max(16px, env(safe-area-inset-left, 16px));
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -5633,7 +5633,7 @@ ${samityTitle}
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 22px;
+            padding: max(12px, env(safe-area-inset-top, 12px)) 22px 12px 22px;
           }
         }
         

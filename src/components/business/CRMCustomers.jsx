@@ -25,21 +25,25 @@ import {
   Download,
   MessageCircle,
   Image as ImageIcon,
-  Gift
+  Gift,
+  Send
 } from 'lucide-react';
 import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { triggerSoundboxPayment } from '../../services/soundboxService';
 import { DueReminderModal } from '../common/DueReminderModal';
 import { exportCustomersToCSV } from '../../services/exportService';
+import { computeCustomerDebtAging, AGING_BUCKETS } from '../../services/debtAgingService';
+import { BulkDueSmsModal } from '../common/BulkDueSmsModal';
 
 export const CRMCustomers = () => {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, collectDue, t, lang, businessSettings, showToast } = useApp();
+  const { customers, invoices = [], addCustomer, updateCustomer, deleteCustomer, collectDue, t, lang, businessSettings, showToast } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [filterDueOnly, setFilterDueOnly] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedAgingBucket, setSelectedAgingBucket] = useState(null);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -48,6 +52,7 @@ export const CRMCustomers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [collectionAmount, setCollectionAmount] = useState('');
   const [reminderCustomer, setReminderCustomer] = useState(null);
+  const [showBulkSmsModal, setShowBulkSmsModal] = useState(false);
 
   // Form State for Add / Edit
   const [editingCustomerId, setEditingCustomerId] = useState(null);
@@ -74,6 +79,11 @@ export const CRMCustomers = () => {
   const totalMarketDue = useMemo(() => customers.reduce((sum, c) => sum + (Number(c.outstandingDue) || 0), 0), [customers]);
   const customersWithDue = useMemo(() => customers.filter(c => (Number(c.outstandingDue) || 0) > 0).length, [customers]);
 
+  // Debt Aging Matrix Analysis
+  const debtAgingReport = useMemo(() => {
+    return computeCustomerDebtAging(customers, invoices);
+  }, [customers, invoices]);
+
   const filteredCustomers = useMemo(() => {
     const q = deferredSearchTerm.trim().toLowerCase();
     return customers.filter(c => {
@@ -89,9 +99,24 @@ export const CRMCustomers = () => {
       if (!matchesDue) return false;
 
       const matchesType = selectedType === 'all' || (c.customerType && c.customerType.includes(selectedType));
-      return matchesType;
+      if (!matchesType) return false;
+
+      if (selectedAgingBucket) {
+        const agingData = debtAgingReport.customerAgingMap.get(c.id);
+        if (!agingData) return false;
+        const bucketKey = selectedAgingBucket === '0_30'
+          ? 'bucket_0_30'
+          : selectedAgingBucket === '31_60'
+            ? 'bucket_31_60'
+            : selectedAgingBucket === '61_90'
+              ? 'bucket_61_90'
+              : 'bucket_90_plus';
+        if ((agingData.breakdown[bucketKey] || 0) <= 0) return false;
+      }
+
+      return true;
     });
-  }, [customers, deferredSearchTerm, filterDueOnly, selectedType]);
+  }, [customers, deferredSearchTerm, filterDueOnly, selectedType, selectedAgingBucket, debtAgingReport]);
 
   // Handle file uploads into base64 for instant preview & persistence
   const handleFileUpload = (field, file) => {
@@ -241,6 +266,25 @@ export const CRMCustomers = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {/* ⚡ DOMAIN 4 (Tip 205): Bulk Due SMS Dispatcher */}
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowBulkSmsModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: '800',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(249, 115, 22, 0.12))',
+              borderColor: 'rgba(239, 68, 68, 0.35)',
+              color: '#ef4444'
+            }}
+            title={lang === 'bn' ? 'সকল বাকি কাস্টমারকে এক ক্লিকে বকেয়া তাগাদা এসএমএস পাঠান' : 'Send Bulk Due SMS to all debtors'}
+          >
+            <Send size={15} style={{ color: '#ef4444' }} />
+            <span>{lang === 'bn' ? '📢 বাল্ক বাকি তাগাদা এসএমএস' : '📢 Bulk Due SMS'}</span>
+          </button>
+
           <button
             className="btn btn-secondary"
             onClick={() => exportCustomersToCSV(customers, lang)}
@@ -301,6 +345,123 @@ export const CRMCustomers = () => {
               {lang === 'bn' ? 'NID / ট্রেড লাইসেন্স সংযুক্ত' : 'NID & Trade License attached'}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Customer Debt Aging Matrix (বয়সভিত্তিক বকেয়া বিশ্লেষণ) */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '1rem',
+          marginBottom: '1.25rem',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color)',
+          background: 'var(--bg-secondary)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1rem' }}>⏱️</span>
+            <div>
+              <span style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                {lang === 'bn' ? 'কাস্টমার বকেয়া বয়স বিশ্লেষণ (Debt Aging Matrix)' : 'Customer Debt Aging Matrix'}
+              </span>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block' }}>
+                {lang === 'bn' ? 'বকেয়া কত দিনের পুরোনো তা দেখে দ্রুত রিকভারি তাগাদা দিন (কার্ডে ক্লিক করে ফিল্টার করুন)' : 'Filter customers by debt maturity age'}
+              </span>
+            </div>
+          </div>
+          {selectedAgingBucket && (
+            <button
+              type="button"
+              onClick={() => setSelectedAgingBucket(null)}
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              ✕ {lang === 'bn' ? 'ফিল্টার মুছুন' : 'Clear Aging Filter'}
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+          {[
+            {
+              id: '0_30',
+              label: lang === 'bn' ? '০-৩০ দিন' : '0-30 Days',
+              sub: lang === 'bn' ? 'চলতি / নিরাপদ' : 'Current',
+              amount: debtAgingReport.summary.bucket_0_30,
+              count: debtAgingReport.summary.customerCount_0_30,
+              color: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.08)'
+            },
+            {
+              id: '31_60',
+              label: lang === 'bn' ? '৩১-৬০ দিন' : '31-60 Days',
+              sub: lang === 'bn' ? 'তাগাদা / সতর্কতা' : 'Notice',
+              amount: debtAgingReport.summary.bucket_31_60,
+              count: debtAgingReport.summary.customerCount_31_60,
+              color: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.08)'
+            },
+            {
+              id: '61_90',
+              label: lang === 'bn' ? '৬১-৯০ দিন' : '61-90 Days',
+              sub: lang === 'bn' ? 'উচ্চ ঝুঁকিপূর্ণ' : 'High Risk',
+              amount: debtAgingReport.summary.bucket_61_90,
+              count: debtAgingReport.summary.customerCount_61_90,
+              color: '#ea580c',
+              bg: 'rgba(234, 88, 12, 0.08)'
+            },
+            {
+              id: '90_plus',
+              label: lang === 'bn' ? '৯০+ দিন' : '90+ Days',
+              sub: lang === 'bn' ? 'খেলাপি / ক্রিটিক্যাল' : 'Bad Debt',
+              amount: debtAgingReport.summary.bucket_90_plus,
+              count: debtAgingReport.summary.customerCount_90_plus,
+              color: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.08)'
+            }
+          ].map(bucket => {
+            const isSelected = selectedAgingBucket === bucket.id;
+            return (
+              <div
+                key={bucket.id}
+                onClick={() => setSelectedAgingBucket(isSelected ? null : bucket.id)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  background: isSelected ? bucket.bg : 'var(--bg-primary)',
+                  border: isSelected ? `2px solid ${bucket.color}` : '1px solid var(--border-color)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? `0 4px 12px ${bucket.color}30` : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '800', color: bucket.color }}>
+                    {bucket.label}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    {bucket.sub}
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: bucket.amount > 0 ? bucket.color : 'var(--text-muted)', marginTop: '4px' }}>
+                  ৳{bucket.amount.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {bucket.count} {lang === 'bn' ? 'জন কাস্টমার' : 'customers'}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -502,16 +663,30 @@ export const CRMCustomers = () => {
                       <div style={{ marginTop: '3px' }}>
                         {!hasDue ? (
                           <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
-                            🟢 বিশ্বস্ত
-                          </span>
-                        ) : Number(cust.outstandingDue) > (Number(cust.creditLimit) || 20000) * 0.7 ? (
-                          <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>
-                            🔴 উচ্চ ঝুঁকি
+                            🟢 পরিশোধিত
                           </span>
                         ) : (
-                          <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
-                            🟡 মধ্যম ঝুঁকি
-                          </span>
+                          (() => {
+                            const aging = debtAgingReport.customerAgingMap.get(cust.id);
+                            const bucket = aging?.primaryBucket || AGING_BUCKETS.CURRENT;
+                            return (
+                              <span
+                                style={{
+                                  fontSize: '0.64rem',
+                                  fontWeight: '800',
+                                  padding: '1px 6px',
+                                  borderRadius: '6px',
+                                  background: bucket.bg,
+                                  color: bucket.color,
+                                  border: `1px solid ${bucket.color}40`,
+                                  display: 'inline-block'
+                                }}
+                                title={`সর্বোচ্চ বকেয়া বয়স: ${aging?.maxDaysOverdue || 0} দিন`}
+                              >
+                                {bucket.badge} {bucket.label.split(' ')[0]} ({aging?.maxDaysOverdue || 0} দিন)
+                              </span>
+                            );
+                          })()
                         )}
                       </div>
                     </td>
@@ -1185,6 +1360,16 @@ export const CRMCustomers = () => {
         isOpen={Boolean(reminderCustomer)}
         onClose={() => setReminderCustomer(null)}
         customer={reminderCustomer}
+        businessSettings={businessSettings}
+        lang={lang}
+        showToast={showToast}
+      />
+
+      {/* ⚡ DOMAIN 4 (Tip 205): BULK DUE SMS DISPATCHER MODAL */}
+      <BulkDueSmsModal
+        isOpen={showBulkSmsModal}
+        onClose={() => setShowBulkSmsModal(false)}
+        customers={customers}
         businessSettings={businessSettings}
         lang={lang}
         showToast={showToast}

@@ -88,6 +88,8 @@ import { APP_VERSION_NAME, APP_DISPLAY_BADGE } from '../../config/version';
 import { MultiCartHoldTabs } from '../pos/MultiCartHoldTabs';
 import { QuickDiscountAndCouponModal } from '../pos/QuickDiscountAndCouponModal';
 import { FastVariantBatchModal } from '../pos/FastVariantBatchModal';
+import { FastFavoriteProductGrid } from '../pos/FastFavoriteProductGrid';
+import { SpecializedVerticalsHubModal } from '../verticals/SpecializedVerticalsHubModal';
 import { DeliveryCourierModal } from '../pos/DeliveryCourierModal';
 import { SupervisorAuthModal } from '../pos/SupervisorAuthModal';
 import { KitchenOrderTokenDisplay } from '../pos/KitchenOrderTokenDisplay';
@@ -808,7 +810,17 @@ export const POSTerminal = () => {
   const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
   const [showThermalLabelModal, setShowThermalLabelModal] = useState(false);
   const [showScaleModal, setShowScaleModal] = useState(false);
+  const [showVerticalsHubModal, setShowVerticalsHubModal] = useState(false);
   const [pendingSplitPayments, setPendingSplitPayments] = useState(null);
+
+  // ⚡ DOMAIN 2 (Tip 55): Smart Round-off Mode ('none' | 'nearest_1' | 'nearest_5')
+  const [smartRoundingMode, setSmartRoundingMode] = useState(() => {
+    try {
+      return localStorage.getItem('hk360_pos_smart_rounding') || 'nearest_1';
+    } catch {
+      return 'nearest_1';
+    }
+  });
 
   const [heldCartsCount, setHeldCartsCount] = useState(() => {
     try {
@@ -1266,6 +1278,7 @@ export const POSTerminal = () => {
             );
           } else if (!isInputFocused) {
             e.preventDefault();
+            playWarningTone();
             showToast(
               lang === 'bn'
                 ? `বারকোড (${cleanCode}) দিয়ে কোনো পণ্য মেলেনি`
@@ -1308,7 +1321,19 @@ export const POSTerminal = () => {
   const courierFee = courierDispatchData?.deliveryCharge ? Number(courierDispatchData.deliveryCharge) : 0;
   const taxableAmount = Math.max(0, subtotal - discount);
   const vat = Math.round(taxableAmount * (businessSettings.vatRate / 100));
-  const grandTotal = taxableAmount + vat + courierFee;
+  const rawGrandTotal = taxableAmount + vat + courierFee;
+
+  // ⚡ DOMAIN 2 (Tip 55): Smart Auto-Rounding
+  const grandTotal = useMemo(() => {
+    if (smartRoundingMode === 'nearest_5') {
+      return Math.round(rawGrandTotal / 5) * 5;
+    }
+    if (smartRoundingMode === 'nearest_1') {
+      return Math.round(rawGrandTotal);
+    }
+    return rawGrandTotal;
+  }, [rawGrandTotal, smartRoundingMode]);
+  const roundingAdjustment = grandTotal - rawGrandTotal;
 
   // Live Gross Profit & Margin (Item 73)
   const liveGrossProfit = Math.max(0, taxableAmount - totalCartCost);
@@ -1850,6 +1875,7 @@ export const POSTerminal = () => {
         onSwitchEngine={handleSwitchPosEngine}
         activeIndustryId={activeIndustryId}
         onOpenTemplateManager={() => setShowTemplateReviewModal(true)}
+        onOpenVerticalsHub={() => setShowVerticalsHubModal(true)}
         onBackToDashboard={() => setActiveTab('dashboard')}
       />
 
@@ -4458,6 +4484,14 @@ export const POSTerminal = () => {
           )}
         </div>
 
+        {/* ⚡ DOMAIN 2: Fast Favorites Quick Grid (Tip 58) */}
+        <FastFavoriteProductGrid
+          products={products}
+          onAddToCart={addToCart}
+          lang={lang}
+          maxItems={10}
+        />
+
         {/* Product Catalog Header Strip & View Switcher (Matching Reference Screenshot) */}
         <div style={{
           display: 'flex',
@@ -5043,6 +5077,39 @@ export const POSTerminal = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-muted)' }}>
             <span>{t.business.vatTax} ({businessSettings.vatRate}%)</span>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>+৳{vat.toLocaleString()}</span>
+          </div>
+
+          {/* ⚡ DOMAIN 2 (Tip 55): Smart Auto-Rounding & Difference Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>🪙 রাউন্ড-অফ (Smart Rounding):</span>
+              <select
+                value={smartRoundingMode}
+                onChange={(e) => {
+                  const m = e.target.value;
+                  setSmartRoundingMode(m);
+                  try { localStorage.setItem('hk360_pos_smart_rounding', m); } catch {}
+                }}
+                style={{
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-main)',
+                  borderRadius: '4px',
+                  padding: '1px 4px',
+                  fontSize: '0.68rem',
+                  fontWeight: 700
+                }}
+              >
+                <option value="nearest_1">নিকটতম ১ টাকা</option>
+                <option value="nearest_5">নিকটতম ৫ টাকা</option>
+                <option value="none">কোনোটি নয়</option>
+              </select>
+            </span>
+            {roundingAdjustment !== 0 && (
+              <span style={{ fontFamily: 'var(--font-mono)', color: roundingAdjustment > 0 ? '#10b981' : '#f59e0b', fontWeight: 800 }}>
+                {roundingAdjustment > 0 ? `+৳${roundingAdjustment.toFixed(2)}` : `-৳${Math.abs(roundingAdjustment).toFixed(2)}`}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem', fontWeight: '800', borderTop: '1px dashed var(--border-color)', paddingTop: '6px', marginBottom: '10px' }}>
@@ -6202,6 +6269,13 @@ export const POSTerminal = () => {
           </div>
         </div>
       )}
+
+      {/* 🚀 DOMAIN 5 (Tip 251-285): SPECIALIZED VERTICALS HUB MODAL */}
+      <SpecializedVerticalsHubModal
+        isOpen={showVerticalsHubModal}
+        onClose={() => setShowVerticalsHubModal(false)}
+        lang={lang}
+      />
 
       {/* STAFF QR ATTENDANCE MODAL FOR CASHIERS & COUNTER OPERATORS */}
       {showAttendanceQrModal && (

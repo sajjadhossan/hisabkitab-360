@@ -39,6 +39,7 @@ import {
   sendTelegramTransactionNotification
 } from '../services/telegramBackupService';
 import { kickCashDrawer } from '../services/printService';
+import { playScanBeep as playScanSound, playWarningTone as playWarningSound } from '../services/soundFeedback';
 import {
   MASTER_INDUSTRY_TEMPLATES,
   INDUSTRY_SECTORS,
@@ -71,7 +72,7 @@ import { showUndoToast } from '../components/common/UndoNotificationToast';
 import { enqueueOfflineAction } from '../utils/syncQueue';
 import { notifyLowStockAlert, notifySaleCompleted } from '../services/localNotificationService';
 import { submitPosSaleToCloud } from '../services/supabaseBackendService';
-import { idbGet, idbSet, idbBulkSet } from '../utils/idbStorage';
+import { idbGet, idbSet, idbBulkSet, getStorageQuotaMetrics } from '../utils/idbStorage';
 import {
   initLiveSyncChannel,
   subscribeLiveSync,
@@ -1438,12 +1439,15 @@ export const AppProvider = ({ children }) => {
         // Client accounts hydrate strictly from their tenant-scoped IndexedDB keys
         if (!isMaster) {
           if (!activeTenant || activeTenant === 'tenant_guest') return;
-          const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts] = await Promise.all([
+          const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts, idbSuppliers, idbEmployees, idbTransfers] = await Promise.all([
             idbGet(`products_data_${activeTenant}`),
             idbGet(`sales_history_${activeTenant}`),
             idbGet(`invoices_${activeTenant}`),
             idbGet(`customers_data_${activeTenant}`),
-            idbGet(`debts_${activeTenant}`)
+            idbGet(`debts_${activeTenant}`),
+            idbGet(`suppliers_data_${activeTenant}`),
+            idbGet(`employees_data_${activeTenant}`),
+            idbGet(`transfers_${activeTenant}`)
           ]);
           if (!isMounted) return;
           if (Array.isArray(idbProducts) && idbProducts.length > 0) setProducts(idbProducts);
@@ -1451,16 +1455,20 @@ export const AppProvider = ({ children }) => {
           if (Array.isArray(idbInvoices) && idbInvoices.length > 0) setInvoices(idbInvoices.filter(i => !isInvoiceTombstoned(i.id)));
           if (Array.isArray(idbCustomers) && idbCustomers.length > 0) setCustomers(idbCustomers);
           if (Array.isArray(idbDebts) && idbDebts.length > 0) setBusinessDebts(idbDebts);
+          if (Array.isArray(idbSuppliers) && idbSuppliers.length > 0) setSuppliers(idbSuppliers);
+          if (Array.isArray(idbEmployees) && idbEmployees.length > 0) setEmployees(idbEmployees);
           return;
         }
 
         // Master account hydrates from master storage
-        const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts] = await Promise.all([
+        const [idbProducts, idbSales, idbInvoices, idbCustomers, idbDebts, idbSuppliers, idbEmployees] = await Promise.all([
           idbGet(STORAGE_KEYS.BIZ_PRODUCTS),
           idbGet(STORAGE_KEYS.BIZ_SALES),
           idbGet(STORAGE_KEYS.BIZ_INVOICES),
           idbGet(STORAGE_KEYS.BIZ_CUSTOMERS),
-          idbGet(STORAGE_KEYS.BIZ_DEBTS)
+          idbGet(STORAGE_KEYS.BIZ_DEBTS),
+          idbGet(STORAGE_KEYS.BIZ_SUPPLIERS),
+          idbGet(STORAGE_KEYS.BIZ_EMPLOYEES)
         ]);
 
         if (!isMounted) return;
@@ -1487,6 +1495,12 @@ export const AppProvider = ({ children }) => {
         }
         if (Array.isArray(idbDebts) && idbDebts.length > businessDebts.length) {
           setBusinessDebts(idbDebts);
+        }
+        if (Array.isArray(idbSuppliers) && idbSuppliers.length > suppliers.length) {
+          setSuppliers(idbSuppliers);
+        }
+        if (Array.isArray(idbEmployees) && idbEmployees.length > employees.length) {
+          setEmployees(idbEmployees);
         }
       } catch (err) {
         console.debug('[LocalFirst] Hydration complete:', err);
@@ -3349,16 +3363,20 @@ export const AppProvider = ({ children }) => {
     showToast(lang === 'bn' ? 'কর্মচারী মুছে ফেলা হয়েছে' : 'Employee deleted');
   };
 
-  const disburseSalary = (employeeId) => {
+  const disburseSalary = (employeeId, payoutDetails = {}) => {
     const emp = employees.find(e => e.id === employeeId);
     if (!emp) return;
+
+    const disbursedAmount = Number(payoutDetails.totalGrossPayable || payoutDetails.totalDisbursed || emp.baseSalary) || 0;
 
     const next = employees.map(e => {
       if (e.id === employeeId) {
         return {
           ...e,
+          ...payoutDetails,
           status: 'Paid',
-          lastDisbursed: new Date().toISOString().split('T')[0]
+          lastDisbursed: new Date().toISOString().split('T')[0],
+          lastPayoutBreakdown: payoutDetails
         };
       }
       return e;
@@ -3369,11 +3387,13 @@ export const AppProvider = ({ children }) => {
     // Also record as a business expense automatically!
     const salaryExpense = {
       id: `bex-sal-${Date.now()}`,
-      title: `${emp.name} - মাসিক বেতন (${emp.role})`,
-      amount: emp.baseSalary,
-      category: 'স্যালারি ও বেতন',
+      title: `${emp.name} - ${lang === 'bn' ? 'বেতন ও কমিশন' : 'Salary & Commission'} (${emp.role})`,
+      amount: disbursedAmount,
+      category: lang === 'bn' ? 'বেতন ও পারিশ্রমিক' : 'Salary & Wages',
       date: new Date().toISOString().split('T')[0],
-      note: `কর্মচারী আইডি: ${emp.id}`
+      note: payoutDetails.commissionEarned
+        ? `বেসিক: ৳${emp.baseSalary} + কমিশন: ৳${payoutDetails.commissionEarned} (বিক্রয়: ৳${payoutDetails.salesVolume || 0})`
+        : `কর্মী আইডি: ${emp.id}`
     };
     const nextExpenses = [salaryExpense, ...businessExpenses];
     setBusinessExpenses(nextExpenses);
@@ -3385,7 +3405,7 @@ export const AppProvider = ({ children }) => {
       businessExpenses: nextExpenses
     }, 'disburse_salary');
 
-    showToast(lang === 'bn' ? `${emp.name}-এর বেতন প্রদান সম্পন্ন হয়েছে` : `Salary disbursed for ${emp.name}`);
+    showToast(lang === 'bn' ? `${emp.name}-এর বেতন (৳${disbursedAmount.toLocaleString()}) প্রদান সম্পন্ন হয়েছে` : `Salary (৳${disbursedAmount.toLocaleString()}) disbursed for ${emp.name}`);
   };
 
   // HR & SR Field Product Orders & Delivery Status Tracking
@@ -4304,22 +4324,17 @@ export const AppProvider = ({ children }) => {
   // ----------------------------------------------------
   const playScannerBeep = () => {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        const audioCtx = new AudioCtx();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1250, audioCtx.currentTime); // crisp scanner tone
-        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.12);
-      }
+      playScanSound();
     } catch {
       // Audio might be constrained until user interaction
+    }
+  };
+
+  const playWarningTone = () => {
+    try {
+      playWarningSound();
+    } catch {
+      // Audio constrained
     }
   };
 
@@ -4386,11 +4401,18 @@ export const AppProvider = ({ children }) => {
   };
 
   const handleBarcodeScanned = (barcode) => {
-    playScannerBeep();
     const cleanCode = String(barcode).trim();
     const matched = products.find(
       p => p.barcode === cleanCode || p.sku.toLowerCase() === cleanCode.toLowerCase()
     );
+
+    if (matched) {
+      playScannerBeep();
+      showToast(lang === 'bn' ? `পণ্য স্ক্যান হয়েছে: ${matched.name}` : `Scanned: ${matched.name}`);
+    } else {
+      playWarningTone();
+      showToast(lang === 'bn' ? `বারকোড (${cleanCode}) দিয়ে কোনো পণ্য মেলেনি` : `Scanned code: ${cleanCode}`, 'warning');
+    }
 
     if (typeof scannerCallback === 'function') {
       try {
@@ -4398,12 +4420,6 @@ export const AppProvider = ({ children }) => {
       } catch (err) {
         console.warn('Scanner callback handler error:', err);
       }
-    }
-
-    if (matched) {
-      showToast(lang === 'bn' ? `পণ্য স্ক্যান হয়েছে: ${matched.name}` : `Scanned: ${matched.name}`);
-    } else {
-      showToast(lang === 'bn' ? `বারকোড স্ক্যান হয়েছে: ${cleanCode}` : `Scanned code: ${cleanCode}`, 'warning');
     }
   };
 
@@ -4925,6 +4941,7 @@ export const AppProvider = ({ children }) => {
     const getBackupIntervalMs = () => {
       const val = businessSettings.googleDriveBackupInterval || businessSettings.autoBackupInterval;
       switch (val) {
+        case '20s': return 20 * 1000;
         case '30s': return 30 * 1000;
         case '1min': return 60 * 1000;
         case '5min': return 5 * 60 * 1000;
@@ -6860,6 +6877,7 @@ ${matchedProd ? `📉 *স্টক অবশিষ্ট:* ${Math.max(0, (Numbe
         closeScanner,
         handleBarcodeScanned,
         playScannerBeep,
+        playWarningTone,
         openCashDrawer,
         playCashDrawerSound,
 

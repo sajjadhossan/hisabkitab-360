@@ -2044,9 +2044,9 @@ input:checked+.slider:before {
     font-size: 0.78rem !important;
   }
 
-  /* Navbar Mobile Layout - 2 Clean Rows with Safe Area Bounds */
+  /* Navbar Mobile Layout - 2 Clean Rows with Safe Area Bounds & Zero Clipping */
   .navbar-top-bar {
-    padding: max(6px, env(safe-area-inset-top, 6px)) max(10px, env(safe-area-inset-right, 10px)) 6px max(10px, env(safe-area-inset-left, 10px)) !important;
+    padding: max(8px, env(safe-area-inset-top, 8px)) max(12px, env(safe-area-inset-right, 12px)) 8px max(12px, env(safe-area-inset-left, 12px)) !important;
     gap: 0.35rem !important;
     display: flex !important;
     flex-wrap: wrap !important;
@@ -2055,17 +2055,15 @@ input:checked+.slider:before {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
-    overflow-x: hidden !important;
   }
 
   .navbar-brand-group {
     gap: 8px !important;
     min-width: 0 !important;
     flex-shrink: 1 !important;
-    max-width: calc(100% - 150px) !important;
+    max-width: calc(100% - 130px) !important;
     display: flex !important;
     align-items: center !important;
-    overflow: hidden !important;
   }
 
   .navbar-brand-group h1 {
@@ -3617,5 +3615,53 @@ body {
   }
   .mobile-only-cards {
     display: none !important;
+  }
+}
+
+/* ----------------------------------------------------
+ * Commercial UI Primitives & Keyframe Animations
+ * ---------------------------------------------------- */
+@keyframes shimmerPulse {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tabular-numbers {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Touch-safe minimal target on mobile devices */
+@media screen and (max-width: 640px) {
+  .touch-target-safe {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

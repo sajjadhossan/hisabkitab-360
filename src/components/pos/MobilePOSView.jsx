@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { showConfirmDialog } from '../../services/dialogService';
@@ -52,6 +52,7 @@ import { DigitalMemoShareModal } from './DigitalMemoShareModal';
 import { MobilePOSProductCard } from './MobilePOSProductCard';
 import { IndustryVariationsBar } from './IndustryVariationsBar';
 import { AdaptivePosSwitcherBar } from './AdaptivePosSwitcherBar';
+import { SplitPaymentModal } from './SplitPaymentModal';
 
 export const MobilePOSView = ({
   activePosEngine = 'retail',
@@ -152,6 +153,8 @@ export const MobilePOSView = ({
   // Quick Tools & Terminal Setup Drawer/Modal States
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showTerminalSetupModal, setShowTerminalSetupModal] = useState(false);
+  const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
+  const [pendingSplitPayments, setPendingSplitPayments] = useState(null);
   const [newCounterName, setNewCounterName] = useState('');
   const [newCounterCode, setNewCounterCode] = useState('');
   const [newCounterFloat, setNewCounterFloat] = useState('1000');
@@ -410,6 +413,27 @@ export const MobilePOSView = ({
   const visibleProducts = useMemo(() => {
     return filteredProducts.slice(0, displayLimit);
   }, [filteredProducts, displayLimit]);
+
+  // Seamless Infinite Windowing Observer: Automatically loads next chunk on scroll
+  const sentinelRef = useRef(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0] && entries[0].isIntersecting && filteredProducts.length > visibleProducts.length) {
+          setDisplayLimit((prev) => Math.min(prev + 40, filteredProducts.length));
+        }
+      },
+      { root: null, rootMargin: '350px', threshold: 0.05 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredProducts.length, visibleProducts.length]);
 
   // Totals calculations
   const totalItemsCount = useMemo(() => {
@@ -1027,6 +1051,11 @@ export const MobilePOSView = ({
             </div>
           )}
 
+          {/* Invisible sentinel for automatic windowed infinite scroll */}
+          {filteredProducts.length > visibleProducts.length && (
+            <div ref={sentinelRef} style={{ height: '30px', width: '100%', margin: '4px 0' }} />
+          )}
+
           {/* Load More Button for large inventories */}
           {filteredProducts.length > visibleProducts.length && (
             <div style={{ textAlign: 'center', marginTop: '0.75rem', marginBottom: '2rem' }}>
@@ -1421,12 +1450,13 @@ export const MobilePOSView = ({
                 <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                   💳 পরিশোধের মাধ্যম:
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
                   {[
                     { id: 'cash', label: 'নগদ', icon: '💵', color: '#10b981' },
                     { id: 'bkash', label: 'বিকাশ', icon: '📱', color: '#ec4899' },
                     { id: 'card', label: 'কার্ড', icon: '💳', color: '#3b82f6' },
-                    { id: 'due', label: 'বাকি', icon: '📝', color: '#f59e0b' }
+                    { id: 'due', label: 'বাকি', icon: '📝', color: '#f59e0b' },
+                    { id: 'split', label: 'স্প্লিট', icon: '➗', color: '#8b5cf6' }
                   ].map((pm) => {
                     const isSelected = paymentMethod === pm.id;
                     return (
@@ -1435,15 +1465,20 @@ export const MobilePOSView = ({
                         type="button"
                         onClick={() => {
                           hapticFeedback.light();
-                          setPaymentMethod(pm.id);
+                          if (pm.id === 'split') {
+                            setShowSplitPaymentModal(true);
+                          } else {
+                            setPaymentMethod(pm.id);
+                            setPendingSplitPayments(null);
+                          }
                         }}
                         style={{
-                          padding: '8px 4px',
+                          padding: '8px 2px',
                           borderRadius: '8px',
                           border: isSelected ? `2px solid ${pm.color}` : '1px solid var(--border-color)',
                           background: isSelected ? `${pm.color}20` : 'transparent',
                           color: isSelected ? pm.color : 'var(--text-main)',
-                          fontSize: '0.75rem',
+                          fontSize: '0.72rem',
                           fontWeight: '800',
                           cursor: 'pointer',
                           display: 'flex',
@@ -1458,6 +1493,39 @@ export const MobilePOSView = ({
                     );
                   })}
                 </div>
+                {pendingSplitPayments && paymentMethod === 'split' && (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '8px',
+                      background: 'rgba(139, 92, 246, 0.12)',
+                      border: '1px solid rgba(139, 92, 246, 0.3)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.72rem', fontWeight: '800', color: '#8b5cf6' }}>
+                      ✓ স্প্লিট বণ্টন: {Object.entries(pendingSplitPayments).filter(([, a]) => Number(a) > 0).map(([m, a]) => `${m.toUpperCase()}: ৳${Number(a).toLocaleString()}`).join(' | ')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSplitPaymentModal(true)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8b5cf6',
+                        fontSize: '0.7rem',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      সম্পাদনা
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Quick Cash Helper (৳100, ৳500, ৳1000, ৳2000, Exact) */}
@@ -1653,7 +1721,7 @@ export const MobilePOSView = ({
               {/* Big Touch Checkout Button */}
               <button
                 type="button"
-                onClick={handleCheckout}
+                onClick={() => handleCheckout(pendingSplitPayments || null)}
                 className="btn btn-primary press-scale"
                 style={{
                   width: '100%',
@@ -2447,6 +2515,22 @@ export const MobilePOSView = ({
             </form>
           </div>
         </div>
+      )}
+      {/* Mobile Split Payment Modal */}
+      {showSplitPaymentModal && (
+        <SplitPaymentModal
+          isOpen={showSplitPaymentModal}
+          onClose={() => setShowSplitPaymentModal(false)}
+          grandTotal={grandTotal}
+          onConfirmSplitPayment={(splitList) => {
+            setPendingSplitPayments(splitList);
+            setPaymentMethod('split');
+            setShowSplitPaymentModal(false);
+            showToast(lang === 'bn' ? '✓ স্প্লিট পেমেন্ট সফলভাবে বিন্যাস করা হয়েছে' : '✓ Split payment configured successfully', 'success');
+          }}
+          lang={lang}
+          showToast={showToast}
+        />
       )}
     </div>
   );

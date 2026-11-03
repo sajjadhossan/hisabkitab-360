@@ -39,11 +39,13 @@ import { MonthlyAttendanceReport } from './attendance/MonthlyAttendanceReport';
 import { TelegramConfigModal } from './attendance/TelegramConfigModal';
 import { StaffQrScannerModal } from './attendance/StaffQrScannerModal';
 import { filterOutDemoItems } from '../../utils/demoDataSanitizer';
+import { calculateStaffSalesMetrics, computeStaffPayBreakdown } from '../../services/staffCommissionService';
 
 export const HRPayroll = () => {
   const {
     employees: rawEmployees = [],
     addEmployee,
+    updateEmployee,
     disburseSalary,
     businessSettings,
     t,
@@ -55,6 +57,7 @@ export const HRPayroll = () => {
     deleteFieldOrder,
     customers = [],
     products = [],
+    salesHistory = [],
     activeBranch
   } = useApp();
 
@@ -67,40 +70,91 @@ export const HRPayroll = () => {
   const [selectedEmpForQr, setSelectedEmpForQr] = useState(null);
 
   // ----------------------------------------------------
-  // PAYROLL STATE
+  // PAYROLL & COMMISSION STATE
   // ----------------------------------------------------
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7)); // e.g. '2026-11'
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
   const [selectedPaySlip, setSelectedPaySlip] = useState(null);
   const [employeeForm, setEmployeeForm] = useState({
     name: '',
     role: '',
     phone: '',
     baseSalary: '',
+    commissionRate: '',
+    salesTarget: '',
+    targetBonus: '',
     joinDate: new Date().toISOString().split('T')[0]
   });
 
-  const totalMonthlyPayroll = employees.reduce((sum, e) => sum + e.baseSalary, 0);
+  // Calculate dynamic payroll totals including calculated commissions for selected month
+  const employeesWithBreakdown = employees.map(emp => {
+    const metrics = calculateStaffSalesMetrics(emp, salesHistory, fieldOrders, selectedMonth);
+    const breakdown = computeStaffPayBreakdown(emp, metrics.aggregateSales);
+    return {
+      ...emp,
+      metrics,
+      breakdown
+    };
+  });
+
+  const totalMonthlyPayroll = employeesWithBreakdown.reduce((sum, e) => sum + e.breakdown.totalGrossPayable, 0);
+  const totalCommissionEarned = employeesWithBreakdown.reduce((sum, e) => sum + e.breakdown.commissionEarned, 0);
   const paidCount = employees.filter(e => e.status === 'Paid').length;
   const pendingCount = employees.length - paidCount;
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
     if (!employeeForm.name || !employeeForm.baseSalary) return;
-    addEmployee(employeeForm);
+    addEmployee({
+      ...employeeForm,
+      baseSalary: Number(employeeForm.baseSalary) || 0,
+      commissionRate: Number(employeeForm.commissionRate) || 0,
+      salesTarget: Number(employeeForm.salesTarget) || 0,
+      targetBonus: Number(employeeForm.targetBonus) || 0
+    });
     setEmployeeForm({
       name: '',
       role: '',
       phone: '',
       baseSalary: '',
+      commissionRate: '',
+      salesTarget: '',
+      targetBonus: '',
       joinDate: new Date().toISOString().split('T')[0]
     });
     setShowAddModal(false);
   };
 
-  const handleDisburseSalary = (emp) => {
-    disburseSalary(emp.id);
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    if (!editingEmployee || !editingEmployee.name || !editingEmployee.baseSalary) return;
+    updateEmployee(editingEmployee.id, {
+      name: editingEmployee.name,
+      role: editingEmployee.role,
+      phone: editingEmployee.phone,
+      baseSalary: Number(editingEmployee.baseSalary) || 0,
+      commissionRate: Number(editingEmployee.commissionRate) || 0,
+      salesTarget: Number(editingEmployee.salesTarget) || 0,
+      targetBonus: Number(editingEmployee.targetBonus) || 0,
+      joinDate: editingEmployee.joinDate
+    });
+    setEditingEmployee(null);
+  };
+
+  const handleDisburseSalary = (emp, breakdown) => {
+    const payInfo = breakdown || computeStaffPayBreakdown(emp, 0);
+    disburseSalary(emp.id, {
+      baseSalary: payInfo.baseSalary,
+      commissionRate: payInfo.commissionRate,
+      salesVolume: payInfo.salesVolume,
+      commissionEarned: payInfo.commissionEarned,
+      targetBonus: payInfo.targetBonus,
+      totalGrossPayable: payInfo.totalGrossPayable,
+      month: selectedMonth
+    });
     triggerSoundboxPayment({
-      amount: Number(emp.baseSalary) || 0,
+      amount: Number(payInfo.totalGrossPayable) || Number(emp.baseSalary) || 0,
       method: 'cash',
       customerName: emp.name,
       type: 'debt_collection'
@@ -843,10 +897,25 @@ export const HRPayroll = () => {
                 <BadgeDollarSign size={24} />
               </div>
               <div className="stat-info">
-                <h3>{lang === 'bn' ? 'মাসিক মোট স্যালারি বাজেট' : 'Monthly Payroll Budget'}</h3>
+                <h3>{lang === 'bn' ? 'মাসিক সর্বমোট বেতন বাজেট' : 'Monthly Payroll Budget'}</h3>
                 <div className="stat-value">৳{totalMonthlyPayroll.toLocaleString()}</div>
                 <div className="stat-trend" style={{ color: '#10b981' }}>
                   {paidCount} {lang === 'bn' ? 'জনের পরিশোধিত' : 'Paid'}
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card stat-card glow-card">
+              <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                <Sparkles size={24} />
+              </div>
+              <div className="stat-info">
+                <h3>{lang === 'bn' ? 'অর্জিত বিক্রয় কমিশন' : 'Sales Commissions'}</h3>
+                <div className="stat-value" style={{ color: '#8b5cf6' }}>
+                  ৳{totalCommissionEarned.toLocaleString()}
+                </div>
+                <div className="stat-trend" style={{ color: 'var(--text-muted)' }}>
+                  {lang === 'bn' ? `মাস: ${selectedMonth}` : `Month: ${selectedMonth}`}
                 </div>
               </div>
             </div>
@@ -869,9 +938,47 @@ export const HRPayroll = () => {
 
           {/* Staff & Payroll Roster Table */}
           <div className="glass-card">
-            <h3 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '1rem' }}>
-              {lang === 'bn' ? 'কর্মচারীদের তালিকা ও বেতন প্রদান রেকর্ড' : 'Employee Roster & Salary Disbursement'}
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: '700', margin: 0 }}>
+                  {lang === 'bn' ? 'কর্মচারীদের তালিকা, কমিশন ও বেতন রেকর্ড' : 'Employee Roster, Commission & Payroll'}
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                  {lang === 'bn' ? 'বিক্রয় ভলিউমের ওপর স্বয়ংক্রিয় কমিশন ও পারিশ্রমিক হিসাব' : 'Automatic commission calculation based on sales volume'}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ fontSize: '0.78rem', fontWeight: '700' }}>{lang === 'bn' ? 'হিসাব মাস:' : 'Month:'}</span>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-main)',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary press-scale"
+                  onClick={() => setShowAddModal(true)}
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Plus size={14} />
+                  <span>{lang === 'bn' ? 'নতুন কর্মী' : 'Add Staff'}</span>
+                </button>
+              </div>
+            </div>
 
             <div className="table-responsive">
               <table className="data-table">
@@ -879,20 +986,21 @@ export const HRPayroll = () => {
                   <tr>
                     <th>{t.business.employeeName}</th>
                     <th>{t.business.role}</th>
-                    <th>{lang === 'bn' ? 'যোগদানের তারিখ' : 'Joining Date'}</th>
                     <th style={{ textAlign: 'right' }}>{t.business.baseSalary}</th>
+                    <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'অর্জিত বিক্রয় ও কমিশন' : 'Sales & Commission'}</th>
+                    <th style={{ textAlign: 'right' }}>{lang === 'bn' ? 'সর্বমোট প্রদেয়' : 'Net Gross'}</th>
                     <th style={{ textAlign: 'center' }}>{t.business.payStatus}</th>
                     <th style={{ textAlign: 'center' }}>{t.actions}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => (
+                  {employeesWithBreakdown.map((emp) => (
                     <tr key={emp.id}>
                       <td>
                         <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{emp.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           <Phone size={11} style={{ display: 'inline', marginRight: '4px' }} />
-                          {emp.phone}
+                          {emp.phone || 'N/A'}
                         </div>
                       </td>
                       <td>
@@ -900,12 +1008,19 @@ export const HRPayroll = () => {
                           {emp.role}
                         </span>
                       </td>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        <Calendar size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                        {emp.joinDate}
-                      </td>
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.95rem' }}>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.92rem' }}>
                         ৳{emp.baseSalary.toLocaleString()}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: '700', color: emp.breakdown.salesVolume > 0 ? 'var(--business-primary)' : 'var(--text-muted)' }}>
+                          ৳{emp.breakdown.salesVolume.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: emp.breakdown.commissionEarned > 0 ? '#10b981' : 'var(--text-muted)', fontWeight: '600' }}>
+                          {emp.commissionRate > 0 ? `${emp.commissionRate}%` : '০%'} {emp.breakdown.commissionEarned > 0 ? `(+৳${emp.breakdown.commissionEarned.toLocaleString()})` : ''}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '800', fontSize: '0.95rem', color: '#10b981' }}>
+                        ৳{emp.breakdown.totalGrossPayable.toLocaleString()}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className={`badge ${emp.status === 'Paid' ? 'badge-success' : 'badge-warning'}`}>
@@ -913,12 +1028,27 @@ export const HRPayroll = () => {
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '8px' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button
                             type="button"
                             className="btn btn-secondary"
                             style={{
-                              padding: '4px 8px',
+                              padding: '4px 7px',
+                              fontSize: '0.75rem',
+                              color: 'var(--text-main)',
+                              fontWeight: '600'
+                            }}
+                            onClick={() => setEditingEmployee(emp)}
+                            title={lang === 'bn' ? 'কমিশন ও বেতন এডিট' : 'Edit Staff & Commission'}
+                          >
+                            <Edit size={13} />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{
+                              padding: '4px 7px',
                               fontSize: '0.75rem',
                               color: '#10b981',
                               borderColor: 'rgba(16, 185, 129, 0.4)',
@@ -931,14 +1061,13 @@ export const HRPayroll = () => {
                             title={lang === 'bn' ? `${emp.name}-এর কিউআর হাজিরা দিন` : `QR Attendance for ${emp.name}`}
                           >
                             <QrCode size={13} />
-                            <span>{lang === 'bn' ? 'হাজিরা' : 'Punch'}</span>
                           </button>
 
                           {emp.status !== 'Paid' ? (
                             <button
                               className="btn btn-primary"
-                              style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                              onClick={() => handleDisburseSalary(emp)}
+                              style={{ padding: '4px 9px', fontSize: '0.75rem' }}
+                              onClick={() => handleDisburseSalary(emp, emp.breakdown)}
                             >
                               <FileCheck size={13} />
                               <span>{t.business.disburseSalary}</span>
@@ -947,7 +1076,11 @@ export const HRPayroll = () => {
                             <button
                               className="btn btn-secondary"
                               style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                              onClick={() => setSelectedPaySlip(emp)}
+                              onClick={() => setSelectedPaySlip({
+                                ...emp,
+                                ...emp.breakdown,
+                                lastDisbursed: emp.lastDisbursed || new Date().toISOString().split('T')[0]
+                              })}
                               title={lang === 'bn' ? 'পে-স্লিপ প্রিন্ট করুন' : 'Print Payslip'}
                             >
                               <Printer size={13} />
@@ -1517,6 +1650,48 @@ export const HRPayroll = () => {
                 </div>
               </div>
 
+              {/* Commission & Incentive Settings */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '10px', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>{lang === 'bn' ? 'কমিশন হার (%)' : 'Commission (%)'}</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    className="input-field"
+                    placeholder="যেমন: ২.৫"
+                    value={employeeForm.commissionRate}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, commissionRate: e.target.value })}
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>{lang === 'bn' ? 'বিক্রয় টার্গেট (৳)' : 'Sales Target (৳)'}</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    placeholder="যেমন: ১০০০০০"
+                    value={employeeForm.salesTarget}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, salesTarget: e.target.value })}
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: '700' }}>{lang === 'bn' ? 'টার্গেট বোনাস (৳)' : 'Target Bonus (৳)'}</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    placeholder="যেমন: ২০০০"
+                    value={employeeForm.targetBonus}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, targetBonus: e.target.value })}
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '1.25rem' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
                   {t.save}
@@ -1531,11 +1706,117 @@ export const HRPayroll = () => {
       )}
 
       {/* ==================================================== */}
+      {/* MODAL: EDIT EMPLOYEE & COMMISSION                    */}
+      {/* ==================================================== */}
+      {editingEmployee && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1rem' }}>
+              {lang === 'bn' ? `${editingEmployee.name} - কমিশন ও বেতন আপডেট` : `Edit ${editingEmployee.name}`}
+            </h3>
+
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label>{t.business.employeeName} *</label>
+                <input
+                  type="text"
+                  required
+                  className="input-field"
+                  value={editingEmployee.name}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>{t.business.role} *</label>
+                  <input
+                    type="text"
+                    required
+                    className="input-field"
+                    value={editingEmployee.role}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>{t.business.phone}</label>
+                  <input
+                    type="tel"
+                    className="input-field"
+                    value={editingEmployee.phone || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>{t.business.baseSalary} *</label>
+                  <input
+                    type="number"
+                    required
+                    className="input-field"
+                    value={editingEmployee.baseSalary}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, baseSalary: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>{lang === 'bn' ? 'কমিশন হার (%)' : 'Commission Rate (%)'}</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    className="input-field"
+                    value={editingEmployee.commissionRate ?? ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, commissionRate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>{lang === 'bn' ? 'বিক্রয় লক্ষ্যমাত্রা (৳)' : 'Sales Target (৳)'}</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editingEmployee.salesTarget ?? ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, salesTarget: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>{lang === 'bn' ? 'টার্গেট বোনাস (৳)' : 'Target Bonus (৳)'}</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editingEmployee.targetBonus ?? ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, targetBonus: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '1.25rem' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                  {t.save}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingEmployee(null)}>
+                  {t.cancel}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
       {/* MODAL: SALARY PAYSLIP / VOUCHER                      */}
       {/* ==================================================== */}
       {selectedPaySlip && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '420px', width: '95%' }}>
+          <div className="modal-content" style={{ maxWidth: '440px', width: '95%' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <FileCheck size={18} style={{ color: 'var(--business-primary)' }} />
               <span>{lang === 'bn' ? 'কর্মচারী পে-স্লিপ ও বেতন রসিদ' : 'Employee Salary Payslip'}</span>
@@ -1557,7 +1838,7 @@ export const HRPayroll = () => {
                 {activeBranch?.name || businessSettings?.companyName || 'হিসাব কিতাব ৩৬০'}
               </div>
               <div style={{ textAlign: 'center', fontSize: '11px', color: '#475569', margin: '2px 0 8px' }}>
-                কর্মচারী বেতন বিতরণ ভাউচার (Salary Voucher)
+                কর্মচারী বেতন ও কমিশন বিতরণ ভাউচার
               </div>
               <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
 
@@ -1574,14 +1855,46 @@ export const HRPayroll = () => {
                 <span>{selectedPaySlip.phone || 'N/A'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                <span>Date:</span>
+                <span>Pay Period:</span>
+                <span>{selectedMonth || new Date().toISOString().slice(0, 7)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                <span>Disbursed Date:</span>
                 <span>{selectedPaySlip.lastDisbursed || new Date().toISOString().split('T')[0]}</span>
               </div>
               <div style={{ borderTop: '1px solid #cbd5e1', margin: '8px 0' }} />
 
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                <span>Base Salary (মূল বেতন):</span>
+                <span>৳{(Number(selectedPaySlip.baseSalary) || 0).toLocaleString()}</span>
+              </div>
+
+              {Number(selectedPaySlip.salesVolume) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: '#0369a1' }}>
+                  <span>Achieved Sales (মোট বিক্রয়):</span>
+                  <span>৳{Number(selectedPaySlip.salesVolume).toLocaleString()}</span>
+                </div>
+              )}
+
+              {Number(selectedPaySlip.commissionEarned) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: '#16a34a', fontWeight: '700' }}>
+                  <span>Sales Commission ({selectedPaySlip.commissionRate}%):</span>
+                  <span>+৳{Number(selectedPaySlip.commissionEarned).toLocaleString()}</span>
+                </div>
+              )}
+
+              {Number(selectedPaySlip.targetBonus) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: '#9333ea', fontWeight: '700' }}>
+                  <span>Target Incentive Bonus:</span>
+                  <span>+৳{Number(selectedPaySlip.targetBonus).toLocaleString()}</span>
+                </div>
+              )}
+
+              <div style={{ borderTop: '1px solid #cbd5e1', margin: '8px 0' }} />
+
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '800' }}>
-                <span>Disbursed Amount:</span>
-                <span>৳{selectedPaySlip.baseSalary.toLocaleString()}</span>
+                <span>Total Disbursed (সর্বমোট প্রদেয়):</span>
+                <span>৳{(Number(selectedPaySlip.totalGrossPayable || selectedPaySlip.baseSalary) || 0).toLocaleString()}</span>
               </div>
 
               <div style={{ borderTop: '1px dashed #94a3b8', margin: '14px 0 8px' }} />

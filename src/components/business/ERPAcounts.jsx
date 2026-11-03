@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Calculator,
@@ -11,27 +11,40 @@ import {
   Calendar,
   Trash2,
   CheckCircle2,
-  BarChart3
+  BarChart3,
+  Scale,
+  FileSpreadsheet,
+  RotateCcw,
+  Printer
 } from 'lucide-react';
 import { SmartVoiceFormBanner } from '../common/SmartVoiceFormBanner';
 import { VoiceInputButton } from '../common/VoiceInputButton';
 import { triggerSoundboxPayment } from '../../services/soundboxService';
 import { convertBengaliDigitsToNumber } from '../../services/voiceBillingService';
+import { generateFinancialStatements, CHART_OF_ACCOUNTS } from '../../services/doubleEntryAccountingService';
+import { SupplierPurchaseReturnModal } from './SupplierPurchaseReturnModal';
 
 export const ERPAcounts = () => {
   const {
-    salesHistory,
-    businessExpenses,
+    salesHistory = [],
+    businessExpenses = [],
     addBusinessExpense,
-    suppliers,
+    suppliers = [],
     paySupplier,
+    products = [],
+    customers = [],
+    adjustStock,
+    businessSettings = {},
+    showToast,
     setActiveTab,
     t,
     lang
   } = useApp();
 
+  const [activeSubTab, setActiveSubTab] = useState('summary'); // 'summary' | 'balance_sheet' | 'trial_balance' | 'coa'
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [showPurchaseReturnModal, setShowPurchaseReturnModal] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [supplierPayAmount, setSupplierPayAmount] = useState('');
 
@@ -42,6 +55,35 @@ export const ERPAcounts = () => {
     date: new Date().toISOString().split('T')[0],
     note: ''
   });
+
+  // Live Double-Entry Financial Statements (Balance Sheet & Trial Balance)
+  const financialData = useMemo(() => {
+    return generateFinancialStatements({
+      salesHistory,
+      products,
+      customers,
+      suppliers,
+      businessExpenses,
+      businessSettings
+    });
+  }, [salesHistory, products, customers, suppliers, businessExpenses, businessSettings]);
+
+  const handleConfirmPurchaseReturn = async (debitNote) => {
+    for (const item of debitNote.items || []) {
+      if (typeof adjustStock === 'function') {
+        adjustStock(item.productId, -item.qty, 'out', `সাপ্লায়ার ক্রয় ফেরত: #${debitNote.debitNoteNo}`);
+      }
+    }
+    if (debitNote.adjustmentType === 'deduct_due') {
+      paySupplier(debitNote.supplierId, debitNote.totalAmount);
+    }
+    showToast(
+      lang === 'bn'
+        ? `✓ ডেবিট নোট #${debitNote.debitNoteNo} সফলভাবে রেকর্ড ও স্টক সমন্বয় করা হয়েছে!`
+        : `✓ Debit Note #${debitNote.debitNoteNo} recorded!`,
+      'success'
+    );
+  };
 
   // Financial Calculations
   const grossRevenue = salesHistory.reduce((acc, sale) => acc + sale.grandTotal, 0);
@@ -120,6 +162,20 @@ export const ERPAcounts = () => {
             <BarChart3 size={16} />
             <span>{lang === 'bn' ? '📊 পূর্ণাঙ্গ রিপোর্ট হাব' : '📊 Periodic Reports'}</span>
           </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowPurchaseReturnModal(true)}
+            style={{
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              fontWeight: '800'
+            }}
+          >
+            <RotateCcw size={16} />
+            <span>{lang === 'bn' ? '🔄 ক্রয় ফেরত (ডেবিট নোট)' : 'Purchase Return (Debit Note)'}</span>
+          </button>
+
           <button className="btn btn-primary" onClick={() => setShowExpenseModal(true)}>
             <Plus size={16} />
             <span>{t.business.addBizExpense}</span>
@@ -127,8 +183,40 @@ export const ERPAcounts = () => {
         </div>
       </div>
 
-      {/* P&L Financial Summary Cards */}
-      <div className="stats-grid">
+      {/* Sub-Tab Navigation Bar */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', overflowX: 'auto' }}>
+        {[
+          { id: 'summary', label: lang === 'bn' ? '📊 আয়-ব্যয় ও প্রফিট লস' : '📊 P&L & Cash Flow' },
+          { id: 'balance_sheet', label: lang === 'bn' ? '⚖️ উদ্বৃত্তপত্র (Balance Sheet)' : '⚖️ Balance Sheet' },
+          { id: 'trial_balance', label: lang === 'bn' ? '📑 রেওয়ামিল (Trial Balance)' : '📑 Trial Balance' },
+          { id: 'coa', label: lang === 'bn' ? '🏛️ চার্ট অব অ্যাকাউন্টস (COA)' : '🏛️ Chart of Accounts' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveSubTab(tab.id)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: activeSubTab === tab.id ? '2px solid var(--business-primary)' : '1px solid var(--border-color)',
+              background: activeSubTab === tab.id ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+              color: activeSubTab === tab.id ? 'var(--business-primary)' : 'var(--text-muted)',
+              fontWeight: '800',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* TAB 1: SUMMARY & PnL */}
+      {activeSubTab === 'summary' && (
+        <>
+          {/* P&L Financial Summary Cards */}
+          <div className="stats-grid">
         <div className="glass-card stat-card glow-card">
           <div className="stat-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}>
             <TrendingUp size={24} />
@@ -297,6 +385,278 @@ export const ERPAcounts = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {/* TAB 2: BALANCE SHEET (উদ্বৃত্তপত্র / আর্থিক অবস্থার বিবরণী) */}
+      {activeSubTab === 'balance_sheet' && (
+        <div className="glass-card animate-fade-in" style={{ padding: '1.5rem', borderRadius: '14px', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Scale size={20} style={{ color: 'var(--business-primary)' }} />
+                <span>{lang === 'bn' ? 'আর্থিক অবস্থার বিবরণী / উদ্বৃত্তপত্র (Balance Sheet)' : 'Statement of Financial Position (Balance Sheet)'}</span>
+              </h3>
+              <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn' ? 'আন্তর্জাতিক হিসাববিজ্ঞান সমীকরণ: সম্পদ = দায় + মালিকানাস্বত্ব' : 'Accounting Equation: Assets = Liabilities + Equity'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: financialData.balanceSheet.isBalanced ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: financialData.balanceSheet.isBalanced ? '#10b981' : '#ef4444',
+                  border: `1px solid ${financialData.balanceSheet.isBalanced ? '#10b981' : '#ef4444'}`
+                }}
+              >
+                {financialData.balanceSheet.isBalanced ? '🟢 সমতা নিশ্চিত (Balanced)' : '🔴 অমিল (Discrepancy)'}
+              </span>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}
+              >
+                <Printer size={15} />
+                <span>প্রিন্ট</span>
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+            {/* ASSETS COLUMN */}
+            <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: '800', color: '#10b981', borderBottom: '1.5px solid #10b981', paddingBottom: '6px' }}>
+                {lang === 'bn' ? '১. সম্পদসমূহ (ASSETS)' : '1. ASSETS'}
+              </h4>
+
+              <div style={{ fontSize: '0.85rem', marginBottom: '14px' }}>
+                <div style={{ fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px' }}>চলতি সম্পদ (Current Assets):</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>হাতে নগদ ক্যাশ (Cash in Hand)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.current.cashInHand.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>ব্যাংক ও অনলাইন ব্যালেন্স (Bank / MFS)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.current.bankAccounts.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>দেনাদার বাকি পাওনা (Accounts Receivable)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.current.totalReceivables.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>মজুদ পণ্যের আর্থিক মূল্য (Merchandise Inventory)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.current.inventoryAssetValue.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: '800', color: '#059669' }}>
+                  <span>মোট চলতি সম্পদ:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.current.total.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
+                <div style={{ fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px' }}>স্থায়ী সম্পদ (Fixed Assets):</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>দোকানের আসবাবপত্র ও ইকুইপমেন্ট</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.fixed.furnitureAndFixtures.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: '800', color: '#059669' }}>
+                  <span>মোট স্থায়ী সম্পদ:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.fixed.total.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.12)', borderRadius: '8px', border: '1.5px solid #10b981', fontSize: '1.05rem', fontWeight: '900', color: '#059669' }}>
+                <span>সর্বমোট সম্পদ (TOTAL ASSETS):</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.assets.totalAssets.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* LIABILITIES & EQUITY COLUMN */}
+            <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: '800', color: '#3b82f6', borderBottom: '1.5px solid #3b82f6', paddingBottom: '6px' }}>
+                {lang === 'bn' ? '২. দায় ও মালিকানাস্বত্ব (LIABILITIES & EQUITY)' : '2. LIABILITIES & EQUITY'}
+              </h4>
+
+              <div style={{ fontSize: '0.85rem', marginBottom: '14px' }}>
+                <div style={{ fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px' }}>চলতি দায়সমূহ (Current Liabilities):</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>পাওনাদার মহাজন হিসাব (Accounts Payable)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>৳{financialData.balanceSheet.liabilities.current.accountsPayable.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: '800', color: '#ea580c' }}>
+                  <span>মোট চলতি দায়:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.liabilities.totalLiabilities.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
+                <div style={{ fontWeight: '800', color: 'var(--text-main)', marginBottom: '6px' }}>মালিকানাস্বত্ব (Owner Equity):</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>মালিকের মূলধন (Owner Capital)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.equity.ownerCapital.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                  <span>অর্জিত নিট মুনাফা (Retained Profit)</span>
+                  <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)', color: financialData.balanceSheet.equity.retainedEarnings >= 0 ? '#10b981' : '#ef4444' }}>
+                    ৳{financialData.balanceSheet.equity.retainedEarnings.toLocaleString()}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: '800', color: '#2563eb' }}>
+                  <span>মোট মালিকানাস্বত্ব:</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.equity.totalEquity.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(59, 130, 246, 0.12)', borderRadius: '8px', border: '1.5px solid #3b82f6', fontSize: '1.05rem', fontWeight: '900', color: '#2563eb' }}>
+                <span>মোট দায় ও মূলধন (TOTAL LIABILITIES & EQUITY):</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>৳{financialData.balanceSheet.totalLiabilitiesAndEquity.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: TRIAL BALANCE (রেওয়ামিল) */}
+      {activeSubTab === 'trial_balance' && (
+        <div className="glass-card animate-fade-in" style={{ padding: '1.5rem', borderRadius: '14px', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileSpreadsheet size={20} style={{ color: 'var(--business-primary)' }} />
+                <span>{lang === 'bn' ? 'সাধারণ খতিয়ান রেওয়ামিল (Trial Balance)' : 'General Ledger Trial Balance'}</span>
+              </h3>
+              <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {lang === 'bn' ? 'হিসাবের গাণিতিক শুদ্ধতা যাচাই (ডেবিট = ক্রেডিট)' : 'Mathematical accuracy verification'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: financialData.trialBalance.isBalanced ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: financialData.trialBalance.isBalanced ? '#10b981' : '#ef4444'
+                }}
+              >
+                {financialData.trialBalance.isBalanced ? '🟢 রেওয়ামিল মিলেছে' : '🔴 অমিল'}
+              </span>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+              >
+                <Printer size={15} />
+              </button>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+            <thead>
+              <tr style={{ background: '#0f172a', color: '#ffffff', textAlign: 'left' }}>
+                <th style={{ padding: '8px 10px', width: '90px' }}>কোড</th>
+                <th style={{ padding: '8px 10px' }}>হিসাবের বিবরণ / লেজার নাম</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', width: '160px' }}>ডেবিট (৳)</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right', width: '160px' }}>ক্রেডিট (৳)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {financialData.trialBalance.rows.map((row, idx) => (
+                <tr key={row.code} style={{ borderBottom: '1px solid var(--border-color)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.02)' }}>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{row.code}</td>
+                  <td style={{ padding: '8px 10px', fontWeight: '600' }}>{row.name}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: row.debit > 0 ? '700' : '400' }}>
+                    {row.debit > 0 ? `৳${row.debit.toLocaleString()}` : '-'}
+                  </td>
+                  <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: row.credit > 0 ? '700' : '400' }}>
+                    {row.credit > 0 ? `৳${row.credit.toLocaleString()}` : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid var(--text-main)', borderBottom: '3px double var(--text-main)', fontWeight: '900', fontSize: '1rem', background: 'rgba(99, 102, 241, 0.08)' }}>
+                <td colSpan={2} style={{ padding: '10px' }}>সর্বমোট যোগফল (Total):</td>
+                <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#10b981' }}>
+                  ৳{financialData.trialBalance.totalDebit.toLocaleString()}
+                </td>
+                <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: '#3b82f6' }}>
+                  ৳{financialData.trialBalance.totalCredit.toLocaleString()}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* TAB 4: CHART OF ACCOUNTS (COA) */}
+      {activeSubTab === 'coa' && (
+        <div className="glass-card animate-fade-in" style={{ padding: '1.5rem', borderRadius: '14px', marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800' }}>
+              {lang === 'bn' ? 'মাস্টার চার্ট অব অ্যাকাউন্টস (Chart of Accounts Taxonomy)' : 'Chart of Accounts Master'}
+            </h3>
+            <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              {lang === 'bn' ? 'আন্তর্জাতিক হিসাববিজ্ঞান মানদণ্ডে ৫টি মূল খাতের শ্রেণীবদ্ধ হিসাব তালিকা' : '5 Core Financial Heads'}
+            </p>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)', textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '8px 10px', width: '80px' }}>কোড</th>
+                <th style={{ padding: '8px 10px' }}>হিসাবের নাম</th>
+                <th style={{ padding: '8px 10px' }}>শ্রেণী</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center' }}>প্রকৃতি</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center' }}>স্বাভাবিক জের</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CHART_OF_ACCOUNTS.map(coa => (
+                <tr key={coa.code} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontWeight: '700' }}>{coa.code}</td>
+                  <td style={{ padding: '8px 10px', fontWeight: '600' }}>{coa.name}</td>
+                  <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>{coa.category}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background:
+                          coa.type === 'asset' ? 'rgba(16, 185, 129, 0.15)' :
+                          coa.type === 'liability' ? 'rgba(239, 68, 68, 0.15)' :
+                          coa.type === 'equity' ? 'rgba(59, 130, 246, 0.15)' :
+                          coa.type === 'revenue' ? 'rgba(139, 92, 246, 0.15)' :
+                          'rgba(245, 158, 11, 0.15)',
+                        color:
+                          coa.type === 'asset' ? '#10b981' :
+                          coa.type === 'liability' ? '#ef4444' :
+                          coa.type === 'equity' ? '#3b82f6' :
+                          coa.type === 'revenue' ? '#8b5cf6' :
+                          '#f59e0b'
+                      }}
+                    >
+                      {coa.type.toUpperCase()}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: '700', textTransform: 'uppercase' }}>
+                    {coa.normalBalance}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Add Expense Modal */}
       {showExpenseModal && (
@@ -452,6 +812,19 @@ export const ERPAcounts = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Supplier Purchase Return & Debit Note Modal */}
+      {showPurchaseReturnModal && (
+        <SupplierPurchaseReturnModal
+          isOpen={showPurchaseReturnModal}
+          onClose={() => setShowPurchaseReturnModal(false)}
+          suppliers={suppliers}
+          products={products}
+          onConfirmPurchaseReturn={handleConfirmPurchaseReturn}
+          lang={lang}
+          showToast={showToast}
+        />
       )}
     </div>
   );
